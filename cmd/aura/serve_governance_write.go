@@ -187,6 +187,13 @@ func (a mcpWriteAdapter) SetEnabled(ctx context.Context, actor, name string, ena
 	enabledCopy := enabled
 	server.Enabled = &enabledCopy
 	doc.MCPServers[name] = server
+	// The flag alone does not make a server runnable once a profile is defined: a row outside
+	// it is dropped from the runnable set, and default-on injection defers to the row. That
+	// is how disable-then-enable lost the lab VM's calendar (2026-10-10). With no profile
+	// defined every server runs, and defining one here would narrow that set to this server.
+	if _, defined := doc.Profiles[doc.ActiveProfileName()]; enabled && defined {
+		joinActiveProfile(&doc, name)
+	}
 	action := "disable"
 	if enabled {
 		action = "enable"

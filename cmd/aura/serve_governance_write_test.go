@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"maps"
 	"reflect"
 	"slices"
 	"testing"
@@ -41,6 +42,67 @@ func TestSetEnabledCanDisableAnImplicitDefaultOnRecipe(t *testing.T) {
 	}
 	if server.Enabled == nil || *server.Enabled {
 		t.Fatalf("calendar Enabled = %v, want explicit false", server.Enabled)
+	}
+}
+
+// The lab VM's calendar, 2026-10-10: disabling then enabling the default-on recipe left an
+// explicit enabled row outside the defined "default" profile. The runnable set dropped it and
+// default-on injection deferred to the row, so the first-party keeper stopped renewing its
+// token and the board read "dial failed" once the last one expired.
+func TestSetEnabledPutsARecipeBackInTheRunnableSet(t *testing.T) {
+	t.Setenv("AURA_IN_CONTAINER", "1")
+	withMemoryMCPRegistry(t)
+	seedMCPRegistry(t, mcp.ManagedConfig{
+		Profiles: map[string]mcp.ManagedProfile{mcp.DefaultMCPProfile: {Servers: []string{"linear"}}},
+		MCPServers: map[string]mcp.ManagedServer{
+			"linear": {Type: mcp.ServerTypeStreamableHTTP, URL: "https://mcp.linear.app/mcp"},
+		},
+	})
+
+	for _, enabled := range []bool{false, true} {
+		if _, err := (mcpWriteAdapter{}).SetEnabled(context.Background(), "admin", "calendar", enabled); err != nil {
+			t.Fatalf("SetEnabled(calendar, %v): %v", enabled, err)
+		}
+	}
+
+	servers, err := firstPartyMCPServers()
+	if err != nil {
+		t.Fatalf("firstPartyMCPServers: %v", err)
+	}
+	if _, ok := servers["calendar"]; !ok {
+		t.Fatalf("re-enabled calendar is not kept by the first-party keeper: %v", slices.Sorted(maps.Keys(servers)))
+	}
+	if _, policies, _ := mcpRuntimeSet(); policies["linear"].URL == "" {
+		t.Fatal("re-enabling calendar dropped linear from the runnable set")
+	}
+}
+
+// With no profile defined every server runs, so an enable must not define one that holds
+// only the server it enabled.
+func TestSetEnabledLeavesAnUndefinedProfileUndefined(t *testing.T) {
+	t.Setenv("AURA_IN_CONTAINER", "1")
+	withMemoryMCPRegistry(t)
+	seedMCPRegistry(t, mcp.ManagedConfig{MCPServers: map[string]mcp.ManagedServer{
+		"linear": {Type: mcp.ServerTypeStreamableHTTP, URL: "https://mcp.linear.app/mcp"},
+	}})
+
+	for _, enabled := range []bool{false, true} {
+		if _, err := (mcpWriteAdapter{}).SetEnabled(context.Background(), "admin", "calendar", enabled); err != nil {
+			t.Fatalf("SetEnabled(calendar, %v): %v", enabled, err)
+		}
+	}
+
+	if profiles := readMCPRegistry(t).Profiles; len(profiles) != 0 {
+		t.Fatalf("enable defined profiles %v, want none", profiles)
+	}
+	_, policies, err := mcpRuntimeSet()
+	if err != nil {
+		t.Fatalf("mcpRuntimeSet: %v", err)
+	}
+	for _, name := range []string{"calendar", "linear"} {
+		if _, ok := policies[name]; !ok {
+			t.Fatalf("%s is not runnable after the enable: %v", name, slices.Sorted(maps.Keys(policies)))
+		}
 	}
 }
 

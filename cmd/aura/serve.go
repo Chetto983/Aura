@@ -438,6 +438,9 @@ func bootServe(ctx context.Context, channelOverride func(name string) (enabled, 
 	// mounted. The keeper self-issues that grant for the identities that own one, and
 	// creating an identity now provisions BOTH its ArcadeDB tenant and its sidecar grants.
 	firstPartyGrants := buildFirstPartyGrantKeeper(chat.cfg, chat.pool, chat.identity, authulaProvider)
+	if chat.liveMCP != nil {
+		chat.liveMCP.SetGrantKeeper(firstPartyGrants)
+	}
 	// The first operator gets the SAME resource legs the provisioning saga gives every
 	// later identity, over the SAME adapters (serve_bootstrap_resources.go). Until
 	// 2026-08-31 it got memory and its sidecar grants and nothing else, so it owned no

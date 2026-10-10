@@ -9,13 +9,35 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chetto1983/aura/internal/agent/mcptools"
 	"github.com/chetto1983/aura/internal/agent/tools"
+	"github.com/chetto1983/aura/internal/identityctx"
 	"github.com/chetto1983/aura/internal/mcp"
 	mcpmanager "github.com/chetto1983/aura/internal/mcp/manager"
 	"github.com/chetto1983/aura/internal/mcpoauth"
 )
+
+// The keeper renews only runnable servers, so a sidecar disabled for longer than its token
+// lives comes back with a dead grant. Enabling it mounts at once: that mount has to renew the
+// grant first, or it fails and nothing mounts the sidecar again until the next restart.
+func TestMountNowRenewsTheCallersFirstPartyGrantFirst(t *testing.T) {
+	clock := time.Unix(1_788_303_600, 0).UTC()
+	keeper, _, store := testGrantKeeper(t, &clock, liveIdentities())
+	live := newTestLiveMount()
+	live.SetGrantKeeper(keeper)
+	unreachable := mcp.ManagedServer{Type: mcp.ServerTypeStreamableHTTP, URL: "http://127.0.0.1:1/"}
+
+	live.MountNow(identityctx.WithIdentityID(t.Context(), firstUserIdentity), "calendar", unreachable)
+
+	if !store.has(firstUserIdentity, "calendar") {
+		t.Fatal("the enable mounted calendar without renewing the operator's first-party grant")
+	}
+	if store.has(secondUserIdentity, "calendar") {
+		t.Fatal("an operator's enable minted a grant for another identity")
+	}
+}
 
 // An operator's install and enable wait on this mount. The compose budget for sidecars still
 // starting at boot (AURA_MCP_MOUNT_TIMEOUT=180, 40 attempts) held an install's response for three

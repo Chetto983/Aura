@@ -36,6 +36,8 @@ type liveMCPMount struct {
 	owners  map[string]string
 	closed  bool
 	wg      sync.WaitGroup
+	// grants renews the first-party grant a request-driven mount is about to use; nil-safe.
+	grants *firstPartyGrantKeeper
 }
 
 type deferOAuthMountsContextKey struct{}
@@ -138,7 +140,37 @@ const requestMountTimeout = 15 * time.Second
 // cockpit that stopped waiting never learnt the server existed. A server that is not up yet
 // shows its failure on the board and mounts at the next boot or enable.
 func (m *liveMCPMount) MountNow(ctx context.Context, name string, server mcp.ManagedServer) {
+	m.renewFirstPartyGrant(ctx)
 	m.mount(ctx, name, server, mcptools.MountRetryPolicy{Attempts: 1}, requestMountTimeout)
+}
+
+// SetGrantKeeper hands the mounter the keeper of Aura's own sidecar grants. It is set after
+// construction because the keeper needs the authorization server, which boots later.
+func (m *liveMCPMount) SetGrantKeeper(keeper *firstPartyGrantKeeper) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.grants = keeper
+}
+
+// renewFirstPartyGrant brings the caller's first-party grants up to date before a mount the
+// operator waits on. The keeper renews only runnable servers, so a sidecar enabled after more
+// than one token lifetime disabled would mount with an expired token, fail, and stay
+// unmounted until the next restart.
+func (m *liveMCPMount) renewFirstPartyGrant(ctx context.Context) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	keeper := m.grants
+	m.mu.Unlock()
+	owner := identityctx.IdentityID(ctx)
+	if owner == "" {
+		return
+	}
+	if err := keeper.EnsureIdentity(ctx, owner); err != nil {
+		slog.Warn("mcp oauth: could not renew the first-party grants before a mount",
+			"identity", owner, "err", err)
+	}
 }
 
 // Mount brings a server's tools into the live registry, replacing any earlier mount of the
