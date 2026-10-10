@@ -203,7 +203,7 @@ test.describe('Phase 28 — Governance boards (desktop + mobile)', () => {
     await openGovernance(page);
     await page.getByRole('button', { name: 'Add MCP server' }).click();
 
-    await expect(page.getByRole('button', { name: 'Recipe' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Recipe', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Custom (stdio)', pressed: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Remote (HTTP)', pressed: false })).toBeVisible();
     await expect(page.getByLabel('Command')).toBeVisible();
