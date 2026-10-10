@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../../i18n/i18n';
 import type { FirstRunSetupProps } from '../FirstRunSetup';
 import type { OnboardingProfileComplete } from '../onboardingApi';
+import { chooseOption } from '../../test/chooseOption';
 
 // FirstRunSetup test (Amendment #95) — first access after sign-in. It proves:
 //   - there is NO /start round-trip and NO interview: the form is the first thing rendered;
@@ -134,7 +135,7 @@ describe('FirstRunSetup', () => {
     renderSetup();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: OPERATOR_NAME } });
-    fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'it' } });
+    await chooseOption('Language', 'Italiano');
     fireEvent.change(screen.getByLabelText('Where you are'), { target: { value: 'Caraglio' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 

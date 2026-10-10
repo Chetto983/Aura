@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../../i18n/i18n';
+import { chooseOption } from '../../test/chooseOption';
 import { ToolPoliciesPanel } from '../ToolPoliciesPanel';
 
 // ToolPoliciesPanel (prd.md §5, 2026-10-09). The suite pins what this surface can get wrong
@@ -20,12 +21,34 @@ interface Call {
   readonly body: unknown;
 }
 
-function stubFetch(opts: { readonly list: unknown; readonly writeStatus?: number }) {
+// TOOLS is what GET /api/approvals/policies/tools answers: the agent's registry, MCP mounts
+// included, with actions only on the multiplexed tools the gateway keys by action.
+const TOOLS = [
+  { name: 'board', summary: 'The work board.', actions: ['list', 'add', 'delete'] },
+  {
+    name: 'calendar__calendar',
+    summary: 'Mail and calendar.',
+    actions: ['list_accounts', 'send_email'],
+  },
+  { name: 'shell_exec', summary: 'Run a shell command.' },
+  { name: 'browser__agent_browser_open', summary: 'Open a page.' },
+];
+
+function stubFetch(opts: {
+  readonly list: unknown;
+  readonly writeStatus?: number;
+  readonly toolsStatus?: number;
+}) {
   const calls: Call[] = [];
   const spy = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
     const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined;
-    calls.push({ url: urlOf(input), method, body });
+    const url = urlOf(input);
+    calls.push({ url, method, body });
+    if (method === 'GET' && url.endsWith('/tools')) {
+      const status = opts.toolsStatus ?? 200;
+      return Promise.resolve(new Response(JSON.stringify(TOOLS), { status }));
+    }
     if (method === 'GET') {
       return Promise.resolve(new Response(JSON.stringify(opts.list), { status: 200 }));
     }
@@ -62,6 +85,12 @@ const POLICIES = [
   },
 ];
 
+// pickTool opens the tool combobox and chooses one entry, the way an operator does.
+async function pickTool(name: string) {
+  fireEvent.click(await screen.findByRole('combobox', { name: 'Tool' }));
+  fireEvent.click(await screen.findByRole('option', { name: new RegExp(`^${name}`) }));
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
@@ -84,22 +113,59 @@ describe('ToolPoliciesPanel', () => {
     expect(await screen.findByText(/No tool policies/)).toBeTruthy();
   });
 
-  it('sets the subject exactly as typed, trimmed', async () => {
+  it('sets the subject picked from the agent tools, with its action', async () => {
     const calls = stubFetch({ list: [] });
     renderPanel();
     await screen.findByText(/No tool policies/);
-    fireEvent.change(screen.getByLabelText('Tool'), { target: { value: '  calendar ' } });
-    fireEvent.change(screen.getByLabelText('Action (optional)'), {
-      target: { value: 'send_email' },
-    });
-    fireEvent.change(screen.getByLabelText('Policy'), { target: { value: 'deny' } });
+    await pickTool('calendar__calendar');
+    await chooseOption('Action (optional)', 'send_email');
+    await chooseOption('Policy', 'Never run it');
     fireEvent.click(screen.getByRole('button', { name: 'Set policy' }));
     await waitFor(() => {
       expect(calls.some((c) => c.method === 'PUT')).toBe(true);
     });
     const put = calls.find((c) => c.method === 'PUT');
     expect(put?.url).toBe('/api/approvals/policies');
-    expect(put?.body).toEqual({ tool: 'calendar', action: 'send_email', policy: 'deny' });
+    expect(put?.body).toEqual({ tool: 'calendar__calendar', action: 'send_email', policy: 'deny' });
+  });
+
+  it('groups the tools under Aura and under each MCP server', async () => {
+    stubFetch({ list: [] });
+    renderPanel();
+    await screen.findByText(/No tool policies/);
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Tool' }));
+    const browser = screen.getByRole('group', { name: 'browser' });
+    expect(within(browser).getByRole('option', { name: /agent_browser_open/ })).toBeTruthy();
+    const aura = screen.getByRole('group', { name: 'Aura' });
+    expect(within(aura).getByRole('option', { name: /shell_exec/ })).toBeTruthy();
+    expect(within(aura).queryByRole('option', { name: /agent_browser_open/ })).toBeNull();
+  });
+
+  it('offers actions only for a tool the gateway keys by action', async () => {
+    stubFetch({ list: [] });
+    renderPanel();
+    await screen.findByText(/No tool policies/);
+    const action = () => screen.getByRole('combobox', { name: 'Action (optional)' });
+    expect(action().hasAttribute('disabled')).toBe(true);
+    await pickTool('board');
+    expect(action().hasAttribute('disabled')).toBe(false);
+    fireEvent.click(action());
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Every action',
+      'list',
+      'add',
+      'delete',
+    ]);
+    fireEvent.click(screen.getByRole('option', { name: 'delete' }));
+    await pickTool('shell_exec');
+    expect(action().hasAttribute('disabled')).toBe(true);
+    expect(action().textContent).toContain('This tool has no actions');
+  });
+
+  it('shows a tool list it could not load', async () => {
+    stubFetch({ list: [], toolsStatus: 503 });
+    renderPanel();
+    expect(await screen.findByText(/Could not load the tools/)).toBeTruthy();
   });
 
   it('will not submit an empty tool', async () => {
@@ -133,7 +199,7 @@ describe('ToolPoliciesPanel', () => {
     stubFetch({ list: [], writeStatus: 500 });
     renderPanel();
     await screen.findByText(/No tool policies/);
-    fireEvent.change(screen.getByLabelText('Tool'), { target: { value: 'shell_exec' } });
+    await pickTool('shell_exec');
     fireEvent.click(screen.getByRole('button', { name: 'Set policy' }));
     expect(await screen.findByText(/Could not save that policy/)).toBeTruthy();
   });

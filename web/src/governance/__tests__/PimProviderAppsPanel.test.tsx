@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../../i18n/i18n';
 import { HttpError } from '../../api/json';
+import { chooseOption, optionNames } from '../../test/chooseOption';
 
 const listPimProviderApps = vi.fn();
 const savePimProviderApp = vi.fn();
@@ -31,8 +32,14 @@ function renderPanel() {
   );
 }
 
-async function choose(provider: string) {
-  fireEvent.change(await screen.findByLabelText('Provider'), { target: { value: provider } });
+/** Picks a provider by the name its option starts with; the rest of the label is its status. */
+function choose(provider: string | RegExp) {
+  return chooseOption('Provider', provider);
+}
+
+/** The provider the panel shows, with its status. */
+async function shownProvider() {
+  return (await screen.findByRole('combobox', { name: 'Provider' })).textContent;
 }
 
 function configured(provider: string) {
@@ -90,10 +97,11 @@ describe('PimProviderAppsPanel', () => {
 
   it('shows one form at a time, starting on the first provider still missing its app', async () => {
     renderPanel();
-    expect(await screen.findByLabelText('Provider')).toHaveProperty('value', 'microsoft365');
+    expect(await shownProvider()).toBe('Microsoft 365 · not configured');
     expect(screen.getAllByLabelText(/client id/i)).toHaveLength(1);
-    expect(screen.getByRole('option', { name: /Google · configured/ })).toBeTruthy();
-    expect(screen.getByRole('option', { name: /Outlook\.com · not configured/ })).toBeTruthy();
+    const options = await optionNames('Provider');
+    expect(options).toContain('Google · configured');
+    expect(options).toContain('Outlook.com · not configured');
     expect(screen.queryByText(RELAY)).toBeNull();
   });
 
@@ -112,17 +120,17 @@ describe('PimProviderAppsPanel', () => {
       ]);
     savePimProviderApp.mockResolvedValueOnce(saved);
     renderPanel();
-    expect(await screen.findByLabelText('Provider')).toHaveProperty('value', 'outlook.com');
+    expect(await shownProvider()).toBe('Outlook.com · not configured');
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
     const summary = await screen.findByText('3 of 3 configured');
     expect(summary.closest('details')?.open).toBe(true);
-    expect(screen.getByLabelText('Provider')).toHaveProperty('value', 'outlook.com');
+    expect(await shownProvider()).toBe('Outlook.com · configured');
     expect(screen.getByText('Saved.')).toBeTruthy();
   });
 
   it('pre-fills the client ID, never the secret, and shows the relay URI under Google', async () => {
     renderPanel();
-    await choose('google');
+    await choose(/^Google/);
     expect(screen.getByLabelText(/client id/i)).toHaveProperty('value', 'g-cid');
     expect(screen.getByLabelText(/^Client secret/i)).toHaveProperty('value', '');
     expect(screen.getByText(RELAY)).toBeTruthy();
@@ -139,7 +147,7 @@ describe('PimProviderAppsPanel', () => {
       redirectUri: RELAY,
     });
     renderPanel();
-    await choose('google');
+    await choose(/^Google/);
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
     await waitFor(() => {
       expect(savePimProviderApp).toHaveBeenCalledWith('google', { clientId: 'g-cid' });
@@ -152,7 +160,7 @@ describe('PimProviderAppsPanel', () => {
       new HttpError(400, 'tenantId is required for outlook.com'),
     );
     renderPanel();
-    await choose('outlook.com');
+    await choose(/^Outlook\.com/);
     fireEvent.change(screen.getByLabelText(/client id/i), { target: { value: 'ms-cid' } });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
     await waitFor(() => {
@@ -174,7 +182,7 @@ describe('PimProviderAppsPanel', () => {
       redirectUri: RELAY,
     });
     renderPanel();
-    await choose('google');
+    await choose(/^Google/);
     fireEvent.change(screen.getByLabelText(/client id/i), { target: { value: 'new-cid' } });
     fireEvent.change(screen.getByLabelText(/^Client secret/i), {
       target: { value: 'new-secret' },

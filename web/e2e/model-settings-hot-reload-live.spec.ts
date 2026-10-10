@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { gotoAuthenticated } from './auth';
 import { sameOriginFetch, streamFrames } from './live';
+import { chooseValue, openOptions } from './support/select';
 
 const runLive = process.env.AURA_E2E_LIVE_MODEL_ROUTES === '1';
 const ollamaBaseURL =
@@ -127,9 +128,10 @@ async function runSentinel(
   await expect(composer).toBeVisible({ timeout: 30_000 });
   if (effort !== undefined) {
     const selector = page.getByRole('combobox', { name: 'Reasoning effort' });
-    await expect(selector.locator('option')).toHaveText(['Auto', 'Off', 'Low', 'Medium', 'High']);
-    await selector.selectOption(effort);
-    await expect(selector).toHaveValue(effort);
+    await expect(await openOptions(selector)).toHaveText(['Auto', 'Off', 'Low', 'Medium', 'High']);
+    await page.keyboard.press('Escape');
+    await chooseValue(selector, effort);
+    await expect(selector).toHaveText('High');
     await expect(page.getByTestId('footer-visible-metrics')).toContainText('262k');
   }
   const responsePromise = page.waitForResponse(

@@ -1,5 +1,5 @@
 import { useAui, useAuiState, ComposerPrimitive } from '@assistant-ui/react';
-import { ArrowUp, ChevronDown, Mic, Paperclip, Square } from 'lucide-react';
+import { ArrowUp, Mic, Paperclip, Square } from 'lucide-react';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AttachmentChip } from './attachments/AttachmentChip';
@@ -8,6 +8,7 @@ import { SkillPicker } from './composer/SkillPicker';
 import type { ComposerSkillRow } from './composer/api';
 import { useVoiceMode } from './voice/voiceModeContext';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 
 // Composer: the query input + the Send↔Stop swap. Enter sends / Shift+Enter
 // newlines / Esc cancels are handled by ComposerPrimitive.Input. Stop is
@@ -421,34 +422,25 @@ export function Composer({
                   />
                 )
               ) : null}
-              {/* Reasoning-effort selector (WEBMODEL-01/03, D-13): a compact native select — keyboard-
-            and screen-reader-correct out of the box, and separate from the textbox so it never
+              {/* Reasoning-effort selector (WEBMODEL-01/03, D-13): the cockpit's compact select —
+            keyboard- and screen-reader-correct, and separate from the textbox so it never
             reclassifies the input or intercepts Enter-send / paste / drop. It renders ONLY the
             model's advertised levels (effortLevels, auto-first); absent ⇒ not rendered. */}
               {effortLevels !== undefined && effortLevels.length > 0 ? (
-                <div className="relative ml-1 flex items-center">
-                  <select
-                    aria-label={t('chat.composer.effort.ariaLabel')}
-                    value={effort ?? 'auto'}
-                    disabled={approvalLocked}
-                    onChange={(event) => {
-                      if (approvalLocked) return;
-                      onEffortChange?.(event.currentTarget.value);
-                    }}
-                    className="h-8 cursor-pointer appearance-none rounded-full border border-border bg-surface-2 py-1 pr-7 pl-3 text-[0.75rem] font-medium tracking-tight text-text-muted transition-colors hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [font-variant-caps:all-small-caps]"
-                  >
-                    {effortLevels.map((level) => (
-                      <option key={level} value={level}>
-                        {t(`chat.composer.effort.${level}`)}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    data-icon
-                    aria-hidden="true"
-                    className="pointer-events-none absolute right-2 size-3.5 text-text-faint"
-                  />
-                </div>
+                <Select
+                  aria-label={t('chat.composer.effort.ariaLabel')}
+                  value={effort ?? 'auto'}
+                  disabled={approvalLocked}
+                  onValueChange={(next) => {
+                    onEffortChange?.(next);
+                  }}
+                  options={effortLevels.map((level) => ({
+                    value: level,
+                    label: t(`chat.composer.effort.${level}`),
+                  }))}
+                  size="sm"
+                  className="ml-1 h-8 w-auto rounded-full border-border bg-surface-2 pl-3 text-[0.75rem] font-medium tracking-tight text-text-muted hover:text-text [font-variant-caps:all-small-caps]"
+                />
               ) : null}
               {steering ? (
                 <Button

@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from 'react';
-import { Check, ChevronDown, Pin, PinOff, X } from 'lucide-react';
-import { Select } from 'radix-ui';
+import { Pin, PinOff, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { BoardFilters, BoardView, CardSource } from './boardApi';
 import { orderViews } from './boardModel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 
 interface BoardViewsBarProps {
   readonly filters: BoardFilters;
@@ -49,47 +49,19 @@ interface FilterSelectProps {
   readonly onValueChange: (value: string | undefined) => void;
 }
 
+// The filter's label sits inside its box, so the trigger drops its own border and height.
 function FilterSelect({ label, value, active, options, onValueChange }: FilterSelectProps) {
   return (
     <FilterField label={label} active={active}>
-      <Select.Root
+      <Select
+        aria-label={label}
         value={value ?? ALL_FILTERS}
         onValueChange={(next) => {
           onValueChange(next === ALL_FILTERS ? undefined : next);
         }}
-      >
-        <Select.Trigger
-          aria-label={label}
-          className="flex min-h-8 w-full items-center justify-between gap-2 rounded px-2 py-0 text-left text-[13px] font-medium text-text outline-none"
-        >
-          <Select.Value />
-          <Select.Icon asChild>
-            <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-text-muted" />
-          </Select.Icon>
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Content
-            position="popper"
-            sideOffset={6}
-            className="z-50 max-h-(--radix-select-content-available-height) w-(--radix-select-trigger-width) overflow-hidden rounded-lg border border-border-strong bg-surface-3 p-1 text-text shadow-xl data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
-          >
-            <Select.Viewport>
-              {options.map((option) => (
-                <Select.Item
-                  key={option.value}
-                  value={option.value}
-                  className="relative flex min-h-10 cursor-default items-center rounded-md py-2 pr-8 pl-3 text-[13px] outline-none select-none data-[highlighted]:bg-surface-2 data-[state=checked]:font-semibold data-[state=checked]:text-info"
-                >
-                  <Select.ItemText>{option.label}</Select.ItemText>
-                  <Select.ItemIndicator className="absolute right-2 inline-flex size-4 items-center justify-center">
-                    <Check aria-hidden="true" className="size-3.5" />
-                  </Select.ItemIndicator>
-                </Select.Item>
-              ))}
-            </Select.Viewport>
-          </Select.Content>
-        </Select.Portal>
-      </Select.Root>
+        options={options}
+        className="min-h-8 border-0 bg-transparent px-2 py-0 font-medium focus-visible:ring-0"
+      />
     </FilterField>
   );
 }

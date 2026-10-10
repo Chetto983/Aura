@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '../../../i18n/i18n';
 import { ZoneStep } from '../ZoneStep';
+import { chooseOption, shownOption } from '../../../test/chooseOption';
 
 describe('ZoneStep', () => {
-  it('requires an explicit account selection when Cloudflare returns several accounts', () => {
+  it('requires an explicit account selection when Cloudflare returns several accounts', async () => {
     render(
       <ZoneStep
         accounts={[
@@ -16,12 +17,11 @@ describe('ZoneStep', () => {
         onSave={vi.fn(() => Promise.resolve())}
       />,
     );
-    const account = screen.getByLabelText('Cloudflare account') as HTMLSelectElement;
-    expect(account.value).toBe('');
+    expect(shownOption('Cloudflare account')).toBe('Cloudflare account');
     expect(
       screen.getByRole('button', { name: 'Save and start setup' }).hasAttribute('disabled'),
     ).toBe(true);
-    fireEvent.change(account, { target: { value: 'two' } });
+    await chooseOption('Cloudflare account', 'Two');
     expect(
       screen.getByRole('button', { name: 'Save and start setup' }).hasAttribute('disabled'),
     ).toBe(false);

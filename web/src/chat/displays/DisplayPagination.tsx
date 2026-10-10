@@ -2,22 +2,50 @@ import { Children, useId, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 
 // DisplayPagination (D-PAGINATION): in-card pagination that lives INSIDE each
 // display card. Ports the elysia DisplayPagination LOGIC (Children.toArray +
 // slice + page/per-page state, default 3 items/page) and REWRITES the chrome
-// with native <button>/<select> on the committed dark-operator tokens — no
-// framer-motion, no react-icons, no shadcn Select (those deps are absent and
-// UI-SPEC-forbidden).
+// with native buttons and the cockpit's Select on the committed dark-operator
+// tokens — no framer-motion, no react-icons.
 //
 // A11y (UI-SPEC Interaction & Accessibility Contract): prev/next/per-page are
-// real native controls with aria-labels + 44px (min-h-11/min-w-11) touch
+// labelled controls with aria-labels + 44px (min-h-11/min-w-11) touch
 // targets; the "X–Y of N" micro-label reads the window in context; accent is
 // reserved for the ACTIVE page number only (Color rule); the new range is
 // announced politely on change (aria-live).
 
-const PER_PAGE_OPTIONS = [3, 6, 9] as const;
+const PER_PAGE_OPTIONS = [3, 6, 9].map((n) => ({ value: String(n), label: n }));
+
+/** The labelled per-page select of every paginated display card. */
+export function PerPageSelect({
+  value,
+  onChange,
+}: {
+  readonly value: number;
+  readonly onChange: (perPage: number) => void;
+}) {
+  const { t } = useTranslation();
+  const selectId = useId();
+  return (
+    <div className="flex items-center gap-2">
+      <label htmlFor={selectId} className="text-[0.75rem] font-medium text-text-muted">
+        {t('display.pagination.perPage')}
+      </label>
+      <Select
+        id={selectId}
+        value={String(value)}
+        onValueChange={(next) => {
+          onChange(Number(next));
+        }}
+        options={PER_PAGE_OPTIONS}
+        size="sm"
+        className="w-16 bg-surface-2 text-xs"
+      />
+    </div>
+  );
+}
 
 export interface DisplayPaginationProps {
   /** The items to paginate (one child per item). */
@@ -34,7 +62,6 @@ export function DisplayPagination({
   className = '',
 }: DisplayPaginationProps) {
   const { t } = useTranslation();
-  const selectId = useId();
   const [page, setPage] = useState(0);
   const [perPage, setPerPage] = useState(itemsPerPage);
 
@@ -69,26 +96,7 @@ export function DisplayPagination({
       {/* Footer: per-page select + "X–Y of N" count + prev/next. The count is a
           polite live region so the new window is announced on navigation. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <label htmlFor={selectId} className="text-[0.75rem] font-medium text-text-muted">
-            {t('display.pagination.perPage')}
-          </label>
-          <NativeSelect
-            id={selectId}
-            value={perPage}
-            onChange={(e) => {
-              changePerPage(Number(e.target.value));
-            }}
-            size="sm"
-            className="w-16 bg-surface-2 text-xs"
-          >
-            {PER_PAGE_OPTIONS.map((n) => (
-              <NativeSelectOption key={n} value={n}>
-                {n}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
+        <PerPageSelect value={perPage} onChange={changePerPage} />
 
         <span aria-live="polite" className="text-[0.75rem] tabular-nums text-text-faint">
           {t('display.pagination.count', { from, to, total })}

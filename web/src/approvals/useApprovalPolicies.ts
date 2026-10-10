@@ -8,6 +8,7 @@ import { APPROVAL_GRANTS_KEY } from './useApprovalGrants';
 //   GET  /api/approvals/policies        → the authenticated principal's policies
 //   PUT  /api/approvals/policies        → set ask or deny on one subject
 //   POST /api/approvals/policies/clear  → drop one, by its two coordinates
+//   GET  /api/approvals/policies/tools  → the tools a policy can name, MCP mounts included
 //
 // Setting ask revokes a standing "always" grant on the same subject server-side, so a PUT
 // also invalidates the grants list.
@@ -23,7 +24,15 @@ export interface ApprovalPolicy {
   readonly set_by?: string;
 }
 
+/** A tool a policy can name. `actions` is present only for a tool the gateway keys by action. */
+export interface PolicyTool {
+  readonly name: string;
+  readonly summary: string;
+  readonly actions?: readonly string[];
+}
+
 export const APPROVAL_POLICIES_KEY = 'approval-policies';
+const POLICY_TOOLS_KEY = 'approval-policy-tools';
 
 const POLICIES_PATH = '/api/approvals/policies';
 
@@ -78,6 +87,20 @@ export function useSetApprovalPolicy() {
       void queryClient.invalidateQueries({ queryKey: [APPROVAL_POLICIES_KEY] });
       void queryClient.invalidateQueries({ queryKey: [APPROVAL_GRANTS_KEY] });
     },
+  });
+}
+
+async function fetchPolicyTools(): Promise<PolicyTool[]> {
+  const body = await send('GET', `${POLICIES_PATH}/tools`);
+  return Array.isArray(body) ? (body as PolicyTool[]) : [];
+}
+
+/** GET /api/approvals/policies/tools — the agent's tools, built-in and MCP, by name. */
+export function usePolicyTools() {
+  return useQuery({
+    queryKey: [POLICY_TOOLS_KEY],
+    queryFn: fetchPolicyTools,
+    retry: false,
   });
 }
 

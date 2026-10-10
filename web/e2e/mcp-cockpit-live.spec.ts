@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { gotoAuthenticated } from './auth';
+import { chooseValue } from './support/select';
 
 const servers = ['calendar', 'memory', 'whatsapp'] as const;
 const origin = process.env.AURA_E2E_ORIGIN ?? 'http://127.0.0.1:9080';
@@ -50,7 +51,7 @@ async function removePimAccountIfPresent(page: Page) {
 }
 
 async function createPimAccount(page: Page) {
-  await page.getByLabel(/^(Provider)$/i).selectOption('imap');
+  await chooseValue(page.getByLabel(/^(Provider)$/i), 'imap');
   await page.getByLabel(/^(Account ID|ID account)$/i).fill(pimAccountId);
   await page.getByLabel(/^(Display name|Nome visualizzato)$/i).fill('Aura PIM E2E');
   await page.getByLabel(/^(IMAP host|Host IMAP)$/i).fill('aura-fake-smtp');

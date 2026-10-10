@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import '../../i18n/i18n';
 import { Composer } from '../Composer';
+import { chooseOption, optionNames, shownOption } from '../../test/chooseOption';
 import type { ComposerSkillRow } from '../composer/api';
 
 // Shared mutable doubles for the mocked runtime + voice-mode context. vi.hoisted runs
@@ -330,27 +331,18 @@ describe('Composer skill trigger', () => {
 });
 
 describe('Composer reasoning-effort selector', () => {
-  it('renders EXACTLY the advertised levels (dynamic, D-13 — never the full 7)', () => {
+  it('renders EXACTLY the advertised levels (dynamic, D-13 — never the full 7)', async () => {
     render(<Composer effort="auto" effortLevels={['auto', 'off', 'high']} />);
-    const select = screen.getByRole('combobox', { name: 'Reasoning effort' });
-    const options = within(select)
-      .getAllByRole('option')
-      .map((o) => o.textContent);
-    expect(options).toEqual(['Auto', 'Off', 'High']);
-    // A level the model did NOT advertise is absent (not a placebo).
-    expect(within(select).queryByText('Medium')).toBeNull();
-    expect(within(select).queryByText('Max')).toBeNull();
+    // A level the model did NOT advertise (Medium, Max) is absent, not a placebo.
+    expect(await optionNames('Reasoning effort')).toEqual(['Auto', 'Off', 'High']);
   });
 
   it('shows the hydrated value as the current selection', () => {
     render(<Composer effort="high" effortLevels={['auto', 'off', 'high']} />);
-    expect(screen.getByRole('combobox', { name: 'Reasoning effort' })).toHaveProperty(
-      'value',
-      'high',
-    );
+    expect(shownOption('Reasoning effort')).toBe('High');
   });
 
-  it('calls onEffortChange when a level is picked', () => {
+  it('calls onEffortChange when a level is picked', async () => {
     const onEffortChange = vi.fn();
     render(
       <Composer
@@ -359,9 +351,7 @@ describe('Composer reasoning-effort selector', () => {
         onEffortChange={onEffortChange}
       />,
     );
-    fireEvent.change(screen.getByRole('combobox', { name: 'Reasoning effort' }), {
-      target: { value: 'high' },
-    });
+    await chooseOption('Reasoning effort', 'High');
     expect(onEffortChange).toHaveBeenCalledWith('high');
   });
 

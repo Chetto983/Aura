@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../../i18n/i18n'; // side-effect: initialise i18next so t() resolves keys
 import type { OnboardingProvisionResponse, OnboardingStart } from '../onboardingApi';
+import { chooseOption } from '../../test/chooseOption';
 
 // OnboardingWizard test — the full-screen wizard shell + data layer. onboardingApi is mocked so the
 // suite can drive the linear flow (credentials + seed → review → complete), the
@@ -63,9 +64,9 @@ async function fillCredentials() {
   fireEvent.change(screen.getByLabelText('Security answer'), { target: { value: 'blue' } });
 }
 
-function fillSeed() {
+async function fillSeed() {
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: OPERATOR_NAME } });
-  fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'it' } });
+  await chooseOption('Language', 'Italiano');
   fireEvent.change(screen.getByLabelText('Where you are'), { target: { value: 'Caraglio' } });
   fireEvent.change(screen.getByLabelText('Time zone'), { target: { value: 'Europe/Rome' } });
   fireEvent.change(screen.getByLabelText('What you do'), { target: { value: 'founder' } });
@@ -147,7 +148,7 @@ describe('OnboardingWizard', () => {
     const { container } = renderWizard();
 
     await fillCredentials();
-    fillSeed();
+    await fillSeed();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     // Credentials leads STRAIGHT to review: neither the interview phase nor the capability
@@ -229,7 +230,7 @@ describe('OnboardingWizard', () => {
     startOnboarding.mockResolvedValue(START);
     renderWizard();
     await fillCredentials();
-    fillSeed();
+    await fillSeed();
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => {

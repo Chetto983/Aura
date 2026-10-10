@@ -199,7 +199,7 @@
 }
 
 .video-studio-inspector [data-slot='input'],
-.video-studio-inspector [data-slot='native-select'] {
+.video-studio-inspector [data-slot='select-trigger'] {
   border-color: var(--video-studio-border);
   background: var(--video-studio-panel-raised);
 }

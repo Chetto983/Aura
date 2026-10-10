@@ -2,12 +2,15 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Inspector } from '../Inspector';
 import type { OverlayItem, VideoProject } from '../project';
+import { chooseOption, shownOption } from '../../test/chooseOption';
 
 // Task 8 writes the sentences; asserting on keys keeps these tests about what a field commits
 // rather than about copy that does not exist yet.
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
+
+const ANIMATION = 'videoStudio.inspector.animation';
 
 function project(overlay?: OverlayItem): VideoProject {
   return {
@@ -312,12 +315,10 @@ describe('Inspector, on a text overlay', () => {
 
   // A property whose value is a list of keyframes compiles to an animation (BaseLayer.toJSON), so
   // the fade the operator picks IS the opacity property — nothing else has to carry it.
-  it('writes the chosen fade as keyframes over the overlay window', () => {
+  it('writes the chosen fade as keyframes over the overlay window', async () => {
     const view = mount(project(text()), 'title');
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'videoStudio.inspector.animation' }), {
-      target: { value: 'fadeIn' },
-    });
+    await chooseOption(ANIMATION, 'videoStudio.inspector.animations.fadeIn');
 
     expect(view.applied().overlays[0]?.items[0]?.props.opacity).toEqual([
       { time: 0, value: 0 },
@@ -334,12 +335,10 @@ describe('Inspector, on a text overlay', () => {
     });
     mount(project(faded), 'title');
 
-    expect(
-      screen.getByRole('combobox', { name: 'videoStudio.inspector.animation' }),
-    ).toHaveProperty('value', 'fadeOut');
+    expect(shownOption(ANIMATION)).toBe('videoStudio.inspector.animations.fadeOut');
   });
 
-  it('puts a full-strength layer back when the fade is taken off', () => {
+  it('puts a full-strength layer back when the fade is taken off', async () => {
     const faded = text({
       opacity: [
         { time: 0, value: 0 },
@@ -348,9 +347,7 @@ describe('Inspector, on a text overlay', () => {
     });
     const view = mount(project(faded), 'title');
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'videoStudio.inspector.animation' }), {
-      target: { value: 'none' },
-    });
+    await chooseOption(ANIMATION, 'videoStudio.inspector.animations.none');
 
     expect(view.applied().overlays[0]?.items[0]?.props.opacity).toBe(1);
   });
@@ -420,12 +417,10 @@ describe('Inspector, on an image overlay', () => {
     expect(field).toHaveProperty('value', 'photo');
   });
 
-  it('animates like a text overlay does', () => {
+  it('animates like a text overlay does', async () => {
     const view = mount(project(image()), 'badge');
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'videoStudio.inspector.animation' }), {
-      target: { value: 'fadeOut' },
-    });
+    await chooseOption(ANIMATION, 'videoStudio.inspector.animations.fadeOut');
 
     expect(view.applied().overlays[0]?.items[0]?.props.opacity).toEqual([
       { time: 1.5, value: 1 },

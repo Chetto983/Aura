@@ -6,6 +6,7 @@ import {
   openRemoteAccess,
   remoteAccessFixture,
 } from './support/remoteAccessFixture';
+import { chooseValue } from './support/select';
 
 // Trace captures request bodies and input actions. Disable every recorder before credentials
 // enter the page; a retry must not write a Cloudflare token to a trace, screenshot or video.
@@ -25,10 +26,13 @@ test('refuses a token, requires an account choice, persists nameserver wait acro
   await expect(page.getByRole('alert')).toContainText('could not be verified');
   fixture.refuseToken = false;
   await page.getByRole('button', { name: 'Verify token', exact: true }).click();
-  await expect(page.getByLabel('Cloudflare account', { exact: true })).toHaveValue('');
+  await expect(page.getByLabel('Cloudflare account', { exact: true })).toHaveAttribute(
+    'data-placeholder',
+    '',
+  );
   await page.getByLabel('Registered domain', { exact: true }).fill('example.test');
   await expect(page.getByRole('button', { name: 'Save and start setup' })).toBeDisabled();
-  await page.getByLabel('Cloudflare account', { exact: true }).selectOption('account-b');
+  await chooseValue(page.getByLabel('Cloudflare account', { exact: true }), 'account-b');
   await page.getByRole('button', { name: 'Save and start setup' }).click();
   await expect(page.getByText('one.ns.cloudflare.com')).toBeVisible();
   expect(fixture.requests.at(-1)).toEqual({

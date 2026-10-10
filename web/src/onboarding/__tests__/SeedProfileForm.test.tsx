@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import '../../i18n/i18n'; // side-effect: initialise i18next so t() resolves keys
 import { SeedProfileForm } from '../SeedProfileForm';
 import type { OnboardingSeed } from '../onboardingApi';
+import { chooseOption, optionNames, shownOption } from '../../test/chooseOption';
 
 // SeedProfileForm test (Amendment #95) — the typed seed form that replaced the LLM interview.
 // It proves the controlled contract (every keystroke reaches onChange with the OTHER fields
@@ -54,10 +55,10 @@ describe('SeedProfileForm', () => {
     expect(state()).toEqual({ name: 'Davide', role: 'founder', company: 'PmSync' });
   });
 
-  it('fills every field independently', () => {
+  it('fills every field independently', async () => {
     render(<Harness />);
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Davide' } });
-    fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'it' } });
+    await chooseOption('Language', 'Italiano');
     fireEvent.change(screen.getByLabelText('Where you are'), { target: { value: 'Caraglio' } });
     fireEvent.change(screen.getByLabelText('Time zone'), { target: { value: 'Europe/Rome' } });
     fireEvent.change(screen.getByLabelText('What you do'), { target: { value: 'founder' } });
@@ -72,11 +73,10 @@ describe('SeedProfileForm', () => {
     });
   });
 
-  it('offers the two cockpit languages plus an explicit "not specified" default', () => {
+  it('offers the two cockpit languages plus an explicit "not specified" default', async () => {
     render(<SeedProfileForm value={{}} onChange={vi.fn()} />);
-    const select = screen.getByLabelText<HTMLSelectElement>('Language');
-    expect([...select.options].map((o) => o.value)).toEqual(['', 'it', 'en']);
-    expect(select.value).toBe('');
+    expect(shownOption('Language')).toBe('Not specified');
+    expect(await optionNames('Language')).toEqual(['Not specified', 'Italiano', 'English']);
   });
 
   it('offers IANA zones as a datalist so the timezone stays free-text with autocomplete', () => {

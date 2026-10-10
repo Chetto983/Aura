@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
 
 interface ZoneStepProps {
   readonly accounts: readonly CloudflareAccount[];
@@ -75,23 +76,13 @@ export function ZoneStep({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="remote-access-account">{t('remoteAccess.domain.account')}</Label>
-          <select
+          <Select
             id="remote-access-account"
             value={account}
-            onChange={(event) => {
-              setAccount(event.target.value);
-            }}
-            className="min-h-[44px] rounded-md border border-input bg-bg px-3 text-sm text-text"
-          >
-            {accounts.length > 1 ? (
-              <option value="">{t('remoteAccess.domain.account')}</option>
-            ) : null}
-            {accounts.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name || item.id}
-              </option>
-            ))}
-          </select>
+            onValueChange={setAccount}
+            placeholder={t('remoteAccess.domain.account')}
+            options={accounts.map((item) => ({ value: item.id, label: item.name || item.id }))}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="remote-access-domain">{t('remoteAccess.domain.domain')}</Label>

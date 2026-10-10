@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
 
 const PAGE_SIZE = 25;
 
@@ -67,21 +68,15 @@ export function AdminAuditView() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-2">
             <Label htmlFor="admin-audit-identity">{t('admin.identity.label')}</Label>
-            <select
+            <Select
               id="admin-audit-identity"
               value={activeId}
-              onChange={(event) => {
-                setSelectedId(event.target.value);
+              onValueChange={(next) => {
+                setSelectedId(next);
                 setOffset(0); // a new identity starts at page one
               }}
-              className="min-h-[44px] rounded-md border border-input bg-surface-3 px-3 text-[14px] text-text focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              {identities.map((identity) => (
-                <option key={identity.id} value={identity.id}>
-                  {identity.name}
-                </option>
-              ))}
-            </select>
+              options={identities.map((identity) => ({ value: identity.id, label: identity.name }))}
+            />
           </div>
           <Button
             type="button"

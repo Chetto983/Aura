@@ -4,22 +4,23 @@ import { useTranslation } from 'react-i18next';
 import {
   useApprovalPolicies,
   useClearApprovalPolicy,
+  usePolicyTools,
   useSetApprovalPolicy,
   type ApprovalPolicy,
   type ToolPolicy,
 } from '../approvals/useApprovalPolicies';
 import { Spinner } from '../components/Spinner';
+import { PolicyToolPicker } from './PolicyToolPicker';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 
 // ToolPoliciesPanel is the narrowing half of the standing approvals (prd.md §5, 2026-10-09):
 // where an operator says "always ask me before this tool" or "never run it". Like the grants
 // above it, it lists only the authenticated principal's own policies; setting one on another
-// identity is the CLI's job. The tool name is typed: it is what tool_search and
-// `aura mcp tools` print, and the action is the verb of a multiplexed tool such as calendar.
+// identity is the CLI's job. The tool is picked from the agent's own tools, MCP mounts
+// included, and the action from the verbs the gateway keys that tool by, if it has any.
 export function ToolPoliciesPanel() {
   const { t } = useTranslation();
   const policiesQuery = useApprovalPolicies();
@@ -133,67 +134,76 @@ function PolicyForm({ busy, onSubmit }: PolicyFormProps) {
   const toolId = useId();
   const actionId = useId();
   const policyId = useId();
+  const toolsQuery = usePolicyTools();
+  const tools = toolsQuery.data ?? [];
   const [tool, setTool] = useState('');
   const [action, setAction] = useState('');
   const [policy, setPolicy] = useState<ToolPolicy>('ask');
+  const actions = tools.find((candidate) => candidate.name === tool)?.actions ?? [];
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        const trimmed = tool.trim();
-        if (trimmed === '') return;
-        onSubmit({ tool: trimmed, action: action.trim(), policy });
+        if (tool === '') return;
+        onSubmit({ tool, action, policy });
         setTool('');
         setAction('');
       }}
       className="grid gap-3 sm:grid-cols-[2fr_1.5fr_1fr_auto] sm:items-end"
     >
+      {toolsQuery.isError ? (
+        <Alert variant="destructive" className="sm:col-span-4">
+          <AlertDescription>{t('settings.toolPolicies.toolsError')}</AlertDescription>
+        </Alert>
+      ) : null}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={toolId}>{t('settings.toolPolicies.toolLabel')}</Label>
-        <Input
+        <PolicyToolPicker
           id={toolId}
+          tools={tools}
           value={tool}
-          onChange={(e) => {
-            setTool(e.target.value);
+          onChange={(name) => {
+            setTool(name);
+            setAction('');
           }}
-          placeholder="shell_exec"
-          className="font-mono"
-          autoComplete="off"
         />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={actionId}>{t('settings.toolPolicies.actionLabel')}</Label>
-        <Input
+        <Select
           id={actionId}
           value={action}
-          onChange={(e) => {
-            setAction(e.target.value);
-          }}
-          placeholder="send_email"
+          disabled={actions.length === 0}
+          onValueChange={setAction}
+          options={[
+            {
+              value: '',
+              label:
+                actions.length === 0
+                  ? t('settings.toolPolicies.actionNone')
+                  : t('settings.toolPolicies.actionAll'),
+            },
+            ...actions.map((verb) => ({ value: verb, label: verb })),
+          ]}
           className="font-mono"
-          autoComplete="off"
         />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={policyId}>{t('settings.toolPolicies.policyLabel')}</Label>
-        <NativeSelect
+        <Select
           id={policyId}
           value={policy}
-          onChange={(e) => {
-            setPolicy(e.target.value === 'deny' ? 'deny' : 'ask');
+          onValueChange={(next) => {
+            setPolicy(next === 'deny' ? 'deny' : 'ask');
           }}
-          className="w-full"
-        >
-          <NativeSelectOption value="ask">
-            {t('settings.toolPolicies.policy.ask')}
-          </NativeSelectOption>
-          <NativeSelectOption value="deny">
-            {t('settings.toolPolicies.policy.deny')}
-          </NativeSelectOption>
-        </NativeSelect>
+          options={[
+            { value: 'ask', label: t('settings.toolPolicies.policy.ask') },
+            { value: 'deny', label: t('settings.toolPolicies.policy.deny') },
+          ]}
+        />
       </div>
-      <Button type="submit" disabled={busy || tool.trim() === ''}>
+      <Button type="submit" disabled={busy || tool === ''}>
         {t('settings.toolPolicies.save')}
       </Button>
     </form>

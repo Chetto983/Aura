@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import '../../../i18n/i18n'; // side-effect: initialise i18next so t() resolves keys
 import { TableDisplay } from '../TableDisplay';
+import { chooseOption } from '../../../test/chooseOption';
 import type { DisplayPayload } from '../types';
 
 // TableDisplay (DISP-03 / D-14): sort, filter, copy, CSV export, and in-card row
@@ -141,10 +142,10 @@ describe('TableDisplay (DISP-03 / D-14)', () => {
     expect(prev.hasAttribute('disabled')).toBe(false);
   });
 
-  it('the per-page select widens the window and resets to page 1', () => {
+  it('the per-page select widens the window and resets to page 1', async () => {
     render(<TableDisplay payload={fruits} />);
     fireEvent.click(screen.getByRole('button', { name: 'Next page' })); // go to page 2
-    fireEvent.change(screen.getByLabelText('Per page'), { target: { value: '6' } });
+    await chooseOption('Per page', '6');
     // All 4 rows now fit on page 1; the count shows the full window.
     expect(screen.getByText('1–4 of 4')).toBeTruthy();
     expect(visibleTable().getByText('Date')).toBeTruthy();

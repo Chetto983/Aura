@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 
 // CreditPanel (CRED-03/CRED-06) is the per-identity half of the cockpit's money
 // surface: the cap the admin sets, the reset interval it rides, and the spend measured against
@@ -237,19 +237,17 @@ export function CreditPanel({ identityId }: CreditPanelProps) {
       {/* 2. The reset interval. */}
       <div className="flex flex-col gap-2">
         <Label htmlFor={resetId}>{t('admin.credit.resetLabel')}</Label>
-        <NativeSelect
+        <Select
           id={resetId}
           value={resetValue}
-          onChange={(event) => {
-            setResetEdit(asResetInterval(event.target.value));
+          onValueChange={(next) => {
+            setResetEdit(asResetInterval(next));
           }}
-        >
-          {RESET_INTERVALS.map((interval) => (
-            <NativeSelectOption key={interval} value={interval}>
-              {t(`admin.credit.interval.${interval}`)}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          options={RESET_INTERVALS.map((interval) => ({
+            value: interval,
+            label: t(`admin.credit.interval.${interval}`),
+          }))}
+        />
       </div>
 
       {/* 3. Spend against the cap, plus remaining. Both ledger figures, both mono. */}

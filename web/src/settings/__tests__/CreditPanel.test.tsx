@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../../i18n/i18n';
 import { CreditPanel } from '../CreditPanel';
+import { optionNames, shownOption } from '../../test/chooseOption';
 
 // CreditPanel (CRED-03/CRED-06/CRED-09). The suite pins the three things this surface can get
 // wrong in the direction that LOOKS fine: a sub-cent spend rounded away, a non-billing backend
@@ -123,14 +124,14 @@ describe('CreditPanel — the billing surface', () => {
     expect(cap.getAttribute('min')).toBe('0');
     expect(cap.className).toContain('font-mono');
 
-    const select = screen.getByLabelText<HTMLSelectElement>('Reset interval');
-    expect(select.value).toBe('monthly');
-    expect([...select.options].map((o) => o.value)).toEqual(['daily', 'weekly', 'monthly']);
-
     const bar = screen.getByRole('progressbar');
     expect(bar.getAttribute('aria-valuenow')).toBe('25');
     expect(screen.getByText('$1.25 / $5.00 · 25%')).toBeTruthy();
     expect(screen.getByText('Remaining: $3.75')).toBeTruthy();
+
+    // Last: the open menu hides the rest of the panel from the accessibility tree.
+    expect(shownOption('Reset interval')).toBe('Monthly');
+    expect(await optionNames('Reset interval')).toEqual(['Daily', 'Weekly', 'Monthly']);
   });
 
   // The three tiers are ContextBudgetGauge's own, imported by name — 70 and 90, not new numbers.

@@ -4,7 +4,7 @@ import { seedFieldTooLong, seedNameMissing, type SeedField } from './onboardingW
 import type { OnboardingSeed } from './onboardingApi';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 
 // SeedProfileForm (Amendment #95) is the typed seed form that REPLACED the 5-question LLM
 // interview. Six optional fields, submitted once, mapped deterministically server-side into
@@ -67,6 +67,16 @@ export function SeedProfileForm({ value, onChange }: SeedProfileFormProps) {
     };
   }
 
+  // The cockpit's Select reports the chosen value, where an input reports an event.
+  function selectProps({ onChange, ...rest }: ReturnType<typeof fieldProps>) {
+    return {
+      ...rest,
+      onValueChange: (next: string) => {
+        onChange({ target: { value: next } });
+      },
+    };
+  }
+
   function help(field: SeedField, describedById: string) {
     const error = fieldError(field);
     if (error !== undefined) {
@@ -116,14 +126,14 @@ export function SeedProfileForm({ value, onChange }: SeedProfileFormProps) {
         <Label htmlFor={langId} className="text-[13px] font-semibold text-text">
           {t('onboarding.seed.lang.label')}
         </Label>
-        <NativeSelect
-          {...fieldProps('lang', langId, `${langId}-help`)}
-          className="w-full bg-surface-2 text-[15.5px]"
-        >
-          <NativeSelectOption value="">{t('onboarding.seed.lang.unset')}</NativeSelectOption>
-          <NativeSelectOption value="it">{t('language.italian')}</NativeSelectOption>
-          <NativeSelectOption value="en">{t('language.english')}</NativeSelectOption>
-        </NativeSelect>
+        <Select
+          {...selectProps(fieldProps('lang', langId, `${langId}-help`))}
+          options={[
+            { value: '', label: t('onboarding.seed.lang.unset') },
+            { value: 'it', label: t('language.italian') },
+            { value: 'en', label: t('language.english') },
+          ]}
+        />
         {help('lang', `${langId}-help`)}
       </div>
 

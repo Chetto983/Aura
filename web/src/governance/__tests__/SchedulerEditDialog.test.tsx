@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../../i18n/i18n';
 import type { SchedulerTask } from '../governanceApi';
+import { chooseOption, optionNames } from '../../test/chooseOption';
 
 // SchedulerEditDialog test (fix-plan 2.1 / operator BUG-2). The notify dropdown is the only
 // place an operator can name a delivery route, and until now it offered whatsapp, email and
@@ -39,22 +40,20 @@ function wrapper({ children }: { readonly children: ReactNode }) {
 }
 
 describe('SchedulerEditDialog', () => {
-  it('offers telegram alongside the other delivery routes', () => {
+  it('offers telegram alongside the other delivery routes', async () => {
     render(<SchedulerEditDialog task={TASK} open onClose={vi.fn()} />, { wrapper });
 
-    const select = screen.getByLabelText(/notif/i);
-    const values = Array.from(select.querySelectorAll('option')).map((o) =>
-      o.getAttribute('value'),
-    );
-    // The empty value is "use the scheduler default"; the four named routes must all be
+    // "Default route" is the scheduler's own choice; the four named routes must all be
     // reachable, and telegram is the one the operator could not previously choose.
-    expect(values).toEqual(expect.arrayContaining(['', 'telegram', 'whatsapp', 'email', 'stdout']));
+    expect(await optionNames(/notif/i)).toEqual(
+      expect.arrayContaining(['Default route', 'telegram', 'whatsapp', 'email', 'stdout']),
+    );
   });
 
   it('submits the chosen telegram route', async () => {
     render(<SchedulerEditDialog task={TASK} open onClose={vi.fn()} />, { wrapper });
 
-    fireEvent.change(screen.getByLabelText(/notif/i), { target: { value: 'telegram' } });
+    await chooseOption(/notif/i, 'telegram');
     fireEvent.click(screen.getByRole('button', { name: /salva|save/i }));
 
     // react-query's mutate() defers the mutationFn, so the call lands after this tick.

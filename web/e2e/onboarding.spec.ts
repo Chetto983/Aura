@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { gotoAuthenticated } from './auth';
+import { chooseValue } from './support/select';
 
 // onboarding.spec.ts - Phase 28 Plan 06 E2E. It proves the full-screen onboarding wizard is a
 // shell overlay, not a governance tab, and drives the happy path against mocked routes:
@@ -192,7 +193,7 @@ test.describe('Phase 28 Plan 06 - Onboarding wizard (desktop + mobile)', () => {
     // valid (that is the skip); filling any field makes Name required, because the mapper keys
     // every fact off it. The typed value must reach /provision unchanged.
     await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(OPERATOR_NAME);
-    await dialog.getByRole('combobox', { name: 'Language' }).selectOption('it');
+    await chooseValue(dialog.getByRole('combobox', { name: 'Language' }), 'it');
     await dialog.getByRole('textbox', { name: 'Where you are' }).fill('Caraglio');
     // combobox, not textbox: the time-zone input carries a `list` attribute for the IANA
     // datalist (asserted in SeedProfileForm.test.tsx), and HTML-AAM maps input[list] to

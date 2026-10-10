@@ -21,6 +21,7 @@ import {
   uploadAndDownload,
   verifyTunnelNetwork,
 } from './support/remoteAccessLive';
+import { chooseValue } from './support/select';
 
 const enabled = process.env.AURA_E2E_CLOUDFLARE === '1';
 async function enterToken(page: import('@playwright/test').Page, token: string) {
@@ -156,7 +157,7 @@ test.describe('attended named-tunnel acceptance', () => {
       await local.goto(`${required('AURA_E2E_ORIGIN')}/?settings=remote-access`);
       await enterToken(local, required('CLOUDFLARE_API_TOKEN'));
       await local.getByRole('button', { name: 'Verify token', exact: true }).click();
-      await local.getByLabel('Cloudflare account', { exact: true }).selectOption(account);
+      await chooseValue(local.getByLabel('Cloudflare account', { exact: true }), account);
       await local.getByLabel('Registered domain', { exact: true }).fill(zoneName);
       await local.getByLabel('Public hostname label', { exact: true }).fill(run);
       await local.getByLabel('WARP hostname label', { exact: true }).fill(`${run}-warp`);

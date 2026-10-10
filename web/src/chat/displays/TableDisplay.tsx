@@ -1,23 +1,21 @@
-import { useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { DisplayTable } from './types';
 import { DisplayCardShell } from './DisplayCardShell';
+import { PerPageSelect } from './DisplayPagination';
 import { useCopyAction } from './useCopyAction';
 import { filterAndSort, toCSV, toTSV } from './tableData';
 import { DataTable, type DataTableColumn } from '@/components/data-table';
 import type { DataTableSort } from '@/components/data-table-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 
 // TableDisplay (DISP-03 / D-14): a client-side sortable, filterable, copyable,
 // CSV-exportable table over trusted `{columns, rows}`, paginated in-card (default
 // 3 rows/page). Elements DataTable renders a semantic table at wide widths and
 // labeled cards at narrow widths. Filtering and sorting happen over the full row
 // set before pagination. Cell values render as escaped React text (T-26-13).
-
-const PER_PAGE_OPTIONS = [3, 6, 9] as const;
 
 export interface TableDisplayProps {
   readonly payload: { readonly table?: DisplayTable };
@@ -27,7 +25,6 @@ export interface TableDisplayProps {
 export function TableDisplay({ payload, label: labelOverride }: TableDisplayProps) {
   const { t, i18n } = useTranslation();
   const { copied, copy } = useCopyAction();
-  const selectId = useId();
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(0);
@@ -150,29 +147,15 @@ export function TableDisplay({ payload, label: labelOverride }: TableDisplayProp
             descendingLabel={t('display.table.sortedDesc')}
           />
           {/* In-card pagination footer (D-PAGINATION): per-page + "X–Y of N" + prev/next,
-              windowing ROWS at 3/page. Mirrors DisplayPagination's native chrome. */}
+              windowing ROWS at 3/page. Shares DisplayPagination's per-page select. */}
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <label htmlFor={selectId} className="text-[0.75rem] font-medium text-text-muted">
-                {t('display.pagination.perPage')}
-              </label>
-              <NativeSelect
-                id={selectId}
-                value={perPage}
-                onChange={(e) => {
-                  setPerPage(Number(e.target.value));
-                  setPage(0);
-                }}
-                size="sm"
-                className="w-16 bg-surface-2 text-xs"
-              >
-                {PER_PAGE_OPTIONS.map((n) => (
-                  <NativeSelectOption key={n} value={n}>
-                    {n}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </div>
+            <PerPageSelect
+              value={perPage}
+              onChange={(next) => {
+                setPerPage(next);
+                setPage(0);
+              }}
+            />
 
             <span aria-live="polite" className="text-[0.75rem] tabular-nums text-text-faint">
               {t('display.pagination.count', { from, to, total })}

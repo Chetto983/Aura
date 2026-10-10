@@ -8,7 +8,7 @@ import type { PimProviderId } from './pimApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import { SecretInput } from '@/components/ui/secret-input';
 
 // CalendarConnectFields holds the presentational form controls + result panels for the calendar/PIM
@@ -35,20 +35,14 @@ export function ProviderSelect({
       <Label htmlFor={id} className="text-[13px] font-semibold text-text">
         {t('governance.mcp.calendar.providerLabel')}
       </Label>
-      <NativeSelect
+      <Select
         id={id}
         value={value}
-        onChange={(event) => {
-          onChange(event.target.value as PimProviderId);
+        onValueChange={(next) => {
+          onChange(next as PimProviderId);
         }}
-        className="w-full bg-surface-3 text-[13px]"
-      >
-        {providers.map((p) => (
-          <NativeSelectOption key={p.id} value={p.id}>
-            {optionLabel?.(p) ?? t(p.labelKey)}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
+        options={providers.map((p) => ({ value: p.id, label: optionLabel?.(p) ?? t(p.labelKey) }))}
+      />
     </div>
   );
 }
@@ -119,20 +113,12 @@ export function SelectField({
       <Label htmlFor={id} className="text-[13px] font-semibold text-text">
         {t(field.labelKey)}
       </Label>
-      <NativeSelect
+      <Select
         id={id}
         value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-        className="w-full bg-surface-3 text-[13px]"
-      >
-        {field.options?.map((opt) => (
-          <NativeSelectOption key={opt.value} value={opt.value}>
-            {t(opt.labelKey)}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
+        onValueChange={onChange}
+        options={(field.options ?? []).map((opt) => ({ value: opt.value, label: t(opt.labelKey) }))}
+      />
     </div>
   );
 }

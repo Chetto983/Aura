@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '../../../i18n/i18n'; // side-effect: initialise i18next so t() resolves keys
 import { DisplayPagination } from '../DisplayPagination';
+import { chooseOption } from '../../../test/chooseOption';
 
 function items(n: number) {
   return Array.from({ length: n }, (_, i) => <div key={i}>{`item-${String(i + 1)}`}</div>);
@@ -51,12 +52,11 @@ describe('DisplayPagination (D-PAGINATION)', () => {
     expect(next.hasAttribute('disabled')).toBe(true);
   });
 
-  it('the per-page select changes the window and resets to the first page', () => {
+  it('the per-page select changes the window and resets to the first page', async () => {
     render(<DisplayPagination>{items(7)}</DisplayPagination>);
     // Advance, then change per-page to 6 → resets to page 1 with a 6-item window.
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    const select = screen.getByLabelText('Per page');
-    fireEvent.change(select, { target: { value: '6' } });
+    await chooseOption('Per page', '6');
     expect(screen.getByText('1–6 of 7')).toBeTruthy();
     expect(screen.getByText('item-6')).toBeTruthy();
     expect(screen.queryByText('item-7')).toBeNull();

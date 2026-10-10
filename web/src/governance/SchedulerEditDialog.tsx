@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
 // SchedulerEditDialog reschedules + re-payloads a user task (GOV-03 edit). It prefills the
@@ -98,23 +98,16 @@ export function SchedulerEditDialog({ task, open, onClose }: SchedulerEditDialog
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${fieldId}-kind`}>{t('governance.scheduler.edit.scheduleKind')}</Label>
-            <NativeSelect
+            <Select
               id={`${fieldId}-kind`}
               value={scheduleKind}
-              onChange={(e) => {
-                setScheduleKind(e.currentTarget.value);
-              }}
-            >
-              <NativeSelectOption value="at">
-                {t('governance.scheduler.edit.kindAt')}
-              </NativeSelectOption>
-              <NativeSelectOption value="every">
-                {t('governance.scheduler.edit.kindEvery')}
-              </NativeSelectOption>
-              <NativeSelectOption value="cron">
-                {t('governance.scheduler.edit.kindCron')}
-              </NativeSelectOption>
-            </NativeSelect>
+              onValueChange={setScheduleKind}
+              options={[
+                { value: 'at', label: t('governance.scheduler.edit.kindAt') },
+                { value: 'every', label: t('governance.scheduler.edit.kindEvery') },
+                { value: 'cron', label: t('governance.scheduler.edit.kindCron') },
+              ]}
+            />
           </div>
 
           {scheduleKind === 'cron' && (
@@ -193,21 +186,18 @@ export function SchedulerEditDialog({ task, open, onClose }: SchedulerEditDialog
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${fieldId}-notify`}>{t('governance.scheduler.edit.notify')}</Label>
-            <NativeSelect
+            <Select
               id={`${fieldId}-notify`}
               value={notify}
-              onChange={(e) => {
-                setNotify(e.currentTarget.value);
-              }}
-            >
-              <NativeSelectOption value="">
-                {t('governance.scheduler.edit.notifyDefault')}
-              </NativeSelectOption>
-              <NativeSelectOption value="telegram">telegram</NativeSelectOption>
-              <NativeSelectOption value="whatsapp">whatsapp</NativeSelectOption>
-              <NativeSelectOption value="email">email</NativeSelectOption>
-              <NativeSelectOption value="stdout">stdout</NativeSelectOption>
-            </NativeSelect>
+              onValueChange={setNotify}
+              options={[
+                { value: '', label: t('governance.scheduler.edit.notifyDefault') },
+                ...['telegram', 'whatsapp', 'email', 'stdout'].map((channel) => ({
+                  value: channel,
+                  label: channel,
+                })),
+              ]}
+            />
           </div>
 
           {edit.isError && (

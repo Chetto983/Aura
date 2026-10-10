@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../../i18n/i18n';
 import type { PimAccount, PimAuthStatus, PimDeviceStart, PimGoogleStart } from '../pimApi';
 import { HttpError } from '../../api/json';
+import { chooseOption, optionNames } from '../../test/chooseOption';
 
 // CalendarConnect test — the cockpit calendar/PIM connect section. It mocks the connect API to drive:
 // the accounts list (render + disconnect), the empty/offline states, and the provider-driven add
@@ -84,8 +85,8 @@ function fillField(label: RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
 
-function selectProvider(value: string) {
-  fireEvent.change(screen.getByLabelText('Provider'), { target: { value } });
+function selectProvider(label: string) {
+  return chooseOption('Provider', label);
 }
 
 describe('isCalendarServer', () => {
@@ -193,7 +194,7 @@ describe('CalendarConnect', () => {
     renderConnect();
     await screen.findByText(/No calendar accounts yet/i);
 
-    selectProvider('imap');
+    await selectProvider('IMAP / SMTP');
     const password = screen.getByLabelText(/^Password/i);
     expect(password.getAttribute('type')).toBe('password');
 
@@ -334,7 +335,7 @@ describe('CalendarConnect', () => {
     renderConnect();
     await screen.findByText(/No calendar accounts yet/i);
 
-    selectProvider('microsoft365');
+    await selectProvider('Microsoft 365');
     // The tenant and client are admin-set: the member types neither.
     expect(screen.queryByLabelText(/Tenant ID/i)).toBeNull();
     expect(screen.queryByLabelText(/^Client ID/i)).toBeNull();
@@ -365,7 +366,7 @@ describe('CalendarConnect', () => {
     renderConnect();
     await screen.findByText(/No calendar accounts yet/i);
 
-    selectProvider('imap');
+    await selectProvider('IMAP / SMTP');
     fillField(/Account ID/i, 'mail');
     fillField(/Display name/i, 'Mailbox');
     fillField(/IMAP host/i, 'imap.example.com');
@@ -397,10 +398,8 @@ describe('CalendarConnect', () => {
     renderConnect();
     await screen.findByText(/No calendar accounts yet/i);
 
-    selectProvider('json');
-    const source = screen.getByLabelText('Source');
-    if (!(source instanceof HTMLSelectElement)) throw new Error('Source is not a select');
-    expect(Array.from(source.options).map((o) => o.value)).toEqual(['onedrive']);
+    await selectProvider('JSON file');
+    expect(await optionNames('Source')).toEqual(['OneDrive']);
     expect(screen.getByLabelText(/OneDrive path/i)).toBeTruthy();
     expect(screen.queryByLabelText(/File path/i)).toBeNull();
   });
@@ -468,7 +467,7 @@ describe('CalendarConnect', () => {
     listPimAccounts.mockResolvedValue({ accounts: [] });
     renderConnect();
     await screen.findByText(/No calendar accounts yet/i);
-    selectProvider('outlook.com');
+    await selectProvider('Outlook.com');
     expect(await screen.findByText(/administrator has to configure Outlook\.com/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create account' })).toHaveProperty('disabled', true);
   });

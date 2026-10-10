@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { gotoAuthenticated } from './auth';
+import { chooseValue, openOptions } from './support/select';
 
 // composer-effort.spec.ts is the Phase-37E terminal acceptance E2E (WEBMODEL-01/03): it drives the
 // capability-aware reasoning-effort selector end-to-end against the REAL rebuilt cockpit bundle
@@ -159,8 +160,9 @@ test.describe('cockpit composer reasoning-effort selector — dynamic levels + a
     // full seven (Medium/Extra/Max are NOT advertised by this model and must be absent).
     const selector = page.getByRole('combobox', { name: 'Reasoning effort' });
     await expect(selector).toBeVisible();
-    await expect(selector.locator('option')).toHaveText(['Auto', 'Off', 'Low', 'High']);
-    await expect(selector).toHaveValue('auto');
+    await expect(await openOptions(selector)).toHaveText(['Auto', 'Off', 'Low', 'High']);
+    await page.keyboard.press('Escape');
+    await expect(selector).toHaveText('Auto');
     domAssertions += 1;
 
     // 2) AUTO OMITS: sending on the default 'auto' carries NO aura.effort (the adaptive default is
@@ -176,8 +178,8 @@ test.describe('cockpit composer reasoning-effort selector — dynamic levels + a
     domAssertions += 1;
 
     // 3) WIRE: pick 'high', send, and the intercepted /agent/run body carries aura.effort === high.
-    await selector.selectOption('high');
-    await expect(selector).toHaveValue('high');
+    await chooseValue(selector, 'high');
+    await expect(selector).toHaveText('High');
     await composer.fill('think hard about this');
     await Promise.all([
       page.waitForRequest((req) => req.url().includes('/agent/run') && req.method() === 'POST'),
@@ -190,7 +192,7 @@ test.describe('cockpit composer reasoning-effort selector — dynamic levels + a
 
     // 4) NO CLEAR: unlike the pinned skill, the effort is a per-conversation preference — it stays
     // selected after the send (no reset to auto).
-    await expect(selector).toHaveValue('high');
+    await expect(selector).toHaveText('High');
     domAssertions += 1;
 
     expect(domAssertions).toBeGreaterThanOrEqual(4);
@@ -207,20 +209,20 @@ test.describe('cockpit composer reasoning-effort selector — dynamic levels + a
     await gotoAuthenticated(page, `/c/${CONV_ID}`);
     const selector = page.getByRole('combobox', { name: 'Reasoning effort' });
     await expect(selector).toBeVisible();
-    await expect(selector).toHaveValue('high');
+    await expect(selector).toHaveText('High');
     domAssertions += 1;
 
     // Switch to a DIFFERENT conversation (no stored effort) → the selector hydrates 'auto' (the
     // value is per-conversation, not a global sticky).
     await page.goto(`/c/${PLAIN_ID}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByPlaceholder('Ask Aura')).toBeVisible();
-    await expect(selector).toHaveValue('auto');
+    await expect(selector).toHaveText('Auto');
     domAssertions += 1;
 
     // REOPEN the first conversation → the persisted 'high' is restored (WEBMODEL-01 persistence).
     await page.goto(`/c/${CONV_ID}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByPlaceholder('Ask Aura')).toBeVisible();
-    await expect(selector).toHaveValue('high');
+    await expect(selector).toHaveText('High');
     domAssertions += 1;
 
     expect(domAssertions).toBeGreaterThanOrEqual(3);

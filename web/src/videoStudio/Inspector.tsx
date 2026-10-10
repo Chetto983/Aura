@@ -6,7 +6,7 @@ import { AudioItemInspector } from './Inspector_audio';
 import { ClipInspector, type ClipTab } from './Inspector_clip';
 import { overlayWindow, type OverlayItem, type VideoProject } from './project';
 import { Input } from '@/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 
 type Commit = (edit: (current: VideoProject) => VideoProject) => void;
 const ANIMATIONS = ['none', 'fadeIn', 'fadeOut'] as const;
@@ -130,19 +130,17 @@ function AnimationField({
   return (
     <div className="flex flex-col gap-1 text-xs text-text-muted">
       <label htmlFor={id}>{t('videoStudio.inspector.animation')}</label>
-      <NativeSelect
+      <Select
         id={id}
         value={value}
-        onChange={(event) => {
-          onPick(asAnimation(event.target.value));
+        onValueChange={(next) => {
+          onPick(asAnimation(next));
         }}
-      >
-        {ANIMATIONS.map((name) => (
-          <NativeSelectOption key={name} value={name}>
-            {t(`videoStudio.inspector.animations.${name}`)}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
+        options={ANIMATIONS.map((name) => ({
+          value: name,
+          label: t(`videoStudio.inspector.animations.${name}`),
+        }))}
+      />
     </div>
   );
 }
