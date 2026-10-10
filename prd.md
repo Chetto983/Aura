@@ -2327,6 +2327,25 @@ server. Before, an empty `default` fell back to every enabled server, so removin
 member from `default` mounted everything else. There is still no command to delete a
 profile. This measures the CLI; the cockpit offers no profile switch.
 
+A default-on recipe toggled from the cockpit has to stay runnable. Measured on the lab VM
+on 2026-10-10. The lifecycle acceptance run disabled and re-enabled `calendar` at
+16:53-16:54 UTC. That left an explicit `enabled=true` row with no profile, while
+`default` held only `elevenlabs` and `linear`. The runnable set dropped the row, and
+default-on injection deferred to it. Aura's own sidecars take a 15-minute token with no
+refresh token, renewed every 5 minutes for runnable servers only. The calendar's last
+renewal was at 16:51:32 and it expired at 17:06:32. From then on the board read "dial
+failed" and every call logged `token expired and refresh token is not set`. The sidecar
+stayed healthy and reachable throughout. Two changes followed:
+- An enable now puts the server in the active profile when that profile is defined.
+- A mount an operator waits on (install or enable) renews the caller's first-party grant
+  first, because a sidecar disabled for longer than one token lifetime comes back with a
+  dead one.
+
+This does not establish:
+- the repair on the VM: it needs the image carrying the fix and one disable/enable of
+  `calendar`;
+- whatsapp or browser: no run toggled them, though they are default-on the same way.
+
 Session termination is observed through the SDK lifecycle rather than a duplicate
 liveness poller. Mount, call, elicitation and shutdown have finite configured bounds;
 negative call timeouts cannot request unlimited execution. The production elicitation

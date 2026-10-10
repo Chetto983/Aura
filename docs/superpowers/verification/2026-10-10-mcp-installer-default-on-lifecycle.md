@@ -15,13 +15,31 @@ route. One Chromium test passed in 3.2 seconds (4.3 seconds including runner set
 - Clicking Disable changed the control to `Enable server`.
 - After a full page reload and reopening Governance, `calendar` still exposed Enable: the
   explicit `enabled=false` override had persisted through the real backend.
-- Clicking Enable restored the original state and the detail exposed Disable again.
+- Clicking Enable brought the detail back to Disable. It did not restore the original state;
+  see the correction below.
 - The Add MCP server panel exposed exactly `Custom (stdio)` and `Remote (HTTP)`.
 - Custom stdio was selected by default, the Command field was visible, and there was no exact
   Recipe mode button. The `recipe:*` origin badges in the server list remained visible.
 
 The final read-back left `calendar` enabled. No MCP server was created or removed, and the
 temporary live-only Playwright spec was removed after the run.
+
+## Correction, measured at 17:55 UTC
+
+The run left `calendar` enabled but no longer runnable. Its disable wrote an explicit
+`aura.mcp_server` row, created at 16:53:46, and its enable set that row to `enabled=true`
+at 16:54:15 with `profiles={}`. The active `default` profile held only `elevenlabs` and
+`linear`. A registry server outside the active profile is not runnable, and default-on
+injection defers to an explicit row. The first-party keeper therefore stopped renewing
+calendar's grant. The last renewal was at 16:51:32 and the grant expired at 17:06:32. The
+memory and whatsapp grants kept renewing, the latest at 17:49:45. From then on the board
+showed "Errore — dial failed", and aura logged `token expired and refresh token is not
+set` for calendar every minute. `aura-pim-mcp` stayed healthy and answered `/health` from
+inside aura.
+
+The detail's Disable control was the only state this run read back. It cannot tell an
+implicit recipe from an explicit row outside the profile. The fix and its record are in
+prd.md §13.
 
 ## What this run does not prove
 
