@@ -2341,9 +2341,13 @@ stayed healthy and reachable throughout. Two changes followed:
   first, because a sidecar disabled for longer than one token lifetime comes back with a
   dead one.
 
+Measured on the VM at 18:28 UTC with `facb60b1b`. The operator disabled and enabled
+`calendar` once. The row joined `default`, a grant was self-issued 0.2 s before the live
+mount, and the board's probe answered `ok (1 tools)`. One tool is the shape:
+`calendar__calendar` is a single multiplexed tool.
+
 This does not establish:
-- the repair on the VM: it needs the image carrying the fix and one disable/enable of
-  `calendar`;
+- an agent turn that calls calendar after the repair;
 - whatsapp or browser: no run toggled them, though they are default-on the same way.
 
 Session termination is observed through the SDK lifecycle rather than a duplicate
