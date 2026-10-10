@@ -5,9 +5,11 @@
 export const selectMenuClass =
   'z-50 overflow-hidden rounded-lg border border-border-strong bg-surface-3 p-1 text-text shadow-xl data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95';
 
-/** Classes of one row of the menu: highlighted on hover or keys, accent once chosen. */
+/** Classes of one row of the menu: highlighted on hover or keys, accent once chosen. A
+ * disabled row is read from aria-disabled="true", which Radix and cmdk both write: cmdk also
+ * writes data-disabled="false" on every enabled row, so a bare data-[disabled] greys them all. */
 export const selectItemClass =
-  'relative flex min-h-10 cursor-default items-center rounded-md py-2 pr-8 pl-3 text-[13px] outline-none select-none data-[highlighted]:bg-surface-2 data-[selected=true]:bg-surface-2 data-[state=checked]:font-semibold data-[state=checked]:text-info data-[disabled]:pointer-events-none data-[disabled]:opacity-50';
+  'relative flex min-h-10 cursor-default items-center rounded-md py-2 pr-8 pl-3 text-[13px] outline-none select-none data-[highlighted]:bg-surface-2 data-[selected=true]:bg-surface-2 data-[state=checked]:font-semibold data-[state=checked]:text-info aria-disabled:pointer-events-none aria-disabled:opacity-50';
 
 /** Classes of the closed trigger, at the 44 px touch size of the cockpit's inputs. */
 export const selectTriggerClass =
