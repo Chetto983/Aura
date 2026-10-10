@@ -198,8 +198,8 @@ mutation ≥70% on the critical files.
      the operator the tool is disabled, with no retry loop, on two models of the release's
      matrix. Written first for `calendar send_email`. That is not a subject: the gateway's is
      `calendar__calendar` plus action `send_email`. And a confirmed draft passes a deny there
-     by decision (above). Run on 2026-10-10 with `web_search` and one model: no retry, and 2
-     of 10 turns told the operator;
+     by decision (above). Run twice on 2026-10-10 with `web_search` and one model: no retry,
+     and 2, then 6, of 10 turns told the operator;
   3. `always` granted on `shell_exec`, then `ask` set: the next `shell_exec` prompts and the
      grant row is gone;
   4. count the extra rounds a denied tool costs each model over ten turns, to decide whether

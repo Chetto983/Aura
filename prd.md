@@ -564,10 +564,11 @@ policy", whether it retries or tells the operator, is for the lab VM, and so is 
 operator prompts of `ask` on a busy read-only tool.
 
 **A denied tool on the lab VM, and a confirmed draft that passes a deny, 2026-10-10.** With
-gemma4:31b-cloud, `deny` on `web_search` and ten questions that needed it: every turn called it
-once and never retried. Only 2 of 10 told the operator it was disabled. Eight answered anyway,
-seven through the agent-browser and one through `web_fetch`: a deny stops a tool, not what the
-tool does. `deny` on `calendar__calendar` action `send_email` did not stop an email. For a
+gemma4:31b-cloud, `deny` on `web_search` and ten questions that needed it, run twice an hour
+apart: every turn called it once and never retried. The first run told the operator it was
+disabled in 2 of 10 turns and answered anyway in 8, seven of them through the agent-browser and
+one through `web_fetch`. The second told the operator in 6 and went to the browser in 2. A deny
+stops a tool, not what the tool does, and how often the model says so varies from run to run. `deny` on `calendar__calendar` action `send_email` did not stop an email. For a
 trusted outbound tool the agent drafts the message before the gateway
 (`withholdOutboundMessage`), so the model never hears of the policy, and once the operator
 confirms the draft, `Decide` allows the send through `decideReviewedMessage`, ahead of the policy
@@ -2033,6 +2034,23 @@ measured, which would still fill the 2 GiB. Not shown: whether a model closes it
 because of the new lines; whether a live view watched without input survives three idle minutes
 (on 2026-09-27 only a key every 5 s was measured); browsers started through `shell_exec`, which
 the bridge does not see; and how many browsers an operator keeps open in real use.
+
+Measured on `16602b330` the same afternoon, with the same model:
+
+- **The cap.** A turn that asked for four sites in four sessions ended with three browsers. The
+  bridge closed the oldest to make room, and all four titles came back with their opens.
+- **The box,** with that turn and the ten policy questions again, sampled every 10 s: at most
+  3 browsers, `pids.peak` 625, no refused fork, `memory.peak` 1204 MiB, and memory never at
+  its cap.
+- **Idle shutdown.** Each browser closed 3:00-3:10 after its last call.
+- **Closes.** The model closed none of its seven sessions, though every open's result named
+  the close tool. The bridge's list therefore lags the box: three of the cap's closes were
+  no-ops on browsers the idle shutdown had ended, and the model was still told it had closed
+  them.
+- **The live view.** A session the operator took over in the live view was still up 4:11 after
+  the agent's last call.
+
+Not shown: a passive viewer with no input past three minutes; a second model.
 
 **Chrome no longer signs itself in, measured 2026-09-27.** After the operator signed in to
 YouTube through the live view, Chrome's account consistency (DICE) opened `chrome://signin-error`
