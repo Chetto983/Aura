@@ -39,6 +39,9 @@ export interface McpServerRow {
   readonly authStatus: string;
   readonly profiles: readonly string[];
   readonly envKeys: readonly McpEnvChip[];
+  /** True only when the row is stored in the managed registry and can be deleted.
+   * Default-on appliance recipes are derived policy: they can be disabled, not removed. */
+  readonly removable: boolean;
   readonly lastError?: string;
 }
 
@@ -208,6 +211,7 @@ function normalizeMcpServerRow(row: McpServerRow): McpServerRow {
     authStatus: stringValue(raw.authStatus),
     profiles: stringList(raw.profiles),
     envKeys: envChipList(raw.envKeys),
+    removable: raw.removable === true,
   };
   return typeof raw.lastError === 'string'
     ? { ...normalized, lastError: raw.lastError }

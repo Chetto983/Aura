@@ -25,6 +25,9 @@ func TestGovernanceMCPBoardIncludesContainerRecipes(t *testing.T) {
 		if server.Source != "recipe:"+name {
 			t.Fatalf("%s source = %q, want recipe:%s", name, server.Source, name)
 		}
+		if providers.MCP.RemovableServers()[name] {
+			t.Fatalf("implicit container recipe %q reported as removable", name)
+		}
 	}
 }
 
@@ -55,6 +58,9 @@ func TestGovernanceMCPBoardSeesAServerInstalledAfterBoot(t *testing.T) {
 	if server.URL != "https://mcp.slack.com/mcp" {
 		t.Fatalf("slack url = %q, want the installed one", server.URL)
 	}
+	if !providers.MCP.RemovableServers()["slack"] {
+		t.Fatal("installed slack server reported as non-removable")
+	}
 }
 
 // A default-on recipe has no registry row until somebody customizes it, so a board that
@@ -70,5 +76,19 @@ func TestGovernanceMCPBoardShowsDefaultOnMemory(t *testing.T) {
 	}
 	if server.Source != mcp.SourceRecipeMemory {
 		t.Fatalf("memory source = %q, want %q", server.Source, mcp.SourceRecipeMemory)
+	}
+}
+
+func TestGovernanceMCPBoardDoesNotOfferRemoveForADefaultOnOverride(t *testing.T) {
+	t.Setenv("AURA_IN_CONTAINER", "1")
+	withMemoryMCPRegistry(t)
+	off := false
+	seedMCPRegistry(t, mcp.ManagedConfig{MCPServers: map[string]mcp.ManagedServer{
+		"calendar": {Source: "recipe:calendar", Enabled: &off},
+	}})
+
+	providers := buildGovernanceProviders(&config.Config{}, nil, nil, nil, nil)
+	if providers.MCP.RemovableServers()["calendar"] {
+		t.Fatal("disabled default-on calendar reported as removable; deleting its override would re-enable it")
 	}
 }

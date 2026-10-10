@@ -28,6 +28,10 @@ import (
 // with a per-request timeout so a hung server fails only its own row.
 type MCPBoardProvider interface {
 	Servers() mcp.ManagedConfig
+	// RemovableServers is the set of names backed by an operator-managed registry row.
+	// Default-on appliance recipes are visible and can be disabled, but they do not have a
+	// row to delete; the cockpit must not offer a destructive action that can only 404.
+	RemovableServers() map[string]bool
 	Probe(ctx context.Context, name string, server mcp.ManagedServer) mcp.ProbeResult
 	// Mounted reports whether this server's tools are in the live registry right now.
 	//

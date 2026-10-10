@@ -6,7 +6,7 @@ import { gotoAuthenticated } from './auth';
 // It drives the full operator flow on the served SPA (auth from `aura serve`) with the
 // /api/governance/* WRITE endpoints mocked at the page-network layer (so the spec is
 // deterministic + CI-ready against the embedded dist):
-//   (1) MCP install (recipe + custom) → the CLI-equiv + `Will write to:` destination preview,
+//   (1) MCP custom install → the CLI-equiv + `Will write to:` destination preview,
 //       then trust-approve → the row shows mounted with a live tool count;
 //   (2) env-edit → submit a secret, re-open and submit the redacted ${KEY} placeholder → the
 //       secret persists AND a DOM-grep asserts no secret VALUE is in the DOM (key-only echo);
@@ -59,6 +59,7 @@ interface ServerState {
     startupState: string;
     authStatus: string;
     envKeys: { key: string; redacted: boolean }[];
+    removable: boolean;
   }[];
   // `owned` mirrors the server row (governanceApi.SkillRow): the board offers Archive and
   // Delete only on a skill the caller may write to. These fixtures stand in for the
@@ -74,6 +75,7 @@ function freshState(): ServerState {
     mcp: [
       {
         name: 'github',
+        removable: true,
         trust: 'blocked',
         runtime: 'stdio',
         startupState: 'blocked',
@@ -127,6 +129,7 @@ async function installGovernanceWriteRoutes(page: Page, state: ServerState) {
       const name = body.name ?? 'new-server';
       state.mcp.push({
         name,
+        removable: true,
         trust: 'blocked',
         runtime: 'stdio',
         startupState: 'blocked',

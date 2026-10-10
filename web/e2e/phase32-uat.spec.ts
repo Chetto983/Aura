@@ -23,6 +23,7 @@ const MCP_SERVERS = {
   servers: [
     {
       name: 'github',
+      removable: true,
       source: 'recipe:github',
       trust: 'trusted',
       riskPolicy: 'trusted',

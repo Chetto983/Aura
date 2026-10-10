@@ -21,6 +21,7 @@ const MCP_SERVERS = {
       startupState: 'configured',
       authStatus: 'ok',
       envKeys: [{ key: 'GITHUB_TOKEN', redacted: true }],
+      removable: true,
     },
     {
       name: 'filesystem',
@@ -29,6 +30,7 @@ const MCP_SERVERS = {
       startupState: 'configured',
       authStatus: 'ok',
       envKeys: [],
+      removable: false,
     },
   ],
 };
@@ -195,6 +197,24 @@ test.describe('Phase 28 — Governance boards (desktop + mobile)', () => {
 
     // The detail pane shows the env-keys section heading (filesystem has none).
     await expect(page.getByText('No environment keys.')).toBeVisible();
+  });
+
+  test('the MCP installer starts on custom stdio and does not expose recipes', async ({ page }) => {
+    await openGovernance(page);
+    await page.getByRole('button', { name: 'Add MCP server' }).click();
+
+    await expect(page.getByRole('button', { name: 'Recipe' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Custom (stdio)', pressed: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remote (HTTP)', pressed: false })).toBeVisible();
+    await expect(page.getByLabel('Command')).toBeVisible();
+  });
+
+  test('an implicit default-on MCP can be disabled but does not offer Remove', async ({ page }) => {
+    await openGovernance(page);
+    await page.getByText('filesystem').click();
+
+    await expect(page.getByRole('button', { name: /Disable server/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove server' })).toHaveCount(0);
   });
 
   test('selecting a scheduled task shows its paginated run history', async ({ page }) => {

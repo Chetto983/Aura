@@ -186,7 +186,6 @@ export const governanceEn = {
         heading: 'Add MCP server',
         modeLabel: 'Install mode',
         mode: {
-          recipe: 'Recipe',
           custom: 'Custom (stdio)',
           remote: 'Remote (HTTP)',
         },
@@ -195,7 +194,6 @@ export const governanceEn = {
           'A hosted MCP server. If it authorizes each person separately, connect it from its detail pane after installing.',
         urlInvalid: 'Must be an https URL (http is allowed only for localhost).',
         nameLabel: 'Server name',
-        recipeLabel: 'Recipe',
         commandLabel: 'Command',
         commandHint:
           'A resolver launch (uvx, npx) is installed once into its own environment and then run by path, so a mount never re-resolves it. If the executable is not named after the package — or the server lives in a git repository — name both: uvx --from <spec> <executable>.',
@@ -250,6 +248,8 @@ export const governanceEn = {
         removeBody:
           "This deletes the server from your managed config and unmounts its tools. This can't be undone. An audit entry is recorded.",
         removeConfirm: 'Remove server',
+        removeFailed: 'The server could not be removed. Try again or check the runtime logs.',
+        toggleFailed: 'The server state could not be changed. Try again or check the runtime logs.',
         removeCancel: 'Keep server',
         deniedTool: 'Excluded — destructive/denied tool (not mounted).',
         probeWarning: "This server didn't respond — shown for this row only.",
@@ -444,7 +444,6 @@ export const governanceIt = {
         heading: 'Aggiungi server MCP',
         modeLabel: 'Modalità installazione',
         mode: {
-          recipe: 'Ricetta',
           custom: 'Personalizzato (stdio)',
           remote: 'Remoto (HTTP)',
         },
@@ -453,7 +452,6 @@ export const governanceIt = {
           'Un server MCP ospitato. Se autorizza ogni persona separatamente, collegalo dal suo pannello di dettaglio dopo averlo installato.',
         urlInvalid: 'Deve essere un URL https (http è ammesso solo per localhost).',
         nameLabel: 'Nome server',
-        recipeLabel: 'Ricetta',
         commandLabel: 'Comando',
         commandHint:
           "Un avvio tramite resolver (uvx, npx) viene installato una volta sola nel proprio ambiente e poi eseguito per percorso, così nessun mount lo risolve di nuovo. Se l'eseguibile non ha il nome del pacchetto — o il server sta in un repository git — indicali entrambi: uvx --from <spec> <eseguibile>.",
@@ -510,6 +508,9 @@ export const governanceIt = {
         removeBody:
           'Questo elimina il server dalla configurazione gestita e smonta i suoi strumenti. Non è reversibile. Viene registrata una voce di audit.',
         removeConfirm: 'Rimuovi server',
+        removeFailed: 'Impossibile rimuovere il server. Riprova o controlla i log del runtime.',
+        toggleFailed:
+          'Impossibile cambiare lo stato del server. Riprova o controlla i log del runtime.',
         removeCancel: 'Mantieni server',
         deniedTool: 'Escluso — strumento distruttivo/negato (non montato).',
         probeWarning: 'Questo server non ha risposto — mostrato solo per questa riga.',

@@ -26,6 +26,24 @@ func TestSetEnabledMountsWithoutTheBootBudget(t *testing.T) {
 	}
 }
 
+func TestSetEnabledCanDisableAnImplicitDefaultOnRecipe(t *testing.T) {
+	t.Setenv("AURA_IN_CONTAINER", "1")
+	withMemoryMCPRegistry(t)
+	seedMCPRegistry(t, mcp.ManagedConfig{})
+
+	if _, err := (mcpWriteAdapter{live: newTestLiveMount()}).SetEnabled(context.Background(), "admin", "calendar", false); err != nil {
+		t.Fatalf("SetEnabled(default-on calendar): %v", err)
+	}
+
+	server, ok := readMCPRegistry(t).MCPServers["calendar"]
+	if !ok {
+		t.Fatal("disabling default-on calendar did not persist an explicit override")
+	}
+	if server.Enabled == nil || *server.Enabled {
+		t.Fatalf("calendar Enabled = %v, want explicit false", server.Enabled)
+	}
+}
+
 // TestValidateTrustClassReason proves the hoisted single-source-of-truth validator
 // (D-13/Pitfall #5): a known trust class AND a non-empty reason are both required, with
 // surrounding whitespace trimmed on success.

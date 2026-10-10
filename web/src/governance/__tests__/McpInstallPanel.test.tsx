@@ -7,7 +7,7 @@ import type { McpWriteResponse } from '../governanceApi';
 
 // McpInstallPanel test (MCPW-01). It mocks installMcpServer so it can assert:
 //  - the live PREVIEW shows the CLI-equivalent + the `Will write to:` destination,
-//  - the CLI-equivalent updates live as the operator switches Recipe ↔ Custom + types,
+//  - the CLI-equivalent updates live as the operator types a custom launch,
 //  - a duplicate name disables Install with an aria-invalid field error AND fires no request.
 
 const installMcpServer = vi.fn();
@@ -43,7 +43,7 @@ function renderPanel(
 describe('McpInstallPanel (MCPW-01)', () => {
   beforeEach(() => {
     installMcpServer.mockReset();
-    installMcpServer.mockResolvedValue({ name: 'calendar', envKeys: [] });
+    installMcpServer.mockResolvedValue({ name: 'mytool', envKeys: [] });
   });
   afterEach(() => {
     vi.clearAllMocks();
@@ -148,19 +148,21 @@ describe('McpInstallPanel (MCPW-01)', () => {
     expect(installMcpServer).not.toHaveBeenCalled();
   });
 
-  it('shows the live preview: the CLI-equivalent + the Will write to: destination', () => {
+  it('starts with custom stdio, omits recipes, and shows the live preview', () => {
     renderPanel({});
-    // Recipe mode default → `aura mcp install <recipe>`.
+    expect(screen.queryByRole('button', { name: 'Recipe' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Custom (stdio)', pressed: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remote (HTTP)', pressed: false })).toBeTruthy();
+    expect(screen.getByLabelText('Command')).toBeTruthy();
     expect(screen.getByText('CLI equivalent')).toBeTruthy();
-    expect(screen.getByText(/aura mcp install calendar/)).toBeTruthy();
+    expect(screen.getByText('aura mcp add <name>')).toBeTruthy();
     expect(screen.getByText('Will write to:')).toBeTruthy();
     // The registry is a Postgres table now (migration 0101), not a file in a container.
     expect(screen.getByText('postgres: aura.mcp_server')).toBeTruthy();
   });
 
-  it('updates the CLI-equivalent live when switching to Custom and typing a command', () => {
+  it('updates the CLI-equivalent live when typing a custom command', () => {
     renderPanel({});
-    fireEvent.click(screen.getByRole('button', { name: 'Custom (stdio)', pressed: false }));
     fireEvent.change(screen.getByLabelText('Server name'), { target: { value: 'mytool' } });
     fireEvent.change(screen.getByLabelText('Command'), { target: { value: 'mytool-bin' } });
     expect(screen.getByText('aura mcp add mytool -- mytool-bin')).toBeTruthy();
@@ -171,7 +173,6 @@ describe('McpInstallPanel (MCPW-01)', () => {
   // CLI would not run. Blank rows stay out; the panel does not send them either.
   it('carries the arguments into the CLI-equivalent, trimmed, blanks dropped', () => {
     renderPanel({});
-    fireEvent.click(screen.getByRole('button', { name: 'Custom (stdio)', pressed: false }));
     fireEvent.change(screen.getByLabelText('Server name'), { target: { value: 'calc' } });
     fireEvent.change(screen.getByLabelText('Command'), { target: { value: 'uvx' } });
     fireEvent.change(screen.getByLabelText('Argument 1'), { target: { value: '  --from ' } });
@@ -192,7 +193,6 @@ describe('McpInstallPanel (MCPW-01)', () => {
   // when it is not called like its package — the only way to install a git-hosted server.
   it('explains the resolver forms next to the command field', () => {
     renderPanel({});
-    fireEvent.click(screen.getByRole('button', { name: 'Custom (stdio)', pressed: false }));
     const hint = screen.getByText(/uvx --from <spec> <executable>/);
     // And the field points at it, so a screen reader announces the two together.
     expect(screen.getByLabelText('Command').getAttribute('aria-describedby')).toBe(hint.id);
@@ -200,7 +200,8 @@ describe('McpInstallPanel (MCPW-01)', () => {
 
   it('disables Install + shows an aria-invalid error on a duplicate name, no request fires', () => {
     renderPanel({ existingNames: ['calendar'] });
-    // Recipe default = calendar → collides with the existing name.
+    fireEvent.change(screen.getByLabelText('Server name'), { target: { value: 'calendar' } });
+    fireEvent.change(screen.getByLabelText('Command'), { target: { value: 'uvx' } });
     const install = screen.getByRole('button', { name: 'Install server' });
     expect(install.hasAttribute('disabled')).toBe(true);
 
@@ -212,24 +213,6 @@ describe('McpInstallPanel (MCPW-01)', () => {
     expect(installMcpServer).not.toHaveBeenCalled();
   });
 
-  it('enables Install for a unique recipe name and fires the recipe install request', async () => {
-    const onClose = vi.fn();
-    renderPanel({ existingNames: ['memory'], onClose });
-    // Default recipe = calendar, not in existingNames → installable.
-    const install = screen.getByRole('button', { name: 'Install server' });
-    expect(install.hasAttribute('disabled')).toBe(false);
-    fireEvent.click(install);
-    await waitFor(() => {
-      expect(installMcpServer).toHaveBeenCalledTimes(1);
-    });
-    expect(installMcpServer).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'calendar', recipe: 'calendar' }),
-    );
-    await waitFor(() => {
-      expect(onClose).toHaveBeenCalled();
-    });
-  });
-
   it('Discard install calls onClose without a request', () => {
     const onClose = vi.fn();
     renderPanel({ onClose });
@@ -238,16 +221,9 @@ describe('McpInstallPanel (MCPW-01)', () => {
     expect(installMcpServer).not.toHaveBeenCalled();
   });
 
-  it('updates the CLI-equivalent live when a different recipe is selected', () => {
-    renderPanel({});
-    fireEvent.change(screen.getByLabelText('Recipe'), { target: { value: 'whatsapp' } });
-    expect(screen.getByText('aura mcp install whatsapp')).toBeTruthy();
-  });
-
   it('fires a custom stdio install request with the command + trimmed args', async () => {
     const onClose = vi.fn();
     renderPanel({ onClose });
-    fireEvent.click(screen.getByRole('button', { name: 'Custom (stdio)', pressed: false }));
     fireEvent.change(screen.getByLabelText('Server name'), { target: { value: 'mytool' } });
     fireEvent.change(screen.getByLabelText('Command'), { target: { value: '  mytool-bin  ' } });
     fireEvent.change(screen.getByLabelText('Argument 1'), { target: { value: '  --flag  ' } });
@@ -269,7 +245,6 @@ describe('McpInstallPanel (MCPW-01)', () => {
 
   it('declares a box server with its first-start timeout, previewed as the CLI flags', async () => {
     renderPanel({});
-    fireEvent.click(screen.getByRole('button', { name: 'Custom (stdio)', pressed: false }));
     fireEvent.change(screen.getByLabelText('Server name'), { target: { value: 'fetch' } });
     fireEvent.change(screen.getByLabelText('Command'), { target: { value: 'uvx' } });
     fireEvent.change(screen.getByLabelText('Argument 1'), {
@@ -304,7 +279,6 @@ describe('McpInstallPanel (MCPW-01)', () => {
 
   it('adds a new argument row and edits each argument independently', () => {
     renderPanel({});
-    fireEvent.click(screen.getByRole('button', { name: 'Custom (stdio)', pressed: false }));
     fireEvent.change(screen.getByLabelText('Argument 1'), { target: { value: 'first' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add argument' }));
     const second = screen.getByLabelText<HTMLInputElement>('Argument 2');
@@ -322,6 +296,8 @@ describe('McpInstallPanel (MCPW-01)', () => {
       }),
     );
     renderPanel({ existingNames: ['memory'], onClose });
+    fireEvent.change(screen.getByLabelText('Server name'), { target: { value: 'mytool' } });
+    fireEvent.change(screen.getByLabelText('Command'), { target: { value: 'mytool-bin' } });
     const install = screen.getByRole('button', { name: 'Install server' });
     fireEvent.click(install);
     await waitFor(() => {
@@ -331,7 +307,7 @@ describe('McpInstallPanel (MCPW-01)', () => {
     expect(screen.getByRole('button', { name: 'Discard install' }).hasAttribute('disabled')).toBe(
       true,
     );
-    resolve({ name: 'calendar', envKeys: [] });
+    resolve({ name: 'mytool', envKeys: [] });
     await waitFor(() => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
@@ -343,6 +319,8 @@ describe('McpInstallPanel (MCPW-01)', () => {
   it('shows the destructive error alert when the install request fails', async () => {
     installMcpServer.mockRejectedValueOnce(new Error('boom'));
     renderPanel({ existingNames: ['memory'] });
+    fireEvent.change(screen.getByLabelText('Server name'), { target: { value: 'mytool' } });
+    fireEvent.change(screen.getByLabelText('Command'), { target: { value: 'mytool-bin' } });
     fireEvent.click(screen.getByRole('button', { name: 'Install server' }));
     await waitFor(() => {
       expect(screen.getByText(/The install was refused/)).toBeTruthy();

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -46,6 +47,33 @@ type mcpBoardAdapter struct {
 
 // Mounted reports the live registry's answer, not the config's.
 func (a mcpBoardAdapter) Mounted(name string) bool { return a.live.Mounted(name) }
+
+// RemovableServers returns names whose deletion really makes the server disappear. For each
+// stored row it resolves the runtime without that row: if the same name comes back as a
+// default-on policy, Remove would either 404 (implicit row) or delete an explicit disable and
+// silently re-enable the server. Those rows expose only Enable/Disable in the cockpit.
+func (a mcpBoardAdapter) RemovableServers() map[string]bool {
+	doc, err := loadManagedMCPConfig()
+	if err != nil {
+		slog.Error("aura serve: mcp removable-set read failed", "err", err)
+		return nil
+	}
+	out := make(map[string]bool, len(doc.MCPServers))
+	for name := range doc.MCPServers {
+		without := doc
+		without.MCPServers = maps.Clone(doc.MCPServers)
+		delete(without.MCPServers, name)
+		_, policies, resolveErr := mcpmanager.RuntimeSet(without)
+		if resolveErr != nil {
+			slog.Error("aura serve: mcp removable-set resolve failed", "server", name, "err", resolveErr)
+			continue
+		}
+		if _, returnsByDefault := policies[name]; !returnsByDefault {
+			out[name] = true
+		}
+	}
+	return out
+}
 
 func (a mcpBoardAdapter) Servers() mcp.ManagedConfig {
 	doc, err := governanceMCPBoardConfig()

@@ -43,6 +43,7 @@ const SERVERS: McpServerRow[] = [
     // The backend NEVER serializes the value — only the redacted KEY chip. The fixture proves
     // the board renders the key, never a value (the value below is local to the test only).
     envKeys: [{ key: 'GITHUB_TOKEN', redacted: true }],
+    removable: true,
   },
   {
     name: 'filesystem',
@@ -54,6 +55,7 @@ const SERVERS: McpServerRow[] = [
     authStatus: 'ok',
     profiles: [],
     envKeys: [],
+    removable: true,
   },
 ];
 
@@ -267,6 +269,7 @@ describe('McpBoard (GOV-01)', () => {
         authStatus: 'ok',
         profiles: [],
         envKeys: [],
+        removable: true,
         lastError: 'spawn failed (sanitized)',
       },
     ];
@@ -324,8 +327,11 @@ describe('McpBoard (GOV-01)', () => {
       expect(screen.getByText('CLI equivalent')).toBeTruthy();
     });
     expect(screen.getByText('Will write to:')).toBeTruthy();
-    // Recipe | Custom mode toggle is a role=group.
+    // The installer starts on Custom, exposes Remote, and no longer mirrors recipes.
     expect(screen.getByRole('group', { name: /install mode|mode/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Recipe' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Custom (stdio)', pressed: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remote (HTTP)', pressed: false })).toBeTruthy();
 
     // Close the panel via the ✕ (closeAria='Close') — both the panel ✕ and the (lg:hidden)
     // backdrop carry the label; the panel ✕ is first in DOM order.

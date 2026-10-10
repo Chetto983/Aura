@@ -34,6 +34,7 @@ const SERVER: McpServerRow = {
   authStatus: 'ok',
   profiles: [],
   envKeys: [],
+  removable: true,
 };
 
 // Trust & approve exists only for a server that is actually blocked. Installing is the
@@ -91,6 +92,18 @@ describe('McpLifecycleCluster (MCPW-02/03)', () => {
     });
   });
 
+  it('reads an explicitly disabled trusted server as Disabled and enables it on toggle', async () => {
+    setMcpServerEnabled.mockResolvedValue({ name: 'calendar' });
+    renderCluster({ ...SERVER, name: 'calendar', startupState: 'disabled', removable: false });
+
+    const toggle = screen.getByRole('button', { pressed: false });
+    expect(toggle.textContent).toContain('Disabled');
+    fireEvent.click(toggle);
+    await waitFor(() => {
+      expect(setMcpServerEnabled).toHaveBeenCalledWith('calendar', true);
+    });
+  });
+
   // The trust ceremony is gone from the cockpit entirely, blocked servers included:
   // installing a server IS the authorization, so `Trust & approve` changed nothing on any
   // row an operator would click it on — while sitting next to Remove, which changes a great
@@ -137,5 +150,25 @@ describe('McpLifecycleCluster (MCPW-02/03)', () => {
     await waitFor(() => {
       expect(onRemoved).toHaveBeenCalled();
     });
+  });
+
+  it('does not offer Remove for an implicit default-on server', () => {
+    renderCluster({ ...SERVER, name: 'calendar', removable: false });
+    expect(screen.queryByRole('button', { name: 'Remove server' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Disable server/ })).toBeTruthy();
+  });
+
+  it('keeps the dialog open and explains a refused removal', async () => {
+    removeMcpServer.mockRejectedValueOnce(new Error('boom'));
+    renderCluster();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove server' }));
+    const dialog = await screen.findByRole('alertdialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove server' }));
+
+    await waitFor(() => {
+      expect(within(dialog).getByRole('alert')).toBeTruthy();
+    });
+    expect(within(dialog).getByText(/could not be removed/i)).toBeTruthy();
   });
 });

@@ -172,7 +172,17 @@ func (a mcpWriteAdapter) SetEnabled(ctx context.Context, actor, name string, ena
 	}
 	server, ok := doc.MCPServers[name]
 	if !ok {
-		return agui.MCPWriteResult{}, agui.ErrMCPServerNotFound
+		// Default-on recipes have no registry row until the operator changes them. Resolve
+		// the active policy and persist that recipe with the requested flag; this is the
+		// explicit override RuntimeSet already treats as authoritative.
+		_, policies, resolveErr := mcpmanager.RuntimeSet(doc)
+		if resolveErr != nil {
+			return agui.MCPWriteResult{}, resolveErr
+		}
+		server, ok = policies[name]
+		if !ok {
+			return agui.MCPWriteResult{}, agui.ErrMCPServerNotFound
+		}
 	}
 	enabledCopy := enabled
 	server.Enabled = &enabledCopy

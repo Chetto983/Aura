@@ -53,6 +53,7 @@ describe('governanceApi same-origin throwing fetch', () => {
           authStatus: 'ok',
           profiles: ['work'],
           envKeys: [{ key: 'GITHUB_TOKEN', redacted: true }],
+          removable: true,
         },
       ],
     });
@@ -70,6 +71,7 @@ describe('governanceApi same-origin throwing fetch', () => {
         authStatus: 'ok',
         profiles: ['work'],
         envKeys: [{ key: 'GITHUB_TOKEN', redacted: true }],
+        removable: true,
       },
     ]);
 
@@ -120,6 +122,7 @@ describe('governanceApi same-origin throwing fetch', () => {
         authStatus: 'unsupported',
         profiles: [],
         envKeys: [],
+        removable: false,
       },
       {
         name: 'whatsapp',
@@ -131,6 +134,7 @@ describe('governanceApi same-origin throwing fetch', () => {
         authStatus: 'unsupported',
         profiles: [],
         envKeys: [],
+        removable: false,
       },
     ]);
   });

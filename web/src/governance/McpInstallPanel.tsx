@@ -11,32 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 
-// McpInstallPanel (MCPW-01) — the install form in the BoardLayout detail slot. A 2-segment
-// Recipe | Custom (stdio) toggle (Recipe default, lower-risk/guided); Recipe renders a
-// dropdown of the built-in catalog recipes and their RequiredEnv as a guided form; Custom
-// renders command + repeatable args + env key/value rows. A live read-only PREVIEW shows the
-// CLI-equivalent (`aura mcp install …` / `aura mcp add … -- …`) and the `Will write to:`
-// managed-config destination BEFORE save (MCPW-01 AC). A duplicate name → an inline aria-invalid
-// field error + Install disabled, no request fires (idempotency edge). Abandon = Discard install.
-//
-// The catalog is mirrored as a frontend descriptor (the read DTO does not expose it); the
-// recipe names + RequiredEnv match internal/mcp/manager/catalog.go BuiltInCatalog().
-
-interface RecipeDescriptor {
-  readonly name: string;
-  readonly requiredEnv: readonly string[];
-}
-
-// BuiltInCatalog() recipes (catalog.go) — none currently declare RequiredEnv, but the guided
-// form renders any future RequiredEnv as labelled inputs (secret-typed vars are masked).
-const RECIPES: readonly RecipeDescriptor[] = [
-  { name: 'calendar', requiredEnv: [] },
-  { name: 'memory', requiredEnv: [] },
-  { name: 'whatsapp', requiredEnv: [] },
-  { name: 'browser', requiredEnv: [] },
-];
+// McpInstallPanel (MCPW-01) — the install form in the BoardLayout detail slot. It starts on
+// Custom (stdio), with Remote (HTTP) as the other transport. Built-in recipe installation
+// remains available through the CLI/API, but duplicating that catalog here made the form open
+// on an already-installed recipe and immediately show an error. A live read-only PREVIEW shows
+// the CLI-equivalent (`aura mcp add …`) and the `Will write to:` managed-config destination
+// BEFORE save (MCPW-01 AC). A duplicate name → an inline aria-invalid field error + Install
+// disabled, no request fires (idempotency edge). Abandon = Discard install.
 
 /** Where an installed server lands, shown in the preview before save. It was a filesystem
  * path, which only meant anything to somebody with a shell inside the container; the
@@ -47,7 +29,7 @@ const DEFAULT_DESTINATION = 'postgres: aura.mcp_server';
 // takes (Slack, Notion, Linear). The install request has carried `url`/`type` since the
 // write layer landed; only this panel could not express it, which made a hosted connector
 // unaddable from the cockpit however well the rest of the flow worked.
-type Mode = 'recipe' | 'custom' | 'remote';
+type Mode = 'custom' | 'remote';
 
 type Runtime = 'local' | 'box';
 
@@ -72,13 +54,11 @@ export function McpInstallPanel({ existingNames, onClose }: McpInstallPanelProps
   const headingId = useId();
   const nameId = useId();
 
-  const [mode, setMode] = useState<Mode>('recipe');
-  const [recipe, setRecipe] = useState<string>(RECIPES[0]?.name ?? '');
+  const [mode, setMode] = useState<Mode>('custom');
   const [name, setName] = useState('');
   const [command, setCommand] = useState('');
   const [args, setArgs] = useState<string[]>(['']);
   const [url, setUrl] = useState('');
-  const [recipeEnv, setRecipeEnv] = useState<Record<string, string>>({});
   const [runtime, setRuntime] = useState<Runtime>('local');
   const [initTimeout, setInitTimeout] = useState('');
   const initTimeoutSec = runtime === 'box' ? parseInitTimeout(initTimeout) : undefined;
@@ -89,13 +69,8 @@ export function McpInstallPanel({ existingNames, onClose }: McpInstallPanelProps
 
   const existing = useMemo(() => new Set(existingNames), [existingNames]);
 
-  // The effective install name: in recipe mode the name defaults to the recipe name unless the
-  // operator overrode it; in custom mode it is the typed name.
-  const effectiveName = name.trim() !== '' ? name.trim() : mode === 'recipe' ? recipe : '';
+  const effectiveName = name.trim();
   const duplicate = effectiveName !== '' && existing.has(effectiveName);
-
-  const selectedRecipe = RECIPES.find((r) => r.name === recipe);
-  const requiredEnv = mode === 'recipe' ? (selectedRecipe?.requiredEnv ?? []) : [];
 
   // The board refreshes however the install ends: a failure can still have saved the row (the
   // server stores it before mounting, and a proxy may stop waiting on the mount), and a board
@@ -109,27 +84,15 @@ export function McpInstallPanel({ existingNames, onClose }: McpInstallPanelProps
   });
 
   const cliEquivalent =
-    mode === 'recipe'
-      ? `aura mcp install ${recipe}`
-      : mode === 'remote'
-        ? `aura mcp add ${effectiveName || '<name>'} --url ${url.trim() || '<url>'}`
-        : `aura mcp add ${effectiveName || '<name>'}${runtimeFlags}${
-            command.trim() !== ''
-              ? ` -- ${[command.trim(), ...args.map((a) => a.trim()).filter((a) => a !== '')].join(' ')}`
-              : ''
-          }`;
+    mode === 'remote'
+      ? `aura mcp add ${effectiveName || '<name>'} --url ${url.trim() || '<url>'}`
+      : `aura mcp add ${effectiveName || '<name>'}${runtimeFlags}${
+          command.trim() !== ''
+            ? ` -- ${[command.trim(), ...args.map((a) => a.trim()).filter((a) => a !== '')].join(' ')}`
+            : ''
+        }`;
 
   function buildRequest(): McpInstallRequest {
-    if (mode === 'recipe') {
-      const env = requiredEnv
-        .filter((key) => (recipeEnv[key] ?? '') !== '')
-        .map((key) => `${key}=${recipeEnv[key] ?? ''}`);
-      return {
-        name: effectiveName,
-        recipe,
-        ...(env.length > 0 ? { env } : {}),
-      };
-    }
     if (mode === 'remote') {
       return { name: effectiveName, url: url.trim(), type: 'streamable_http' };
     }
@@ -146,11 +109,7 @@ export function McpInstallPanel({ existingNames, onClose }: McpInstallPanelProps
     effectiveName !== '' &&
     !duplicate &&
     !mutation.isPending &&
-    (mode === 'recipe'
-      ? recipe !== ''
-      : mode === 'remote'
-        ? isHTTPSURL(url)
-        : command.trim() !== '' && !Number.isNaN(initTimeoutSec));
+    (mode === 'remote' ? isHTTPSURL(url) : command.trim() !== '' && !Number.isNaN(initTimeoutSec));
 
   function submit() {
     if (!canInstall) return;
@@ -192,13 +151,13 @@ export function McpInstallPanel({ existingNames, onClose }: McpInstallPanelProps
         </Button>
       </header>
 
-      {/* Mode toggle — Recipe | Custom (stdio) | Remote (HTTP). */}
+      {/* Mode toggle — Custom (stdio) | Remote (HTTP). */}
       <div
         role="group"
         aria-label={t('governance.mcp.install.modeLabel')}
         className="flex gap-1 rounded-md bg-surface-2 p-1"
       >
-        {(['recipe', 'custom', 'remote'] as const).map((m) => (
+        {(['custom', 'remote'] as const).map((m) => (
           <Button
             key={m}
             type="button"
@@ -225,7 +184,6 @@ export function McpInstallPanel({ existingNames, onClose }: McpInstallPanelProps
           onChange={(event) => {
             setName(event.target.value);
           }}
-          placeholder={mode === 'recipe' ? recipe : undefined}
           aria-invalid={ariaInvalid(duplicate)}
           aria-describedby={duplicate ? `${nameId}-err` : undefined}
           className="font-mono text-[13px]"
@@ -237,17 +195,7 @@ export function McpInstallPanel({ existingNames, onClose }: McpInstallPanelProps
         ) : null}
       </div>
 
-      {mode === 'recipe' ? (
-        <RecipeFields
-          recipe={recipe}
-          onRecipeChange={setRecipe}
-          requiredEnv={requiredEnv}
-          recipeEnv={recipeEnv}
-          onEnvChange={(key, value) => {
-            setRecipeEnv((prev) => ({ ...prev, [key]: value }));
-          }}
-        />
-      ) : mode === 'remote' ? (
+      {mode === 'remote' ? (
         <RemoteFields url={url} onURLChange={setUrl} />
       ) : (
         <CustomFields
@@ -302,68 +250,6 @@ export function McpInstallPanel({ existingNames, onClose }: McpInstallPanelProps
         ) : null}
       </div>
     </section>
-  );
-}
-
-function RecipeFields({
-  recipe,
-  onRecipeChange,
-  requiredEnv,
-  recipeEnv,
-  onEnvChange,
-}: {
-  readonly recipe: string;
-  readonly onRecipeChange: (next: string) => void;
-  readonly requiredEnv: readonly string[];
-  readonly recipeEnv: Record<string, string>;
-  readonly onEnvChange: (key: string, value: string) => void;
-}) {
-  const { t } = useTranslation();
-  const selectId = useId();
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={selectId} className="text-[13px] font-semibold text-text">
-          {t('governance.mcp.install.recipeLabel')}
-        </Label>
-        <NativeSelect
-          id={selectId}
-          value={recipe}
-          onChange={(event) => {
-            onRecipeChange(event.target.value);
-          }}
-          className="w-full bg-surface-3 text-[13px]"
-        >
-          {RECIPES.map((r) => (
-            <NativeSelectOption key={r.name} value={r.name}>
-              {r.name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </div>
-      {requiredEnv.map((key) => {
-        const fieldId = `recipe-env-${key}`;
-        return (
-          <div key={key} className="flex flex-col gap-1">
-            <Label
-              htmlFor={fieldId}
-              className="break-all font-mono text-[13px] font-semibold text-text"
-            >
-              {key}
-            </Label>
-            <Input
-              id={fieldId}
-              type="text"
-              value={recipeEnv[key] ?? ''}
-              onChange={(event) => {
-                onEnvChange(key, event.target.value);
-              }}
-              className="font-mono text-[13px]"
-            />
-          </div>
-        );
-      })}
-    </div>
   );
 }
 

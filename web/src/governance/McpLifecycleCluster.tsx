@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Power, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { removeMcpServer, setMcpServerEnabled, type McpServerRow } from './governanceApi';
+import { HttpError } from '../api/json';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
@@ -28,9 +30,9 @@ export function McpLifecycleCluster({ server, onRemoved }: McpLifecycleClusterPr
   const queryClient = useQueryClient();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
-  // A blocked server reads as disabled; an enabled flag is absent on the read row, so the
-  // toggle reflects whether the server is runnable (not blocked). The backend is the authority.
-  const enabled = server.trust !== 'blocked';
+  // The read row projects an explicit enabled=false as startupState=disabled. Trust-blocked
+  // is also non-runnable, but must not hide the distinct disabled state.
+  const enabled = server.startupState !== 'disabled' && server.trust !== 'blocked';
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['governance', 'mcp'] });
@@ -83,24 +85,38 @@ export function McpLifecycleCluster({ server, onRemoved }: McpLifecycleClusterPr
           </span>
         </Button>
 
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            setConfirmingRemove(true);
-          }}
-          className="border border-danger text-danger hover:bg-danger/10 hover:text-danger"
-        >
-          <Trash2 data-icon aria-hidden="true" className="size-4" />
-          {t('governance.mcp.lifecycle.remove')}
-        </Button>
+        {server.removable ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              removeMutation.reset();
+              setConfirmingRemove(true);
+            }}
+            className="border border-danger text-danger hover:bg-danger/10 hover:text-danger"
+          >
+            <Trash2 data-icon aria-hidden="true" className="size-4" />
+            {t('governance.mcp.lifecycle.remove')}
+          </Button>
+        ) : null}
       </div>
+
+      {enableMutation.isError ? (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {enableMutation.error instanceof HttpError && enableMutation.error.reason !== ''
+              ? enableMutation.error.reason
+              : t('governance.mcp.lifecycle.toggleFailed')}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {confirmingRemove ? (
         <RemoveDialog
           open={confirmingRemove}
           name={server.name}
           pending={removeMutation.isPending}
+          error={removeMutation.error}
           onConfirm={() => {
             removeMutation.mutate();
           }}
@@ -119,16 +135,22 @@ function RemoveDialog({
   open,
   name,
   pending,
+  error,
   onConfirm,
   onCancel,
 }: {
   readonly open: boolean;
   readonly name: string;
   readonly pending: boolean;
+  readonly error: unknown;
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
 }) {
   const { t } = useTranslation();
+  const errorMessage =
+    error instanceof HttpError && error.reason !== ''
+      ? error.reason
+      : t('governance.mcp.lifecycle.removeFailed');
 
   return (
     <ConfirmDialog
@@ -145,6 +167,12 @@ function RemoveDialog({
       confirmLabel={t('governance.mcp.lifecycle.removeConfirm')}
       confirmPending={pending}
       onConfirm={onConfirm}
-    />
+    >
+      {error !== null ? (
+        <Alert variant="destructive">
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+    </ConfirmDialog>
   );
 }

@@ -16,8 +16,9 @@ import (
 // providers — the daemon composition root wires real ones in Plan 02 / Plan 05.
 type fakeMCPBoard struct{}
 
-func (fakeMCPBoard) Servers() mcp.ManagedConfig { return mcp.ManagedConfig{} }
-func (fakeMCPBoard) Mounted(string) bool        { return false }
+func (fakeMCPBoard) Servers() mcp.ManagedConfig        { return mcp.ManagedConfig{} }
+func (fakeMCPBoard) Mounted(string) bool               { return false }
+func (fakeMCPBoard) RemovableServers() map[string]bool { return nil }
 func (fakeMCPBoard) Probe(context.Context, string, mcp.ManagedServer) mcp.ProbeResult {
 	return mcp.ProbeResult{}
 }

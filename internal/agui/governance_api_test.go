@@ -21,13 +21,16 @@ type scriptedMCPBoard struct {
 	// mounted is the set of servers the live registry holds. Empty means the board
 	// describes configuration only, which is what every test written before the board
 	// learned to ask the registry assumes.
-	mounted map[string]bool
-	doc     mcp.ManagedConfig
-	probe   func(ctx context.Context, name string, server mcp.ManagedServer) mcp.ProbeResult
-	probed  []string
+	mounted   map[string]bool
+	removable map[string]bool
+	doc       mcp.ManagedConfig
+	probe     func(ctx context.Context, name string, server mcp.ManagedServer) mcp.ProbeResult
+	probed    []string
 }
 
 func (b *scriptedMCPBoard) Servers() mcp.ManagedConfig { return b.doc }
+
+func (b *scriptedMCPBoard) RemovableServers() map[string]bool { return b.removable }
 
 func (b *scriptedMCPBoard) Mounted(name string) bool { return b.mounted[name] }
 
@@ -91,7 +94,10 @@ func secretMCPDoc() mcp.ManagedConfig {
 // TestGovernanceMCPNoSecretAndOrdering: GET /api/governance/mcp returns rows by-name and
 // NEVER serializes a raw env VALUE (only redacted KEY chips) — the T-28-02-01 control.
 func TestGovernanceMCPNoSecretAndOrdering(t *testing.T) {
-	s := govServer(GovernanceProviders{MCP: &scriptedMCPBoard{doc: secretMCPDoc()}})
+	s := govServer(GovernanceProviders{MCP: &scriptedMCPBoard{
+		doc:       secretMCPDoc(),
+		removable: map[string]bool{"alpha": true},
+	}})
 	rec := doGov(t, s, http.MethodGet, "/api/governance/mcp")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
@@ -106,6 +112,7 @@ func TestGovernanceMCPNoSecretAndOrdering(t *testing.T) {
 			Source     string   `json:"source"`
 			RiskPolicy string   `json:"riskPolicy"`
 			Profiles   []string `json:"profiles"`
+			Removable  bool     `json:"removable"`
 			EnvKeys    []struct {
 				Key      string `json:"key"`
 				Redacted bool   `json:"redacted"`
@@ -130,6 +137,9 @@ func TestGovernanceMCPNoSecretAndOrdering(t *testing.T) {
 	}
 	if len(resp.Servers[0].Profiles) != 1 || resp.Servers[0].Profiles[0] != "work" {
 		t.Fatalf("alpha profiles = %#v, want [work]", resp.Servers[0].Profiles)
+	}
+	if !resp.Servers[0].Removable || resp.Servers[1].Removable {
+		t.Fatalf("removable flags = %t, %t; want true, false", resp.Servers[0].Removable, resp.Servers[1].Removable)
 	}
 	// zeta's secret KEY is rendered as a redacted chip; its value is absent.
 	var sawSecretKey, secretFlagged bool

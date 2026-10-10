@@ -44,6 +44,7 @@ const SERVER: McpServerRow = {
     { key: 'GITHUB_TOKEN', redacted: true },
     { key: 'GITHUB_ORG', redacted: false },
   ],
+  removable: true,
 };
 
 const HEALTHY: McpProbeResult = { name: 'github', ok: true, tool_count: 7, detail: 'ok (7 tools)' };
@@ -175,6 +176,7 @@ describe('McpServerDetail', () => {
       authStatus: 'ok',
       profiles: [],
       envKeys: [],
+      removable: true,
       lastError: 'spawn failed',
     };
     const onClose = vi.fn();

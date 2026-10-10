@@ -66,6 +66,7 @@ type mcpServerRow struct {
 	AuthStatus   string       `json:"authStatus"`
 	Profiles     []string     `json:"profiles"`
 	EnvKeys      []mcpEnvChip `json:"envKeys"`
+	Removable    bool         `json:"removable"`
 	LastError    string       `json:"lastError,omitempty"`
 }
 
@@ -135,6 +136,7 @@ func (s *Server) handleMCPList(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	doc := s.governance.MCP.Servers()
+	removable := s.governance.MCP.RemovableServers()
 	statuses := mcpmanager.SnapshotStatus(doc)
 	rows := make([]mcpServerRow, 0, len(statuses))
 	for _, st := range statuses {
@@ -155,6 +157,7 @@ func (s *Server) handleMCPList(w http.ResponseWriter, _ *http.Request) {
 			AuthStatus:   st.AuthStatus,
 			Profiles:     mcpProfiles(doc, st.Name),
 			EnvKeys:      envChips(server.Env),
+			Removable:    removable[st.Name],
 			LastError:    mcp.RedactSecrets(st.LastError),
 		})
 	}
