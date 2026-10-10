@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../i18n/i18n'; // side-effect: initialise i18next so t() resolves keys
 import { ExternalStoreChat } from './ExternalStoreChat';
@@ -124,5 +124,49 @@ describe('rehydrated reasoning rendering (fix-plan 1.12)', () => {
 
     await screen.findByText('Final answer after tools.');
     expect(await screen.findByRole('button', { name: reasoningAffordance })).toBeTruthy();
+  });
+
+  it('renders the persisted reasoning effort after the conversation query resolves', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: unknown) => {
+        if (url === '/api/conversations/conv-1') {
+          return Promise.resolve(
+            new Response(JSON.stringify({ ID: 'conv-1', ReasoningEffort: 'high' }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          );
+        }
+        if (url === '/api/composer/reasoning-capabilities') {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                levels: ['auto', 'off', 'low', 'high'],
+                default: 'auto',
+                backend: 'openai',
+                detected: true,
+              }),
+              { status: 200, headers: { 'Content-Type': 'application/json' } },
+            ),
+          );
+        }
+        if (url === '/threads/conv-1/messages') {
+          return Promise.resolve(
+            new Response(JSON.stringify({ type: 'MESSAGES_SNAPSHOT', messages: [] }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+          );
+        }
+        return Promise.resolve(new Response('[]', { status: 200 }));
+      }),
+    );
+
+    renderChat(<ExternalStoreChat threadId="conv-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('combobox').textContent).toContain('High');
+    });
   });
 });

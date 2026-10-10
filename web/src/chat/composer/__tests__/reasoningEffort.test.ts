@@ -247,4 +247,19 @@ describe('useReasoningEffort', () => {
       expect(result.current.effort).toBe('high');
     });
   });
+
+  it('hydrates when the conversation arrives after the first render', async () => {
+    const { result, rerender } = renderHook(
+      ({ hydrated }: { hydrated: string | undefined }) =>
+        useReasoningEffort('conv-1', hydrated, ['auto', 'off', 'low', 'high'], true),
+      { initialProps: { hydrated: undefined as string | undefined } },
+    );
+
+    expect(result.current.effort).toBe('auto');
+    rerender({ hydrated: 'high' });
+
+    await waitFor(() => {
+      expect(result.current.effort).toBe('high');
+    });
+  });
 });

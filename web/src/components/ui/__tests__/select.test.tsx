@@ -20,6 +20,34 @@ describe('Select', () => {
     expect(onValueChange).toHaveBeenCalledWith('delete');
   });
 
+  it('updates the visible option when its controlled value changes', () => {
+    const onValueChange = vi.fn();
+    const { rerender } = render(
+      <form>
+        <Select
+          aria-label="Action"
+          value="list"
+          onValueChange={onValueChange}
+          options={OPTIONS.slice(0, 2)}
+        />
+      </form>,
+    );
+
+    rerender(
+      <form>
+        <Select
+          aria-label="Action"
+          value="delete"
+          onValueChange={onValueChange}
+          options={OPTIONS}
+        />
+      </form>,
+    );
+
+    expect(screen.getByRole('combobox', { name: 'Action' }).textContent).toContain('delete');
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
   it('keeps an empty value empty, though Radix reserves it', async () => {
     const onValueChange = vi.fn();
     render(<Select aria-label="Action" value="" onValueChange={onValueChange} options={OPTIONS} />);

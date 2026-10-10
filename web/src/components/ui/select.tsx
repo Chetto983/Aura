@@ -51,6 +51,11 @@ export function Select({
     <SelectPrimitive.Root
       value={value === '' && emptyIsOption ? EMPTY_VALUE : value}
       onValueChange={(next) => {
+        // Inside a form Radix mirrors the menu with a hidden native select. When both the
+        // controlled value and option set change together, rebuilding that proxy can emit a
+        // transient empty change even though the operator selected nothing. Empty choices use
+        // EMPTY_VALUE above, so a raw empty string is always internal noise here.
+        if (next === '') return;
         onValueChange(next === EMPTY_VALUE ? '' : next);
       }}
       {...(disabled === undefined ? {} : { disabled })}
