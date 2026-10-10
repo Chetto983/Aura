@@ -124,6 +124,7 @@ func newServeHandler(aguiHandler http.Handler, auth agui.AuthDeps, authulaProvid
 	mux.Handle(approvalGrantsRevokeRoute, aguiHandler)
 	mux.Handle(approvalPoliciesRoute, aguiHandler)
 	mux.Handle(approvalPoliciesClearRoute, aguiHandler)
+	mux.Handle(approvalPoliciesToolsRoute, aguiHandler)
 	mux.Handle(assetsPresignRoute, agui.RequireCapability(aguiHandler, auth, agentRunCapability))
 	mux.Handle(assetsFinalizeRoute, agui.RequireCapability(aguiHandler, auth, agentRunCapability))
 	mux.Handle(assetsPromoteRoute, agui.RequireCapability(aguiHandler, auth, agentRunCapability))

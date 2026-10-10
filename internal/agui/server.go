@@ -136,6 +136,8 @@ type Server struct {
 	// approvalPolicies serves the per-identity ask/deny policies (prd.md §5, 2026-10-09).
 	// nil ⇒ the policy routes answer 503.
 	approvalPolicies approvalPolicyStore
+	// policyTools lists the tools a policy can name (approval_policies_tools.go); nil ⇒ 503.
+	policyTools policyToolLister
 	// board serves the work board (board_api.go); nil ⇒ its routes answer 503.
 	board        boardStore
 	assets       AssetService

@@ -139,6 +139,9 @@ const (
 	// agent may do, so it needs no capability beyond RequireAuth.
 	approvalPoliciesRoute      = "/api/approvals/policies"
 	approvalPoliciesClearRoute = "/api/approvals/policies/clear"
+	// The tools a policy can name, read from the agent's registry: the same list for every
+	// principal, and a read, so it needs nothing beyond RequireAuth either.
+	approvalPoliciesToolsRoute = "/api/approvals/policies/tools"
 )
 
 // imageProxyRoute is the DISP-05/D-09 SSRF-safe image relay (web_result thumbnails/

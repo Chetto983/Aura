@@ -162,6 +162,9 @@ func wireAGUIServer(ctx context.Context, chat *chatEnv, store *cron.Store, sched
 	aguiServer.SetApprovalGrantStore(approvalgrants.New(chat.pool))
 	// The per-identity ask/deny policies that narrow what the agent may do (prd.md §5).
 	aguiServer.SetApprovalPolicyStore(approvalpolicies.New(chat.pool))
+	// The policy form picks from the agent's own tools, MCP mounts included, so it reads the
+	// live registry rather than a list of names that could drift from it.
+	aguiServer.SetPolicyTools(chat.reg)
 	// The work board the cockpit and the agent's `board` tool share (prd.md §16).
 	aguiServer.SetBoardStore(board.New(chat.pool))
 	// Wire the DISP-05/D-09 image-proxy fetcher: a fresh web.Client reusing the SAME

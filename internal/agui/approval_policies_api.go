@@ -31,6 +31,7 @@ func (s *Server) registerApprovalPolicyRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/approvals/policies", s.handleListApprovalPolicies)
 	mux.HandleFunc("PUT /api/approvals/policies", s.handleSetApprovalPolicy)
 	mux.HandleFunc("POST /api/approvals/policies/clear", s.handleClearApprovalPolicy)
+	mux.HandleFunc("GET /api/approvals/policies/tools", s.handleListPolicyTools)
 }
 
 // approvalPolicyItem is the JSON projection of one policy. `subject` is rendered by the same
