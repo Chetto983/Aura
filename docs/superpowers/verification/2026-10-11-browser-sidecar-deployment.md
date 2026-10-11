@@ -42,6 +42,25 @@ Its original state and base image IDs are recorded in the lab directory.
 Do not restart the updater before deciding how the local build will be replaced:
 it uses the base compose files, not this overlay.
 
+## Later manual updates, same day
+
+GitHub had flagged the account, so neither CI images nor the updater could deliver;
+each update below adds a directory beside `-01` and changes only the overlay.
+
+- `-02` (aura `0d72913d7`): the live view's `POST /api/browser/sessions/{session}/control`
+  was never mounted on the cockpit mux. Measured with the operator's session: 404 before,
+  400 `held_required` for a body without `held` and 409 `no_live_view` with no viewer open
+  after. The release with a viewer open was left to the operator.
+- `-03` (aura `f5e5b7b74`, image `aura:lab-browser-sidecar-20261011-03`): a turn's MCP files
+  survive an `ask_user` pause, and the sandbox child
+  `aura-sandbox:lab-browser-sidecar-20261011-03` (base tagged
+  `aura-sandbox:lab-browser-base-20261011`) tells the shell to use the
+  `browser__agent_browser_*` tools; `agent-browser --version` in that image exits 78 with
+  the new text. Existing boxes are replaced on their next Resolve, as for any image change.
+
+Neither update re-ran the agent E2E: a screenshot sent after an approval and the shell
+refusal seen by the agent are unmeasured on the VM.
+
 ## Not demonstrated by this deployment
 
 - Real-agent E2E, browser live view, actual download crossing, admission and
