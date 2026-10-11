@@ -73,7 +73,8 @@ type MountOptions struct {
 	// Browser is the live view's control registry, read by the browser recipe's calls to
 	// refuse a write while the operator drives (bridge_browser_control.go). Nil refuses
 	// nothing, which is right for a host with no live view.
-	Browser BrowserControl
+	Browser   BrowserControl
+	Downloads BrowserDownloads
 }
 
 // MountManagedServerWithOptions opens a managed MCP server (stdio or streamable
@@ -145,7 +146,7 @@ func mountManagedHTTPHost(processCtx, handshakeCtx context.Context, reg *tools.R
 		return mcp.OpenSDKSession(hctx, name, server, opts.Egress, o)
 	}
 	if policy.identityScoped {
-		return openIdentityScopedMount(processCtx, handshakeCtx, reg, name, policy, opts, connect, 0)
+		return openIdentityScopedMount(processCtx, handshakeCtx, reg, name, policy, opts, connect, 0, nil)
 	}
 	var srv *MountedServer
 	open := func(pctx, hctx context.Context, o mcp.SessionOptions) (*sdkmcp.ClientSession, error) {
@@ -158,8 +159,8 @@ func mountManagedHTTPHost(processCtx, handshakeCtx context.Context, reg *tools.R
 
 // mountBoxHost mounts a server that runs in each identity's own box. Every identity gets its
 // own process, opened in its box on its first call, so the parent is identity-scoped
-// exactly like an OAuth server: the manifest comes from the identity handshakeCtx carries,
-// and a call is refused unless it comes from the session's own identity.
+// exactly like an OAuth server. The pinned browser recipe can advertise its manifest
+// without boot-time discovery; actual sessions still validate it before accepting calls.
 func mountBoxHost(processCtx, handshakeCtx context.Context, reg *tools.Registry, name string, cfg mcp.ServerConfig, policy bridgePolicy, opts MountOptions) (closer func() error, names []string, host *MountedServer, err error) {
 	handler := elicitationHandlerFor(name, opts.Elicitation)
 	connect := func(pctx, hctx context.Context, o mcp.SessionOptions) (*sdkmcp.ClientSession, error) {
@@ -168,13 +169,24 @@ func mountBoxHost(processCtx, handshakeCtx context.Context, reg *tools.Registry,
 		o.Box = opts.Box
 		return mcp.OpenSDKSessionForConfig(pctx, hctx, name, cfg, o)
 	}
-	return openIdentityScopedMount(processCtx, handshakeCtx, reg, name, policy, opts, connect, cfg.InitTimeout)
+	var advertised []*sdkmcp.Tool
+	if cfg.Browser {
+		if _, ok := opts.Box.(mcp.BrowserBoxLauncher); !ok {
+			return nil, nil, nil, mcp.ErrNoBox
+		}
+		var err error
+		advertised, err = mcpmanager.BrowserTools()
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("browser manifest: %w", err)
+		}
+	}
+	return openIdentityScopedMount(processCtx, handshakeCtx, reg, name, policy, opts, connect, cfg.InitTimeout, advertised)
 }
 
 // openIdentityScopedMount mounts a server whose sessions each belong to one identity. firstStart
 // is the least budget each identity's first session gets (a box server's cold start); zero for
 // an OAuth server.
-func openIdentityScopedMount(processCtx, handshakeCtx context.Context, reg *tools.Registry, name string, policy bridgePolicy, opts MountOptions, connect openSessionFunc, firstStart time.Duration) (closer func() error, names []string, host *MountedServer, err error) {
+func openIdentityScopedMount(processCtx, handshakeCtx context.Context, reg *tools.Registry, name string, policy bridgePolicy, opts MountOptions, connect openSessionFunc, firstStart time.Duration, advertised []*sdkmcp.Tool) (closer func() error, names []string, host *MountedServer, err error) {
 	procCtx, cancel := context.WithCancel(processCtx)
 	parent := NewMountedServer(name, nil)
 	pool := newIdentitySessionPool(parent, connect, procCtx)
@@ -182,11 +194,15 @@ func openIdentityScopedMount(processCtx, handshakeCtx context.Context, reg *tool
 	parent.identityPool = pool
 	parent.files = opts.Files
 	parent.browser = opts.Browser
+	parent.downloads = opts.Downloads
 
-	session, advertised, err := pool.openInitial(handshakeCtx)
-	if err != nil {
-		cancel()
-		return nil, nil, nil, err
+	var session *sdkmcp.ClientSession
+	if advertised == nil {
+		session, advertised, err = pool.openInitial(handshakeCtx)
+		if err != nil {
+			cancel()
+			return nil, nil, nil, err
+		}
 	}
 	names, err = mountWithAdvertisedPolicy(reg, name, parent, advertised, policy)
 	if err != nil {
@@ -195,7 +211,9 @@ func openIdentityScopedMount(processCtx, handshakeCtx context.Context, reg *tool
 		return nil, nil, nil, fmt.Errorf("mount %q: %w", name, err)
 	}
 	parent.trackAcceptedTools(advertised)
-	hydrateViews(handshakeCtx, session, name, opts.Views, advertised, policy)
+	if session != nil {
+		hydrateViews(handshakeCtx, session, name, opts.Views, advertised, policy)
+	}
 	return func() error {
 		defer cancel()
 		return parent.Close()
@@ -228,6 +246,7 @@ func mountStdioWithPolicyHost(processCtx, handshakeCtx context.Context, reg *too
 func openAttachAndMount(srv *MountedServer, processCtx, handshakeCtx context.Context, open openSessionFunc, reg *tools.Registry, name string, policy bridgePolicy, opts MountOptions) (closer func() error, names []string, host *MountedServer, err error) {
 	srv.files = opts.Files
 	srv.browser = opts.Browser
+	srv.downloads = opts.Downloads
 	// Each mount attempt gets its own cancellable slice of the daemon-lifetime process
 	// context, so a mount that gives up reaps the child it spawned. Without this a stdio
 	// server that hangs during discovery outlives the mount that dropped it: the process

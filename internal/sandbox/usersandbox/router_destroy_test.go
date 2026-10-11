@@ -24,10 +24,10 @@ func TestDestroy_UsesTheHandleThisProcessResolved(t *testing.T) {
 	if err := router.Destroy(context.Background(), destroyIdentity); err != nil {
 		t.Fatalf("Destroy: %v", err)
 	}
-	if len(backend.stopped) != 1 {
-		t.Fatalf("stopped %d boxes, want 1", len(backend.stopped))
+	if len(backend.stopped) != 2 {
+		t.Fatalf("stopped %d boxes, want shell and browser", len(backend.stopped))
 	}
-	if got := backend.stopped[0].ContainerID; got != "c-"+destroyIdentity {
+	if got := backend.stopped[1].ContainerID; got != "c-"+destroyIdentity {
 		t.Fatalf("stopped ContainerID = %q, want the resolved handle", got)
 	}
 }
@@ -42,10 +42,10 @@ func TestDestroy_ReachesTheBoxOnAColdProcess(t *testing.T) {
 	if err := router.Destroy(context.Background(), destroyIdentity); err != nil {
 		t.Fatalf("Destroy: %v", err)
 	}
-	if len(backend.stopped) != 1 {
-		t.Fatalf("stopped %d boxes, want 1", len(backend.stopped))
+	if len(backend.stopped) != 2 {
+		t.Fatalf("stopped %d boxes, want shell and browser", len(backend.stopped))
 	}
-	stopped := backend.stopped[0]
+	stopped := backend.stopped[1]
 	if stopped.IdentityID != destroyIdentity {
 		t.Fatalf("stopped IdentityID = %q", stopped.IdentityID)
 	}
@@ -64,8 +64,8 @@ func TestDestroy_IsIdempotent(t *testing.T) {
 			t.Fatalf("Destroy #%d: %v", i+1, err)
 		}
 	}
-	if len(backend.stopped) != 2 {
-		t.Fatalf("stopped %d times, want 2 (each a no-op at the backend)", len(backend.stopped))
+	if len(backend.stopped) != 4 {
+		t.Fatalf("stopped %d times, want 4 (two domains per destroy)", len(backend.stopped))
 	}
 }
 

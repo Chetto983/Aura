@@ -22,11 +22,11 @@ func TestSpec_NoHostExposureFields(t *testing.T) {
 		"Egress.Floor",
 		"IdentityID",
 		"Image",
+		"Kind",
 		"Limits",
 		"Limits.MemoryBytes",
 		"Limits.NanoCPUs",
 		"Limits.PidsLimit",
-		"WorkspaceVol",
 	}
 	sort.Strings(want)
 	if !reflect.DeepEqual(got, want) {
@@ -36,7 +36,7 @@ func TestSpec_NoHostExposureFields(t *testing.T) {
 	// Semantic guard: no field (at any depth) may name a host-exposure escape.
 	forbidden := []string{
 		"privileged", "network", "bind", "device", "capadd", "capdrop",
-		"socket", "sysctl", "hostpath", "hostnetwork", "pidmode", "ipc", "userns",
+		"socket", "sysctl", "hostpath", "hostnetwork", "pidmode", "ipc", "userns", "workspacevol",
 	}
 	for _, f := range got {
 		lower := strings.ToLower(f)

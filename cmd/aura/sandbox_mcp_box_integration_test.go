@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/moby/moby/client"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/chetto1983/aura/internal/config"
@@ -41,17 +40,14 @@ func TestBrowserRecipeRunsItsMCPServerInTheBox(t *testing.T) {
 	id := egressITIdentity(t)
 	router := buildSandboxRouter(cfg, nil)
 	ctx := identityctx.WithIdentityID(context.Background(), id)
-	h, err := router.Route(ctx)
+	h, err := router.RouteBrowser(ctx)
 	if err != nil {
 		t.Fatalf("route: %v", err)
 	}
-	cli, err := client.New(client.FromEnv)
-	if err != nil {
-		t.Fatalf("docker client: %v", err)
-	}
 	t.Cleanup(func() {
-		_ = usersandbox.NewDockerBackend(cli, image, usersandbox.Resources{}).Stop(context.Background(), h)
-		_ = cli.Close()
+		if err := router.Destroy(context.Background(), id); err != nil {
+			t.Error(err)
+		}
 	})
 
 	recipe, ok := mcpmanager.LookupCatalog("browser")

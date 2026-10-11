@@ -23,7 +23,7 @@ const (
 
 // BrowserRecipeSource marks the agent-browser recipe, whose tools the bridge grades by
 // its own table rather than by the server's hints.
-const BrowserRecipeSource = "recipe:browser"
+const BrowserRecipeSource = mcp.BrowserRecipeSource
 
 // containerDefaultOnRecipes mount out of the box inside the appliance image.
 //

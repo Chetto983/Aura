@@ -21,7 +21,7 @@ func TestResolveReplacesAStaleBox(t *testing.T) {
 	b := NewDockerBackend(cli, newImage, testLimits())
 	id := uniqueIdentity(t, "stale-box")
 	name := boxName(id)
-	spec := SandboxSpec{IdentityID: id, WorkspaceVol: name, Image: newImage}
+	spec := SandboxSpec{IdentityID: id, Image: newImage}
 	for _, ref := range []string{oldImage, newImage} {
 		if err := b.ensureImage(ctx, ref); err != nil {
 			t.Fatal(err)

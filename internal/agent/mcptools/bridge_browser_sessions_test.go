@@ -108,8 +108,8 @@ func TestBrowserOpenCarriesTheRuleToCloseItsSession(t *testing.T) {
 	if got := open.Spec().Description; !strings.Contains(got, "call browser__agent_browser_close with it when the site is done") {
 		t.Fatalf("open's description %q does not tell the model to close its session", got)
 	}
-	if whoami, _ := reg.Get("browser__whoami"); strings.Contains(whoami.Spec().Description, "agent_browser_close") {
-		t.Fatalf("whoami's description %q carries open's rule", whoami.Spec().Description)
+	if title, _ := reg.Get("browser__agent_browser_get_title"); strings.Contains(title.Spec().Description, "call browser__agent_browser_close with it when the site is done") {
+		t.Fatalf("get_title's description %q carries open's rule", title.Spec().Description)
 	}
 	res, err := open.Execute(boxCallCtx(t), json.RawMessage(`{"session":"weather","url":"https://example.com/"}`))
 	if err != nil {

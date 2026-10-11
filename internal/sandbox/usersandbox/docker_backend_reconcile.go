@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/client"
 )
 
@@ -60,17 +61,47 @@ func (b *DockerBackend) reconcileBox(ctx context.Context, containerID string, sp
 		wantImageID = img.ID
 	}
 	reason := staleBoxReason(ins.Container, spec.IdentityID, wantImageID)
+	if spec.Kind == Browser {
+		// Browser boxes intentionally have no npm/uv/pip cache mounts.
+		reason = staleBrowserBoxReason(ins.Container, wantImageID, spec.Limits)
+	}
+	if ins.Container.Config == nil || ins.Container.Config.Labels["aura.browser-isolation"] != "1" {
+		reason = "a pre-isolation container layer"
+	}
+	if !slices.ContainsFunc(ins.Container.Mounts, func(m container.MountPoint) bool {
+		return m.Type == mount.TypeVolume && m.Name == workspaceName(spec.IdentityID, spec.Kind) && m.Destination == workspaceTarget
+	}) {
+		reason = "an incorrect workspace mount"
+	}
+	if spec.Kind == Browser && (ins.Container.HostConfig == nil || len(ins.Container.HostConfig.Mounts) != 2 || ins.Container.HostConfig.Init == nil || !*ins.Container.HostConfig.Init) {
+		reason = "non-private browser mounts"
+	}
 	if reason == "" {
 		return containerID, nil
 	}
 	// Named by the container Docker reports (aura-box-<identity>), not by spec.IdentityID, which
 	// CodeQL traces from a credential-bearing value into this log (code-scanning alert 188).
 	slog.Info("sandbox: recreating a stale box, volumes kept", "container", ins.Container.Name, "reason", reason)
-	if err := b.teardownEgress(ctx, spec.IdentityID); err != nil {
+	if err := b.teardownEgress(ctx, sidecarIdentity(spec.IdentityID, spec.Kind)); err != nil {
 		return "", fmt.Errorf("remove old egress sidecar: %w", err)
 	}
 	if _, err := b.cli.ContainerRemove(ctx, containerID, client.ContainerRemoveOptions{Force: true}); ignoreNotFound(err) != nil {
 		return "", fmt.Errorf("remove box with %s: %w", reason, err)
 	}
 	return "", nil
+}
+
+func staleBrowserBoxReason(ins container.InspectResponse, imageID string, limits Resources) string {
+	if ins.Config == nil || ins.Config.Hostname != boxHostname || (imageID != "" && ins.Image != imageID) {
+		return "an older browser configuration"
+	}
+	h := ins.HostConfig
+	if h == nil || h.Init == nil || !*h.Init || h.Runtime == "runsc" {
+		return "an older browser runtime"
+	}
+	limits = browserResources(limits)
+	if h.NanoCPUs != limits.NanoCPUs || h.Memory != limits.MemoryBytes || h.PidsLimit == nil || *h.PidsLimit != limits.PidsLimit {
+		return "outdated browser resource caps"
+	}
+	return ""
 }

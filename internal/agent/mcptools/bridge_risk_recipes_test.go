@@ -47,7 +47,7 @@ func TestMCPToolRiskRecipeTablesUnchanged(t *testing.T) {
 			"agent_browser_uncheck":           {true, false},
 			"agent_browser_select":            {true, false},
 			"agent_browser_scroll":            {true, false},
-			"agent_browser_eval":              {true, false},
+			"agent_browser_eval":              {true, true},
 			"agent_browser_back":              {true, false},
 			"agent_browser_forward":           {true, false},
 			"agent_browser_reload":            {true, false},

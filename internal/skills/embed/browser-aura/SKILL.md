@@ -7,7 +7,7 @@ metadata:
 
 # The sandbox browser
 
-agent-browser runs a real Chromium inside your sandbox, and its tools are mounted for you as
+agent-browser runs Chromium in a dedicated browser sandbox, separate from your shell, and its tools are mounted as
 `browser__agent_browser_*` (open, snapshot, click, fill, type, press, select, scroll,
 screenshot, get_url, get_title, eval, close, tabs, waits). They are deferred: find them with
 `tool_search` ("browser open", "browser snapshot"). Pages come back as an accessibility
@@ -17,7 +17,7 @@ public page you only need to read.
 ## Always name the session
 
 Every call carries the same `session`: a short name of letters, digits, `-` and `_`, such as
-`bank` or `docs-portal`. Each session has its own browser profile in your sandbox, so the site's
+`bank` or `docs-portal`. Each session has its own profile in the browser sandbox, so the site's
 login lasts across your turns and across a sandbox restart. A call without `session` uses the
 one named `default`.
 
@@ -38,9 +38,9 @@ when the site is done — the profile keeps the login for next time, the process
 to stay alive. A browser left idle for three minutes closes by itself; open the page again with
 the same session.
 
-If the `browser__` tools are not mounted, the same commands work through `shell_exec`:
-`agent-browser --session portal open https://example.com/login`, then `snapshot -i`,
-`click @e3`, `fill @e5 "text"`, `get url`, `download @e9 /workspace/downloads/report.pdf`.
+If the browser tools are unavailable, report it. Shell commands cannot access the authenticated
+browser, its profiles, cookies, vault key or debugging socket. Do not try a shell fallback.
+Use only typed tool arguments; extraArgs, restore, local file URLs and arbitrary file paths are refused.
 
 ## Logins: the operator types, you never see the password
 
@@ -59,22 +59,24 @@ they let go, your old `@eN` references are refused with "references ... are stal
 operator drove it": take a snapshot, then use the new references.
 
 Never ask for a password, a one-time code or a recovery key in chat, and never type one
-you were given there: it would sit in the conversation for good. If the operator asks you
-to remember a login so they need not repeat it, `agent-browser auth save` exists, but first
-tell them plainly that a stored password is readable by anything running in this sandbox,
-you included — the live view is the safer default.
+you were given there: it would sit in the conversation for good. The session profile remembers
+the login outside your shell. Do not export cookies or save passwords through shell commands.
 
 ## Before you act on a site
 
 Respect the site's own terms. Some sites forbid automated access or reuse of their
 content; when the operator's goal would break them, say so instead of doing it.
 
-Clicking and filling are not gated, because the browser is yours. What they do on the site is
+Page JavaScript (`eval`) requires operator approval. Use ordinary browser tools when possible.
+What clicks and forms do on the site is
 not yours to undo: before you submit anything irreversible — a payment, an order, a message,
 a deletion — stop and ask the operator.
 
 ## Handing results back
 
-Files you download land in `/workspace`; give them to the operator with `send_file`. When
+Completed downloads are copied into your shell's `/workspace/downloads`; use the exact path
+in the `Download ready` footer with `send_file`. An `in progress` footer is not a completed file:
+make a later browser call to collect it after completion. Files over 50 MiB are not copied.
+Never read browser profiles or guess that a file exists before its completion footer. When
 you finish with a site for good, close its session to free the browser; its profile keeps the
 login.

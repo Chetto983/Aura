@@ -29,8 +29,9 @@ AGENT_BROWSER_AUTOSAVE_INTERVAL_MS="${AGENT_BROWSER_AUTOSAVE_INTERVAL_MS:-2000}"
 AGENT_BROWSER_ARGS="${AGENT_BROWSER_ARGS:---disable-blink-features=AutomationControlled}"
 AGENT_BROWSER_USER_AGENT="${AGENT_BROWSER_USER_AGENT:-$(cat /usr/local/share/aura/browser-user-agent)}"
 AGENT_BROWSER_IDLE_TIMEOUT_MS="${AGENT_BROWSER_IDLE_TIMEOUT_MS:-180000}"
+AGENT_BROWSER_DOWNLOAD_PATH=/workspace/downloads
 export AGENT_BROWSER_ENCRYPTION_KEY HOME AGENT_BROWSER_AUTOSAVE_INTERVAL_MS AGENT_BROWSER_ARGS \
-    AGENT_BROWSER_USER_AGENT AGENT_BROWSER_IDLE_TIMEOUT_MS
+    AGENT_BROWSER_USER_AGENT AGENT_BROWSER_IDLE_TIMEOUT_MS AGENT_BROWSER_DOWNLOAD_PATH
 if [ "${1:-}" != mcp ] && [ -z "${AGENT_BROWSER_PROFILE:-}" ]; then
     session="${AGENT_BROWSER_SESSION:-default}" given="" prev=""
     for arg in "$@"; do
@@ -43,5 +44,5 @@ if [ "${1:-}" != mcp ] && [ -z "${AGENT_BROWSER_PROFILE:-}" ]; then
     done
     [ -n "$given" ] || export AGENT_BROWSER_PROFILE="$HOME/profiles/$session"
 fi
-mkdir -p "$HOME"
+mkdir -p "$HOME" "$AGENT_BROWSER_DOWNLOAD_PATH"
 exec /usr/local/lib/agent-browser/agent-browser "$@"

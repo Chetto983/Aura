@@ -27,7 +27,7 @@ func (f *fakeBackend) Resolve(_ context.Context, spec SandboxSpec) (BoxHandle, e
 	if f.resolveErr != nil {
 		return BoxHandle{}, f.resolveErr
 	}
-	return BoxHandle{ContainerID: "c-" + spec.IdentityID, IdentityID: spec.IdentityID}, nil
+	return BoxHandle{ContainerID: "c-" + spec.IdentityID, IdentityID: spec.IdentityID, Kind: spec.Kind}, nil
 }
 
 func (f *fakeBackend) Exec(context.Context, BoxHandle, ExecRequest) (ExecResult, error) {
@@ -239,8 +239,8 @@ func TestSpecFor_UsesConfiguredKnobs(t *testing.T) {
 	if spec.Image != cfg.Image {
 		t.Fatalf("Image = %q, want %q", spec.Image, cfg.Image)
 	}
-	if spec.WorkspaceVol != "aura-box-id-1" {
-		t.Fatalf("WorkspaceVol = %q, want aura-box-id-1", spec.WorkspaceVol)
+	if got := toHostConfig(spec).Mounts[0].Source; got != "aura-box-id-1" {
+		t.Fatalf("workspace = %q, want aura-box-id-1", got)
 	}
 	if want := int64(cfg.CPULimit) * nanoCPUsPerCPU; spec.Limits.NanoCPUs != want {
 		t.Fatalf("NanoCPUs = %d, want %d", spec.Limits.NanoCPUs, want)

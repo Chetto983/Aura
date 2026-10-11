@@ -51,6 +51,11 @@ const (
 // 37-05/37-06 wire these primitives into usersandbox.specFor / buildEgressSidecar. All
 // fields follow the AURA_<DOMAIN>_<UNIT> convention.
 type SandboxConfig struct {
+	BrowserIdleTTLSec  int
+	BrowserCPULimit    int
+	BrowserMemoryLimit int64
+	BrowserPidsLimit   int64
+	BrowserMaxActive   int
 	// IdleTTLSec is the idle-suspend TTL in SECONDS (D-08). A plain int-seconds knob (NOT a
 	// time.Duration) so it registers KindInt like AURA_RUN_DIR_SWEEP_INTERVAL_SEC and a
 	// malformed value is caught by the reparse pass, never silently defaulted. 37-05's
@@ -90,13 +95,18 @@ type SandboxConfig struct {
 // silent fallback into an unsafe cap/TTL — the W-cfg bug this KindInt registration fixes).
 func loadSandboxConfig() SandboxConfig {
 	return SandboxConfig{
-		IdleTTLSec:      envutil.IntDefault("AURA_SANDBOX_IDLE_TTL_SEC", defaultSandboxIdleTTLSec),
-		CPULimit:        envutil.IntDefault("AURA_SANDBOX_CPU_LIMIT", defaultSandboxCPULimit),
-		MemoryLimit:     int64Default("AURA_SANDBOX_MEMORY_LIMIT", defaultSandboxMemoryLimit),
-		PidsLimit:       int64Default("AURA_SANDBOX_PIDS_LIMIT", defaultSandboxPidsLimit),
-		EgressAllowlist: envSliceDefault("AURA_SANDBOX_EGRESS_ALLOWLIST", nil),
-		Image:           envDefault("AURA_SANDBOX_IMAGE", defaultSandboxImage),
-		EgressImage:     envDefault("AURA_SANDBOX_EGRESS_IMAGE", defaultSandboxEgressImage),
+		BrowserIdleTTLSec:  envutil.IntDefault("AURA_SANDBOX_BROWSER_IDLE_TTL_SEC", 180),
+		BrowserCPULimit:    envutil.IntDefault("AURA_SANDBOX_BROWSER_CPU_LIMIT", defaultSandboxCPULimit),
+		BrowserMemoryLimit: int64Default("AURA_SANDBOX_BROWSER_MEMORY_LIMIT", defaultSandboxMemoryLimit),
+		BrowserPidsLimit:   int64Default("AURA_SANDBOX_BROWSER_PIDS_LIMIT", defaultSandboxPidsLimit),
+		BrowserMaxActive:   envutil.IntDefault("AURA_SANDBOX_BROWSER_MAX_ACTIVE", 0),
+		IdleTTLSec:         envutil.IntDefault("AURA_SANDBOX_IDLE_TTL_SEC", defaultSandboxIdleTTLSec),
+		CPULimit:           envutil.IntDefault("AURA_SANDBOX_CPU_LIMIT", defaultSandboxCPULimit),
+		MemoryLimit:        int64Default("AURA_SANDBOX_MEMORY_LIMIT", defaultSandboxMemoryLimit),
+		PidsLimit:          int64Default("AURA_SANDBOX_PIDS_LIMIT", defaultSandboxPidsLimit),
+		EgressAllowlist:    envSliceDefault("AURA_SANDBOX_EGRESS_ALLOWLIST", nil),
+		Image:              envDefault("AURA_SANDBOX_IMAGE", defaultSandboxImage),
+		EgressImage:        envDefault("AURA_SANDBOX_EGRESS_IMAGE", defaultSandboxEgressImage),
 	}
 }
 

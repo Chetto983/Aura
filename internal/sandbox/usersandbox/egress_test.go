@@ -89,9 +89,8 @@ func TestEgress_CapOnSidecarOnly(t *testing.T) {
 	// The box itself must never gain a capability — assert against the single pinned-safe
 	// translator, for an adversarial spec that (fruitlessly) asks for an allowlist box.
 	hc := toHostConfig(SandboxSpec{
-		IdentityID:   "box-cap",
-		WorkspaceVol: "aura-box-box-cap",
-		Egress:       EgressPolicy{Floor: true, FQDNAllowlist: []string{"pypi.org"}},
+		IdentityID: "box-cap",
+		Egress:     EgressPolicy{Floor: true, FQDNAllowlist: []string{"pypi.org"}},
 	})
 	if len(hc.CapAdd) != 0 {
 		t.Fatalf("box HostConfig must never add capabilities, got CapAdd=%v", hc.CapAdd)

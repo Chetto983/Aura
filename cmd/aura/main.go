@@ -355,6 +355,9 @@ func buildRegistryWithMCP(
 	handles.MCPFiles = &tools.MCPFileSink{Router: sandboxRouter}
 	handles.Elicitation = consent
 	handles.MCPBox = newSandboxMCPBox(sandboxRouter)
+	if sandboxRouter != nil {
+		handles.BrowserDownloads = sandboxRouter
+	}
 	handles.Browser = &browsercontrol.Registry{}
 	if len(mcpServers) == 0 && len(mcpPolicies) == 0 {
 		return reg, handles, nil, nil

@@ -66,14 +66,13 @@ func assertCacheMount(t fatalf, hc *container.HostConfig, source, target string)
 // an empty Runtime, and exactly the five sanctioned volume/tmpfs mounts (no bind, no
 // socket target).
 func TestTranslate_PinsSafe(t *testing.T) {
-	// (1) Hand-picked adversarial specs — note the workspace volume NAME mimicking the
-	// docker socket path (case 1).
+	// Workspace selection is not a field: every mount derives from identity and kind.
 	adversarial := []SandboxSpec{
 		{}, // zero value
-		{IdentityID: "--privileged", Image: "host", WorkspaceVol: "/var/run/docker.sock"},
-		{IdentityID: "id", Image: "img", WorkspaceVol: "aura-box-id", Egress: EgressPolicy{FQDNAllowlist: []string{"host", "0.0.0.0/0"}}},
-		{IdentityID: "id", WorkspaceVol: "/proc", Limits: Resources{NanoCPUs: -1, MemoryBytes: -1, PidsLimit: -1}},
-		{IdentityID: "id", WorkspaceVol: "aura-box-id", Limits: Resources{NanoCPUs: 1 << 62, MemoryBytes: 1 << 62, PidsLimit: 1 << 62}},
+		{IdentityID: "--privileged", Image: "host"},
+		{IdentityID: "id", Image: "img", Egress: EgressPolicy{FQDNAllowlist: []string{"host", "0.0.0.0/0"}}},
+		{IdentityID: "id", Limits: Resources{NanoCPUs: -1, MemoryBytes: -1, PidsLimit: -1}},
+		{IdentityID: "id", Limits: Resources{NanoCPUs: 1 << 62, MemoryBytes: 1 << 62, PidsLimit: 1 << 62}},
 	}
 	for i, s := range adversarial {
 		hc := toHostConfig(s)
@@ -90,9 +89,9 @@ func TestTranslate_PinsSafe(t *testing.T) {
 	raiseRapidChecks(t, 1000)
 	rapid.Check(t, func(rt *rapid.T) {
 		spec := SandboxSpec{
-			IdentityID:   rapid.String().Draw(rt, "identityID"),
-			Image:        rapid.String().Draw(rt, "image"),
-			WorkspaceVol: rapid.String().Draw(rt, "workspaceVol"),
+			IdentityID: rapid.String().Draw(rt, "identityID"),
+			Image:      rapid.String().Draw(rt, "image"),
+			Kind:       BoxKind(rapid.IntRange(0, 1).Draw(rt, "kind")),
 			Egress: EgressPolicy{
 				Floor:         rapid.Bool().Draw(rt, "floor"),
 				FQDNAllowlist: rapid.SliceOf(rapid.String()).Draw(rt, "fqdnAllowlist"),

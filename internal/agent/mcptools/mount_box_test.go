@@ -45,7 +45,23 @@ type nopWriteCloser struct{ io.Writer }
 
 func (nopWriteCloser) Close() error { return nil }
 
+func (b *identityBoxes) StartBrowserStdio(ctx context.Context, name string, argv, env []string, stdin io.ReadCloser, stdout io.Writer) (mcp.BoxProcess, error) {
+	advertised, err := mcpmanager.BrowserTools()
+	if err != nil {
+		return nil, err
+	}
+	return b.start(ctx, stdin, stdout, advertised)
+}
+
 func (b *identityBoxes) StartStdio(ctx context.Context, _ string, _, _ []string, stdin io.ReadCloser, stdout io.Writer) (mcp.BoxProcess, error) {
+	advertised := []*sdkmcp.Tool{{Name: "whoami", InputSchema: map[string]any{"type": "object"}, Annotations: &sdkmcp.ToolAnnotations{ReadOnlyHint: true}}}
+	for _, name := range b.echoTools {
+		advertised = append(advertised, &sdkmcp.Tool{Name: name, InputSchema: map[string]any{"type": "object"}})
+	}
+	return b.start(ctx, stdin, stdout, advertised)
+}
+
+func (b *identityBoxes) start(ctx context.Context, stdin io.ReadCloser, stdout io.Writer, advertised []*sdkmcp.Tool) (mcp.BoxProcess, error) {
 	owner := identityctx.IdentityID(ctx)
 	p := &boxProc{stdin: stdin, done: make(chan struct{})}
 	b.mu.Lock()
@@ -54,14 +70,15 @@ func (b *identityBoxes) StartStdio(ctx context.Context, _ string, _, _ []string,
 	b.mu.Unlock()
 
 	server := sdkmcp.NewServer(&sdkmcp.Implementation{Name: "box", Version: "0.0.1"}, nil)
-	server.AddTool(&sdkmcp.Tool{Name: "whoami", InputSchema: map[string]any{"type": "object"},
-		Annotations: &sdkmcp.ToolAnnotations{ReadOnlyHint: true}},
-		func(context.Context, *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
-			return &sdkmcp.CallToolResult{Content: []sdkmcp.Content{&sdkmcp.TextContent{Text: owner}}}, nil
-		})
-	for _, name := range b.echoTools {
-		server.AddTool(&sdkmcp.Tool{Name: name, InputSchema: map[string]any{"type": "object"}},
+	for _, tool := range advertised {
+		name := tool.Name
+		// Echo fixtures exercise bridge policy, not the upstream CLI's required fields.
+		tool.InputSchema = map[string]any{"type": "object"}
+		server.AddTool(tool,
 			func(_ context.Context, req *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
+				if name == "whoami" {
+					return &sdkmcp.CallToolResult{Content: []sdkmcp.Content{&sdkmcp.TextContent{Text: owner}}}, nil
+				}
 				b.mu.Lock()
 				b.calls = append(b.calls, name+" "+string(req.Params.Arguments))
 				b.mu.Unlock()

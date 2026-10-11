@@ -34,6 +34,7 @@ type Backend interface {
 // per-identity scope use. It is backend-agnostic: an E2B backend stores its sandbox id in
 // ContainerID.
 type BoxHandle struct {
+	Kind        BoxKind
 	ContainerID string
 	IdentityID  string
 }

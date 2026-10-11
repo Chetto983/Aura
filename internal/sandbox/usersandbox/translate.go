@@ -47,6 +47,13 @@ func identityCacheMounts(identityID string) []mount.Mount {
 func toHostConfig(s SandboxSpec) *container.HostConfig {
 	pids := s.Limits.PidsLimit
 	reapOrphans := true
+	mounts := []mount.Mount{
+		{Type: mount.TypeVolume, Source: workspaceName(s.IdentityID, s.Kind), Target: workspaceTarget},
+		{Type: mount.TypeTmpfs, Target: scratchTarget},
+	}
+	if s.Kind == Shell {
+		mounts = append(mounts, identityCacheMounts(s.IdentityID)...)
+	}
 	return &container.HostConfig{
 		Init:        &reapOrphans,
 		Privileged:  false,
@@ -55,12 +62,9 @@ func toHostConfig(s SandboxSpec) *container.HostConfig {
 		AutoRemove:  false,
 		CapDrop:     []string{},
 		Runtime:     "",
-		Mounts: append([]mount.Mount{
-			{Type: mount.TypeVolume, Source: s.WorkspaceVol, Target: workspaceTarget},
-			{Type: mount.TypeTmpfs, Target: scratchTarget},
-		}, identityCacheMounts(s.IdentityID)...),
-		NanoCPUs:  s.Limits.NanoCPUs,
-		Memory:    s.Limits.MemoryBytes,
-		PidsLimit: &pids,
+		Mounts:      mounts,
+		NanoCPUs:    s.Limits.NanoCPUs,
+		Memory:      s.Limits.MemoryBytes,
+		PidsLimit:   &pids,
 	}
 }

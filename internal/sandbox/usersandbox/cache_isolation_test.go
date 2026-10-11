@@ -8,8 +8,8 @@ import (
 )
 
 func TestCacheMountsAreIdentityScoped(t *testing.T) {
-	a := toHostConfig(SandboxSpec{IdentityID: "identity-a", WorkspaceVol: "workspace-a"})
-	b := toHostConfig(SandboxSpec{IdentityID: "identity-b", WorkspaceVol: "workspace-b"})
+	a := toHostConfig(SandboxSpec{IdentityID: "identity-a"})
+	b := toHostConfig(SandboxSpec{IdentityID: "identity-b"})
 	for _, target := range []string{"/root/.cache/uv", "/root/.npm", "/root/.cache/pip"} {
 		var sourceA, sourceB string
 		for _, m := range a.Mounts {

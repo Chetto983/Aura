@@ -9,6 +9,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/chetto1983/aura/internal/agui"
 	"github.com/chetto1983/aura/internal/sandbox/usersandbox"
@@ -41,29 +42,31 @@ type sandboxBrowserRelay struct {
 }
 
 func (r sandboxBrowserRelay) Open(ctx context.Context, session string, in io.ReadCloser, out io.Writer) (agui.BrowserRelayHandle, error) {
-	h, err := r.router.Route(ctx)
+	h, err := r.router.RouteBrowser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	touched := touchOnInput{ReadCloser: in, touch: func() { r.router.Touch(h.IdentityID) }}
-	return r.router.ExecStream(ctx, h, usersandbox.ExecRequest{
+	release := r.router.HoldBrowser(h.IdentityID)
+	handle, err := r.router.ExecStream(ctx, h, usersandbox.ExecRequest{
 		Command: "node " + browserRelayScript + " " + session,
 		Dir:     "/workspace",
-	}, touched, out)
-}
-
-// touchOnInput keeps the box awake while the operator is using the live view. The relay is
-// one long-lived exec, and the idle reaper counts only new ones: without this a login that
-// took longer than the idle TTL would have its browser suspended mid-way.
-type touchOnInput struct {
-	io.ReadCloser
-	touch func()
-}
-
-func (t touchOnInput) Read(p []byte) (int, error) {
-	n, err := t.ReadCloser.Read(p)
-	if n > 0 {
-		t.touch()
+	}, in, out)
+	if err != nil {
+		release()
+		return nil, err
 	}
-	return n, err
+	return &leasedBrowserHandle{BrowserRelayHandle: handle, release: release}, nil
+}
+
+// An open viewer/login owns a lease even while no keyboard input arrives.
+// Kill is asynchronous, so release only after Wait confirms process termination.
+type leasedBrowserHandle struct {
+	agui.BrowserRelayHandle
+	release func()
+	once    sync.Once
+}
+
+func (h *leasedBrowserHandle) Wait() (int, error) {
+	defer h.once.Do(h.release)
+	return h.BrowserRelayHandle.Wait()
 }

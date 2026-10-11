@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/moby/moby/client"
-
 	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/identityctx"
 	"github.com/chetto1983/aura/internal/sandbox/usersandbox"
@@ -38,20 +36,25 @@ func TestComposedBoxRunsAgentBrowserWithItsIdentityKey(t *testing.T) {
 	id := egressITIdentity(t)
 	router := buildSandboxRouter(cfg, nil)
 	ctx := identityctx.WithIdentityID(context.Background(), id)
-	h, err := router.Route(ctx)
+	shell, err := router.Route(ctx)
 	if err != nil {
 		t.Fatalf("route: %v", err)
 	}
-	cli, err := client.New(client.FromEnv)
+	res, err := router.Exec(ctx, shell, usersandbox.ExecRequest{Command: `test ! -e /run/aura/agent-browser.key && agent-browser --version`})
+	if err != nil || res.ExitCode != 78 {
+		t.Fatalf("shell must have no key and refuse agent-browser: code=%d err=%v", res.ExitCode, err)
+	}
+	h, err := router.RouteBrowser(ctx)
 	if err != nil {
-		t.Fatalf("docker client: %v", err)
+		t.Fatalf("browser route: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = usersandbox.NewDockerBackend(cli, image, usersandbox.Resources{}).Stop(context.Background(), h)
-		_ = cli.Close()
+		if err := router.Destroy(context.Background(), id); err != nil {
+			t.Error(err)
+		}
 	})
 
-	res, err := router.Exec(ctx, h, usersandbox.ExecRequest{Command: `
+	res, err = router.Exec(ctx, h, usersandbox.ExecRequest{Command: `
 		set -e
 		cat ` + browserStateKeyPath + `; echo
 		agent-browser open "data:text/html,<button>Run</button>" >/dev/null

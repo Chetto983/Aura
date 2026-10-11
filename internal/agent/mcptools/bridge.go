@@ -70,7 +70,7 @@ func schemaJSON(t *sdkmcp.Tool) json.RawMessage {
 }
 
 func (b *bridgedTool) refreshSpec(t *sdkmcp.Tool) {
-	params, summary, description := specFieldsFromToolDef(t)
+	params, summary, description := specFieldsFromToolDef(t, b.policy)
 	spec := b.Spec()
 	oldMutating := spec.Mutating
 	oldDestructive := spec.Destructive
@@ -156,7 +156,7 @@ func bridgeToolsWithPolicy(namespace string, srv *MountedServer, advertised []*s
 }
 
 func specFromToolDefWithPolicy(namespace string, t *sdkmcp.Tool, policy bridgePolicy) tools.Spec {
-	params, summary, description := specFieldsFromToolDef(t)
+	params, summary, description := specFieldsFromToolDef(t, policy)
 	mutating, destructive := mcpToolRisk(policy, t)
 	name := namespacedName(namespace, t.Name)
 	spec := tools.Spec{
@@ -199,8 +199,8 @@ func applyMCPOperationMetadata(spec *tools.Spec) {
 	spec.ReplayPolicy = ""
 }
 
-func specFieldsFromToolDef(t *sdkmcp.Tool) (json.RawMessage, string, string) {
-	params := capSchemaDescriptions(schemaJSON(t))
+func specFieldsFromToolDef(t *sdkmcp.Tool, policy bridgePolicy) (json.RawMessage, string, string) {
+	params := browserSchema(capSchemaDescriptions(schemaJSON(t)), policy, t.Name)
 	summary := frameMCPSummary(t.Description, params)
 	description := frameMCPDescription(t.Description)
 	return params, summary, description

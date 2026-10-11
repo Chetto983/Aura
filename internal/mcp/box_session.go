@@ -35,6 +35,11 @@ type BoxLauncher interface {
 	StartStdio(ctx context.Context, name string, argv, env []string, stdin io.ReadCloser, stdout io.Writer) (BoxProcess, error)
 }
 
+// BrowserBoxLauncher is granted only to the trusted, fixed browser recipe.
+type BrowserBoxLauncher interface {
+	StartBrowserStdio(context.Context, string, []string, []string, io.ReadCloser, io.Writer) (BoxProcess, error)
+}
+
 // BoxProcess is one server process running in a box.
 type BoxProcess interface {
 	// Wait blocks until the process has exited and its output is drained.
@@ -56,7 +61,19 @@ func openSDKBox(processCtx, handshakeCtx context.Context, name string, cfg Serve
 	outR, outW := io.Pipe()
 	argv := append([]string{cfg.Command}, cfg.Args...)
 	stdout := &protocolLines{dst: outW, name: name, logger: resolveLogger(o.Logger)}
-	proc, err := o.Box.StartStdio(processCtx, name, argv, cfg.Env, inR, stdout)
+	start := o.Box.StartStdio
+	if cfg.Browser {
+		launcher, ok := o.Box.(BrowserBoxLauncher)
+		if !ok {
+			_ = inR.Close()
+			_ = inW.Close()
+			_ = outR.Close()
+			_ = outW.Close()
+			return nil, ErrNoBox
+		}
+		start = launcher.StartBrowserStdio
+	}
+	proc, err := start(processCtx, name, argv, cfg.Env, inR, stdout)
 	if err != nil {
 		_ = inW.Close()
 		_ = outR.Close()
@@ -111,6 +128,9 @@ func touchBoxOnCall(proc BoxProcess) sdkmcp.Middleware {
 		return func(ctx context.Context, method string, req sdkmcp.Request) (sdkmcp.Result, error) {
 			if method == "tools/call" {
 				proc.Touch()
+				if lease, ok := proc.(interface{ Hold() func() }); ok {
+					defer lease.Hold()()
+				}
 			}
 			return next(ctx, method, req)
 		}

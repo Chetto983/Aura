@@ -140,7 +140,11 @@ func OpenSDKSession(ctx context.Context, name string, server ManagedServer, egre
 	if serverType == ServerTypeStreamableHTTP {
 		return openSDKHTTP(ctx, name, server, egress, o)
 	}
-	return OpenSDKSessionForConfig(ctx, ctx, name, ServerConfig{Command: server.Command, Args: server.Args, Env: server.Env, Box: IsBoxRuntime(server)}, o)
+	cfg, err := ManagedStdioConfig(server)
+	if err != nil {
+		return nil, fmt.Errorf("mcp open %q: %w", name, err)
+	}
+	return OpenSDKSessionForConfig(ctx, ctx, name, cfg, o)
 }
 
 // openSDKHTTP builds the streamable-HTTP transport with the full policy stack on its

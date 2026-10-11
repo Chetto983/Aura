@@ -24,17 +24,35 @@ import (
 // is live it materializes the resolver's sources for the identity into the workspace
 // volume (D-10) at BOTH create and resume; a materialize failure fails Resolve closed.
 func (b *DockerBackend) Resolve(ctx context.Context, spec SandboxSpec) (BoxHandle, error) {
-	name := boxName(spec.IdentityID)
-	if spec.WorkspaceVol == "" {
-		spec.WorkspaceVol = name
+	b.lifecycle.Lock()
+	defer b.lifecycle.Unlock()
+	if spec.Kind != Shell && spec.Kind != Browser {
+		return BoxHandle{}, fmt.Errorf("invalid box kind")
 	}
+	if err := b.prepareBrowserIsolation(ctx, spec.IdentityID); err != nil {
+		return BoxHandle{}, fmt.Errorf("browser isolation: %w", err)
+	}
+	name := workspaceName(spec.IdentityID, spec.Kind)
 	if spec.Image == "" {
 		spec.Image = b.image
 	}
 	if err := b.ensureVolume(ctx, name); err != nil {
 		return BoxHandle{}, fmt.Errorf("resolve: ensure workspace volume %q: %w", name, err)
 	}
-	for _, cache := range identityCacheMounts(spec.IdentityID) {
+	if spec.Kind == Browser {
+		if spec.Limits == (Resources{}) {
+			spec.Limits = b.browserLimits
+		}
+		spec.Limits = browserResources(spec.Limits)
+		if err := b.admitBrowser(ctx, spec); err != nil {
+			return BoxHandle{}, err
+		}
+	}
+	var caches = identityCacheMounts(spec.IdentityID)
+	if spec.Kind == Browser {
+		caches = nil
+	}
+	for _, cache := range caches {
 		if err := b.ensureVolume(ctx, cache.Source); err != nil {
 			return BoxHandle{}, fmt.Errorf("resolve: ensure cache volume %q: %w", cache.Source, err)
 		}
@@ -56,18 +74,25 @@ func (b *DockerBackend) Resolve(ctx context.Context, spec SandboxSpec) (BoxHandl
 		if err := b.ensureRunning(ctx, existing); err != nil {
 			return BoxHandle{}, fmt.Errorf("resolve: resume box %q: %w", name, err)
 		}
-		h = BoxHandle{ContainerID: existing, IdentityID: spec.IdentityID}
+		h = BoxHandle{ContainerID: existing, IdentityID: spec.IdentityID, Kind: spec.Kind}
 	} else {
 		id, cerr := b.createBox(ctx, name, spec)
 		if cerr != nil {
 			return BoxHandle{}, fmt.Errorf("resolve: create box %q: %w", name, cerr)
 		}
-		h = BoxHandle{ContainerID: id, IdentityID: spec.IdentityID}
+		h = BoxHandle{ContainerID: id, IdentityID: spec.IdentityID, Kind: spec.Kind}
 	}
 
 	// Materialize the resolver's sources into the box (create + resume, D-10). This is
 	// the MaterializeIn call site; it fails Resolve closed so the box never runs a tool
 	// against a stale/missing skill set.
+	secured := false
+	defer func() {
+		if !secured {
+			_ = b.suspendEgress(context.WithoutCancel(ctx), sidecarIdentity(h.IdentityID, h.Kind))
+			_, _ = b.cli.ContainerStop(context.WithoutCancel(ctx), h.ContainerID, stopOptions())
+		}
+	}()
 	if err := b.materializeInputs(ctx, h); err != nil {
 		return BoxHandle{}, fmt.Errorf("resolve: materialize inputs: %w", err)
 	}
@@ -82,6 +107,7 @@ func (b *DockerBackend) Resolve(ctx context.Context, spec SandboxSpec) (BoxHandl
 	if err := b.launchEgress(ctx, spec, h); err != nil {
 		return BoxHandle{}, fmt.Errorf("resolve: launch egress sidecar: %w", err)
 	}
+	secured = true
 	return h, nil
 }
 
@@ -89,7 +115,9 @@ func (b *DockerBackend) Resolve(ctx context.Context, spec SandboxSpec) (BoxHandl
 // D-08) so a later Resolve/Resume is fast and lossless. The egress sidecar is stopped in
 // lockstep (retained, not removed) so it never outlives the box netns as an orphan.
 func (b *DockerBackend) Suspend(ctx context.Context, h BoxHandle) error {
-	if err := b.suspendEgress(ctx, h.IdentityID); err != nil {
+	b.lifecycle.Lock()
+	defer b.lifecycle.Unlock()
+	if err := b.suspendEgress(ctx, sidecarIdentity(h.IdentityID, h.Kind)); err != nil {
 		return fmt.Errorf("suspend box: %w", err)
 	}
 	if _, err := b.cli.ContainerStop(ctx, h.ContainerID, stopOptions()); err != nil {
@@ -101,10 +129,19 @@ func (b *DockerBackend) Suspend(ctx context.Context, h BoxHandle) error {
 // Resume restarts a Suspended box against its retained volume (same container), then restarts
 // the retained egress sidecar so the box comes back WITH its tenancy floor re-applied.
 func (b *DockerBackend) Resume(ctx context.Context, h BoxHandle) error {
+	b.lifecycle.Lock()
+	defer b.lifecycle.Unlock()
+	if h.Kind == Browser {
+		if err := b.admitBrowser(ctx, SandboxSpec{IdentityID: h.IdentityID, Kind: Browser, Limits: b.browserLimits}); err != nil {
+			return err
+		}
+	}
 	if _, err := b.cli.ContainerStart(ctx, h.ContainerID, client.ContainerStartOptions{}); err != nil {
 		return fmt.Errorf("resume box: %w", err)
 	}
-	if err := b.resumeEgress(ctx, h.IdentityID); err != nil {
+	if err := b.resumeEgress(ctx, sidecarIdentity(h.IdentityID, h.Kind)); err != nil {
+		_ = b.suspendEgress(context.WithoutCancel(ctx), sidecarIdentity(h.IdentityID, h.Kind))
+		_, _ = b.cli.ContainerStop(context.WithoutCancel(ctx), h.ContainerID, stopOptions())
 		return fmt.Errorf("resume box: %w", err)
 	}
 	return nil
@@ -114,14 +151,32 @@ func (b *DockerBackend) Resume(ctx context.Context, h BoxHandle) error {
 // explicit deprovision. The egress sidecar is removed first (no orphan), then the box, then
 // the per-identity workspace and cache volumes.
 func (b *DockerBackend) Stop(ctx context.Context, h BoxHandle) error {
-	if err := b.teardownEgress(ctx, h.IdentityID); err != nil {
+	b.lifecycle.Lock()
+	defer b.lifecycle.Unlock()
+	return b.stop(ctx, h)
+}
+
+func (b *DockerBackend) stop(ctx context.Context, h BoxHandle) error {
+	if h.Kind == Shell {
+		if helper, err := b.findBox(ctx, migrationHelperName(h.IdentityID)); err != nil {
+			return err
+		} else if helper != "" {
+			if _, err := b.cli.ContainerRemove(ctx, helper, client.ContainerRemoveOptions{Force: true}); ignoreNotFound(err) != nil {
+				return err
+			}
+		}
+	}
+	if err := b.teardownEgress(ctx, sidecarIdentity(h.IdentityID, h.Kind)); err != nil {
 		return fmt.Errorf("stop: remove egress sidecar: %w", err)
 	}
 	if _, err := b.cli.ContainerRemove(ctx, h.ContainerID, client.ContainerRemoveOptions{Force: true}); ignoreNotFound(err) != nil {
 		return fmt.Errorf("stop: remove box: %w", err)
 	}
-	if _, err := b.cli.VolumeRemove(ctx, boxName(h.IdentityID), client.VolumeRemoveOptions{Force: true}); ignoreNotFound(err) != nil {
+	if _, err := b.cli.VolumeRemove(ctx, workspaceName(h.IdentityID, h.Kind), client.VolumeRemoveOptions{Force: true}); ignoreNotFound(err) != nil {
 		return fmt.Errorf("stop: remove workspace volume: %w", err)
+	}
+	if h.Kind == Browser {
+		return nil
 	}
 	for _, cache := range identityCacheMounts(h.IdentityID) {
 		if _, err := b.cli.VolumeRemove(ctx, cache.Source, client.VolumeRemoveOptions{}); ignoreNotFound(err) != nil {
@@ -161,10 +216,14 @@ func ignoreNotFound(err error) error {
 // writeBoxFiles writes the identity's BoxFileSource files, at create and resume alike, so a
 // recreated box gets them back without anything having been stored in it.
 func (b *DockerBackend) writeBoxFiles(ctx context.Context, h BoxHandle) error {
-	if b.boxFiles == nil {
+	source := b.boxFiles
+	if h.Kind == Browser {
+		source = b.browserFiles
+	}
+	if source == nil {
 		return nil
 	}
-	files, err := b.boxFiles(h.IdentityID)
+	files, err := source(h.IdentityID)
 	if err != nil {
 		return fmt.Errorf("box files for %q: %w", h.IdentityID, err)
 	}
@@ -177,7 +236,7 @@ func (b *DockerBackend) writeBoxFiles(ctx context.Context, h BoxHandle) error {
 }
 
 func (b *DockerBackend) materializeInputs(ctx context.Context, h BoxHandle) error {
-	if b.sources == nil {
+	if b.sources == nil || h.Kind == Browser {
 		return nil
 	}
 	srcs, err := b.sources(ctx, h.IdentityID)
@@ -240,6 +299,17 @@ func (b *DockerBackend) ensureRunning(ctx context.Context, containerID string) e
 // lock naming the hostname, and Chrome refuses a profile locked from another host (prd.md §12,
 // a persistent profile per browser session).
 func (b *DockerBackend) createBox(ctx context.Context, name string, spec SandboxSpec) (string, error) {
+	id, err := b.createStoppedBox(ctx, name, spec)
+	if err != nil {
+		return "", err
+	}
+	if _, err := b.cli.ContainerStart(ctx, id, client.ContainerStartOptions{}); err != nil {
+		return "", fmt.Errorf("start new box: %w", err)
+	}
+	return id, nil
+}
+
+func (b *DockerBackend) createStoppedBox(ctx context.Context, name string, spec SandboxSpec) (string, error) {
 	if err := b.ensureImage(ctx, spec.Image); err != nil {
 		return "", err
 	}
@@ -250,14 +320,12 @@ func (b *DockerBackend) createBox(ctx context.Context, name string, spec Sandbox
 			Image:      spec.Image,
 			Cmd:        keepAliveCmd,
 			WorkingDir: workspaceTarget,
+			Labels:     map[string]string{"aura.browser-isolation": "1"},
 		},
 		HostConfig: toHostConfig(spec),
 	})
 	if err != nil {
 		return "", err
-	}
-	if _, err := b.cli.ContainerStart(ctx, res.ID, client.ContainerStartOptions{}); err != nil {
-		return "", fmt.Errorf("start new box: %w", err)
 	}
 	return res.ID, nil
 }

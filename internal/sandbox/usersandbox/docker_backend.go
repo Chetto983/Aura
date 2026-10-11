@@ -11,6 +11,7 @@ package usersandbox
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
@@ -84,11 +85,16 @@ type BoxFileSource func(identityID string) ([]BoxFile, error)
 // DockerBackend implements Backend over the moby/moby/client Docker Engine API. It is the
 // per-identity box runtime every routed tool ultimately execs into.
 type DockerBackend struct {
-	cli      *client.Client
-	image    string
-	limits   Resources
-	sources  SourceResolver
-	boxFiles BoxFileSource
+	cli              *client.Client
+	image            string
+	limits           Resources
+	sources          SourceResolver
+	boxFiles         BoxFileSource
+	browserFiles     BoxFileSource
+	browserLimits    Resources
+	browserMaxActive int
+	lifecycle        sync.Mutex
+	downloads        sync.Mutex
 	// egressImage is the aura-egress sidecar image ref. Empty (the default) DISABLES the
 	// sidecar entirely — a dev/local backend or the 37-04 lifecycle tests run box-only. The
 	// composition root wires WithEgress under the strict profiles so every networked box
@@ -111,6 +117,16 @@ func WithMaterializeSources(r SourceResolver) Option {
 // WithBoxFiles wires the per-identity files Resolve writes at create and resume.
 func WithBoxFiles(f BoxFileSource) Option {
 	return func(b *DockerBackend) { b.boxFiles = f }
+}
+
+// WithBrowserFiles keeps the browser key out of shell boxes.
+func WithBrowserFiles(f BoxFileSource) Option {
+	return func(b *DockerBackend) { b.browserFiles = f }
+}
+
+// WithBrowserLimits bounds browser memory independently of shell work and host admission.
+func WithBrowserLimits(limits Resources, maxActive int) Option {
+	return func(b *DockerBackend) { b.browserLimits = limits; b.browserMaxActive = maxActive }
 }
 
 // WithEgress enables the always-on per-box egress sidecar (SBX-04, D-07) using image as the
@@ -213,11 +229,12 @@ func (b *DockerBackend) launchEgress(ctx context.Context, spec SandboxSpec, h Bo
 	if b.egressImage == "" {
 		return nil
 	}
-	name := egressName(spec.IdentityID)
-	if existing, err := b.findEgress(ctx, spec.IdentityID); err != nil {
+	id := sidecarIdentity(spec.IdentityID, spec.Kind)
+	name := egressName(id)
+	if existing, err := b.findEgress(ctx, id); err != nil {
 		return err
 	} else if existing != "" {
-		return b.ensureRunning(ctx, existing)
+		return b.ensureEgressRunning(ctx, existing)
 	}
 
 	sc, err := buildEgressSidecar(spec.Egress, h.ContainerID)
@@ -244,7 +261,7 @@ func (b *DockerBackend) launchEgress(ctx context.Context, spec SandboxSpec, h Bo
 	if _, err := b.cli.ContainerStart(ctx, res.ID, client.ContainerStartOptions{}); err != nil {
 		return fmt.Errorf("start egress sidecar %q: %w", name, err)
 	}
-	return nil
+	return b.waitEgressFloor(ctx, res.ID)
 }
 
 // suspendEgress stops the sidecar in lockstep with the box (Suspend). The sidecar container is
@@ -263,11 +280,17 @@ func (b *DockerBackend) suspendEgress(ctx context.Context, identityID string) er
 // resumeEgress restarts the retained sidecar after the box is back up (Resume). The sidecar
 // re-applies the filter-table floor to the box's new netns on start.
 func (b *DockerBackend) resumeEgress(ctx context.Context, identityID string) error {
+	if b.egressImage == "" {
+		return nil
+	}
 	existing, err := b.findEgress(ctx, identityID)
-	if err != nil || existing == "" {
+	if err != nil {
 		return err
 	}
-	return b.ensureRunning(ctx, existing)
+	if existing == "" {
+		return fmt.Errorf("required egress sidecar is missing; resolve the box before resuming")
+	}
+	return b.ensureEgressRunning(ctx, existing)
 }
 
 // teardownEgress removes the sidecar with the box (Stop) — no orphan sidecar survives a box

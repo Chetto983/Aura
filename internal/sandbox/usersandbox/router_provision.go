@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 )
 
 // EnsureBox is the provisioning saga's explicit-identity get-or-create seam (D-09). It
@@ -39,13 +40,20 @@ func (r *SandboxRouter) EnsureBox(ctx context.Context, identityID string) (BoxHa
 // responsible for the nil-receiver/nil-backend/blank-id checks before calling this — it
 // assumes a valid router and a non-empty id.
 func (r *SandboxRouter) resolveAndTrack(ctx context.Context, id string) (BoxHandle, error) {
-	h, err := r.backend.Resolve(ctx, r.specFor(id))
+	return r.resolveKindAndTrack(ctx, id, Shell)
+}
+
+func (r *SandboxRouter) resolveKindAndTrack(ctx context.Context, id string, kind BoxKind) (BoxHandle, error) {
+	r.lifecycle.Lock()
+	defer r.lifecycle.Unlock()
+	h, err := r.backend.Resolve(ctx, r.specForKind(id, kind))
 	if err != nil {
 		return BoxHandle{}, err // fail-CLOSED (D-09/GATE-01) — the caller denies, never host
 	}
 	r.mu.Lock()
-	r.lastUsed[id] = r.clock()
-	r.handles[id] = h
+	key := trackingKey(id, kind)
+	r.lastUsed[key] = r.clock()
+	r.handles[key] = h
 	r.mu.Unlock()
 	return h, nil
 }
@@ -55,12 +63,46 @@ func (r *SandboxRouter) resolveAndTrack(ctx context.Context, id string) (BoxHand
 // once, and without this the idle reaper would suspend the box under it while it works. A
 // box the reaper already suspended is untracked and stays so: the next Route resumes it.
 func (r *SandboxRouter) Touch(identityID string) {
+	r.touchKind(identityID, Shell)
+}
+
+// TouchBrowser updates only browser idleness, independently of shell activity.
+func (r *SandboxRouter) TouchBrowser(identityID string) {
+	r.touchKind(identityID, Browser)
+}
+
+func (r *SandboxRouter) touchKind(identityID string, kind BoxKind) {
 	if r == nil {
 		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, tracked := r.lastUsed[identityID]; tracked {
-		r.lastUsed[identityID] = r.clock()
+	key := trackingKey(identityID, kind)
+	if _, tracked := r.lastUsed[key]; tracked {
+		r.lastUsed[key] = r.clock()
+	}
+}
+
+// HoldBrowser prevents an idle sweep during an in-flight MCP call or live relay.
+func (r *SandboxRouter) HoldBrowser(identityID string) func() {
+	if r == nil {
+		return func() {}
+	}
+	key := trackingKey(identityID, Browser)
+	r.mu.Lock()
+	r.active[key]++
+	r.mu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			r.mu.Lock()
+			defer r.mu.Unlock()
+			if r.active[key] > 0 {
+				r.active[key]--
+			}
+			if _, ok := r.lastUsed[key]; ok {
+				r.lastUsed[key] = r.clock()
+			}
+		})
 	}
 }

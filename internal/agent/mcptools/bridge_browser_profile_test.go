@@ -26,7 +26,6 @@ func TestWithBrowserProfileGivesEachSessionItsOwnProfile(t *testing.T) {
 		{"a null session is no session", map[string]any{"session": nil}, profile("default")},
 		{"a named session keeps its other args", map[string]any{"session": "bank", "url": "https://bank.example/"},
 			map[string]any{"session": "bank", "url": "https://bank.example/", "extraArgs": []any{"--profile", "~/profiles/bank"}}},
-		{"the model's own flags come first", map[string]any{"session": "bank", "extraArgs": []any{"--headed"}}, profile("bank", "--headed")},
 		{"48 characters is the longest name", map[string]any{"session": strings.Repeat("a", 48)}, profile(strings.Repeat("a", 48))},
 	}
 	for _, c := range cases {
@@ -43,11 +42,11 @@ func TestWithBrowserProfileGivesEachSessionItsOwnProfile(t *testing.T) {
 }
 
 func TestWithBrowserProfileLeavesTheCallersArgsAlone(t *testing.T) {
-	args := map[string]any{"session": "bank", "extraArgs": []any{"--headed"}}
+	args := map[string]any{"session": "bank", "script": "document.title"}
 	if _, err := withBrowserProfile(args); err != nil {
 		t.Fatal(err)
 	}
-	if want := (map[string]any{"session": "bank", "extraArgs": []any{"--headed"}}); !reflect.DeepEqual(args, want) {
+	if want := (map[string]any{"session": "bank", "script": "document.title"}); !reflect.DeepEqual(args, want) {
 		t.Fatalf("args became %v", args)
 	}
 }
@@ -60,6 +59,10 @@ func TestWithBrowserProfileRefusesWhatWouldMoveTheProfile(t *testing.T) {
 		"a name that is no string":  {"session": 7},
 		"extraArgs that are a line": {"extraArgs": "--headed"},
 		"extraArgs with a number":   {"extraArgs": []any{1}},
+		"arbitrary launch flag":     {"extraArgs": []any{"--headed"}},
+		"state export flag":         {"extraArgs": []any{"--state", "/tmp/state"}},
+		"empty CLI option list":     {"extraArgs": []any{}},
+		"null CLI option list":      {"extraArgs": nil},
 		"the model's own profile":   {"extraArgs": []any{"--profile", "/tmp/x"}},
 		"the model's profile, =":    {"extraArgs": []any{"--profile=/tmp/x"}},
 	} {
@@ -95,9 +98,13 @@ func boxCallCtx(t *testing.T) context.Context {
 // echoCaller mounts server on a box whose agent_browser_eval answers with the arguments it
 // received, and returns a caller for it: what the box saw, or the bridge's error.
 func echoCaller(t *testing.T, server mcp.ManagedServer, browser BrowserControl) func(raw string) (map[string]any, error) {
+	return echoNamedCaller(t, server, browser, "agent_browser_eval")
+}
+
+func echoNamedCaller(t *testing.T, server mcp.ManagedServer, browser BrowserControl, name string) func(raw string) (map[string]any, error) {
 	t.Helper()
-	boxes := &identityBoxes{echoTools: []string{"agent_browser_eval"}}
-	tool, ok := mountBox(t, server, browser, boxes).Get("browser__agent_browser_eval")
+	boxes := &identityBoxes{echoTools: []string{name}}
+	tool, ok := mountBox(t, server, browser, boxes).Get("browser__" + name)
 	if !ok {
 		t.Fatal("the echo tool was not mounted")
 	}

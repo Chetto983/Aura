@@ -18,7 +18,7 @@ func TestResolveReplacesForeignCacheMounts(t *testing.T) {
 	ctx := context.Background()
 	id := uniqueIdentity(t, "cache-migration")
 	name := boxName(id)
-	spec := SandboxSpec{IdentityID: id, WorkspaceVol: name, Image: testBoxImage()}
+	spec := SandboxSpec{IdentityID: id, Image: testBoxImage()}
 	if err := b.ensureImage(ctx, spec.Image); err != nil {
 		t.Fatal(err)
 	}

@@ -84,6 +84,7 @@ func TestBrowserExecuteRefreshesOnReferences(t *testing.T) {
 	}
 	var r browsercontrol.Registry
 	call := echoCaller(t, recipe.Server, &r)
+	click := echoNamedCaller(t, recipe.Server, &r, "agent_browser_click")
 
 	viewer := new(int)
 	r.Hold(browserTestIdentity, "portal", viewer)
@@ -92,7 +93,7 @@ func TestBrowserExecuteRefreshesOnReferences(t *testing.T) {
 	}
 	r.Release(browserTestIdentity, "portal", viewer)
 
-	if _, err := call(`{"session":"portal","selector":"@e3"}`); err == nil || !strings.Contains(err.Error(), "stale") {
+	if _, err := click(`{"session":"portal","selector":"@e3"}`); err == nil || !strings.Contains(err.Error(), "stale") {
 		t.Fatalf("a reference after release = %v, want refused as stale", err)
 	}
 	if _, err := call(`{"session":"portal","script":"textbox \"Email\" [ref=e2]"}`); err != nil {
@@ -101,7 +102,7 @@ func TestBrowserExecuteRefreshesOnReferences(t *testing.T) {
 	if r.Stale(browserTestIdentity, "portal") {
 		t.Fatal("a result carrying [ref=eN] must refresh the session")
 	}
-	if _, err := call(`{"session":"portal","selector":"@e3"}`); err != nil {
+	if _, err := click(`{"session":"portal","selector":"@e3"}`); err != nil {
 		t.Fatalf("a reference after the refresh = %v, want it through", err)
 	}
 }

@@ -42,6 +42,10 @@ func (b *bridgedTool) Execute(ctx context.Context, raw json.RawMessage) (tools.T
 	}
 	browser := b.policy.recipeSource == mcpmanager.BrowserRecipeSource
 	if browser {
+		if err := validateBrowserArguments(b.name, args); err != nil {
+			observeErr = err
+			return tools.ToolResult{}, err
+		}
 		profiled, err := withBrowserProfile(args)
 		if err != nil {
 			observeErr = err
@@ -77,15 +81,22 @@ func (b *bridgedTool) Execute(ctx context.Context, raw json.RawMessage) (tools.T
 		madeRoom = room
 	}
 	payload, err := b.srv.CallTool(callCtx, b.name, args)
+	var downloadFooter string
+	if browser {
+		downloadFooter = b.downloadFooter(callCtx)
+	}
 	if err != nil {
 		observeErr = err
+		if downloadFooter != "" {
+			return tools.ToolResult{}, fmt.Errorf("%w%s", boundedMCPError(err), downloadFooter)
+		}
 		return tools.ToolResult{}, boundedMCPError(err)
 	}
 	if browser {
 		refreshBrowserReferences(b.srv.browser, browserIdentity(ctx), args, payload.Text)
 		payload.Text += madeRoom + b.browserCallDone(ctx, args)
 	}
-	return b.newResult(ctx, args, payload)
+	return b.newResultWithTail(ctx, args, payload, downloadFooter)
 }
 
 // newResult wraps an MCP tool's output. A mounted MCP server is
@@ -99,7 +110,11 @@ func (b *bridgedTool) Execute(ctx context.Context, raw json.RawMessage) (tools.T
 // into history — so a server cannot use the view channel to say something extra
 // to the model; it reaches only the surfaces that render (bridge_views.go).
 func (b *bridgedTool) newResult(ctx context.Context, args map[string]any, payload mcp.ToolPayload) (tools.ToolResult, error) {
-	res, err := b.resultText(ctx, payload)
+	return b.newResultWithTail(ctx, args, payload, "")
+}
+
+func (b *bridgedTool) newResultWithTail(ctx context.Context, args map[string]any, payload mcp.ToolPayload, tail string) (tools.ToolResult, error) {
+	res, err := b.resultTextWithTail(ctx, payload, tail)
 	if err != nil {
 		return tools.ToolResult{}, err
 	}
@@ -128,14 +143,17 @@ func (b *bridgedTool) newResult(ctx context.Context, args map[string]any, payloa
 	return res, nil
 }
 
-// resultText is what the model reads: the server's text, then what became of any
+// resultTextWithTail is what the model reads: the server's text, then what became of any
 // files the result carried. The footer is reserved from the preview cap, because a
 // long email body must not truncate away the path to its attachment.
-func (b *bridgedTool) resultText(ctx context.Context, payload mcp.ToolPayload) (tools.ToolResult, error) {
-	if len(payload.Files) == 0 {
+func (b *bridgedTool) resultTextWithTail(ctx context.Context, payload mcp.ToolPayload, tail string) (tools.ToolResult, error) {
+	if len(payload.Files) == 0 && tail == "" {
 		return tools.NewResult(ctx, payload.Text)
 	}
-	footer := b.srv.filesFooter(ctx, payload.Files)
+	footer := tail
+	if len(payload.Files) > 0 {
+		footer = b.srv.filesFooter(ctx, payload.Files) + tail
+	}
 	if payload.Text != "" {
 		footer = "\n\n" + footer
 	}

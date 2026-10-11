@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/moby/moby/client"
-
 	"github.com/chetto1983/aura/internal/agui"
 	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/identityctx"
@@ -37,6 +35,9 @@ func TestBrowserRelayDrivesTheBoxBrowser(t *testing.T) {
 	run(`agent-browser --session live open "data:text/html,<input id=u autofocus style='position:absolute;left:0;top:0;width:400px;height:40px'>"`)
 
 	view := openLiveView(t, ctx, router, "live")
+	if n, err := router.SuspendIdle(ctx, time.Now().Add(10*time.Second)); err != nil || n != 0 {
+		t.Fatalf("active live view was reaped: %d, %v", n, err)
+	}
 	view.click(100, 20)
 	for _, ch := range "hi.1" {
 		s := string(ch)
@@ -60,6 +61,9 @@ func TestBrowserRelayDrivesTheBoxBrowser(t *testing.T) {
 	}
 
 	view.close()
+	if n, err := router.SuspendIdle(ctx, time.Now().Add(10*time.Second)); err != nil || n != 1 {
+		t.Fatalf("closed live view retained its browser lease: %d, %v", n, err)
+	}
 }
 
 // liveBox routes the box of a fresh identity from the real image and stops it after the test.
@@ -73,21 +77,18 @@ func liveBox(t *testing.T) (context.Context, *usersandbox.SandboxRouter, usersan
 	cfg := &config.Config{
 		Profile:       config.ProfileSingleUserHardened,
 		AuthulaSecret: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-		Sandbox:       config.SandboxConfig{Image: image, CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 256},
+		Sandbox:       config.SandboxConfig{Image: image, CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 256, BrowserIdleTTLSec: 1},
 	}
 	router := buildSandboxRouter(cfg, nil)
 	ctx := identityctx.WithIdentityID(context.Background(), egressITIdentity(t))
-	h, err := router.Route(ctx)
+	h, err := router.RouteBrowser(ctx)
 	if err != nil {
 		t.Fatalf("route: %v", err)
 	}
-	cli, err := client.New(client.FromEnv)
-	if err != nil {
-		t.Fatalf("docker client: %v", err)
-	}
 	t.Cleanup(func() {
-		_ = usersandbox.NewDockerBackend(cli, image, usersandbox.Resources{}).Stop(context.Background(), h)
-		_ = cli.Close()
+		if err := router.Destroy(context.Background(), h.IdentityID); err != nil {
+			t.Error(err)
+		}
 	})
 	return ctx, router, h
 }

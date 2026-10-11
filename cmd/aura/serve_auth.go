@@ -149,7 +149,7 @@ func buildAuthulaProvider(ctx context.Context, chat *chatEnv, localIdentityID st
 	case uerr == nil && uid != "":
 		if lerr := ensureAuthulaUserLinked(ctx, linker, chat.pool, localIdentityID, uid, preferredUserIdentityForAuthulaUser); lerr != nil {
 			fmt.Println("aura serve: authula operator link failed:", lerr)
-		} else if rerr := retireLegacyLocalIdentityForAuthulaUser(ctx, chat.pool, uid); rerr != nil {
+		} else if rerr := retireLegacyLocalIdentityForAuthulaUser(ctx, chat.pool, uid, chat.sandboxRouter.PurgeBrowserCredentials); rerr != nil {
 			fmt.Println("aura serve: legacy local identity retirement skipped:", rerr)
 		}
 	case errors.Is(uerr, webauth.ErrOperatorAmbiguous):
@@ -207,7 +207,7 @@ func ensureAuthulaUserLinked(
 	return linker.LinkOperator(ctx, targetID, authulaUserID)
 }
 
-func retireLegacyLocalIdentityForAuthulaUser(ctx context.Context, pool *pgxpool.Pool, authulaUserID string) error {
+func retireLegacyLocalIdentityForAuthulaUser(ctx context.Context, pool *pgxpool.Pool, authulaUserID string, purge func(context.Context, string) error) error {
 	if pool == nil || strings.TrimSpace(authulaUserID) == "" {
 		return nil
 	}
@@ -215,6 +215,10 @@ func retireLegacyLocalIdentityForAuthulaUser(ctx context.Context, pool *pgxpool.
 	if err != nil || strings.TrimSpace(targetID) == "" {
 		return err
 	}
+	return retireLegacyLocalIdentity(ctx, pool, targetID, purge)
+}
+
+func retireLegacyLocalIdentity(ctx context.Context, pool *pgxpool.Pool, targetID string, purge func(context.Context, string) error) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("retire legacy local identity: begin tx: %w", err)
@@ -238,6 +242,12 @@ func retireLegacyLocalIdentityForAuthulaUser(ctx context.Context, pool *pgxpool.
 	}
 	if localID == targetID {
 		return nil
+	}
+	if purge == nil {
+		return errors.New("retire legacy local identity: browser credential purge unavailable")
+	}
+	if err := purge(ctx, localID); err != nil {
+		return fmt.Errorf("retire legacy local identity: purge browser credentials: %w", err)
 	}
 	for _, stmt := range []string{
 		`UPDATE aura.conversations SET identity_id=$1::uuid WHERE identity_id=$2::uuid`,

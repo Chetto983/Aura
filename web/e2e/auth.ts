@@ -51,10 +51,10 @@ function envFileValue(name: string): string | undefined {
 
 function envValue(...names: string[]): string | undefined {
   for (const name of names) {
-    const fromFile = envFileValue(name);
-    if (fromFile !== undefined && fromFile.trim() !== '') return fromFile;
     const fromProcess = process.env[name];
     if (fromProcess !== undefined && fromProcess.trim() !== '') return fromProcess;
+    const fromFile = envFileValue(name);
+    if (fromFile !== undefined && fromFile.trim() !== '') return fromFile;
   }
   return undefined;
 }

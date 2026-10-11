@@ -1,16 +1,5 @@
-// router.go interposes the per-identity sandbox ROUTING SEAM (SBX-01/GATE-01): Route is the
-// single get-or-create entry point EVERY tool call passes through. There is no host arm behind
-// it any more — the per-identity box is the only filesystem and the only shell the agent has, on
-// every profile. Route therefore has exactly TWO outcomes: a live BoxHandle, or an error the
-// caller turns into a DENY (the fail-CLOSED containment invariant, D-09/GATE-01). specFor sources
-// the box image, cgroup caps, and the egress FQDN allowlist from the AURA_SANDBOX_* config surface
-// (cfg.Sandbox, 37-01), so a CONFIGURED allowlist reaches EgressPolicy, not just a test fixture.
-// The live idle-suspend reaper impl (SuspendIdle, the handlers.SandboxReaper seam) lives in
-// reap.go over the lastUsed map bumped here on each Route.
-//
-// The collapse to one successful outcome closed a live defect: while a host arm existed, a tool
-// could write a file into the aura container's own volume and report a path the box — where the
-// agent's shell actually looks — could not see (document_open / Clienti.xlsx, 2026-08-03).
+// Shell tools and trusted browser adapters have separate per-identity routes.
+// Both fail closed: there is no host execution fallback.
 
 package usersandbox
 
@@ -48,9 +37,12 @@ type SandboxRouter struct {
 	backend Backend
 	cfg     config.SandboxConfig
 
-	mu       sync.Mutex
-	lastUsed map[string]time.Time
-	handles  map[string]BoxHandle
+	mu         sync.Mutex
+	lifecycle  sync.Mutex
+	lastUsed   map[string]time.Time
+	handles    map[string]BoxHandle
+	active     map[string]int
+	discovered bool
 
 	// now is the injectable clock for tests; nil → time.Now().UTC() via clock().
 	now func() time.Time
@@ -64,6 +56,7 @@ func NewSandboxRouter(backend Backend, cfg config.SandboxConfig) *SandboxRouter 
 		cfg:      cfg,
 		lastUsed: make(map[string]time.Time),
 		handles:  make(map[string]BoxHandle),
+		active:   make(map[string]int),
 	}
 }
 
@@ -86,6 +79,14 @@ func (r *SandboxRouter) Route(ctx context.Context) (BoxHandle, error) {
 	return r.resolveAndTrack(ctx, r.identityID(ctx))
 }
 
+// RouteBrowser is reserved for trusted browser adapters, never arbitrary shell commands.
+func (r *SandboxRouter) RouteBrowser(ctx context.Context) (BoxHandle, error) {
+	if r == nil || r.backend == nil {
+		return BoxHandle{}, errBackendUnavailable
+	}
+	return r.resolveKindAndTrack(ctx, r.identityID(ctx), Browser)
+}
+
 // identityID resolves the caller principal: the authenticated identity from identityctx, or the
 // seeded `local` identity when no principal is scoped (CLI / bare ctx). It mirrors
 // tools.ownerFromContext so a routed box is keyed on the SAME identity the rest of Aura uses —
@@ -104,9 +105,8 @@ func (r *SandboxRouter) identityID(ctx context.Context) string {
 // on runc since gVisor was retired (prd.md §12, 2026-10-11).
 func (r *SandboxRouter) specFor(id string) SandboxSpec {
 	return SandboxSpec{
-		IdentityID:   id,
-		Image:        r.cfg.Image,
-		WorkspaceVol: boxName(id),
+		IdentityID: id,
+		Image:      r.cfg.Image,
 		Egress: EgressPolicy{
 			Floor:         true,
 			FQDNAllowlist: r.cfg.EgressAllowlist,
@@ -119,8 +119,25 @@ func (r *SandboxRouter) specFor(id string) SandboxSpec {
 	}
 }
 
-// Destroy tears down one identity's box: the egress sidecar, the container, and the
-// per-identity workspace volume (Backend.Stop, ShutdownPolicy:Delete). It is the deprovision
+func (r *SandboxRouter) specForKind(id string, kind BoxKind) SandboxSpec {
+	s := r.specFor(id)
+	s.Kind = kind
+	if kind == Browser {
+		s.Limits = Resources{NanoCPUs: int64(r.cfg.BrowserCPULimit) * nanoCPUsPerCPU,
+			MemoryBytes: r.cfg.BrowserMemoryLimit, PidsLimit: r.cfg.BrowserPidsLimit}
+	}
+	return s
+}
+
+func trackingKey(id string, kind BoxKind) string {
+	if kind == Browser {
+		return "browser/" + id
+	}
+	return id
+}
+
+// Destroy tears down both kinds: their egress sidecars, containers and private
+// volumes (Backend.Stop, ShutdownPolicy:Delete). It is the deprovision
 // counterpart to Route, and it is the ONLY per-identity teardown the router has -- SuspendIdle
 // sweeps by idleness and retains everything, which is the opposite intent.
 //
@@ -144,15 +161,28 @@ func (r *SandboxRouter) Destroy(ctx context.Context, identityID string) error {
 	if identityID == "" {
 		return errors.New("sandbox destroy: identity is required")
 	}
-	r.mu.Lock()
-	handle, cached := r.handles[identityID]
-	delete(r.handles, identityID)
-	delete(r.lastUsed, identityID)
-	r.mu.Unlock()
-	if !cached {
-		handle = BoxHandle{ContainerID: boxName(identityID), IdentityID: identityID}
+	r.lifecycle.Lock()
+	defer r.lifecycle.Unlock()
+	var result error
+	for _, kind := range []BoxKind{Browser, Shell} {
+		key := trackingKey(identityID, kind)
+		r.mu.Lock()
+		handle, cached := r.handles[key]
+		r.mu.Unlock()
+		if !cached {
+			handle = BoxHandle{ContainerID: workspaceName(identityID, kind), IdentityID: identityID, Kind: kind}
+		}
+		if err := r.backend.Stop(ctx, handle); err != nil {
+			result = errors.Join(result, err)
+			continue
+		}
+		r.mu.Lock()
+		delete(r.handles, key)
+		delete(r.lastUsed, key)
+		delete(r.active, key)
+		r.mu.Unlock()
 	}
-	return r.backend.Stop(ctx, handle)
+	return result
 }
 
 // clock returns the current time via the injectable now (tests) or time.Now().UTC().

@@ -6,6 +6,29 @@
 // client work lives here — the moby client binding is owned by the DockerBackend plan.
 package usersandbox
 
+// BoxKind fixes the volume and mount policy; callers cannot select arbitrary volumes.
+type BoxKind int
+
+// Shell and Browser never share credentials, processes or network namespaces.
+const (
+	Shell BoxKind = iota
+	Browser
+)
+
+func workspaceName(id string, kind BoxKind) string {
+	if kind == Browser {
+		return "aura-browser-" + id
+	}
+	return boxName(id)
+}
+
+func sidecarIdentity(id string, kind BoxKind) string {
+	if kind == Browser {
+		return "browser-" + id
+	}
+	return id
+}
+
 // EgressPolicy is the box network egress posture. Floor is the always-on default tenancy
 // floor (drop RFC1918 + cloud metadata); FQDNAllowlist is the opt-in tightened allowlist.
 // There is deliberately no "host"/"none-with-holes" escape here.
@@ -29,9 +52,9 @@ type Resources struct {
 // gVisor was retired on 2026-10-11 (prd.md §12). toHostConfig (translate.go) is the single
 // crossing that turns a spec into a moby HostConfig with the dangerous fields pinned safe.
 type SandboxSpec struct {
-	IdentityID   string
-	Image        string
-	WorkspaceVol string
-	Egress       EgressPolicy
-	Limits       Resources
+	Kind       BoxKind
+	IdentityID string
+	Image      string
+	Egress     EgressPolicy
+	Limits     Resources
 }

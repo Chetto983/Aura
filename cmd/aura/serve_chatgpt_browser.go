@@ -30,13 +30,15 @@ func (b sandboxChatGPTBrowser) Open(ctx context.Context, session string) (chatgp
 	if !chatGPTBrowserSessionPattern.MatchString(session) {
 		return nil, errors.New("invalid ChatGPT browser session")
 	}
-	h, err := b.router.Route(ctx)
+	h, err := b.router.RouteBrowser(ctx)
 	if err != nil {
 		return nil, err
 	}
+	release := b.router.HoldBrowser(h.IdentityID)
 	digest := sha256.Sum256(chatGPTBrowserScript)
 	path := "/tmp/.aura-chatgpt-browser-" + hex.EncodeToString(digest[:8]) + ".mjs"
 	if err = b.router.WriteFile(ctx, h, path, chatGPTBrowserScript); err != nil {
+		release()
 		return nil, err
 	}
 	in, commands := io.Pipe()
@@ -45,13 +47,14 @@ func (b sandboxChatGPTBrowser) Open(ctx context.Context, session string) (chatgp
 		Command: "node " + path + " " + session, Dir: "/workspace",
 	}, in, output)
 	if err != nil {
+		release()
 		_ = in.Close()
 		_ = commands.Close()
 		_ = out.Close()
 		_ = output.Close()
 		return nil, err
 	}
-	s := newChatGPTBrowserSession(handle, commands, out, output)
+	s := newChatGPTBrowserSession(&leasedBrowserHandle{BrowserRelayHandle: handle, release: release}, commands, out, output)
 	ready, err := s.next(ctx, "listening")
 	if err == nil {
 		parsed, parseErr := url.Parse(ready.RedirectURI)

@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/chetto1983/aura/internal/agent/tools"
@@ -28,7 +30,22 @@ func newSandboxMCPBox(router *usersandbox.SandboxRouter) mcp.BoxLauncher {
 }
 
 func (b sandboxMCPBox) StartStdio(ctx context.Context, name string, argv, env []string, stdin io.ReadCloser, stdout io.Writer) (mcp.BoxProcess, error) {
-	h, err := b.router.Route(ctx)
+	return b.startStdio(ctx, name, argv, env, stdin, stdout, false)
+}
+
+func (b sandboxMCPBox) StartBrowserStdio(ctx context.Context, name string, argv, env []string, stdin io.ReadCloser, stdout io.Writer) (mcp.BoxProcess, error) {
+	if !slices.Equal(argv, []string{"agent-browser", "mcp"}) || len(env) != 0 {
+		return nil, errors.New("browser sandbox only admits its fixed recipe command")
+	}
+	return b.startStdio(ctx, name, argv, nil, stdin, stdout, true)
+}
+
+func (b sandboxMCPBox) startStdio(ctx context.Context, name string, argv, env []string, stdin io.ReadCloser, stdout io.Writer, browser bool) (mcp.BoxProcess, error) {
+	route := b.router.Route
+	if browser {
+		route = b.router.RouteBrowser
+	}
+	h, err := route(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -40,15 +57,28 @@ func (b sandboxMCPBox) StartStdio(ctx context.Context, name string, argv, env []
 	if err != nil {
 		return nil, err
 	}
-	return boxStdioProcess{ExecStreamHandle: job, touch: func() { b.router.Touch(h.IdentityID) }}, nil
+	proc := boxStdioProcess{ExecStreamHandle: job, touch: func() { b.router.Touch(h.IdentityID) }}
+	if browser {
+		proc.touch = func() { b.router.TouchBrowser(h.IdentityID) }
+		proc.hold = func() func() { return b.router.HoldBrowser(h.IdentityID) }
+	}
+	return proc, nil
 }
 
 type boxStdioProcess struct {
 	*usersandbox.ExecStreamHandle
 	touch func()
+	hold  func() func()
 }
 
 func (p boxStdioProcess) Touch() { p.touch() }
+
+func (p boxStdioProcess) Hold() func() {
+	if p.hold == nil {
+		return func() {}
+	}
+	return p.hold()
+}
 
 var unsafeFileNameChars = regexp.MustCompile(`[^A-Za-z0-9_-]`)
 
