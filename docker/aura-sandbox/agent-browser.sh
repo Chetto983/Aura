@@ -20,7 +20,7 @@
 #     runs each call as its own child, past this entry point, and the bridge sets the profile there.
 key_file=/run/aura/agent-browser.key
 if [ ! -r "$key_file" ]; then
-    echo "agent-browser: $key_file is missing. Aura derives it from AURA_AUTHULA_SECRET and writes it when the box starts; without that secret the browser is unavailable. Refusing to run, because the credential vault would otherwise create its own key next to the data it protects." >&2
+    echo "agent-browser: $key_file is missing. In the agent's shell box this is expected: the browser runs in a box of its own, so use the browser__agent_browser_* tools instead of this command. In the browser box, Aura derives the key from AURA_AUTHULA_SECRET and writes it when the box starts. Refusing to run, because the credential vault would otherwise create its own key next to the data it protects." >&2
     exit 78
 fi
 AGENT_BROWSER_ENCRYPTION_KEY="$(cat "$key_file")"
