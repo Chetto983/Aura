@@ -18,7 +18,7 @@ func TestRunTurnCleanupOutlivesACancelledTurn(t *testing.T) {
 	cleanup.Add("dir", func(ctx context.Context) error { stepErr = ctx.Err(); return nil })
 	cancel()
 
-	runTurnCleanup(ctx, "req-1", cleanup)
+	runTurnCleanup(ctx, "req-1", "incomplete", cleanup)
 
 	if stepErr != nil {
 		t.Fatalf("the cleanup step saw %v; a stopped turn still owes the box its cleanup", stepErr)
@@ -35,7 +35,7 @@ func TestRunTurnCleanupLogsAFailureWithTheRequest(t *testing.T) {
 		return errors.New("remove /workspace/mcp-files/req-9: exit 1")
 	})
 
-	runTurnCleanup(ctx, "req-9", cleanup)
+	runTurnCleanup(ctx, "req-9", "incomplete", cleanup)
 
 	for _, want := range []string{"turn cleanup failed", "request_id=req-9", "/workspace/mcp-files/req-9"} {
 		if !strings.Contains(logs.String(), want) {

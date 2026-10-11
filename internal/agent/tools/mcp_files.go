@@ -18,11 +18,12 @@ import (
 // MCPFileSink puts the files an MCP tool result carried into the caller's box, at
 // /workspace/mcp-files/<request-id>-<tool-call-id>/<server>/<name>, and asks the call's
 // cleanup to remove that directory. A call that settles in its turn hands its cleanup to
-// the turn; one moved to the background hands it to the turn that reads its result
-// (background_calls.go), which is why the directory is the call's and not the turn's: a
-// turn ending must not take the files of a call still on its way. It writes through the
-// router seam document_open uses, for the reason document_open gives: a path the agent is
-// handed must be one shell_exec and fs_read can open.
+// the turn, which keeps the files across an ask_user pause; one moved to the background
+// hands it to the turn that reads its result (background_calls.go), which is why the
+// directory is the call's and not the turn's: a turn ending must not take the files of a
+// call still on its way. It writes through the router seam document_open uses, for the
+// reason document_open gives: a path the agent is handed must be one shell_exec and
+// fs_read can open.
 //
 // It lives here, not in mcptools, so the MCP bridge never imports the sandbox; the
 // bridge sees it as mcptools.FileSink.
@@ -124,7 +125,7 @@ func (s *MCPFileSink) open(ctx context.Context, server string, total int) (*mcpF
 // staleCallDirSweep is the shell command that removes the call directories under
 // mcpFilesBoxDir older than staleMCPCallDirAge, except keep, the one this call writes
 // into. A turn whose process died (an updater restart, an OOM kill) never ran its own
-// removal, and nothing else would. It writes nothing to stdout, and the caller chains it
+// removal, and a turn that paused for the user leaves it on purpose; nothing else would. It writes nothing to stdout, and the caller chains it
 // with `;`, so neither its output nor its exit status reaches what follows.
 func staleCallDirSweep(keep string) string {
 	return fmt.Sprintf("find %s -mindepth 1 -maxdepth 1 -type d -mmin +%d ! -path %s -exec rm -rf -- {} + 2>/dev/null",

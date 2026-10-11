@@ -146,7 +146,9 @@ func TestLlmAgent_TurnCleanupRunsWhenTheCallerCancels(t *testing.T) {
 	}
 }
 
-func TestLlmAgent_TurnCleanupRunsWhenTheTurnPausesForTheUser(t *testing.T) {
+// The run resumed after the answer is a new Run that may still need what this one left: on
+// 2026-10-11 a screenshot sent right after an approval failed because the pause had removed it.
+func TestLlmAgent_TurnCleanupWaitsAcrossAPauseForTheUser(t *testing.T) {
 	var cleaned atomic.Int32
 	fc := agenttest.NewFakeClient(
 		agenttest.ToolCallTurn(agenttest.MakeToolCall("c1", "leave_file", `{}`)),
@@ -156,8 +158,8 @@ func TestLlmAgent_TurnCleanupRunsWhenTheTurnPausesForTheUser(t *testing.T) {
 	if _, err := collect(newCleanupAgent(t, fc, &cleaned).Run(newPauseIC(t))); err != nil {
 		t.Fatalf("a pause is Event-only; Run: %v", err)
 	}
-	if got := cleaned.Load(); got != 1 {
-		t.Fatalf("cleanup ran %d times across an ask_user pause, want 1", got)
+	if got := cleaned.Load(); got != 0 {
+		t.Fatalf("cleanup ran %d times at an ask_user pause, want 0: the resumed run may still need the files", got)
 	}
 }
 

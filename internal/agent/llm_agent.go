@@ -186,7 +186,7 @@ func (a *LlmAgent) Run(ic InvocationContext) iter.Seq2[*Event, error] {
 		turnReason := "incomplete"
 		var activeLLMEnd *obs.BoundaryEnd
 		defer func() {
-			runTurnCleanup(ic.Ctx, requestID, turnCleanup)
+			runTurnCleanup(ic.Ctx, requestID, turnReason, turnCleanup)
 			if err := a.hooks.OnTurnEnd(ic.Ctx, a.hookTurn(ic, turnReason)); err != nil {
 				reasoningtrace.Record("agent_hook_turn_end_error", map[string]any{
 					"request_id": requestID,
@@ -504,7 +504,7 @@ func (a *LlmAgent) Run(ic InvocationContext) iter.Seq2[*Event, error] {
 			// assistant tool-call message and dispatch sequentially (D-14).
 			if pauses := a.pauseCalls(ic.Ctx, calls); len(pauses) > 0 {
 				a.history = append(a.history, llm.Message{Role: llm.RoleAssistant, ToolCalls: pauseToolCalls(pauses)})
-				turnReason = "ask_user_pause"
+				turnReason = outcomeAskUserPause
 				a.emitPauses(ic, spanID, parentSpanID, pauses, yield)
 				return
 			}
