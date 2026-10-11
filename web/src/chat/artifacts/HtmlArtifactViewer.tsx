@@ -1,7 +1,8 @@
 import { useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Code2, Download, FileCode2, Maximize2, Play, X } from 'lucide-react';
-import { ArtifactFrame, ArtifactSource } from './renderers/HtmlPreview';
+import { ArtifactFrame } from './renderers/HtmlPreview';
+import { HighlightedSource } from './renderers/HighlightedSource';
 import { useAssetSource } from './renderers/assetSourceContext';
 import type { RendererProps } from './renderers/PreviewStatus';
 import { ArtifactCopyButton } from './ArtifactCopyButton';
@@ -131,7 +132,7 @@ export default function HtmlArtifactViewer({
           {showCode && (
             <>
               <ResizablePanel id="artifact-source" defaultSize="48%" minSize="25%">
-                <ArtifactSource assetId={assetId} />
+                <HighlightedSource assetId={assetId} lang="html" />
               </ResizablePanel>
               <ResizableHandle aria-label={t('artifacts.workspace.resize')} />
             </>
@@ -146,7 +147,7 @@ export default function HtmlArtifactViewer({
         <div className="relative min-h-0 flex-1 border-t border-border">
           {showCode && (
             <div className="absolute inset-0">
-              <ArtifactSource assetId={assetId} />
+              <HighlightedSource assetId={assetId} lang="html" />
             </div>
           )}
           <div className="h-full" hidden={showCode}>

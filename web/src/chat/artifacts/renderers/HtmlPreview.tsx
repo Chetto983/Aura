@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Code2, Eye } from 'lucide-react';
-import { highlightCode } from '../../displays/shiki';
+import { HighlightedSource } from './HighlightedSource';
 import { useAssetContent } from './useAssetContent';
 import { useAssetSource } from './assetSourceContext';
 import { PreviewError, PreviewLoading, type RendererProps } from './PreviewStatus';
@@ -60,41 +60,6 @@ function SrcdocFrame({ assetId, title }: { readonly assetId: string; readonly ti
   );
 }
 
-/** The markup behind the page, React-escaped in a <pre> exactly like TextPreview — the bytes
- *  are shown, never parsed. Mounted ONLY while its tab is active, so opening an artifact does
- *  not fetch a large body a second time just to have it available. */
-export function ArtifactSource({ assetId }: { readonly assetId: string }) {
-  const { data, error } = useAssetContent(assetId, 'text');
-  const [highlighted, setHighlighted] = useState<{ source: string; html: string } | null>(null);
-  useEffect(() => {
-    if (data === undefined) return;
-    let cancelled = false;
-    void highlightCode(data, 'html', document.documentElement.dataset.theme !== 'light').then(
-      (html) => {
-        if (!cancelled && html !== null) setHighlighted({ source: data, html });
-      },
-      () => undefined,
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [data]);
-  if (error !== undefined) return <PreviewError detail={error} />;
-  if (data === undefined) return <PreviewLoading />;
-  if (highlighted?.source === data)
-    return (
-      <div
-        className="h-full overflow-auto p-4 font-mono text-xs leading-relaxed [&_pre]:m-0 [&_pre]:!bg-transparent"
-        dangerouslySetInnerHTML={{ __html: highlighted.html }}
-      />
-    );
-  return (
-    <pre className="h-full overflow-auto p-4 font-mono text-xs leading-relaxed text-text">
-      {data}
-    </pre>
-  );
-}
-
 export function ArtifactFrame({ assetId, fileName }: Pick<RendererProps, 'assetId' | 'fileName'>) {
   const { renderUrl } = useAssetSource();
   return renderUrl === undefined ? (
@@ -142,8 +107,10 @@ export default function HtmlPreview({ assetId, fileName }: RendererProps) {
         ))}
       </div>
       <div className="min-h-0 flex-1">
+        {/* The source mounts only while its tab is active, so opening an artifact does not
+            fetch a large body a second time just to have it available. */}
         {tab === 'source' ? (
-          <ArtifactSource assetId={assetId} />
+          <HighlightedSource assetId={assetId} lang="html" />
         ) : (
           <ArtifactFrame assetId={assetId} fileName={fileName} />
         )}

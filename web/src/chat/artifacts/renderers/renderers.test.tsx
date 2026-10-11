@@ -150,6 +150,31 @@ describe('TextPreview', () => {
       expect(screen.getByRole('alert')).toBeTruthy();
     });
   });
+
+  it('highlights a file by its extension, still as escaped text', async () => {
+    stubFetch({ text: 'import os\nprint("<script>alert(1)</script>")' });
+    const { container } = render(<TextPreview {...props} fileName="tenant_checks.py" />);
+
+    await waitFor(
+      () => {
+        expect(container.querySelector('pre.shiki')).not.toBeNull();
+      },
+      { timeout: 5000 },
+    );
+    expect(container.textContent).toContain('print("<script>alert(1)</script>")');
+    expect(container.querySelector('script')).toBeNull();
+  });
+
+  it('keeps a file whose extension has no grammar as plain text', async () => {
+    stubFetch({ text: 'a,b\n1,2' });
+    const { container } = render(<TextPreview {...props} fileName="table.csv" />);
+
+    await waitFor(() => {
+      expect(container.querySelector('pre')?.textContent).toBe('a,b\n1,2');
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(container.querySelector('.shiki')).toBeNull();
+  });
 });
 
 describe('HtmlPreview (WEBART-07 / T-37B-08)', () => {

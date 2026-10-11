@@ -55,7 +55,7 @@ const TEXT_EXT = new Set([
 ]);
 
 /** The lowercase extension after the last dot, or '' when the name has no dot. */
-function extOf(filename: string): string {
+export function extOf(filename: string): string {
   const lower = filename.toLowerCase();
   const dot = lower.lastIndexOf('.');
   return dot >= 0 ? lower.slice(dot + 1) : '';
