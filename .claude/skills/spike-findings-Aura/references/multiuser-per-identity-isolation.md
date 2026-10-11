@@ -24,7 +24,7 @@ docker run -d --rm --network none -v <per-identity-volume>:/workspace --entrypoi
 - Make the host-exposure flags **unrepresentable** in the box spec (SBX-02): no docker-socket mount, no `--privileged`, no `--network host`, no host bind-mount. (Live: box A has no `/var/run/docker.sock`.)
 - ~~Optional `runtime: runsc` (gVisor) under `server_production` (061).~~ Retired 2026-10-11 by the operator: every box runs on runc (prd.md §12).
 
-**Go contract** — corrected against the REAL agent-sandbox source + a live kind run (**082**, supersedes 079's paper mapping):
+**Go contract** — corrected against the REAL agent-sandbox source + a live kind run (**082**, supersedes 079's paper mapping). `RuntimeClass` below is history: gVisor was retired on 2026-10-11 and the shipped `SandboxSpec` has no runtime field (prd.md §12).
 ```go
 type SandboxSpec struct { IdentityID, Image, Workspace, RuntimeClass string; Egress EgressPolicy; Limits Resources }
 type Sandbox interface {

@@ -302,8 +302,10 @@ parse_install_config() {
     case "$key" in
       install_dir_base64) CFG_INSTALL_DIR="$(config_decode "$value")" ;;
       appliance) CFG_APPLIANCE="$value" ;;
-      # gVisor was retired on 2026-10-11 (prd.md §12), but create-aura-appliance up to 0.2.10
-      # still writes this key, and refusing it would strand every config those versions made.
+      # gVisor was retired on 2026-10-11 (prd.md §12). create-aura-appliance up to 0.2.10 writes
+      # this key, but each version runs the installer it bundles, so this one meets it only in an
+      # old config handed to it by hand: accepted, so that config still installs, and warned
+      # about when true. It no longer implies --appliance, as --gvisor once did.
       gvisor)
         if [ "$value" = "true" ]; then
           echo "WARN: gVisor was retired on 2026-10-11; Aura installs on runc and ignores gvisor=true." >&2

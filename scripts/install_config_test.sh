@@ -36,14 +36,29 @@ parse_install_config "$conf"
 [ "$CFG_INSTALL_DIR" = "/opt/aura" ] || { echo "FAIL: install_dir=$CFG_INSTALL_DIR" >&2; exit 1; }
 [ "$CFG_APPLIANCE" = "true" ] || { echo "FAIL: appliance=$CFG_APPLIANCE" >&2; exit 1; }
 
-# gVisor was retired on 2026-10-11, but create-aura-appliance up to 0.2.10 still writes the key.
-# Its config must keep installing, and an operator who answered yes must learn they did not get it.
+# expect_parsed CONFIG WHAT: parse_install_config must accept CONFIG; its stderr is left in
+# $parsed_err. Run in a subshell like expect_refused, so a refusal is reported with its
+# diagnostic instead of ending this script silently while the EXIT trap deletes the log.
+parsed_err="$fixture_root/parsed.err"
+expect_parsed() {
+  if ! ( parse_install_config "$1" ) 2>"$parsed_err"; then
+    echo "FAIL: $2 was refused: $(cat "$parsed_err")" >&2
+    exit 1
+  fi
+}
+
+# gVisor was retired on 2026-10-11. A config written by create-aura-appliance up to 0.2.10 can
+# still reach this installer by hand: it must keep installing, silently for gvisor=false, and an
+# operator who answered yes must learn they did not get it.
+expect_parsed "$conf" 'a config carrying gvisor=false'
+if grep -q 'gVisor' "$parsed_err"; then
+  echo "FAIL: gvisor=false printed a warning: $(cat "$parsed_err")" >&2
+  exit 1
+fi
 printf 'format=2\nappliance=true\ngvisor=true\n' > "$fixture_root/gvisor.conf"
-gvisor_err="$fixture_root/gvisor.err"
-parse_install_config "$fixture_root/gvisor.conf" 2>"$gvisor_err"
-grep -q 'gVisor was retired' "$gvisor_err" \
+expect_parsed "$fixture_root/gvisor.conf" 'a config carrying gvisor=true'
+grep -q 'gVisor was retired' "$parsed_err" \
   || { echo "FAIL: gvisor=true parsed without warning that gVisor is retired" >&2; exit 1; }
-[ -z "${CFG_GVISOR:-}" ] || { echo "FAIL: gvisor=true still reaches the installer as CFG_GVISOR=$CFG_GVISOR" >&2; exit 1; }
 
 # The claim above the parser -- that base64 keeps a hostile value from breaking the key=value
 # format -- is only worth making if something proves it: a space, a shell metacharacter and an
