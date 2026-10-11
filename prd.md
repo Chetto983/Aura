@@ -1556,6 +1556,21 @@ Tools and artifact delivery resolve the persistent working root consistently. Sa
 materialization and original-object access cannot expose another identity's files.
 Container paths, host staging and user-facing attachments are distinct.
 
+**The boxes and the Aura container run on runc; gVisor retired 2026-10-11.** The operator
+retired gVisor: runc works well, and gVisor caused problems in the past. Until then two
+settings could select it. `server_production` gave every box the `runsc` runtime, and
+`install.sh --gvisor` installed `runsc` and set `AURA_RUNTIME=runsc` for the `aura` container.
+Measured that day on the lab VM: every container ran on `runc`, `AURA_RUNTIME` was unset, and
+`runsc` was installed and registered in Docker but unused
+(`docs/superpowers/verification/2026-10-11-browser-sidecar-lab-vm.md`).
+- **Installed machines are left as they are.** Hosts installed with `--gvisor` keep the
+  package and its Docker registration, which nothing selects any more. The updater does not
+  touch apt or dockerd.
+- **The FQDN egress allowlist now works under `server_production`.** It needs the nat table
+  that gVisor lacks, and `server_production` boxes now run on runc.
+- **Not covered:** a box names no runtime, so a host whose dockerd default runtime was changed
+  by hand applies that default to its boxes.
+
 Delivered HTML artifacts have an inline preview with filename, source/preview and
 expand controls. The expanded workspace retains conversation navigation, offers a
 resizable source/preview split (stacked on narrow screens), copies original source
@@ -3324,7 +3339,8 @@ The appliance installer and updater enforce `single_user_hardened` with
 `AURA_MUSR_ISOLATION=true` on a single-node appliance, including upgrades whose
 configuration omits those keys or still selects a development profile. An explicit
 `server_production` profile remains unchanged and retains its separate durability
-and runtime prerequisites.
+prerequisites. Since 2026-10-11 it has no container-runtime prerequisite: gVisor is retired
+and every box runs on runc (§12).
 
 An unset or unrecognised `AURA_PROFILE` is `single_user_hardened` everywhere: in the
 binary and in bare Compose, not only on an installed appliance. `dev` is an explicit

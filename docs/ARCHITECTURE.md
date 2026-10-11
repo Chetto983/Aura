@@ -80,7 +80,7 @@ user's resources.
 
 `AURA_PROFILE` selects `dev`, `local_trusted`, `single_user_hardened`, or
 `server_production`; unset or unrecognised, it is `single_user_hardened`. Strictness and sandbox routing depend on configuration and the
-host. The enforcing Docker/gVisor path requires native Linux. Do not equate Docker
+host. The enforcing Docker path (runc boxes behind the egress floor) requires native Linux. Do not equate Docker
 Desktop with that boundary or describe a default installation as universally hardened.
 
 ## Stores and authority

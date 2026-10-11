@@ -75,9 +75,6 @@ replacing database volumes. See [Cloudflare Remote Access](cloudflare-remote-acc
 for registered-domain prerequisites, Access OTP, organization WARP, token refresh and
 safe disable/delete.
 
-Add `--gvisor` on native Linux Docker hosts that should run Aura under `runsc`.
-Docker Desktop is intentionally not supported for that isolation tier.
-
 ## Windows
 
 Use Docker Desktop and the shipped Compose files. From PowerShell in the Aura

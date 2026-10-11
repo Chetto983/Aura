@@ -8,6 +8,11 @@
   D-07 (egress sidecar), D-08 (suspend/resume lifecycle), D-12/D-13 (runtime + image),
   D-14 (concurrency envelope), audit findings F-001 (host shell/fs escape surface) and
   F-036 (egress enforcement), issue #934 (gVisor ⊥ nftables-nat).
+- **Amended 2026-10-11:** gVisor is retired. The operator's reason: runc works well, and gVisor
+  caused problems in the past. Every box runs on runc under every profile. `RuntimeClass` and
+  the runsc + FQDN-allowlist mutual exclusion (Residual B) are gone, and the allowlist now works
+  under `server_production` too (prd.md §12). The gVisor text below is kept as the record of the
+  decision at the time.
 
 ---
 

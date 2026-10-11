@@ -62,7 +62,7 @@ waiting time is trimmed.</sub>
 - **Document retrieval** — indexed passages with source hashes and citations, plus access to the original file for calculations and whole-file tasks.
 - **Self-extension** — author and run skills, use bundled memory/PIM/WhatsApp integrations, and connect additional MCP servers.
 - **Scheduler and self wake-ups** — one `task` tool (`at | every | cron`) for reminders and `agent_job` runs, with job policy, operator controls and outcomes delivered to the owning conversation.
-- **Per-identity sandbox** — a full-capability box per operator (opt-in `sandbox` profile; gVisor `runsc` on native Linux), with deliverables handed back over the channel (`send_file`), never as a path.
+- **Per-identity sandbox** — a full-capability box per operator (opt-in `sandbox` profile; runc, behind an egress floor), with deliverables handed back over the channel (`send_file`), never as a path.
 - **Multi-user** — Authula sign-in (password, plus a TOTP step for accounts enrolled in it), one isolated ArcadeDB database per identity enforced by the server, capability grants, and an admin audit view.
 - **Multi-channel** — CLI REPL, Telegram (voice/photo/docs/HITL), and a web cockpit over AG-UI/SSE with mid-turn steering, approvals, voice input/output, and live settings.
 - **Studio** — image and video generation, photo and video editing, and a multi-track video editor, all in the cockpit ([docs/STUDIO.md](docs/STUDIO.md)).

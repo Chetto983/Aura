@@ -19,7 +19,8 @@ readiness dependencies, and production secret checks. Compose forwards every eff
 knob explicitly; validation reports the effective behavior, not merely environment strings.
 
 The current appliance is single-node Docker Compose. ADR 0037 owns the Docker sandbox boundary and
-reserves Kubernetes/agent-sandbox/gVisor-default for the DGX/multi-node tier. DR covers Postgres,
+reserves Kubernetes/agent-sandbox for the DGX/multi-node tier. gVisor, once reserved there as
+the default, was retired on 2026-10-11 (ADR 0037 amendment, prd.md §12). DR covers Postgres,
 the sidecars and the object store; the memory plane has **no** rehearsed restore — its per-identity
 databases are not dumped, so the volume must be snapshotted out of band until that gap closes
 (`scripts/restore_drill.sh`). Release artifacts use immutable source/action/tool references and an SBOM.
