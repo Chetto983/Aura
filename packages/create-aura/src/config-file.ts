@@ -32,10 +32,9 @@ export function serializeInstallConfig(settings: InstallSettings): string {
     // in the first-run web setup, so no credential crosses to the install target.
     'format=2',
     `install_dir_base64=${encode(settings.installDir)}`,
-    // appliance and gvisor are the two install.sh reads RAW; base64-ing them would make
-    // its literal `= "true"` comparison false and silently produce a non-appliance install.
+    // install.sh reads appliance RAW; base64-ing it would make its literal `= "true"`
+    // comparison false and silently produce a non-appliance install.
     `appliance=${settings.appliance ? 'true' : 'false'}`,
-    `gvisor=${settings.gvisor ? 'true' : 'false'}`,
     '',
   ].join('\n');
 }

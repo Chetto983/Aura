@@ -112,10 +112,9 @@ export async function collectSettings(
   installDir: string,
 ): Promise<InstallSettings | null> {
   const appliance = await prompt.confirm({ message: t('applianceQuestion'), default: true });
-  const gvisor = await prompt.confirm({ message: t('gvisorQuestion'), default: false });
 
   const confirmed = await prompt.confirm({ message: t('confirmInstall'), default: true });
   if (!confirmed) return null;
 
-  return { installDir, appliance, gvisor };
+  return { installDir, appliance };
 }

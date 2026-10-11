@@ -65,5 +65,4 @@ export function createPassingRemotePreflightRunner(): FakeRunner {
 export const validSettings = {
   installDir: '/opt/aura',
   appliance: true,
-  gvisor: false,
 };

@@ -91,22 +91,20 @@ describe('collectSettings', () => {
   // The installer asks for infrastructure only. The model route, the model and the OpenRouter
   // management key are chosen by an admin in the first-run web setup (management-key design,
   // decision 3), so there is nothing here to type a key or a model into.
-  it('asks the appliance, gVisor and confirmation questions and nothing else', async () => {
+  it('asks the appliance and confirmation questions and nothing else', async () => {
     const prompt = {
       select: vi.fn(),
       input: vi.fn(),
       confirm: vi.fn()
         .mockResolvedValueOnce(true) // appliance
-        .mockResolvedValueOnce(false) // gvisor
         .mockResolvedValueOnce(true), // confirmInstall
     };
 
     await expect(collectSettings(prompt, createTranslator('en'), '/opt/aura')).resolves.toEqual({
       installDir: '/opt/aura',
       appliance: true,
-      gvisor: false,
     });
-    expect(prompt.confirm).toHaveBeenCalledTimes(3);
+    expect(prompt.confirm).toHaveBeenCalledTimes(2);
     expect(prompt.select).not.toHaveBeenCalled();
     expect(prompt.input).not.toHaveBeenCalled();
   });
@@ -117,7 +115,6 @@ describe('collectSettings', () => {
       input: vi.fn(),
       confirm: vi.fn()
         .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(false), // confirmInstall declined
     };
 

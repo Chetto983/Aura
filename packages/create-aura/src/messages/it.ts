@@ -50,5 +50,4 @@ export const it: Record<keyof typeof en, string> = {
   unsupportedRemoteClientPlatform: 'La modalità remota richiede Windows o Linux.',
   installFailed: 'Installazione non riuscita durante: {phase}. È possibile eseguire nuovamente il wizard in sicurezza.',
   applianceQuestion: 'Installare come appliance auto-avviante (servizio systemd che avvia Aura all’accensione)?',
-  gvisorQuestion: 'Abilitare la sandbox gVisor per un isolamento più forte dei container (solo Linux con gestore pacchetti Debian/Ubuntu)?',
 };

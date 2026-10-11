@@ -48,5 +48,4 @@ export const en = {
   unsupportedRemoteClientPlatform: 'Remote mode requires Windows or Linux.',
   installFailed: 'Installation failed during {phase}. It is safe to run the wizard again.',
   applianceQuestion: 'Install as a self-starting appliance (systemd service that starts Aura on boot)?',
-  gvisorQuestion: 'Enable gVisor sandboxing for stronger container isolation (Linux with a Debian/Ubuntu package manager only)?',
 } as const;

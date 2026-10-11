@@ -13,7 +13,6 @@ import { ValidationError } from '../validation.js';
 const settings: InstallSettings = {
   installDir: '/opt/aura',
   appliance: true,
-  gvisor: true,
 };
 
 const roots: string[] = [];
@@ -28,28 +27,28 @@ describe('serializeInstallConfig', () => {
   // crosses to the install target any more.
   it('writes format 2 with the install directory base64-encoded', () => {
     expect(serializeInstallConfig(settings)).toBe(
-      `format=2\ninstall_dir_base64=${Buffer.from('/opt/aura').toString('base64')}\nappliance=true\ngvisor=true\n`,
+      `format=2\ninstall_dir_base64=${Buffer.from('/opt/aura').toString('base64')}\nappliance=true\n`,
     );
   });
 
-  // install.sh's parse_install_config reads these two RAW and compares them with a literal
+  // install.sh's parse_install_config reads appliance RAW and compares it with a literal
   // `= "true"` -- base64 would make that comparison false and silently produce a
-  // non-appliance install, so this is the one pair the emitter must leave untouched.
-  it('leaves appliance and gvisor unencoded', () => {
-    const disabled = serializeInstallConfig({ ...settings, appliance: false, gvisor: false });
+  // non-appliance install, so this is the one value the emitter must leave untouched.
+  it('leaves appliance unencoded', () => {
+    const disabled = serializeInstallConfig({ ...settings, appliance: false });
 
     expect(disabled).toContain('appliance=false\n');
-    expect(disabled).toContain('gvisor=false\n');
     expect(serializeInstallConfig(settings)).not.toContain(Buffer.from('true').toString('base64'));
   });
 
   // install.sh's parse_install_config exits 2 on any key it does not name, so a test that
   // only checked for the install dir would pass just as happily with an extra key riding
-  // along that breaks the real installer.
-  it('emits exactly the three keys install.sh accepts', () => {
+  // along that breaks the real installer. gvisor= is gone: gVisor was retired on 2026-10-11,
+  // and install.sh only tolerates the key for configs written by older versions of this wizard.
+  it('emits exactly the two keys the installer uses', () => {
     const keys = serializeInstallConfig(settings).split('\n').filter(Boolean).slice(1)
       .map((l) => l.split('=')[0]).sort();
-    expect(keys).toEqual(['appliance', 'gvisor', 'install_dir_base64']);
+    expect(keys).toEqual(['appliance', 'install_dir_base64']);
   });
 
   // install.sh detects the embed backend on the target, and the web setup owns the model route
@@ -66,8 +65,8 @@ describe('serializeInstallConfig', () => {
     const lines = serializeInstallConfig({ ...settings, installDir: longDir }).split('\n');
 
     expect(Buffer.from(longDir, 'utf8').toString('base64').length).toBeGreaterThan(76);
-    // format=2 + 3 keys + the trailing '' from the join's final element.
-    expect(lines).toHaveLength(5);
+    // format=2 + 2 keys + the trailing '' from the join's final element.
+    expect(lines).toHaveLength(4);
   });
 
   // A decoded value carrying \n makes install.sh's set_env_value write two .env lines; its

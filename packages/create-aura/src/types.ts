@@ -29,5 +29,4 @@ export interface PreflightResult {
 export interface InstallSettings {
   installDir: string;
   appliance: boolean;
-  gvisor: boolean;
 }
