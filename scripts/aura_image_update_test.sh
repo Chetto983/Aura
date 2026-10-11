@@ -258,30 +258,44 @@ retire_env_keys >"$fixture/retire2.out"
 [[ ! -s "$fixture/retire2.out" ]] || fail "a clean .env still reported retirements: $(cat "$fixture/retire2.out")"
 echo "ok: keys no compose file reads any more are removed from .env, and nothing else is"
 
-# A pin change leaves the previous image TAGGED, so `docker image prune` never reclaims it and
-# every llama.cpp bump would leave hundreds of MB behind. Same-repository images that no
-# compose pin names are removed; one a container still uses is refused by docker and kept.
+# A pin change leaves the previous image behind, and `docker image prune` never reclaims it, so
+# every llama.cpp bump would leave hundreds of MB. Same-repository images that no compose pin
+# names are removed; one a container still uses is refused by docker, kept and said so.
 # The SearXNG pin moved from Docker Hub to ghcr.io (2026-10-07): the Docker Hub tags it
 # supersedes are the same image under another registry and must go too.
-declare -A local_image_ids=(
-  ["ghcr.io/ggml-org/llama.cpp:server-vulkan-b10951"]=sha256:llama-new
-  ["ghcr.io/ggml-org/llama.cpp:server-vulkan"]=sha256:llama-old
-  ["ghcr.io/ggml-org/llama.cpp:server-cuda-b10884"]=sha256:llama-in-use
-  ["ghcr.io/searxng/searxng:2026.10.4-d48c4b555"]=sha256:searx-new
-  ["searxng/searxng:2026.9.13-d4ce87c23"]=sha256:searx-hub
-  ["searxng/searxng:2026.7.26-b060c780d"]=sha256:searx-old
-  ["hwdsl2/whisper-server:latest"]=sha256:whisper
-  ["ghcr.io/hwdsl2/other-whisper:latest"]=sha256:other-whisper
-  ["ghcr.io/chetto1983/aura:edge"]=sha256:aura
-  ["ghcr.io/chetto1983/aura-sandbox:edge"]=sha256:box
-  ["<none>:<none>"]=sha256:dangling
+# With the containerd image store a digest pin (repo:tag@sha256:...) is stored UNTAGGED, listed
+# as repo <none>, and `docker rmi repo:<none>` is an invalid reference: such an image goes by its
+# ID. Measured on the lab VM (2026-10-11): 8 superseded pins, about 6 GB, the disk at 99%.
+local_images=(
+  "ghcr.io/ggml-org/llama.cpp server-vulkan-b10951 sha256:llama-new"
+  "ghcr.io/ggml-org/llama.cpp server-vulkan sha256:llama-old"
+  "ghcr.io/ggml-org/llama.cpp server-cuda-b10884 sha256:llama-in-use"
+  "ghcr.io/searxng/searxng 2026.10.4-d48c4b555 sha256:searx-new"
+  "searxng/searxng 2026.9.13-d4ce87c23 sha256:searx-hub"
+  "searxng/searxng 2026.7.26-b060c780d sha256:searx-old"
+  "hwdsl2/whisper-server latest sha256:whisper"
+  "ghcr.io/hwdsl2/other-whisper latest sha256:other-whisper"
+  "grafana/grafana <none> sha256:grafana-new"
+  "grafana/grafana <none> sha256:grafana-old"
+  "ghcr.io/chetto1983/aura edge sha256:aura"
+  "ghcr.io/chetto1983/aura-sandbox edge sha256:box"
+  "<none> <none> sha256:dangling"
 )
 compose_images=(
   ghcr.io/ggml-org/llama.cpp:server-vulkan-b10951
   ghcr.io/searxng/searxng:2026.10.4-d48c4b555
   hwdsl2/whisper-server:latest@sha256:whisper
+  grafana/grafana:13.2.3@sha256:grafana-new
   ghcr.io/chetto1983/aura:edge
 )
+local_image_id() {
+  local repo tag id
+  for line in "${local_images[@]}"; do
+    read -r repo tag id <<<"$line"
+    [[ "$repo:$tag" != "$1" ]] || { echo "$id"; return 0; }
+  done
+  return 1
+}
 docker() {
   echo "docker $*" >>"$calls"
   case "$1 ${2:-}" in
@@ -291,11 +305,20 @@ docker() {
       local ref="${*: -1}"
       case "$ref" in
         *@sha256:*) echo "sha256:${ref##*@sha256:}" ;;
-        *) [[ -n "${local_image_ids[$ref]:-}" ]] || return 1; echo "${local_image_ids[$ref]}" ;;
+        *) local_image_id "$ref" ;;
       esac
       ;;
-    "images --no-trunc") for ref in "${!local_image_ids[@]}"; do echo "$ref ${local_image_ids[$ref]}"; done ;;
+    "images --no-trunc")
+      local format="${*: -1}" line repo tag id out
+      for line in "${local_images[@]}"; do
+        read -r repo tag id <<<"$line"
+        out="${format//'{{.Repository}}'/$repo}"
+        out="${out//'{{.Tag}}'/$tag}"
+        echo "${out//'{{.ID}}'/$id}"
+      done
+      ;;
     "rmi "*)
+      [[ "$2" != *'<none>'* ]] || { echo "Error response from daemon: invalid reference format" >&2; return 1; }
       [[ "$2" != "ghcr.io/ggml-org/llama.cpp:server-cuda-b10884" ]] || {
         echo "Error response from daemon: conflict: image is being used by running container" >&2
         return 1
@@ -307,11 +330,15 @@ docker() {
 : >"$calls"
 remove_superseded_images >"$fixture/images.out" || fail "a refused removal failed the tick"
 removed="$(sed -n 's/^docker rmi //p' "$calls" | LC_ALL=C sort | tr '\n' ' ')"
-[[ "$removed" == "ghcr.io/ggml-org/llama.cpp:server-cuda-b10884 ghcr.io/ggml-org/llama.cpp:server-vulkan searxng/searxng:2026.7.26-b060c780d searxng/searxng:2026.9.13-d4ce87c23 " ]] ||
+[[ "$removed" == "ghcr.io/ggml-org/llama.cpp:server-cuda-b10884 ghcr.io/ggml-org/llama.cpp:server-vulkan searxng/searxng:2026.7.26-b060c780d searxng/searxng:2026.9.13-d4ce87c23 sha256:grafana-old " ]] ||
   fail "removal attempts were: $removed"
 grep -q 'server-vulkan superseded' "$fixture/images.out" || fail "a removed image was not reported"
+grep -q 'grafana/grafana sha256:grafana-old superseded' "$fixture/images.out" ||
+  fail "a removed untagged image was not reported by repository and ID: $(cat "$fixture/images.out")"
 ! grep -q 'server-cuda-b10884 superseded' "$fixture/images.out" || fail "an image docker refused was reported as removed"
-echo "ok: tagged images no pin names any more are removed, the rest are kept"
+grep -q 'server-cuda-b10884 kept: .*being used by running container' "$fixture/images.out" ||
+  fail "an image docker refused was not reported with docker's reason: $(cat "$fixture/images.out")"
+echo "ok: images no pin names any more are removed, untagged ones by ID, and a refusal is reported"
 
 # A service reads a bind-mounted payload file only when it starts, and `compose up` does not
 # recreate it for a changed file: the services mounting a changed path are restarted, a

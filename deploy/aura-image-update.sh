@@ -234,26 +234,34 @@ image_repository() {
   printf '%s' "${ref#library/}"
 }
 
-# A changed pin leaves the previous image TAGGED, and `docker image prune` only reclaims
-# untagged ones, so every llama.cpp or SearXNG bump would leave hundreds of MB on the disk.
-# An image is removed when compose still uses its repository, on whatever registry, but no
-# pin names it any more.
+# A changed pin leaves the previous image behind, and `docker image prune` reclaims neither a
+# tagged one nor, with the containerd image store, an untagged one that still carries a digest,
+# so every llama.cpp or Grafana bump would leave hundreds of MB on the disk. An image is removed
+# when compose still uses its repository, on whatever registry, but no pin names it any more.
+# A digest pin (repo:tag@sha256:...) is stored untagged, listed as repo <none>, and
+# `docker rmi repo:<none>` is an invalid reference, so an untagged image goes by its ID.
+# Measured on the lab VM (2026-10-11): 8 superseded pins, about 6 GB, the disk at 99%, every
+# removal refused in silence.
 # Images outside compose (the per-user sandbox boxes) are never considered, and docker itself
-# refuses to remove one a container still uses.
+# refuses to remove one a container still uses; the refusal is logged with docker's reason.
 remove_superseded_images() {
-  local ref id
+  local ref repo tag id target label err
   local -A pinned_repos=() pinned_ids=()
   while read -r ref; do
     [[ -n "${ref}" ]] || continue
     pinned_repos["$(image_repository "${ref}")"]=1
     id="$(docker image inspect --format '{{.Id}}' "${ref}" 2>/dev/null)" && pinned_ids["${id}"]=1
   done < <(docker compose config --images)
-  while read -r ref id; do
-    [[ -n "${pinned_repos[$(image_repository "${ref}")]:-}" && -z "${pinned_ids[${id}]:-}" ]] || continue
-    if docker rmi "${ref}" >/dev/null 2>&1; then
-      echo "images: ${ref} superseded by its pin; removed."
+  while read -r repo tag id; do
+    [[ -n "${pinned_repos[$(image_repository "${repo}:${tag}")]:-}" && -z "${pinned_ids[${id}]:-}" ]] || continue
+    target="${repo}:${tag}" label="${repo}:${tag}"
+    [[ "${tag}" != '<none>' ]] || target="${id}" label="${repo} ${id}"
+    if err="$(docker rmi "${target}" 2>&1 >/dev/null)"; then
+      echo "images: ${label} superseded by its pin; removed."
+    else
+      echo "images: ${label} kept: ${err##*$'\n'}"
     fi
-  done < <(docker images --no-trunc --format '{{.Repository}}:{{.Tag}} {{.ID}}')
+  done < <(docker images --no-trunc --format '{{.Repository}} {{.Tag}} {{.ID}}')
 }
 
 # aura.service stops with `compose down`, which removes the containers and orphans every volume
