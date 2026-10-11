@@ -20,7 +20,7 @@ GO_SCOPES = {
     "gateway": "internal/gateway/classify.go",
     "identity_isolation": "internal/identityctx/operator.go",
     "profile_validation": "internal/config/config_runtimeprofile.go",
-    "sandbox": "internal/sandbox/usersandbox/spec.go",
+    "sandbox": "internal/sandbox/usersandbox/egress.go",
     "media_clamp": "internal/mediagen/clamp.go",
     "media_watcher": "internal/mediagen/watcher_state.go",
     "pausable": "internal/pausable/context.go",

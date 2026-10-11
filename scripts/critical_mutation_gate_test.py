@@ -45,10 +45,19 @@ def every_required_scope() -> list[dict[str, object]]:
 
 class GoMutationParserTest(unittest.TestCase):
     def test_sandbox_scope_is_a_compilable_policy_boundary(self) -> None:
+        # The egress floor is the box's tenancy boundary. spec.go held the runtime policy
+        # until gVisor was retired (2026-10-11) and now declares only types.
         self.assertEqual(
             critical_mutation_gate.GO_SCOPES["sandbox"],
-            "internal/sandbox/usersandbox/spec.go",
+            "internal/sandbox/usersandbox/egress.go",
         )
+
+    def test_every_go_scope_has_code_to_mutate(self) -> None:
+        # A scope left with only type declarations scores no mutant, which fails the gate in
+        # CI: spec.go after the gVisor retirement (2026-10-11). Caught here, not 10 minutes in.
+        for relative in critical_mutation_gate.GO_SCOPES.values():
+            source = (REPO / relative).read_text(encoding="utf-8")
+            self.assertRegex(source, r"(?m)^func ", relative)
 
     def test_media_boundaries_are_scoped_on_files_that_exist(self) -> None:
         self.assertEqual(

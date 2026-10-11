@@ -143,3 +143,32 @@ func envValue(env []string, key string) string {
 	}
 	return ""
 }
+
+// TestEgress_RefusesEmptyBoxID: the sidecar joins the box's network namespace by the box's
+// id, so without one there is no namespace for the floor to filter.
+func TestEgress_RefusesEmptyBoxID(t *testing.T) {
+	if _, err := buildEgressSidecar(EgressPolicy{Floor: true}, ""); err == nil {
+		t.Fatal("buildEgressSidecar must refuse an empty boxID")
+	}
+}
+
+// TestEgress_FloorRulesetIsExact pins the whole floor, not only its rules: the sidecar hands
+// this text to `nft -f`, which loads a file atomically, so one missing table, chain or brace
+// rejects every rule in it.
+func TestEgress_FloorRulesetIsExact(t *testing.T) {
+	const want = "table ip aura_egress {\n" +
+		"\tchain output {\n" +
+		"\t\ttype filter hook output priority 0; policy accept;\n" +
+		"\t\tudp dport 53 accept\n" +
+		"\t\ttcp dport 53 accept\n" +
+		"\t\tip daddr 169.254.169.254/32 counter drop\n" +
+		"\t\tip daddr 10.0.0.0/8 counter drop\n" +
+		"\t\tip daddr 172.16.0.0/12 counter drop\n" +
+		"\t\tip daddr 192.168.0.0/16 counter drop\n" +
+		"\t\tip daddr 172.18.0.0/16 counter drop\n" +
+		"\t}\n" +
+		"}\n"
+	if got := buildFloorRuleset(sharedServicesBridgeCIDR); got != want {
+		t.Fatalf("floor ruleset:\n%s\nwant:\n%s", got, want)
+	}
+}
