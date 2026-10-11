@@ -123,3 +123,39 @@ architecture rather than an added guard.**
 profile next to a root shell. Hermes documents the same exposure Aura has, and accepts it. LibreChat
 avoids the exposure by never letting credential-holding state and model-executed code share a
 filesystem. That is the same invariant the sidecar measurement above shows working.
+
+## Follow-up 2026-10-11: footprint, listeners and tool surface
+
+Same image, same Docker 29.8.2 and runc. The box was capped as Aura caps it: 2 GiB, 1024 pids,
+2 CPUs. The egress sidecar ran with an empty ruleset. The page was a light 20 KB page on a
+loopback server inside the box.
+
+| State | Memory (`docker stats`) | PIDs |
+|---|---|---|
+| Idle box (`sleep infinity`) | 4.3 MiB | 1 |
+| Idle egress sidecar | 1.2 MiB | 1 |
+| One browser session | 251.7 MiB | 174 |
+| Three browser sessions | 692.5 MiB | 529 |
+| After closing all three | 256.6 MiB | 39 |
+
+Listeners while one session ran, all bound to `127.0.0.1`:
+- Port 38791 answered `/json/version` as `Chrome/151.0.7922.34`: this is the DevTools Protocol
+  (CDP). Any process in the box's network namespace can drive it.
+- Port 35831 served agent-browser's HTML dashboard.
+- The daemon's control socket sits at `/workspace/.agent-browser-home/.agent-browser/s1.sock`,
+  on the workspace volume.
+
+`agent-browser mcp` lists 29 tools. None of them reads cookies, storage or saved state.
+`agent_browser_eval` runs arbitrary JavaScript in the page, and the bridge grades it
+`MCPActionMutate` (`internal/agent/mcptools/bridge_risk_browser.go:34`). The CLI has `cookies`,
+`storage`, `state` and `auth` commands, which the MCP surface does not expose. Download and upload
+exist only in the CLI.
+
+This follow-up does not prove the following:
+- The memory column includes page cache, which was not separated from anonymous memory. The 39 pids
+  after closing are agent-browser daemons waiting out their idle timeout.
+- A light page is not a real site. prd.md §12 records 137 to 263 pids and up to 868 MiB per
+  browser on a real site on the lab VM.
+- Reaching CDP was shown with `/json/version`. No cookie was read through CDP.
+- Reading `document.cookie` or Web Storage through `eval` follows from browser semantics. It was
+  not measured here.
