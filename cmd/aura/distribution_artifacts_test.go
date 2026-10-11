@@ -83,9 +83,6 @@ func TestDistributionSurfaceArtifactsMatchReleaseContract(t *testing.T) {
 		"ExecStart=/usr/bin/docker compose up -d",
 		"ExecStop=/usr/bin/docker compose down",
 		"WantedBy=multi-user.target",
-		"runsc install",
-		"dpkg --print-architecture",
-		"native Linux only; never Docker Desktop",
 	} {
 		if !strings.Contains(unit, want) {
 			t.Fatalf("deploy/aura.service missing %q:\n%s", want, unit)

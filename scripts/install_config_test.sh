@@ -35,7 +35,15 @@ parse_install_config "$conf"
 
 [ "$CFG_INSTALL_DIR" = "/opt/aura" ] || { echo "FAIL: install_dir=$CFG_INSTALL_DIR" >&2; exit 1; }
 [ "$CFG_APPLIANCE" = "true" ] || { echo "FAIL: appliance=$CFG_APPLIANCE" >&2; exit 1; }
-[ "$CFG_GVISOR" = "false" ] || { echo "FAIL: gvisor=$CFG_GVISOR" >&2; exit 1; }
+
+# gVisor was retired on 2026-10-11, but create-aura-appliance up to 0.2.10 still writes the key.
+# Its config must keep installing, and an operator who answered yes must learn they did not get it.
+printf 'format=2\nappliance=true\ngvisor=true\n' > "$fixture_root/gvisor.conf"
+gvisor_err="$fixture_root/gvisor.err"
+parse_install_config "$fixture_root/gvisor.conf" 2>"$gvisor_err"
+grep -q 'gVisor was retired' "$gvisor_err" \
+  || { echo "FAIL: gvisor=true parsed without warning that gVisor is retired" >&2; exit 1; }
+[ -z "${CFG_GVISOR:-}" ] || { echo "FAIL: gvisor=true still reaches the installer as CFG_GVISOR=$CFG_GVISOR" >&2; exit 1; }
 
 # The claim above the parser -- that base64 keeps a hostile value from breaking the key=value
 # format -- is only worth making if something proves it: a space, a shell metacharacter and an
@@ -78,6 +86,18 @@ printf 'format=2\ninstall_dir_base64=%s\n' "$(b64 "$(printf '/opt/aura\nAURA_IMA
 expect_refused "$fixture_root/newline.conf" 'line break' 'a config value containing a line break'
 
 echo "ok: parse_install_config reads format 2 and fails closed"
+
+# Every box and the aura container run on runc: the installer provisions no other runtime.
+if declare -F provision_gvisor >/dev/null; then
+  echo "FAIL: provision_gvisor still exists" >&2
+  exit 1
+fi
+if grep -q 'AURA_RUNTIME' "$repo_root/scripts/install.sh"; then
+  echo "FAIL: install.sh still sets AURA_RUNTIME" >&2
+  exit 1
+fi
+
+echo "ok: the installer provisions no gVisor and selects no container runtime"
 
 # The model route and the OpenRouter key are the web setup's: nothing in the installer writes
 # them, and the fresh .env template carries no key for the operator to fill in.

@@ -256,25 +256,12 @@ func TestProductionContainerArtifactsMatchFatImageContract(t *testing.T) {
 	if strings.Contains(compose, "AURA_PIM_EXTERNAL_BASE_URL") {
 		t.Fatalf("compose.yaml still sets AURA_PIM_EXTERNAL_BASE_URL; Aura sends the cockpit origin as returnBase")
 	}
-	// gVisor is a knob now, not a file: compose.gvisor.yaml was three lines plus a systemd
-	// drop-in that rewrote ExecStart just to add a -f. The tier still exists and is still
-	// opt-in — it just travels in .env with everything else.
-	for _, want := range []string{
-		"runtime: ${AURA_RUNTIME:-runc}",
-	} {
-		if !strings.Contains(compose, want) {
-			t.Fatalf("compose.yaml missing %q:\n%s", want, compose)
-		}
-	}
-	for _, retired := range []string{"cap_drop", "read_only"} {
+	// gVisor was retired on 2026-10-11 (prd.md §12): the aura container runs on the daemon's
+	// default runc, so its service names no runtime at all.
+	for _, retired := range []string{"cap_drop", "read_only", "runtime:"} {
 		if strings.Contains(composeServiceBlock(t, compose, "aura"), retired) {
 			t.Fatalf("aura service should not contain %q", retired)
 		}
-	}
-	// The isolation tier must not silently disappear: runc is the default, so a typo in the
-	// knob name would degrade to a plain container without failing anything.
-	if !strings.Contains(installer, "set_env_value AURA_RUNTIME runsc") {
-		t.Fatalf("scripts/install.sh must set AURA_RUNTIME=runsc for --gvisor:\n%s", installer)
 	}
 
 	// Nothing in the image may warm a uv cache for a recipe to consume at runtime. compose

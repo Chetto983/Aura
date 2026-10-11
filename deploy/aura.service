@@ -8,20 +8,6 @@
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now aura.service
 #   journalctl -u aura.service -f
-#
-# Optional gVisor tier (native Linux only; never Docker Desktop):
-#   sudo apt-get update && sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
-#   curl -fsSL https://gvisor.dev/archive.key \
-#     | sudo gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
-#   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" \
-#     | sudo tee /etc/apt/sources.list.d/gvisor.list >/dev/null
-#   sudo apt-get update && sudo apt-get install -y runsc
-#   sudo runsc install
-#   sudo systemctl reload docker
-# Then set AURA_RUNTIME=runsc in /opt/aura/.env — nessun drop-in e nessun -f: questa
-# unit resta identica nei due casi.
-# gVisor requires Linux 4.14.77+ and supports amd64/arm64; it is a transparent
-# isolation boundary, not capability stripping.
 
 [Unit]
 Description=Aura appliance compose stack

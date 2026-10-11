@@ -5,18 +5,15 @@
 # network layer: full public internet (D-04) minus RFC1918 + the 169.254.169.254 metadata
 # IP + the shared-services Docker bridge (D-05).
 #
-# Two enforcement jobs, split by runtime compatibility (37-RESEARCH Pattern 6 / Pitfall 2):
+# Two enforcement jobs (37-RESEARCH Pattern 6):
 #
-#   1. Always-on FILTER-TABLE floor (runc AND gVisor runsc): the entrypoint applies the
-#      Go-generated nftables ruleset from $AURA_EGRESS_FLOOR_RULESET with `nft -f -`. The
-#      filter table is implemented by gVisor's netstack, so the floor is identical under
-#      both runtimes. This is the bespoke nft floor the research recommends as the primary
-#      mechanism (and the A1 fallback for the OpenSandbox fit-risk).
+#   1. Always-on FILTER-TABLE floor: the entrypoint applies the Go-generated nftables ruleset
+#      from $AURA_EGRESS_FLOOR_RULESET with `nft -f -`. This is the bespoke nft floor the
+#      research recommends as the primary mechanism (and the A1 fallback for the
+#      OpenSandbox fit-risk). It never touches the nat table, which the FQDN mode below owns.
 #
-#   2. Opt-in tightened FQDN allowlist (runc-ONLY): Alibaba OpenSandbox's egress component
-#      (DNS proxy + iptables REDIRECT in the NAT table + dynamic nftables allow-sets). gVisor
-#      does NOT implement the nat table (issue #934), so buildEgressSidecar refuses Runsc +
-#      a configured allowlist BEFORE this image is ever launched in FQDN mode. When the
+#   2. Opt-in tightened FQDN allowlist: Alibaba OpenSandbox's egress component (DNS proxy +
+#      iptables REDIRECT in the NAT table + dynamic nftables allow-sets). When the
 #      OpenSandbox egress binary is present at /usr/local/bin/opensandbox-egress AND
 #      $OPENSANDBOX_EGRESS_MODE is set, the entrypoint execs it (foreground) after the floor
 #      is applied. Build it from a PINNED OpenSandbox source commit into that path to enable
@@ -41,7 +38,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # The entrypoint: apply the always-on filter-table floor, then either hand off to OpenSandbox
-# (FQDN mode, runc-only) or block so the sidecar stays a tracked, always-present container the
+# (FQDN mode) or block so the sidecar stays a tracked, always-present container the
 # DockerBackend tears down with the box. Inlined here so the image is a single self-contained
 # file (no sibling script in the plan's file set).
 #
@@ -59,13 +56,13 @@ if [ -z "${AURA_EGRESS_FLOOR_RULESET:-}" ]; then
     exit 1
 fi
 
-# Apply the always-on filter-table floor (gVisor-safe; no nat).
+# Apply the always-on filter-table floor (no nat).
 printf '%s' "$AURA_EGRESS_FLOOR_RULESET" | nft -f -
 echo "aura-egress: filter-table floor applied"
 
-# Opt-in tightened FQDN allowlist (runc-only). Only runs when the OpenSandbox egress binary
-# was baked in AND the mode env is set (buildEgressSidecar sets it only for a configured,
-# non-runsc allowlist). OpenSandbox reads OPENSANDBOX_EGRESS_RULES from the environment.
+# Opt-in tightened FQDN allowlist. Only runs when the OpenSandbox egress binary was baked in
+# AND the mode env is set (buildEgressSidecar sets it only for a configured allowlist).
+# OpenSandbox reads OPENSANDBOX_EGRESS_RULES from the environment.
 if [ -n "${OPENSANDBOX_EGRESS_MODE:-}" ]; then
     if [ -x /usr/local/bin/opensandbox-egress ]; then
         echo "aura-egress: starting OpenSandbox egress (mode=${OPENSANDBOX_EGRESS_MODE})"

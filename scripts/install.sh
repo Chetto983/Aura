@@ -29,18 +29,16 @@ export MSYS2_ARG_CONV_EXCL='*'
 if [ "${BASH_SOURCE[0]:-$0}" = "$0" ]; then AURA_EXECUTED=1; else AURA_EXECUTED=0; fi
 
 APPLIANCE=0
-GVISOR=0
 TRUST_LOCAL_CA=0
 INSTALL_DIR="${AURA_INSTALL_DIR:-}"
 CONFIG_FILE=""
-CFG_INSTALL_DIR=""; CFG_APPLIANCE=""; CFG_GVISOR=""
+CFG_INSTALL_DIR=""; CFG_APPLIANCE=""
 
 usage() {
   cat <<'EOF'
-usage: install.sh [--appliance] [--gvisor] [--trust-local-ca] [--dir PATH] [--config PATH]
+usage: install.sh [--appliance] [--trust-local-ca] [--dir PATH] [--config PATH]
 
   --appliance    install and enable the systemd aura.service unit
-  --gvisor       provision runsc and set AURA_RUNTIME=runsc in .env
   --trust-local-ca  trust Caddy's local CA for the current desktop user
   --dir PATH     installation directory (default: /opt/aura on Linux)
   --config PATH  read answers from an absolute-path config file (see the spec)
@@ -51,7 +49,6 @@ if [ "$AURA_EXECUTED" = 1 ]; then
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --appliance) APPLIANCE=1 ;;
-      --gvisor) APPLIANCE=1; GVISOR=1 ;;
       --trust-local-ca) TRUST_LOCAL_CA=1 ;;
       --dir)
         [ "$#" -ge 2 ] || { echo "FAIL: --dir requires a path" >&2; exit 2; }
@@ -305,7 +302,13 @@ parse_install_config() {
     case "$key" in
       install_dir_base64) CFG_INSTALL_DIR="$(config_decode "$value")" ;;
       appliance) CFG_APPLIANCE="$value" ;;
-      gvisor) CFG_GVISOR="$value" ;;
+      # gVisor was retired on 2026-10-11 (prd.md §12), but create-aura-appliance up to 0.2.10
+      # still writes this key, and refusing it would strand every config those versions made.
+      gvisor)
+        if [ "$value" = "true" ]; then
+          echo "WARN: gVisor was retired on 2026-10-11; Aura installs on runc and ignores gvisor=true." >&2
+        fi
+        ;;
       # The format line is what buys forward compatibility -- a future wizard bumps it and
       # the check above refuses that loudly -- so within format=2 a key naming nothing
       # above can only be a typo or corruption.
@@ -333,48 +336,6 @@ config_decode() {
   printf '%s' "$1" | base64 -d
 }
 
-native_linux_docker() {
-  [ "$OS" = "Linux" ] || return 1
-  docker_os="$(docker info --format '{{.OperatingSystem}}' 2>/dev/null || true)"
-  case "$docker_os" in
-    *"Docker Desktop"*) return 1 ;;
-  esac
-  return 0
-}
-
-provision_gvisor() {
-  # return 0, not bare return: bare return propagates the failed test's status 1,
-  # and under top-level `set -e` that silently kills every install without --gvisor.
-  [ "$GVISOR" -eq 1 ] || return 0
-  native_linux_docker || {
-    echo "FAIL: --gvisor is only supported on native Linux Docker, not Docker Desktop or ${OS}." >&2
-    exit 1
-  }
-  command -v dpkg >/dev/null 2>&1 || {
-    echo "FAIL: --gvisor provisioning currently requires a Debian/Ubuntu-style host with dpkg." >&2
-    exit 1
-  }
-  as_root apt-get update
-  as_root apt-get install -y apt-transport-https ca-certificates curl gnupg
-  curl -fsSL https://gvisor.dev/archive.key \
-    | as_root gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
-  # apt verifies a signed-by repository with gpgv running as the UNPRIVILEGED `_apt`
-  # user, so a keyring left at root's umask (0600 on Ubuntu 26.04) is unreadable to the
-  # very process that must read it. Measured 2026-09-21 on a fresh 26.04 VM: the file
-  # was written correctly (1165 bytes) and `apt-get update` still refused the repo with
-  # "the file is not readable by user executing gpgv" plus a misleading "unsupported
-  # filetype", which is only what an unreadable file looks like to gpgv. Without this
-  # the whole --gvisor install dies at exit 100. Docker's own install docs carry the
-  # same chmod for the same reason.
-  as_root chmod 0644 /usr/share/keyrings/gvisor-archive-keyring.gpg
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" \
-    | as_root tee /etc/apt/sources.list.d/gvisor.list >/dev/null
-  as_root apt-get update
-  as_root apt-get install -y runsc
-  as_root runsc install || true
-  as_root systemctl reload docker
-}
-
 install_systemd_unit() {
   [ "$APPLIANCE" -eq 1 ] || return 0
   if [ "$OS" != "Linux" ]; then
@@ -387,8 +348,6 @@ install_systemd_unit() {
   fi
 
   as_root cp deploy/aura.service /etc/systemd/system/aura.service
-  # Nessun drop-in per gVisor: il runtime e' AURA_RUNTIME in .env, quindi l'unit di base
-  # va bene identica in entrambi i casi.
   # Edge appliances also get the self-update timer, so the machine keeps tracking
   # GHCR without an operator; a version-pinned install deliberately does not.
   case "$(env_value AURA_IMAGE)" in
@@ -468,7 +427,6 @@ if [ -n "$CONFIG_FILE" ]; then
   parse_install_config "$CONFIG_FILE"
   if [ -n "$CFG_INSTALL_DIR" ]; then INSTALL_DIR="$CFG_INSTALL_DIR"; fi
   if [ "$CFG_APPLIANCE" = "true" ]; then APPLIANCE=1; fi
-  if [ "$CFG_GVISOR" = "true" ]; then APPLIANCE=1; GVISOR=1; fi
 fi
 
 # The main sequence is minutes of docker layer identifiers scrolling past with nothing to
@@ -487,7 +445,6 @@ step "Checking hardware"
 preflight_hw
 step "Installing Docker"
 install_docker
-provision_gvisor
 step "Installing the Compose payload"
 
 as_root mkdir -p "$INSTALL_DIR" "$INSTALL_DIR/caddy" "$INSTALL_DIR/deploy" "$INSTALL_DIR/backups" "$INSTALL_DIR/scripts" "$INSTALL_DIR/searxng" \
@@ -565,12 +522,6 @@ write_env_if_missing
 ensure_embed_backend_env
 
 ensure_objectstore_public_endpoint
-
-# The optional container runtime travels in .env so installer, systemd and manual
-# compose commands all resolve the same sandbox posture.
-if [ "$GVISOR" -eq 1 ]; then
-  set_env_value AURA_RUNTIME runsc
-fi
 
 step "Downloading the Aura image"
 aura_image="$(env_value AURA_IMAGE)"

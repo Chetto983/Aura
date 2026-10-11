@@ -27,13 +27,6 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # Tier di isolamento opzionale (PRD amendment #63): AURA_RUNTIME=runsc mette gVisor
-    # sotto il container. Era un compose.gvisor.yaml di tre righe piu' un drop-in systemd
-    # che riscriveva ExecStart per aggiungere un -f; come variabile e' la stessa cosa senza
-    # un file e senza un comando da ricordare. Richiede provisioning dell'host PRIMA
-    # (runsc registrato in /etc/docker/daemon.json + reload del daemon), altrimenti il
-    # container non parte: e' native-Linux only, su Docker Desktop non esiste.
-    runtime: ${AURA_RUNTIME:-runc}
     mem_limit: ${AURA_MEM_LIMIT:-768m}
     cpus: ${AURA_CPUS:-1.0}
     pids_limit: ${AURA_PIDS_LIMIT:-512}
