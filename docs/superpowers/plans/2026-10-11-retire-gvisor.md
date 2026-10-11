@@ -48,23 +48,24 @@
 | `.claude/skills/spike-findings-Aura/SKILL.md`, `references/packaging-box.md`, `references/sandbox-runtime.md` | 5 | Mark the gVisor tier retired |
 
 ### Task 1: Record the retirement
-- [ ] prd.md §12: a dated paragraph, the operator's reason and the VM state. §17: "runtime prerequisites" no longer applies to `server_production`.
-- [ ] ADR 0037 and 0044: a dated note that the gVisor option is retired. README, INSTALL and ARCHITECTURE drop it.
+- [x] prd.md §12: a dated paragraph, the operator's reason and the VM state. §17: "runtime prerequisites" no longer applies to `server_production`.
+- [x] ADR 0037 and 0044: a dated note that the gVisor option is retired. README, INSTALL and ARCHITECTURE drop it.
 
 ### Task 2: Go
-- [ ] Tests first: the translate tests pin `HostConfig.Runtime == ""` for every spec; the runsc cases leave `spec_test.go`, `egress_test.go` and `router_test.go`; the config test asserts that `server_production` plus an allowlist validates.
-- [ ] Remove `RuntimeClass`, `Runc`, `Runsc`, `dockerRuntime`, `SandboxSpec.Runtime`, `NewSandboxSpec`, `ErrRunscRequiresServerProduction`, `ErrRunscFQDNMutualExclusion`, the `runtime` parameter of `buildEgressSidecar`, the router's `profile` and `gateEgressAllowlistRuntime`. Update the callers and comments.
-- [ ] vet, build, `go test -race` on `usersandbox`, `config`, `cmd/aura`, `agent/tools`; compile the `docker_integration` tag.
+- [x] Tests first: the translate tests pin `HostConfig.Runtime == ""` for every spec; the runsc cases leave `spec_test.go`, `egress_test.go` and `router_test.go`; the config test asserts that `server_production` plus an allowlist validates.
+- [x] Remove `RuntimeClass`, `Runc`, `Runsc`, `dockerRuntime`, `SandboxSpec.Runtime`, `NewSandboxSpec`, `ErrRunscRequiresServerProduction`, `ErrRunscFQDNMutualExclusion`, the `runtime` parameter of `buildEgressSidecar`, the router's `profile` and `gateEgressAllowlistRuntime`. Update the callers and comments.
+- [x] vet, build, `go test -race` on `usersandbox`, `config`, `cmd/aura`, `agent/tools`; compile the `docker_integration` tag.
 
 ### Task 3: Installer, compose, unit
-- [ ] Tests first: `install_config_test.sh` parses `gvisor=false` and `gvisor=true` without failing, and `true` warns. The `provision_gvisor` block leaves `install_lib_test.sh`. The artifact tests drop their gVisor wants.
-- [ ] Remove `--gvisor`, `GVISOR`, `provision_gvisor` and `set_env_value AURA_RUNTIME runsc`. Keep `gvisor)` in the config parser. Remove compose's `runtime:` line and the unit's gVisor block, and update the egress Dockerfile comments.
-- [ ] `make payload-manifest`; the installer shell tests and the artifact tests pass.
+- [x] Tests first: `install_config_test.sh` parses `gvisor=false` and `gvisor=true` without failing, and `true` warns. The `provision_gvisor` block leaves `install_lib_test.sh`. The artifact tests drop their gVisor wants.
+- [x] Remove `--gvisor`, `GVISOR`, `provision_gvisor` and `set_env_value AURA_RUNTIME runsc`. Keep `gvisor)` in the config parser. Remove compose's `runtime:` line and the unit's gVisor block, and update the egress Dockerfile comments.
+- [x] `make payload-manifest`; the installer shell tests and the artifact tests pass.
 
 ### Task 4: create-aura
-- [ ] Tests first, then remove the `gvisor` field, its question, its config line and its messages. typecheck and vitest pass.
+- [x] Tests first, then remove the `gvisor` field, its question, its config line and its messages. typecheck and vitest pass.
 
 ### Task 5: Skill note and closing gates
-- [ ] The spike-findings skill marks the gVisor tier retired, so no later spec reuses it.
+- [x] The spike-findings skill marks the gVisor tier retired, so no later spec reuses it.
 - [ ] Gates: golangci-lint on the touched packages, the full pre-push from WSL, CI green on the pushed SHA.
-- [ ] Lab VM, after the updater has applied the new payload: `/opt/aura/compose.yaml` has no `runtime:` line, every container runs `runc` and the stack is healthy. Recorded in `docs/superpowers/verification/`.
+  2026-10-11: golangci-lint 0 issues on the four packages and the full pre-push green. CI did not finish: GitHub flagged the account ("owner marked spammy", 14:21 UTC) and cancelled every run on `142813a46`; the CI tick waits for the account to be reinstated.
+- [x] Lab VM, after the updater has applied the new payload: `/opt/aura/compose.yaml` has no `runtime:` line, every container runs `runc` and the stack is healthy. Recorded in `docs/superpowers/verification/`.
