@@ -35,6 +35,7 @@ func identityCacheMounts(identityID string) []mount.Mount {
 //   - Binds       nil          no host bind-mounts, volumes only (D-10)
 //   - AutoRemove  false        the box is suspendable; --rm would destroy it (Pitfall 5)
 //   - CapDrop     empty        keep default caps (D-12: the box is not a jail)
+//   - Runtime     ""           the daemon's default runc; gVisor was retired 2026-10-11 (prd.md §12)
 //   - Init        true         docker-init (tini) is PID 1 and reaps orphans. The keep-alive
 //     `tail` never waits on anyone, so every process a closed browser session left behind
 //     stayed a zombie and counted against PidsLimit: measured 2026-09-26, 177 zombies after
@@ -53,7 +54,7 @@ func toHostConfig(s SandboxSpec) *container.HostConfig {
 		Binds:       nil,
 		AutoRemove:  false,
 		CapDrop:     []string{},
-		Runtime:     s.Runtime.dockerRuntime(),
+		Runtime:     "",
 		Mounts: append([]mount.Mount{
 			{Type: mount.TypeVolume, Source: s.WorkspaceVol, Target: workspaceTarget},
 			{Type: mount.TypeTmpfs, Target: scratchTarget},

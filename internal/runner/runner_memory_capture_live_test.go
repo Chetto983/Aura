@@ -189,7 +189,6 @@ func newLiveCaptureFixture(t *testing.T) liveCaptureFixture {
 	box := &liveCaptureBox{}
 	registry.Register(&tools.WriteFile{Router: usersandbox.NewSandboxRouter(
 		box,
-		config.ProfileSingleUserHardened,
 		config.SandboxConfig{Image: "capture-live", CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 64},
 	)})
 	mountLiveMemoryUpsert(t, registry, client)

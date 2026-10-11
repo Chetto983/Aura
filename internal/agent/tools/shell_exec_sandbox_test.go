@@ -73,10 +73,10 @@ func (f *fakeBoxBackend) CopyFileIn(_ context.Context, _ usersandbox.BoxHandle, 
 	return nil
 }
 
-// newStrictBoxRouter wraps a backend in a server_production (strict) router so Route contains into
-// the box (routed=true) keyed on the seeded `local` identity for a bare ctx.
+// newStrictBoxRouter wraps a backend in a router so Route contains into the box (routed=true)
+// keyed on the seeded `local` identity for a bare ctx.
 func newStrictBoxRouter(be usersandbox.Backend) *usersandbox.SandboxRouter {
-	return usersandbox.NewSandboxRouter(be, config.ProfileServerProduction, config.SandboxConfig{
+	return usersandbox.NewSandboxRouter(be, config.SandboxConfig{
 		Image: "aura-sandbox:test", CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 128,
 	})
 }

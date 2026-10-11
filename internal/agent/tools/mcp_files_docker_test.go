@@ -19,8 +19,6 @@ import (
 
 func TestMCPFileSink_AFileLivesForItsTurnInARealBox(t *testing.T) {
 	skipUnlessDockerdTools(t)
-	// newDockerRouter selects gVisor, which the CI daemon lacks; it would only pass by reusing
-	// the runc box another test created first.
 	router := newDockerRouter(t, nil)
 	ctx, cleanup := WithTurnCleanup(WithRequestID(ctxWith(t, "sess-dk-mcp", "call-dk-mcp"), "req-dk-mcp"))
 	// A failure midway must not leave the file in the volume: the next run would name its

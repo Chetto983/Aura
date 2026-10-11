@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/sandbox/usersandbox"
 )
 
@@ -185,7 +184,7 @@ func TestSendFileUnreadableErrors(t *testing.T) {
 	ctx := ctxWith(t, "sess-sf-bad", "call-sf")
 	emptyTar := tarStream(t)
 	router := usersandbox.NewSandboxRouter(
-		routedBackend{tarBytes: emptyTar.Bytes()}, config.ProfileSingleUserHardened, unitSandboxCfg())
+		routedBackend{tarBytes: emptyTar.Bytes()}, unitSandboxCfg())
 
 	raw, _ := json.Marshal(map[string]string{"path": "/workspace/does-not-exist.txt"})
 	res, err := (&SendFile{Router: router}).Execute(ctx, raw)

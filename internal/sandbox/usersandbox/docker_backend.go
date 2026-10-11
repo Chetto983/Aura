@@ -220,7 +220,7 @@ func (b *DockerBackend) launchEgress(ctx context.Context, spec SandboxSpec, h Bo
 		return b.ensureRunning(ctx, existing)
 	}
 
-	sc, err := buildEgressSidecar(spec.Egress, h.ContainerID, spec.Runtime)
+	sc, err := buildEgressSidecar(spec.Egress, h.ContainerID)
 	if err != nil {
 		return fmt.Errorf("build egress sidecar: %w", err)
 	}

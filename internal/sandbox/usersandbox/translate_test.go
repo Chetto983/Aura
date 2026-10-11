@@ -38,8 +38,8 @@ func assertPinsSafe(t fatalf, hc *container.HostConfig) {
 	if hc.Init == nil || !*hc.Init {
 		t.Fatalf("Init must be pinned true — without an init, orphaned processes pile up as zombies against PidsLimit")
 	}
-	if hc.Runtime != "" && hc.Runtime != "runsc" {
-		t.Fatalf("Runtime must be \"\" or \"runsc\" (never a dangerous runtime), got %q", hc.Runtime)
+	if hc.Runtime != "" {
+		t.Fatalf("Runtime must stay empty, so every box runs on the daemon's default runc (gVisor retired 2026-10-11), got %q", hc.Runtime)
 	}
 	for _, m := range hc.Mounts {
 		if m.Type == mount.TypeBind {
@@ -63,17 +63,17 @@ func assertCacheMount(t fatalf, hc *container.HostConfig, source, target string)
 // TestTranslate_PinsSafe proves SBX-02 behaviorally over a table of hand-picked
 // adversarial specs plus ≥1000 rapid-generated ones: toHostConfig ALWAYS emits a
 // HostConfig with Privileged=false, non-host NetworkMode, nil Binds, AutoRemove=false,
-// a safe Runtime, and exactly the five sanctioned volume/tmpfs mounts (no bind, no
+// an empty Runtime, and exactly the five sanctioned volume/tmpfs mounts (no bind, no
 // socket target).
 func TestTranslate_PinsSafe(t *testing.T) {
 	// (1) Hand-picked adversarial specs — note the workspace volume NAME mimicking the
-	// docker socket path (case 1) and an out-of-range RuntimeClass (case 3).
+	// docker socket path (case 1).
 	adversarial := []SandboxSpec{
 		{}, // zero value
-		{IdentityID: "--privileged", Image: "host", WorkspaceVol: "/var/run/docker.sock", Runtime: Runc},
-		{IdentityID: "id", Image: "img", WorkspaceVol: "aura-box-id", Runtime: Runsc, Egress: EgressPolicy{FQDNAllowlist: []string{"host", "0.0.0.0/0"}}},
-		{IdentityID: "id", WorkspaceVol: "/proc", Runtime: RuntimeClass(99), Limits: Resources{NanoCPUs: -1, MemoryBytes: -1, PidsLimit: -1}},
-		{IdentityID: "id", WorkspaceVol: "aura-box-id", Runtime: Runc, Limits: Resources{NanoCPUs: 1 << 62, MemoryBytes: 1 << 62, PidsLimit: 1 << 62}},
+		{IdentityID: "--privileged", Image: "host", WorkspaceVol: "/var/run/docker.sock"},
+		{IdentityID: "id", Image: "img", WorkspaceVol: "aura-box-id", Egress: EgressPolicy{FQDNAllowlist: []string{"host", "0.0.0.0/0"}}},
+		{IdentityID: "id", WorkspaceVol: "/proc", Limits: Resources{NanoCPUs: -1, MemoryBytes: -1, PidsLimit: -1}},
+		{IdentityID: "id", WorkspaceVol: "aura-box-id", Limits: Resources{NanoCPUs: 1 << 62, MemoryBytes: 1 << 62, PidsLimit: 1 << 62}},
 	}
 	for i, s := range adversarial {
 		hc := toHostConfig(s)
@@ -93,7 +93,6 @@ func TestTranslate_PinsSafe(t *testing.T) {
 			IdentityID:   rapid.String().Draw(rt, "identityID"),
 			Image:        rapid.String().Draw(rt, "image"),
 			WorkspaceVol: rapid.String().Draw(rt, "workspaceVol"),
-			Runtime:      RuntimeClass(rapid.IntRange(-4, 4).Draw(rt, "runtime")),
 			Egress: EgressPolicy{
 				Floor:         rapid.Bool().Draw(rt, "floor"),
 				FQDNAllowlist: rapid.SliceOf(rapid.String()).Draw(rt, "fqdnAllowlist"),

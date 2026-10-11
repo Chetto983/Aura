@@ -5,8 +5,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-
-	"github.com/chetto1983/aura/internal/config"
 )
 
 // router_tools_test.go unit-proves the tool-facing passthroughs' NON-daemon legs: the nil-router
@@ -14,10 +12,10 @@ import (
 // (fakeBackend implements the 5-verb seam but none of the optional artifact/file/stream
 // capabilities) yields. The live in-box round-trips are the docker_integration tier's job.
 
-// coreOnlyRouter wires a router over the core-only fakeBackend under a strict profile.
+// coreOnlyRouter wires a router over the core-only fakeBackend.
 func coreOnlyRouter(t *testing.T) *SandboxRouter {
 	t.Helper()
-	return NewSandboxRouter(&fakeBackend{t: t}, config.ProfileSingleUserHardened, unitSandboxConfig())
+	return NewSandboxRouter(&fakeBackend{t: t}, unitSandboxConfig())
 }
 
 // TestRouterExec_Passthrough covers Exec: the nil-router guard and the live-backend passthrough.

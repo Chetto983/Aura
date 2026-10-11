@@ -198,8 +198,7 @@ func hasCap(caps []string, want string) bool {
 // TestBuildSandboxRouter_LaunchesEgressFloor proves SBX-04 is closed AT THE COMPOSITION ROOT: a box
 // created via the production buildSandboxRouter -> Route path carries its aura-egress sidecar
 // (NET_ADMIN on the sidecar, box netns shared), reaches the public internet (D-04) but is DROPPED
-// from the cloud-metadata IP + RFC1918 (D-05). It uses single_user_hardened (runc floor — no gVisor
-// needed) so specFor keeps Runtime=Runc. This is the LIVE proof carried forward to WSL/CI
+// from the cloud-metadata IP + RFC1918 (D-05). This is the LIVE proof carried forward to WSL/CI
 // (37-VALIDATION.md Manual-Only); locally it compiles + gates cleanly.
 func TestBuildSandboxRouter_LaunchesEgressFloor(t *testing.T) {
 	egressITDockerdOrGate(t)

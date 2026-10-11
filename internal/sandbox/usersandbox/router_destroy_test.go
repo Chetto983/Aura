@@ -4,14 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/identityctx"
 )
 
 const destroyIdentity = "645baf03-247a-4671-90b3-659a05b403c4"
 
 func destroyRouter(backend Backend) *SandboxRouter {
-	return NewSandboxRouter(backend, config.ProfileDev, unitSandboxConfig())
+	return NewSandboxRouter(backend, unitSandboxConfig())
 }
 
 // The warm case: this process routed the identity, so the handle it got back from Resolve is

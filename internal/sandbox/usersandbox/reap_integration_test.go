@@ -35,7 +35,7 @@ func TestReap_IdleSuspendAutoResume(t *testing.T) {
 		Image:       testBoxImage(),
 	}
 	backend := NewDockerBackend(cli, testBoxImage(), testLimits())
-	router := NewSandboxRouter(backend, config.ProfileSingleUserHardened, cfg)
+	router := NewSandboxRouter(backend, cfg)
 	ctx := identityctx.WithIdentityID(context.Background(), id)
 
 	t.Cleanup(func() {

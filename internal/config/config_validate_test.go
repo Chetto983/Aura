@@ -137,20 +137,15 @@ func TestGateReplication(t *testing.T) {
 	}
 }
 
-// TestGateEgressAllowlistRuntime: server_production boxes run on runsc, which cannot enforce
-// the FQDN allowlist, so the pair must fail at boot instead of at every box creation. Every
-// other profile runs runc, where the allowlist works.
-func TestGateEgressAllowlistRuntime(t *testing.T) {
+// TestEgressAllowlistAcceptedUnderEveryProfile: every box runs on runc since gVisor was retired
+// (2026-10-11), and runc has the nat table the FQDN allowlist needs, so no profile refuses it.
+func TestEgressAllowlistAcceptedUnderEveryProfile(t *testing.T) {
 	withAllowlist := &Config{Sandbox: SandboxConfig{EgressAllowlist: []string{"pypi.org"}}}
-	if vs := withAllowlist.ValidateProfile(ProfileServerProduction); !hasViolation(vs, "AURA_SANDBOX_EGRESS_ALLOWLIST", Fatal) {
-		t.Fatalf("server_production with an allowlist must be Fatal naming AURA_SANDBOX_EGRESS_ALLOWLIST, got %+v", vs)
-	}
-	if vs := (&Config{}).gateEgressAllowlistRuntime(ProfileServerProduction); len(vs) != 0 {
-		t.Errorf("server_production without an allowlist must pass, got %+v", vs)
-	}
-	for _, p := range []RuntimeProfile{ProfileDev, ProfileLocalTrusted, ProfileSingleUserHardened} {
-		if vs := withAllowlist.gateEgressAllowlistRuntime(p); len(vs) != 0 {
-			t.Errorf("%s runs runc and must allow the allowlist, got %+v", p, vs)
+	for _, p := range []RuntimeProfile{ProfileDev, ProfileLocalTrusted, ProfileSingleUserHardened, ProfileServerProduction} {
+		for _, v := range withAllowlist.ValidateProfile(p) {
+			if v.Knob == "AURA_SANDBOX_EGRESS_ALLOWLIST" {
+				t.Errorf("%s must accept an egress allowlist, got %+v", p, v)
+			}
 		}
 	}
 }

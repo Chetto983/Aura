@@ -57,41 +57,13 @@ func unitSandboxConfig() config.SandboxConfig {
 	}
 }
 
-// TestRoute_EveryProfileRoutes replaces the former TestRoute_DevNoOp, which pinned the opposite
-// behaviour: dev and local_trusted used to short-circuit Route into a host-direct no-op. That arm
-// was deliberately removed — the box is the only filesystem and the only shell now — so the test
-// is inverted rather than adapted: under EVERY profile Route must resolve a real box.
-func TestRoute_EveryProfileRoutes(t *testing.T) {
-	for _, p := range []config.RuntimeProfile{
-		config.ProfileDev,
-		config.ProfileLocalTrusted,
-		config.ProfileSingleUserHardened,
-		config.ProfileServerProduction,
-	} {
-		t.Run(string(p), func(t *testing.T) {
-			be := &fakeBackend{t: t}
-			r := NewSandboxRouter(be, p, unitSandboxConfig())
-			h, err := r.Route(context.Background())
-			if err != nil {
-				t.Fatalf("Route err = %v, want nil", err)
-			}
-			if len(be.resolved) != 1 {
-				t.Fatalf("resolved %d specs under %s, want 1 — a profile must never bypass the box", len(be.resolved), p)
-			}
-			if h.ContainerID == "" {
-				t.Fatalf("handle = %+v, want a live box handle", h)
-			}
-		})
-	}
-}
-
 // TestRoute_FailClosed proves a box-create failure returns (zero handle, err): the fail-CLOSED
 // containment invariant (D-09/GATE-01). The caller DENIES on that error — there is no host arm
 // for it to fall back to.
 func TestRoute_FailClosed(t *testing.T) {
 	sentinel := errors.New("box create boom")
 	be := &fakeBackend{t: t, resolveErr: sentinel}
-	r := NewSandboxRouter(be, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r := NewSandboxRouter(be, unitSandboxConfig())
 
 	h, err := r.Route(context.Background())
 	if !errors.Is(err, sentinel) {
@@ -105,7 +77,7 @@ func TestRoute_FailClosed(t *testing.T) {
 // TestRoute_MissingBackendFailsClosed covers a composition failure before a concrete backend
 // exists. Such a router stays a containment boundary: an error, never a usable handle.
 func TestRoute_MissingBackendFailsClosed(t *testing.T) {
-	r := NewSandboxRouter(nil, config.ProfileServerProduction, unitSandboxConfig())
+	r := NewSandboxRouter(nil, unitSandboxConfig())
 
 	h, err := r.Route(context.Background())
 	if err == nil {
@@ -142,7 +114,7 @@ func TestRoute_ZeroValueRouterDeniesWithoutPanicking(t *testing.T) {
 // host), and an authenticated principal keys strictly on its own identity (T-37-05-CROSSID).
 func TestRoute_LocalFallback(t *testing.T) {
 	be := &fakeBackend{t: t}
-	r := NewSandboxRouter(be, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r := NewSandboxRouter(be, unitSandboxConfig())
 
 	h, err := r.Route(context.Background()) // empty identityctx → local fallback
 	if err != nil {
@@ -160,7 +132,7 @@ func TestRoute_LocalFallback(t *testing.T) {
 
 	const authID = "11111111-1111-1111-1111-111111111111"
 	be2 := &fakeBackend{t: t}
-	r2 := NewSandboxRouter(be2, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r2 := NewSandboxRouter(be2, unitSandboxConfig())
 	ctx := identityctx.WithIdentityID(context.Background(), authID)
 	if _, err := r2.Route(ctx); err != nil {
 		t.Fatalf("Route(auth) err = %v", err)
@@ -185,7 +157,7 @@ func TestSuspendIdle_NonPositiveTTLKeepsBoxesWarm(t *testing.T) {
 		be := &fakeBackend{t: t}
 		cfg := unitSandboxConfig()
 		cfg.IdleTTLSec = ttl
-		r := NewSandboxRouter(be, config.ProfileSingleUserHardened, cfg)
+		r := NewSandboxRouter(be, cfg)
 		r.now = func() time.Time { return base }
 		if _, err := r.Route(context.Background()); err != nil {
 			t.Fatalf("ttl=%d: Route err = %v", ttl, err)
@@ -209,7 +181,7 @@ func TestRoute_IdleBump(t *testing.T) {
 	be := &fakeBackend{t: t}
 	cfg := unitSandboxConfig()
 	cfg.IdleTTLSec = 60
-	r := NewSandboxRouter(be, config.ProfileSingleUserHardened, cfg)
+	r := NewSandboxRouter(be, cfg)
 	r.now = func() time.Time { return base }
 
 	if _, err := r.Route(context.Background()); err != nil {
@@ -250,7 +222,7 @@ func TestRoute_IdleBump(t *testing.T) {
 
 // TestSpecFor_UsesConfiguredKnobs proves specFor sources every knob from cfg.Sandbox (image,
 // caps, egress allowlist) into the spec — a CONFIGURED allowlist reaches EgressPolicy, not just
-// a test fixture (T-37-05-CONFIGDROP) — and selects Runsc ONLY under server_production (D-12).
+// a test fixture (T-37-05-CONFIGDROP).
 func TestSpecFor_UsesConfiguredKnobs(t *testing.T) {
 	cfg := config.SandboxConfig{
 		IdleTTLSec:      900,
@@ -261,7 +233,7 @@ func TestSpecFor_UsesConfiguredKnobs(t *testing.T) {
 		Image:           "registry.example.com/aura-sandbox@sha256:abc",
 	}
 
-	r := NewSandboxRouter(&fakeBackend{t: t}, config.ProfileSingleUserHardened, cfg)
+	r := NewSandboxRouter(&fakeBackend{t: t}, cfg)
 	spec := r.specFor("id-1")
 
 	if spec.Image != cfg.Image {
@@ -289,18 +261,5 @@ func TestSpecFor_UsesConfiguredKnobs(t *testing.T) {
 		if spec.Egress.FQDNAllowlist[i] != fqdn {
 			t.Fatalf("FQDNAllowlist[%d] = %q, want %q", i, spec.Egress.FQDNAllowlist[i], fqdn)
 		}
-	}
-	if spec.Runtime != Runc {
-		t.Fatalf("Runtime = %v under single_user_hardened, want Runc (D-12: runsc is server_production only)", spec.Runtime)
-	}
-
-	rp := NewSandboxRouter(&fakeBackend{t: t}, config.ProfileServerProduction, cfg)
-	prodSpec := rp.specFor("id-1")
-	if prodSpec.Runtime != Runsc {
-		t.Fatalf("Runtime = %v under server_production, want Runsc", prodSpec.Runtime)
-	}
-	// The Runsc spec is accepted by the containment validator under server_production.
-	if _, err := NewSandboxSpec(prodSpec, config.ProfileServerProduction); err != nil {
-		t.Fatalf("NewSandboxSpec(server_production) rejected the specFor spec: %v", err)
 	}
 }

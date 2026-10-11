@@ -1,13 +1,10 @@
 package usersandbox
 
 import (
-	"errors"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
-
-	"github.com/chetto1983/aura/internal/config"
 )
 
 // TestSpec_NoHostExposureFields is the SBX-02 STRUCTURAL guard: it pins the exact field
@@ -29,7 +26,6 @@ func TestSpec_NoHostExposureFields(t *testing.T) {
 		"Limits.MemoryBytes",
 		"Limits.NanoCPUs",
 		"Limits.PidsLimit",
-		"Runtime",
 		"WorkspaceVol",
 	}
 	sort.Strings(want)
@@ -87,68 +83,5 @@ func assertNoMobyTypes(t *testing.T, typ reflect.Type) {
 		if elem.Kind() == reflect.Struct {
 			assertNoMobyTypes(t, elem)
 		}
-	}
-}
-
-// TestSpec_RunscOnlyServerProduction pins the one runtime rule the type system alone
-// cannot: Runsc (gVisor) is accepted ONLY under server_production; every other profile
-// requesting it is rejected. A runc spec is always accepted and never becomes runsc, and
-// RuntimeClass is a non-string enum so a free-string runtime (e.g. "host") is impossible.
-func TestSpec_RunscOnlyServerProduction(t *testing.T) {
-	runscSpec := func() SandboxSpec {
-		return SandboxSpec{
-			IdentityID:   "id-1",
-			Image:        "img@sha256:deadbeef",
-			WorkspaceVol: "aura-box-id-1",
-			Runtime:      Runsc,
-			Egress:       EgressPolicy{Floor: true},
-			Limits:       Resources{NanoCPUs: 2_000_000_000, MemoryBytes: 2 << 30, PidsLimit: 512},
-		}
-	}
-
-	// (a) Runsc is REJECTED under every non-server_production profile — including
-	// single_user_hardened, which is Strict() yet still not server_production.
-	for _, p := range []config.RuntimeProfile{
-		config.ProfileDev,
-		config.ProfileLocalTrusted,
-		config.ProfileSingleUserHardened,
-	} {
-		if _, err := NewSandboxSpec(runscSpec(), p); !errors.Is(err, ErrRunscRequiresServerProduction) {
-			t.Fatalf("profile %q: want ErrRunscRequiresServerProduction, got %v", p, err)
-		}
-	}
-
-	// (b) Runsc is ACCEPTED under server_production and translates to the gVisor runtime.
-	spec, err := NewSandboxSpec(runscSpec(), config.ProfileServerProduction)
-	if err != nil {
-		t.Fatalf("server_production must accept Runsc: %v", err)
-	}
-	if spec.Runtime != Runsc {
-		t.Fatalf("accepted spec must retain Runsc, got %v", spec.Runtime)
-	}
-	if got := toHostConfig(spec).Runtime; got != "runsc" {
-		t.Fatalf("Runsc must translate to moby runtime \"runsc\", got %q", got)
-	}
-
-	// (c) A runc spec is accepted under EVERY profile and NEVER becomes runsc.
-	for _, p := range []config.RuntimeProfile{
-		config.ProfileDev, config.ProfileLocalTrusted,
-		config.ProfileSingleUserHardened, config.ProfileServerProduction,
-	} {
-		runcSpec := runscSpec()
-		runcSpec.Runtime = Runc
-		out, err := NewSandboxSpec(runcSpec, p)
-		if err != nil {
-			t.Fatalf("profile %q: runc must always be accepted: %v", p, err)
-		}
-		if hc := toHostConfig(out); hc.Runtime != "" {
-			t.Fatalf("profile %q: runc must translate to moby runtime \"\" (never runsc), got %q", p, hc.Runtime)
-		}
-	}
-
-	// (d) RuntimeClass is a typed non-string enum — a free-string runtime is
-	// structurally unrepresentable, so it can never carry "host".
-	if k := reflect.TypeFor[RuntimeClass]().Kind(); k == reflect.String {
-		t.Fatalf("RuntimeClass must NOT be string-backed (a free string could carry \"host\"); got kind %v", k)
 	}
 }

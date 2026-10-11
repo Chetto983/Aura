@@ -31,7 +31,7 @@ func (stubBackend) Resume(context.Context, usersandbox.BoxHandle) error  { retur
 func (stubBackend) Stop(context.Context, usersandbox.BoxHandle) error    { return nil }
 
 func strictStubRouter() *usersandbox.SandboxRouter {
-	return usersandbox.NewSandboxRouter(stubBackend{}, config.ProfileSingleUserHardened, config.SandboxConfig{
+	return usersandbox.NewSandboxRouter(stubBackend{}, config.SandboxConfig{
 		Image: "x", CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 128, IdleTTLSec: 1800,
 	})
 }

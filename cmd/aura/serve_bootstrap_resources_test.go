@@ -99,7 +99,7 @@ func (b *recordingBackend) Stop(context.Context, usersandbox.BoxHandle) error   
 func TestSandboxStarterBindsTheNewIdentityNotTheLocalFallback(t *testing.T) {
 	t.Parallel()
 	backend := &recordingBackend{}
-	router := usersandbox.NewSandboxRouter(backend, config.ProfileDev, config.SandboxConfig{Image: "aura-sandbox:test"})
+	router := usersandbox.NewSandboxRouter(backend, config.SandboxConfig{Image: "aura-sandbox:test"})
 
 	start := newSandboxStarter(router)
 	if start == nil {

@@ -1,13 +1,11 @@
 // egress.go builds the per-box egress sidecar (SBX-04, D-03/D-05/D-07): an always-on
 // filter-table nftables floor that gives the box full public internet (Claude-Code parity,
 // D-04) while DROPping the tenancy boundary — RFC1918, the 169.254.169.254 cloud-metadata
-// IP, and the shared-services Docker bridge (D-05). The floor is FILTER-TABLE ONLY so it
-// works under BOTH runc and gVisor runsc (gVisor implements filter+mangle but NOT nat —
-// issue #934). The opt-in tightened FQDN allowlist (OpenSandbox DNS-redirect, nat-table)
-// is therefore runc-ONLY: buildEgressSidecar refuses Runsc + a configured allowlist with a
-// clear #934 error. The allowlist it enforces is the CONFIGURED one — sourced by 37-05's
-// specFor from AURA_SANDBOX_EGRESS_ALLOWLIST into EgressPolicy.FQDNAllowlist — never an
-// inline literal.
+// IP, and the shared-services Docker bridge (D-05). The floor is FILTER-TABLE ONLY, so it
+// never depends on the nat table that the opt-in tightened FQDN allowlist (OpenSandbox
+// DNS-redirect) programs on top of it. The allowlist it enforces is the CONFIGURED one —
+// sourced by 37-05's specFor from AURA_SANDBOX_EGRESS_ALLOWLIST into
+// EgressPolicy.FQDNAllowlist — never an inline literal.
 
 package usersandbox
 
@@ -54,22 +52,13 @@ const (
 const envFloorRuleset = "AURA_EGRESS_FLOOR_RULESET"
 
 // OpenSandbox egress env (third-party sidecar — upstream naming kept per CLAUDE.md). Set
-// ONLY when a tightened FQDN allowlist is configured (runc-only, D-06).
+// ONLY when a tightened FQDN allowlist is configured (D-06).
 const (
 	envOpenSandboxMode  = "OPENSANDBOX_EGRESS_MODE"
 	envOpenSandboxRules = "OPENSANDBOX_EGRESS_RULES"
 
 	openSandboxModeDNSNFT = "dns+nft" // recommended strict mode (DNS proxy + nftables allow-sets)
 )
-
-// ErrRunscFQDNMutualExclusion is returned by buildEgressSidecar when a Runsc (gVisor) box is
-// combined with a tightened FQDN allowlist. The OpenSandbox allowlist needs an iptables
-// REDIRECT in the nat table, which gVisor's netstack does not implement (issue #934) — the
-// two are mutually exclusive. The always-on filter-table floor still runs under runsc; only
-// the opt-in FQDN mode is refused.
-var ErrRunscFQDNMutualExclusion = errors.New(
-	"usersandbox: tightened FQDN egress allowlist is runc-only — gVisor runsc does not implement the nat table (issue #934); " +
-		"drop the allowlist for a runsc box (the filter-table floor still enforces the tenancy boundary) or use runc")
 
 // EgressSidecar is the resolved spec for a per-box egress sidecar container. It shares the
 // box's network namespace (NetworkMode "container:<box>"), carries CAP_NET_ADMIN (the box
@@ -83,17 +72,16 @@ type EgressSidecar struct {
 	CapAdd       []string // ["NET_ADMIN"] — sidecar only (D-07)
 	Env          []string // floor ruleset (always) + OpenSandbox env (FQDN mode only)
 	FloorRuleset string   // the filter-table nft floor (also carried in Env)
-	FQDNMode     bool     // true when a tightened allowlist is configured (runc-only)
+	FQDNMode     bool     // true when a tightened allowlist is configured
 }
 
 // buildEgressSidecar builds the sidecar spec for a box from its CONFIGURED egress policy
 // (EgressPolicy.FQDNAllowlist is sourced by 37-05 specFor from AURA_SANDBOX_EGRESS_ALLOWLIST
-// — never an inline list) and its runtime. The always-on filter-table floor is emitted
-// unconditionally (the tenancy boundary is not optional, D-05/D-07). When the policy carries
-// a non-empty FQDNAllowlist the sidecar additionally runs OpenSandbox in dns+nft mode built
-// from exactly those hosts; that mode is runc-only, so Runsc + a configured allowlist is
-// refused with ErrRunscFQDNMutualExclusion (issue #934).
-func buildEgressSidecar(policy EgressPolicy, boxID string, runtime RuntimeClass) (EgressSidecar, error) {
+// — never an inline list). The always-on filter-table floor is emitted unconditionally (the
+// tenancy boundary is not optional, D-05/D-07). When the policy carries a non-empty
+// FQDNAllowlist the sidecar additionally runs OpenSandbox in dns+nft mode built from exactly
+// those hosts.
+func buildEgressSidecar(policy EgressPolicy, boxID string) (EgressSidecar, error) {
 	if boxID == "" {
 		return EgressSidecar{}, errors.New("usersandbox: buildEgressSidecar requires a non-empty boxID")
 	}
@@ -112,10 +100,7 @@ func buildEgressSidecar(policy EgressPolicy, boxID string, runtime RuntimeClass)
 		return sc, nil
 	}
 
-	// A tightened allowlist is configured — OpenSandbox FQDN mode. It is runc-only (#934).
-	if runtime == Runsc {
-		return EgressSidecar{}, ErrRunscFQDNMutualExclusion
-	}
+	// A tightened allowlist is configured — OpenSandbox FQDN mode.
 	rules, err := buildOpenSandboxRules(policy.FQDNAllowlist)
 	if err != nil {
 		return EgressSidecar{}, fmt.Errorf("usersandbox: build OpenSandbox egress rules: %w", err)
@@ -130,8 +115,8 @@ func buildEgressSidecar(policy EgressPolicy, boxID string, runtime RuntimeClass)
 
 // buildFloorRuleset renders the always-on filter-table nft floor: default policy ACCEPT (full
 // public internet, D-04) with an explicit DROP for the metadata IP, each RFC1918 range, and
-// the shared-services bridge (D-05). It is filter-table ONLY (no nat) so it is identical under
-// runc and gVisor runsc (issue #934 only affects the nat-table FQDN mode).
+// the shared-services bridge (D-05). It is filter-table ONLY (no nat), so the nat-table FQDN
+// mode can be added on top of it or left out without changing it.
 //
 // DNS is accepted BEFORE the drops, and that carve-out is what makes D-04 true rather than
 // nominal. A box created by DockerBackend sets no NetworkMode, so it lands on Docker's default

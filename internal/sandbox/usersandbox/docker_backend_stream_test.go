@@ -10,8 +10,6 @@ import (
 	"context"
 	"io"
 	"testing"
-
-	"github.com/chetto1983/aura/internal/config"
 )
 
 // execStreamerIface is the EXACT concrete signature the router surfaces (docker_backend_exec.go).
@@ -38,7 +36,7 @@ func TestBackend_StreamVerbNotOnInterface(t *testing.T) {
 // streaming capability into a clean error (the tool maps it to a fail-CLOSED deny), never a panic
 // or a host fallback.
 func TestRouterExecStream_UnsupportedBackendErrors(t *testing.T) {
-	r := NewSandboxRouter(&fakeBackend{t: t}, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r := NewSandboxRouter(&fakeBackend{t: t}, unitSandboxConfig())
 	if _, err := r.ExecStream(context.Background(), BoxHandle{ContainerID: "c"}, ExecRequest{Command: "true"}, nil, io.Discard); err == nil {
 		t.Fatal("router.ExecStream must error when the backend lacks background streaming (fail-CLOSED)")
 	}

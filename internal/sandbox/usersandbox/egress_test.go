@@ -1,7 +1,6 @@
 // egress_test.go unit-proves the egress sidecar builder (buildEgressSidecar) without a
 // Docker daemon: the always-on filter-table floor DROPs the tenancy boundary and ACCEPTs
-// public (TestEgress_FloorRuleset), Runsc + a tightened FQDN allowlist is refused with the
-// #934 error (TestEgress_RunscRejectsFQDN), NET_ADMIN lands on the sidecar and NEVER the box
+// public (TestEgress_FloorRuleset), NET_ADMIN lands on the sidecar and NEVER the box
 // (TestEgress_CapOnSidecarOnly), and the OpenSandbox rules are built from the CONFIGURED
 // allowlist — not an inline default (TestEgress_AllowlistFromPolicy). The live DROP
 // enforcement is proven separately on native-Linux dockerd in egress_integration_test.go.
@@ -18,9 +17,9 @@ import (
 // TestEgress_FloorRuleset asserts the generated filter-table floor DROPs the four internal
 // targets (metadata + the three RFC1918 ranges) plus the shared-services bridge, and ACCEPTs
 // everything else (policy accept = full public internet, D-04). The floor uses only the
-// filter table (no nat) so it is gVisor-safe (issue #934).
+// filter table (no nat), so the nat-table FQDN mode never changes it.
 func TestEgress_FloorRuleset(t *testing.T) {
-	sc, err := buildEgressSidecar(EgressPolicy{Floor: true}, "box-abc", Runc)
+	sc, err := buildEgressSidecar(EgressPolicy{Floor: true}, "box-abc")
 	if err != nil {
 		t.Fatalf("buildEgressSidecar: %v", err)
 	}
@@ -52,9 +51,9 @@ func TestEgress_FloorRuleset(t *testing.T) {
 			t.Errorf("DNS carve-out %q must precede the DROPs (first match wins):\n%s", accept, ruleset)
 		}
 	}
-	// Filter-table only — the nat table (gVisor-incompatible, #934) must never appear.
+	// Filter-table only — the nat table belongs to the opt-in FQDN mode, never to the floor.
 	if strings.Contains(ruleset, "nat") {
-		t.Errorf("floor ruleset must be filter-table only (no nat, #934):\n%s", ruleset)
+		t.Errorf("floor ruleset must be filter-table only (no nat):\n%s", ruleset)
 	}
 	if !strings.Contains(ruleset, "type filter hook output") {
 		t.Errorf("floor ruleset must hook the filter output chain:\n%s", ruleset)
@@ -72,34 +71,11 @@ func TestEgress_FloorRuleset(t *testing.T) {
 	}
 }
 
-// TestEgress_RunscRejectsFQDN proves the #934 mutual-exclusion: a Runsc (gVisor) box combined
-// with a tightened FQDN allowlist is refused with ErrRunscFQDNMutualExclusion, because the
-// OpenSandbox allowlist needs the nat table gVisor does not implement. The floor-only case
-// under Runsc is still accepted (only the nat-table FQDN mode is runc-only).
-func TestEgress_RunscRejectsFQDN(t *testing.T) {
-	_, err := buildEgressSidecar(EgressPolicy{FQDNAllowlist: []string{"pypi.org"}}, "box-runsc", Runsc)
-	if err == nil {
-		t.Fatalf("Runsc + FQDN allowlist must be refused (#934), got nil error")
-	}
-	if err != ErrRunscFQDNMutualExclusion {
-		t.Fatalf("want ErrRunscFQDNMutualExclusion, got %v", err)
-	}
-
-	// Runsc WITHOUT an allowlist is fine — the filter-table floor is gVisor-safe.
-	sc, err := buildEgressSidecar(EgressPolicy{Floor: true}, "box-runsc", Runsc)
-	if err != nil {
-		t.Fatalf("Runsc floor-only must be accepted, got %v", err)
-	}
-	if sc.FQDNMode {
-		t.Errorf("Runsc floor-only must not enable FQDN mode")
-	}
-}
-
 // TestEgress_CapOnSidecarOnly asserts NET_ADMIN is granted to the sidecar spec and that the
 // box HostConfig (toHostConfig) never carries any added capability — the box stays
 // net-unprivileged (D-07); only the sidecar can program the netns.
 func TestEgress_CapOnSidecarOnly(t *testing.T) {
-	sc, err := buildEgressSidecar(EgressPolicy{Floor: true}, "box-cap", Runc)
+	sc, err := buildEgressSidecar(EgressPolicy{Floor: true}, "box-cap")
 	if err != nil {
 		t.Fatalf("buildEgressSidecar: %v", err)
 	}
@@ -111,7 +87,7 @@ func TestEgress_CapOnSidecarOnly(t *testing.T) {
 	}
 
 	// The box itself must never gain a capability — assert against the single pinned-safe
-	// translator, for an adversarial spec that (fruitlessly) asks for a runsc + allowlist box.
+	// translator, for an adversarial spec that (fruitlessly) asks for an allowlist box.
 	hc := toHostConfig(SandboxSpec{
 		IdentityID:   "box-cap",
 		WorkspaceVol: "aura-box-box-cap",
@@ -128,7 +104,7 @@ func TestEgress_CapOnSidecarOnly(t *testing.T) {
 // OpenSandbox allow-list of exactly those hosts (T-37-06-CONFIGDROP).
 func TestEgress_AllowlistFromPolicy(t *testing.T) {
 	want := []string{"registry.example", "*.pypi.org"}
-	sc, err := buildEgressSidecar(EgressPolicy{FQDNAllowlist: want}, "box-allow", Runc)
+	sc, err := buildEgressSidecar(EgressPolicy{FQDNAllowlist: want}, "box-allow")
 	if err != nil {
 		t.Fatalf("buildEgressSidecar: %v", err)
 	}

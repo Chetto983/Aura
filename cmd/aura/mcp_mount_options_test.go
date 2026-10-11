@@ -37,7 +37,7 @@ func TestMCPMountOptionsCarryTheBrowserControl(t *testing.T) {
 
 func TestBuildRegistryWithMCP_HandsMountsTheBoxFileSink(t *testing.T) {
 	withMemoryMCPRegistry(t)
-	router := usersandbox.NewSandboxRouter(nil, config.ProfileSingleUserHardened, config.SandboxConfig{})
+	router := usersandbox.NewSandboxRouter(nil, config.SandboxConfig{})
 
 	_, handles, closers, err := buildRegistryWithMCP(context.Background(), config.LoadDB(), nil, nil, router, nil)
 	if err != nil {
@@ -54,7 +54,7 @@ func TestBuildRegistryWithMCP_HandsMountsTheBoxFileSink(t *testing.T) {
 func TestBuildRegistryWithMCP_NoBootServersStillHandsLiveMountsTheFileSink(t *testing.T) {
 	withMemoryMCPRegistry(t)
 	seedMCPRegistry(t, withDefaultOnRecipesOff(mcp.ManagedConfig{}))
-	router := usersandbox.NewSandboxRouter(nil, config.ProfileSingleUserHardened, config.SandboxConfig{})
+	router := usersandbox.NewSandboxRouter(nil, config.SandboxConfig{})
 
 	_, handles, closers, err := buildRegistryWithMCP(context.Background(), config.LoadDB(), nil, nil, router, nil)
 	if err != nil {

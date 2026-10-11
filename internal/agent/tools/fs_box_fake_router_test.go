@@ -104,7 +104,7 @@ func (f *fakeBox) record(boxPath string, content []byte) {
 }
 
 func routerWith(be usersandbox.Backend) *usersandbox.SandboxRouter {
-	return usersandbox.NewSandboxRouter(be, config.ProfileSingleUserHardened, config.SandboxConfig{
+	return usersandbox.NewSandboxRouter(be, config.SandboxConfig{
 		Image: "aura-sandbox:latest", CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 128, IdleTTLSec: 1800,
 	})
 }

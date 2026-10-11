@@ -82,10 +82,7 @@ func newDockerRouter(t *testing.T, sources usersandbox.SourceResolver) *usersand
 		opts = append(opts, usersandbox.WithMaterializeSources(sources))
 	}
 	backend := usersandbox.NewDockerBackend(cli, dockerTestImage(), limits, opts...)
-	// single_user_hardened is a strict profile on runc. server_production would ask for gVisor,
-	// which Aura does not run and CI does not install: these tests passed only while they reused
-	// a `local` box another test had left behind with runc (measured 2026-09-26).
-	router := usersandbox.NewSandboxRouter(backend, config.ProfileSingleUserHardened, config.SandboxConfig{
+	router := usersandbox.NewSandboxRouter(backend, config.SandboxConfig{
 		Image: dockerTestImage(), CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 256, IdleTTLSec: 1800,
 	})
 	// Every test here routes with no principal, into `local`'s box: destroy it, or the next test

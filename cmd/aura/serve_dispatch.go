@@ -221,8 +221,8 @@ func (a handlerAdapter) Run(ctx context.Context, job cron.Job) (string, error) {
 // buildSandboxRouter constructs the per-identity box router at composition, sourced entirely from
 // cfg.Sandbox (37-01). It is built on EVERY profile and NEVER returns nil: the box is the agent's
 // only filesystem and only shell now, so a profile no longer selects between contain and
-// host-direct — it only selects the container runtime (specFor picks Runsc under
-// server_production, Runc elsewhere). A Docker client that cannot be composed still yields a
+// host-direct, and every box runs on runc (gVisor retired 2026-10-11, prd.md §12). A Docker
+// client that cannot be composed still yields a
 // non-nil, backend-less router so every Route DENIES; returning nil here would be a host-fallback
 // door reopened at the composition root.
 //
@@ -236,7 +236,7 @@ func buildSandboxRouter(cfg *config.Config, pool *pgxpool.Pool) *usersandbox.San
 		// No config means no box spec. A denying router is the only honest answer; nil would be
 		// read as "no containment needed".
 		slog.Error("aura: sandbox router built without config — EVERY tool call will be denied")
-		return usersandbox.NewSandboxRouter(nil, "", config.SandboxConfig{})
+		return usersandbox.NewSandboxRouter(nil, config.SandboxConfig{})
 	}
 	// client.New does NO network I/O — it parses DOCKER_HOST, builds an *http.Client and returns
 	// (moby/moby/client@v0.5.0 client.go:191-259; API-version negotiation happens on the first
@@ -245,10 +245,10 @@ func buildSandboxRouter(cfg *config.Config, pool *pgxpool.Pool) *usersandbox.San
 	cli, err := client.New(client.FromEnv)
 	if err != nil {
 		slog.Error("aura: docker client could not be composed — EVERY tool call will be denied", "err", err)
-		return usersandbox.NewSandboxRouter(nil, cfg.Profile, cfg.Sandbox)
+		return usersandbox.NewSandboxRouter(nil, cfg.Sandbox)
 	}
 	pingSandboxDaemon(cli)
-	return usersandbox.NewSandboxRouter(newSandboxBackend(cli, cfg, pool), cfg.Profile, cfg.Sandbox)
+	return usersandbox.NewSandboxRouter(newSandboxBackend(cli, cfg, pool), cfg.Sandbox)
 }
 
 // pingSandboxDaemon names a dead daemon ONCE, at boot, where an operator is already reading logs.

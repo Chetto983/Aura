@@ -39,7 +39,7 @@ func (photoBox) Stop(context.Context, usersandbox.BoxHandle) error    { return n
 
 func photoAgent(t *testing.T, fc *agenttest.FakeClient, file []byte) *agent.LlmAgent {
 	t.Helper()
-	router := usersandbox.NewSandboxRouter(photoBox{file: file}, config.ProfileSingleUserHardened, config.SandboxConfig{
+	router := usersandbox.NewSandboxRouter(photoBox{file: file}, config.SandboxConfig{
 		Image: "aura-sandbox:latest", CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 128, IdleTTLSec: 1800,
 	})
 	r := tools.NewRegistry()

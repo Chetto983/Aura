@@ -120,7 +120,7 @@ func (b *probeBackend) Resume(context.Context, usersandbox.BoxHandle) error  { r
 func (b *probeBackend) Stop(context.Context, usersandbox.BoxHandle) error    { return nil }
 
 func probeRouter(be usersandbox.Backend) *usersandbox.SandboxRouter {
-	return usersandbox.NewSandboxRouter(be, config.ProfileSingleUserHardened, config.SandboxConfig{
+	return usersandbox.NewSandboxRouter(be, config.SandboxConfig{
 		Image: "aura-sandbox:latest", CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 128, IdleTTLSec: 1800,
 	})
 }

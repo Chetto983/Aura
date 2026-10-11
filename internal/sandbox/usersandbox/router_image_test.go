@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/chetto1983/aura/internal/config"
 	"github.com/moby/moby/client"
 )
 
@@ -74,7 +73,7 @@ func TestEnsureImagePullsOnInspectMiss(t *testing.T) {
 			return nil, fmt.Errorf("unexpected request: %s %s", req.Method, req.URL.Path)
 		})
 		backend := NewDockerBackend(cli, "aura-sandbox:latest", Resources{})
-		r := NewSandboxRouter(backend, config.ProfileSingleUserHardened, unitSandboxConfig())
+		r := NewSandboxRouter(backend, unitSandboxConfig())
 
 		if err := r.EnsureImage(context.Background()); err != nil {
 			t.Fatalf("EnsureImage err = %v, want nil (image already present)", err)
@@ -97,7 +96,7 @@ func TestEnsureImagePullsOnInspectMiss(t *testing.T) {
 			return nil, fmt.Errorf("unexpected request: %s %s", req.Method, req.URL.Path)
 		})
 		backend := NewDockerBackend(cli, "aura-sandbox:latest", Resources{})
-		r := NewSandboxRouter(backend, config.ProfileSingleUserHardened, unitSandboxConfig())
+		r := NewSandboxRouter(backend, unitSandboxConfig())
 
 		if err := r.EnsureImage(context.Background()); err != nil {
 			t.Fatalf("EnsureImage err = %v, want nil (pull succeeded)", err)
@@ -118,7 +117,7 @@ func TestEnsureImagePullsOnInspectMiss(t *testing.T) {
 			return nil, fmt.Errorf("unexpected request: %s %s", req.Method, req.URL.Path)
 		})
 		backend := NewDockerBackend(cli, "ghcr.io/example/aura-sandbox:edge", Resources{})
-		r := NewSandboxRouter(backend, config.ProfileSingleUserHardened, unitSandboxConfig())
+		r := NewSandboxRouter(backend, unitSandboxConfig())
 
 		err := r.EnsureImage(context.Background())
 		if err == nil {
@@ -135,7 +134,7 @@ func TestEnsureImagePullsOnInspectMiss(t *testing.T) {
 // boot preflight (D-03) must never read "the backend has no opinion" as "the image is fine."
 func TestEnsureImageOnBackendWithoutCapability(t *testing.T) {
 	be := &fakeBackend{t: t} // router_test.go's fakeBackend implements Backend, not imageEnsurer
-	r := NewSandboxRouter(be, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r := NewSandboxRouter(be, unitSandboxConfig())
 
 	err := r.EnsureImage(context.Background())
 	if err == nil {
@@ -171,14 +170,14 @@ func (f *fakeImageEnsureBackend) EnsureImage(context.Context) error { return f.e
 
 func TestEnsureImageResolvesCapabilityOnAnyBackend(t *testing.T) {
 	be := &fakeImageEnsureBackend{t: t}
-	r := NewSandboxRouter(be, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r := NewSandboxRouter(be, unitSandboxConfig())
 	if err := r.EnsureImage(context.Background()); err != nil {
 		t.Fatalf("EnsureImage err = %v, want nil", err)
 	}
 
 	sentinel := errors.New("boom")
 	beErr := &fakeImageEnsureBackend{t: t, ensureImageErr: sentinel}
-	rErr := NewSandboxRouter(beErr, config.ProfileSingleUserHardened, unitSandboxConfig())
+	rErr := NewSandboxRouter(beErr, unitSandboxConfig())
 	if err := rErr.EnsureImage(context.Background()); !errors.Is(err, sentinel) {
 		t.Fatalf("EnsureImage err = %v, want %v", err, sentinel)
 	}
@@ -189,7 +188,7 @@ func TestEnsureImageResolvesCapabilityOnAnyBackend(t *testing.T) {
 // egress probing is advisory, unlike the box image itself.
 func TestEnsureEgressImageSkipsSilentlyWithoutCapability(t *testing.T) {
 	be := &fakeBackend{t: t}
-	r := NewSandboxRouter(be, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r := NewSandboxRouter(be, unitSandboxConfig())
 	if err := r.EnsureEgressImage(context.Background()); err != nil {
 		t.Fatalf("EnsureEgressImage err = %v, want nil (advisory, missing capability is not an error)", err)
 	}

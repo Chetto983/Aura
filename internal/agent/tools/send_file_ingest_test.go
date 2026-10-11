@@ -73,7 +73,7 @@ func boxDelivery(t *testing.T, name, body string) *usersandbox.SandboxRouter {
 	t.Helper()
 	tarBuf := tarStream(t, tarEntry{name, tar.TypeReg, body})
 	return usersandbox.NewSandboxRouter(
-		routedBackend{tarBytes: tarBuf.Bytes()}, config.ProfileSingleUserHardened, unitSandboxCfg())
+		routedBackend{tarBytes: tarBuf.Bytes()}, unitSandboxCfg())
 }
 
 // TestSendFile_IngestSuccess is the happy path: an authenticated identity with a non-empty thread

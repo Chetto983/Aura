@@ -47,7 +47,7 @@ func preflightChatEnv(profile config.RuntimeProfile, isolation bool, be *fakePre
 	cfg.Sandbox.Image = "aura-sandbox:latest"
 	return &chatEnv{
 		cfg:           cfg,
-		sandboxRouter: usersandbox.NewSandboxRouter(be, profile, cfg.Sandbox),
+		sandboxRouter: usersandbox.NewSandboxRouter(be, cfg.Sandbox),
 	}
 }
 

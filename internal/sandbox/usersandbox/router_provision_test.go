@@ -5,8 +5,6 @@ import (
 	"errors"
 	"testing"
 	"time"
-
-	"github.com/chetto1983/aura/internal/config"
 )
 
 // router_provision_test.go covers EnsureBox (D-09): the explicit-identity get-or-create seam
@@ -21,7 +19,7 @@ import (
 // (T-01-02).
 func TestEnsureBoxRefusesEmptyIdentity(t *testing.T) {
 	be := &fakeBackend{t: t}
-	r := NewSandboxRouter(be, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r := NewSandboxRouter(be, unitSandboxConfig())
 
 	h, err := r.EnsureBox(context.Background(), "")
 	if err == nil {
@@ -40,7 +38,7 @@ func TestEnsureBoxRefusesEmptyIdentity(t *testing.T) {
 // router, owns idempotent creation — Resolve is documented as "idempotent get-or-create").
 func TestEnsureBoxIsIdempotent(t *testing.T) {
 	be := &fakeBackend{t: t}
-	r := NewSandboxRouter(be, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r := NewSandboxRouter(be, unitSandboxConfig())
 	const id = "22222222-2222-2222-2222-222222222222"
 
 	h1, err := r.EnsureBox(context.Background(), id)
@@ -87,7 +85,7 @@ func TestEnsureBoxNilReceiverAndBackendDenies(t *testing.T) {
 func TestEnsureBoxPropagatesBackendFailure(t *testing.T) {
 	sentinel := errors.New("box create boom")
 	be := &fakeBackend{t: t, resolveErr: sentinel}
-	r := NewSandboxRouter(be, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r := NewSandboxRouter(be, unitSandboxConfig())
 
 	h, err := r.EnsureBox(context.Background(), "id-2")
 	if !errors.Is(err, sentinel) {
@@ -103,7 +101,7 @@ func TestEnsureBoxPropagatesBackendFailure(t *testing.T) {
 // tracking a box it has not resolved (a suspended one, or one that never existed).
 func TestTouchKeepsATrackedBoxAwakeAndLeavesTheRestAlone(t *testing.T) {
 	be := &fakeBackend{t: t}
-	r := NewSandboxRouter(be, config.ProfileSingleUserHardened, unitSandboxConfig())
+	r := NewSandboxRouter(be, unitSandboxConfig())
 	start := time.Date(2026, 9, 26, 10, 0, 0, 0, time.UTC)
 	now := start
 	r.now = func() time.Time { return now }
