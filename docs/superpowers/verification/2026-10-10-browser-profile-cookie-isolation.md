@@ -159,3 +159,44 @@ This follow-up does not prove the following:
 - Reaching CDP was shown with `/json/version`. No cookie was read through CDP.
 - Reading `document.cookie` or Web Storage through `eval` follows from browser semantics. It was
   not measured here.
+
+## Downloads 2026-10-11: where they land and when they are complete
+
+Same image, runc. Fixtures were served from a loopback server inside the box. The MCP calls were
+made exactly as the bridge makes them: `agent-browser mcp` over stdio, each call carrying
+`session` and `extraArgs: ["--profile", "~/profiles/<session>"]`.
+
+First, the documentation. `agent-browser --help` lists `download <sel> <path>`, which exists only
+in the CLI, and `--download-path <path>` or `AGENT_BROWSER_DOWNLOAD_PATH`, "Default download
+directory for browser downloads". The bundled core skill does not mention downloads. None of the
+29 MCP tool schemas has a download property.
+
+| Case | Where the file landed |
+|---|---|
+| A. MCP click, no download path | `/workspace/.agent-browser-home/Downloads/report.pdf` and `named.txt` |
+| B. MCP click, `AGENT_BROWSER_DOWNLOAD_PATH=/workspace/downloads` in the environment | `/workspace/downloads/report.pdf` and `named.txt` |
+| C. CLI `download "#att" /workspace/cli/report.pdf` | `/workspace/cli/report.pdf` |
+
+What the three cases show:
+- A link with `Content-Disposition: attachment` and a link with a `download` attribute both saved
+  under the server's or the attribute's file name.
+- The environment variable reaches downloads triggered through `agent-browser mcp`. The entry
+  point exports the environment, and the MCP children inherit it.
+
+Slow download, case F: 8 MiB in 32 chunks, one every 0.25 s, each chunk a distinct byte.
+- **The click result says nothing.** `agent_browser_click` returned after 0.02 s. Its result text
+  contains no mention of a download.
+- **The file grows under a temporary name.** From 0.8 s to 7.6 s the file existed as
+  `big.bin.crdownload` and grew, with its last byte tracking the chunk received.
+- **It is renamed only when complete.** At 8.4 s it was renamed to `big.bin`, with 8 388 608 bytes
+  and last byte `0x20`, which is the final chunk.
+
+A first attempt at this case reported a complete file at "t+0". That was an error in my driver: a
+leftover loop slept 20 s before sampling. The run above is the corrected one.
+
+This measurement does not prove the following:
+- Duplicate names, which Chrome may suffix, were not measured.
+- Downloads that need a login cookie were not measured. They use the same path, since the cookie
+  rides on the click.
+- Upload was not measured. It exists only as the CLI's `upload`.
+- Disk limits, and downloads larger than 8 MiB, were not measured.

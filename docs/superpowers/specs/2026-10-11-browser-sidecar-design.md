@@ -1,9 +1,10 @@
 # Browser sidecar: the logged-in browser lives where the model's shell does not
 
-Proposed on 2026-10-11 at `290b782`. It is not yet agreed with the operator, and every decision
-below is a proposal for review. It rests on the measurements in
+Proposed on 2026-10-11 at `290b782`. The operator agreed decision 12 (`eval` with approval) on
+2026-10-11 and asked for downloads to be measured, which decision 8 now records. Every other
+decision is still a proposal for review. It rests on the measurements in
 `docs/superpowers/verification/2026-10-10-browser-profile-cookie-isolation.md`, including the
-2026-10-11 follow-up. Nothing here has been built or measured as built.
+2026-10-11 follow-up and download sections. Nothing here has been built or measured as built.
 
 Risk tier: **high**. This changes a tenancy boundary. No Postgres migration is involved.
 
@@ -82,15 +83,32 @@ Non-goals:
    saying it should try later. Aura never stops another identity's browser box to make room. One
    user's question must not close another user's logged-in session or live view. Section *RAM*
    below has the default.
-8. **Files cross only through Aura.** Download and upload exist only in the agent-browser CLI,
-   which the shell can no longer reach. Each needs a narrow crossing built on the copy
-   capabilities the router already has (`CopyArtifactOut`, `WriteFileStream`,
-   `internal/sandbox/usersandbox/router_tools.go`). Downloads land in the browser box's
-   `/workspace/downloads/`, and each new regular file is copied into the shell box's
-   `/workspace/downloads/`. Uploads copy one named regular file from the shell box's `/workspace`
-   into the browser box before the call. Files are size-bounded, symlinks are refused, and paths
-   must stay inside `/workspace`. The exact tool shape is an open question: it needs a measurement
-   of how agent-browser saves a click-triggered download.
+8. **Downloads cross only through Aura, as files the model is told about.** Measured 2026-10-11:
+   - a click on an attachment or `download` link through `agent-browser mcp` saves the file under
+     the server's name, in `$HOME/Downloads` by default, or in `AGENT_BROWSER_DOWNLOAD_PATH` when
+     that is set;
+   - the click returns in about 0.02 s and its result does not mention the download, so today the
+     model is never told a file arrived;
+   - the file grows as `<name>.crdownload` and is renamed to `<name>` only when complete.
+
+   The proposal:
+   - The browser box's entry point sets `AGENT_BROWSER_DOWNLOAD_PATH=/workspace/downloads`, so
+     every download lands in one known directory.
+   - After each browser tool call, the bridge lists that directory. It copies every completed
+     regular file it has not copied before into the shell box's `/workspace/downloads/`, using
+     `CopyArtifactOut` and `WriteFileStream` (`internal/sandbox/usersandbox/router_tools.go`).
+     "Completed" means no `.crdownload` suffix. A file is identified by name, size and mtime.
+   - The bridge appends one line per copied file to the tool result, naming its shell-box path. A
+     `.crdownload` still growing gets a line saying a download is in progress, with its size so
+     far. The model collects the finished file on its next browser call, `agent_browser_wait_ms`
+     included.
+   - Names are reduced to their base name. A name already used in the shell box gets a numeric
+     suffix. Symlinks and non-regular files are refused. The size is bounded, and the plan
+     picks the bound. The nearest existing ones are `send_file`'s 50 MiB
+     (`internal/agent/tools/send_file.go:46`) and `AURA_ASSET_MAX_DOCUMENT_BYTES`.
+
+   Upload exists only as the CLI's `upload`, and no MCP tool exposes it. Its crossing stays an open
+   question.
 9. **Existing logins move once, then leave the shell box.** On an identity's first browser-box
    start, Aura copies `/workspace/.agent-browser-home` from the shell volume into the browser
    volume. After the copy is verified, Aura deletes it from the shell volume. If the copy were left
@@ -99,15 +117,18 @@ Non-goals:
     deprovision saga (`cmd/aura/serve_provisioning.go:322`), also removes `aura-browser-<id>`, its
     egress sidecar and its volume. A login must not outlive its identity. The step stays
     fail-closed and resumable like the rest of the purge.
-11. **`extraArgs` becomes an allowlist.** Today the bridge refuses only `--profile`
-    (`internal/agent/mcptools/bridge_browser_profile.go`). Flags such as `--state`, `--restore` and
-    `--auto-connect` move session state, so the bridge should accept only the flags the recipe
-    needs. The list comes from the plan, after reading the installed CLI's flags.
-12. **`agent_browser_eval` asks the operator.** JavaScript in the page reads every cookie that is
-    not HttpOnly and the whole of Web Storage. Many sites keep bearer tokens there, and Google's
-    `SAPISID` is not HttpOnly. The proposal grades `eval` `MCPActionDestructive` in
-    `bridge_risk_browser.go`, so the operator approves each call. The alternatives are listed under
-    *Open questions*.
+11. **Tool arguments become an allowlist.** Today the bridge refuses only `--profile` in
+    `extraArgs` (`internal/agent/mcptools/bridge_browser_profile.go`). Flags such as `--state`,
+    `--restore` and `--auto-connect` move session state. Every one of the 29 tool schemas also
+    takes `restore`, `restoreSave`, `restoreCheck*`, `caCert`, `clearCaCert`, `namespace` and
+    `idleTimeout` as first-class arguments (measured from `tools/list`, 2026-10-11). The bridge
+    should pass only the arguments and flags the recipe needs and drop the rest. The list comes
+    from the plan, after reading the installed CLI's flags.
+12. **`agent_browser_eval` asks the operator. Agreed 2026-10-11.** JavaScript in the page reads
+    every cookie that is not HttpOnly and the whole of Web Storage. Many sites keep bearer tokens
+    there, and Google's `SAPISID` is not HttpOnly. `eval` is graded `MCPActionDestructive` in
+    `bridge_risk_browser.go`, so the operator approves each call. Removing it would have cost
+    scraping power, and leaving it ungated would have left those values one call away.
 13. **The skill loses its shell fallback.** `browser-aura/SKILL.md` stops teaching
     `agent-browser …` through `shell_exec`, and stops saying downloads land in `/workspace`. It
     describes the crossing from decision 8 instead.
@@ -220,8 +241,16 @@ translate and admission:
 7. Deprovisioning an identity removes its browser container, egress sidecar and volume.
 8. A shell volume carrying `.agent-browser-home` is migrated. The shell box then holds no cookie
    database, and the login works in the browser box.
-9. `extraArgs` outside the allowlist are refused, and `eval` reaches the approval gate.
-10. Coverage stays at 85% or more across the tier matrix (CLAUDE.md).
+9. Arguments and `extraArgs` outside the allowlist are refused, and `eval` reaches the approval
+   gate as `MCPActionDestructive`.
+10. A slow download, the 2026-10-11 fixture of 8 MiB over 8 s, behaves as follows:
+    - it never reaches the shell box while it is still `.crdownload`;
+    - it arrives complete on the first browser call after it is renamed, byte-identical;
+    - that call's result names its shell-box path.
+
+    A second file under the same name gets a suffix, and a symlink planted in the downloads
+    directory is refused.
+11. Coverage stays at 85% or more across the tier matrix (CLAUDE.md).
 
 Live end-to-end on the lab VM, with its dated file in `docs/superpowers/verification/`:
 - the operator signs in to a real site through the live view;
@@ -232,20 +261,17 @@ Live end-to-end on the lab VM, with its dated file in `docs/superpowers/verifica
 
 ## Open questions
 
-1. **Downloads.** How does agent-browser save a click-triggered download in MCP mode? Does it set
-   a download directory through CDP? This must be measured before decision 8 gets its final shape.
-   Upload has no MCP tool at all. Should one be added at the bridge, or does upload go away?
-2. **`eval`.** Should it ask the operator on every call (proposed), be removed from the mounted
-   tools, or stay as is with the exposure written down? Removing it costs scraping power. Keeping
-   it ungated leaves every non-HttpOnly cookie one call away.
-3. **Browser idle TTL.** agent-browser closes Chrome after 180 s of idleness
+1. **Upload.** No MCP tool exposes upload, and the CLI's `upload` is out of the shell's reach. One
+   option is a bridge-level tool that copies one named shell-workspace file into the browser box
+   and runs `agent-browser upload` there. The other is to drop upload. Neither has been measured.
+2. **Browser idle TTL.** agent-browser closes Chrome after 180 s of idleness
    (`AGENT_BROWSER_IDLE_TIMEOUT_MS`). Should the box stop at the same moment, or later so a resumed
    task does not pay a cold start? This needs measuring: a cold start on the lab VM against the
    memory held.
-4. **The admission default.** Half of host memory is a guess until measured on the lab VM.
-5. **gVisor.** Does Chromium run under runsc in a browser box? All measurements so far are under
+3. **The admission default.** Half of host memory is a guess until measured on the lab VM.
+4. **gVisor.** Does Chromium run under runsc in a browser box? All measurements so far are under
    runc.
-6. **The seeded `local` identity.** What happens to its browser box when it is retired at first
+5. **The seeded `local` identity.** What happens to its browser box when it is retired at first
    enrolment?
 
 ## What this spec does not prove
@@ -254,6 +280,6 @@ Live end-to-end on the lab VM, with its dated file in `docs/superpowers/verifica
   wiring proposed here.
 - The RAM table comes from a light page. The real-site figures are from prd.md §12, measured on
   another day under another load.
-- Nothing here protects what the page shows to the model, or what JavaScript reads through `eval`
-  if it stays ungated. Those are decisions 12 and the non-goals, not the sidecar.
+- Nothing here protects what the page shows to the model. `eval` is gated by the operator's
+  approval, not removed: an approved call still returns what the page's JavaScript can read.
 - The sidecar does not bound shell-box memory across the host. That gap exists today and remains.
