@@ -28,16 +28,16 @@ function toolEvidence(frames: readonly Frame[]): readonly ToolEvidence[] {
     if (frame.type !== 'TOOL_CALL_START' || typeof frame.toolCallName !== 'string') return [];
     const argsText = frames
       .filter((part) => part.type === 'TOOL_CALL_ARGS' && part.toolCallId === frame.toolCallId)
-      .map((part) => String(part.delta ?? ''))
+      .map(({ delta }) => (typeof delta === 'string' ? delta : ''))
       .join('');
-    const result = frames.find(
+    const content = frames.find(
       (part) => part.type === 'TOOL_CALL_RESULT' && part.toolCallId === frame.toolCallId,
-    );
+    )?.content;
     return [
       {
         name: frame.toolCallName,
         args: JSON.parse(argsText || '{}') as Record<string, unknown>,
-        result: String(result?.content ?? ''),
+        result: typeof content === 'string' ? content : '',
       },
     ];
   });
@@ -89,16 +89,18 @@ function downloadFixture() {
   const url = process.env.AURA_E2E_BROWSER_FIXTURE_URL;
   const sha256 = process.env.AURA_E2E_BROWSER_DOWNLOAD_SHA256;
   const name = process.env.AURA_E2E_BROWSER_DOWNLOAD_NAME ?? 'browser-sidecar.bin';
-  expect(
-    url,
-    'public HTTP(S) fixture page with a #download link to an 8 MiB attachment served over 8 s',
-  ).toBeTruthy();
+  if (!url)
+    throw new Error(
+      'set AURA_E2E_BROWSER_FIXTURE_URL: a public HTTP(S) fixture page with a #download link to an 8 MiB attachment served over 8 s',
+    );
+  if (!sha256)
+    throw new Error(
+      'set AURA_E2E_BROWSER_DOWNLOAD_SHA256: the independently computed SHA-256 of the fixture attachment',
+    );
   expect(url).toMatch(/^https?:\/\//);
-  expect(sha256, 'independently computed SHA-256 of the fixture attachment').toMatch(
-    /^[a-f0-9]{64}$/,
-  );
+  expect(sha256).toMatch(/^[a-f0-9]{64}$/);
   expect(name).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/);
-  return { url: url as string, sha256: sha256 as string, name };
+  return { url, sha256, name };
 }
 
 const isolationProbe = `python3 - <<'PY'
@@ -187,8 +189,8 @@ test.describe('browser sidecar live acceptance', () => {
         )?.result;
         expect(clickResult).toContain('Download in progress:');
         expect(clickResult).not.toContain('Download ready:');
-        const path = completed.match(
-          /Download ready: (\/workspace\/downloads\/[A-Za-z0-9_.-]+)/,
+        const path = /Download ready: (\/workspace\/downloads\/[A-Za-z0-9_.-]+)/.exec(
+          completed,
         )?.[1];
         expect(path, 'download footer names the transferred attachment').toBeTruthy();
 
@@ -200,9 +202,10 @@ test.describe('browser sidecar live acceptance', () => {
         const shellCalls = toolEvidence(checked).filter((call) => call.name === 'shell_exec');
         expect(shellCalls.length).toBeGreaterThanOrEqual(1);
         const shellResults = shellCalls.map((call) => call.result).join('\n');
-        const isolation = shellResults.match(/AURA_ISOLATION=(\{[^\n]+\})/)?.[1];
-        expect(isolation, 'read-only isolation probe actually executed').toBeTruthy();
-        expect(JSON.parse(isolation as string)).toEqual({
+        const isolation = /AURA_ISOLATION=(\{[^\n]+\})/.exec(shellResults)?.[1];
+        if (!isolation) throw new Error('the read-only isolation probe did not execute');
+        const isolationReport: unknown = JSON.parse(isolation);
+        expect(isolationReport).toEqual({
           cookie_or_socket_files: 0,
           key_exists: false,
           browser_mount: false,
@@ -218,7 +221,7 @@ test.describe('browser sidecar live acceptance', () => {
               liveView: true,
               downloadBytes: 8388608,
               downloadSHA256: fixture.sha256,
-              isolation: JSON.parse(isolation as string),
+              isolation: isolationReport,
             }),
           ),
           contentType: 'application/json',
