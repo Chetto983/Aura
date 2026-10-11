@@ -30,7 +30,7 @@ func (stubBackend) Suspend(context.Context, usersandbox.BoxHandle) error { retur
 func (stubBackend) Resume(context.Context, usersandbox.BoxHandle) error  { return nil }
 func (stubBackend) Stop(context.Context, usersandbox.BoxHandle) error    { return nil }
 
-func strictStubRouter() *usersandbox.SandboxRouter {
+func stubRouter() *usersandbox.SandboxRouter {
 	return usersandbox.NewSandboxRouter(stubBackend{}, config.SandboxConfig{
 		Image: "x", CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 128, IdleTTLSec: 1800,
 	})
@@ -40,7 +40,7 @@ func strictStubRouter() *usersandbox.SandboxRouter {
 // (returns an error the tool maps to sandbox_unavailable) and spawns NO host process — the
 // fail-CLOSED containment invariant for background jobs (D-09 / GATE-01).
 func TestShellBg_FailClosedStart(t *testing.T) {
-	bg := NewBackgroundShells(strictStubRouter())
+	bg := NewBackgroundShells(stubRouter())
 	h := usersandbox.BoxHandle{ContainerID: "c", IdentityID: "id"}
 
 	id, err := bg.startBox(context.Background(), h, "sleep 60", "", nil)

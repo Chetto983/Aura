@@ -1,7 +1,7 @@
 //go:build docker_integration
 
 // shell_exec_sandbox_docker_test.go is the docker_integration tier for the routed host tools
-// (SBX-01, plan 37-07): it proves — against a LIVE Docker daemon — that under a strict profile a
+// (SBX-01, plan 37-07): it proves — against a LIVE Docker daemon — that a
 // shell_exec runs INSIDE the per-identity box (the host fs is untouched), and that a snippet
 // MaterializeIn'd at /skills/<name>/... is EXECUTED by the routed shell_exec at the SAME SandboxPath
 // skill action=use renders (the rendered path and the materialized path agree at RUNTIME, not just
@@ -86,7 +86,7 @@ func newDockerRouter(t *testing.T, sources usersandbox.SourceResolver) *usersand
 		Image: dockerTestImage(), CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 256, IdleTTLSec: 1800,
 	})
 	// Every test here routes with no principal, into `local`'s box: destroy it, or the next test
-	// inherits its files and its runtime.
+	// inherits its files.
 	t.Cleanup(func() { _ = router.Destroy(context.Background(), identityctx.LocalOperatorIdentity) })
 	return router
 }

@@ -27,12 +27,18 @@ func hasIdentityCacheMounts(actual []container.MountPoint, identityID string) bo
 // 2026-09-26: a box created before the browser relay existed kept serving that image, and boxes
 // created before Init was pinned kept piling up zombies. wantImageID "" means the configured
 // image is not present locally; that is never a reason to recreate, because Resolve must not pull.
+//
+// A box created on gVisor before it was retired (prd.md §12, 2026-10-11) is recreated on runc.
+// Only "runsc" counts: the daemon reports "runc" for a box that named no runtime, and a host
+// whose default runtime was changed by hand must not see its boxes recreated on every Resolve.
 func staleBoxReason(ins container.InspectResponse, identityID, wantImageID string) string {
 	switch {
 	case !hasIdentityCacheMounts(ins.Mounts, identityID):
 		return "non-private cache mounts"
 	case ins.HostConfig == nil || ins.HostConfig.Init == nil || !*ins.HostConfig.Init:
 		return "no init to reap orphans"
+	case ins.HostConfig.Runtime == "runsc":
+		return "the retired gVisor runtime"
 	case ins.Config == nil || ins.Config.Hostname != boxHostname:
 		return "a hostname that changes on recreate"
 	case wantImageID != "" && ins.Image != wantImageID:

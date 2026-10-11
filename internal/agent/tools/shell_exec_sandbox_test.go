@@ -98,7 +98,7 @@ func tarOneFile(t *testing.T, name string, content []byte) []byte {
 	return buf.Bytes()
 }
 
-// TestShellExec_FailClosedNoHostFallback: under a strict profile a box that fails to Resolve makes
+// TestShellExec_FailClosedNoHostFallback: a box that fails to Resolve makes
 // shell_exec DENY with the sandbox_unavailable result — the host os/exec path is NEVER reached
 // (the backend's Exec is never called; the output carries no host command result). D-09/GATE-01.
 func TestShellExec_FailClosedNoHostFallback(t *testing.T) {
@@ -121,7 +121,7 @@ func TestShellExec_FailClosedNoHostFallback(t *testing.T) {
 	}
 }
 
-// TestShellExec_RoutedRunsInBox: under a strict profile the command runs INSIDE the box via
+// TestShellExec_RoutedRunsInBox: the command runs INSIDE the box via
 // backend.Exec, using POSIX /bin/sh with PLAIN pwd (never `pwd -W`), and the box $PWD is tracked
 // from the cwd marker onto the footer/meta.
 func TestShellExec_RoutedRunsInBox(t *testing.T) {

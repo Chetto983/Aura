@@ -29,6 +29,8 @@ func TestStaleBoxReason(t *testing.T) {
 		"init off":                                 {func(i *container.InspectResponse) { i.HostConfig = &container.HostConfig{Init: &no} }, "sha256:new", "no init to reap orphans"},
 		"init unset":                               {func(i *container.InspectResponse) { i.HostConfig = &container.HostConfig{} }, "sha256:new", "no init to reap orphans"},
 		"no host config":                           {func(i *container.InspectResponse) { i.HostConfig = nil }, "sha256:new", "no init to reap orphans"},
+		"created on gVisor before it was retired":  {func(i *container.InspectResponse) { i.HostConfig = &container.HostConfig{Init: &yes, Runtime: "runsc"} }, "sha256:new", "the retired gVisor runtime"},
+		"runc as the daemon reports it is current": {func(i *container.InspectResponse) { i.HostConfig = &container.HostConfig{Init: &yes, Runtime: "runc"} }, "sha256:new", ""},
 		"hostname is the container id":             {func(i *container.InspectResponse) { i.Config = &container.Config{Hostname: "ca82f280a5ae"} }, "sha256:new", "a hostname that changes on recreate"},
 		"no config":                                {func(i *container.InspectResponse) { i.Config = nil }, "sha256:new", "a hostname that changes on recreate"},
 		"hostname wins over the image":             {func(i *container.InspectResponse) { i.Config = nil; i.Image = "sha256:old" }, "sha256:new", "a hostname that changes on recreate"},

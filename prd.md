@@ -1568,8 +1568,14 @@ Measured that day on the lab VM: every container ran on `runc`, `AURA_RUNTIME` w
   touch apt or dockerd.
 - **The FQDN egress allowlist now works under `server_production`.** It needs the nat table
   that gVisor lacks, and `server_production` boxes now run on runc.
+- **Boxes created on gVisor are recreated on runc.** `Resolve` treats a box whose runtime is
+  `runsc` as stale, so the allowlist never meets a gVisor box.
 - **Not covered:** a box names no runtime, so a host whose dockerd default runtime was changed
   by hand applies that default to its boxes.
+- **Not covered:** `create-aura-appliance` up to 0.2.10 runs the installer it bundles, which
+  still offers gVisor. A host installed that way starts with the `aura` container on `runsc`,
+  and its first payload update moves it to runc without telling the operator. The window
+  closes when a new version of the wizard is published.
 
 Delivered HTML artifacts have an inline preview with filename, source/preview and
 expand controls. The expanded workspace retains conversation navigation, offers a
