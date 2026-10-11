@@ -4,7 +4,10 @@ Proposed on 2026-10-11 at `290b782`. The operator agreed decision 12 (`eval` wit
 2026-10-11 and asked for downloads to be measured, which decision 8 now records. Every other
 decision is still a proposal for review. It rests on the measurements in
 `docs/superpowers/verification/2026-10-10-browser-profile-cookie-isolation.md`, including the
-2026-10-11 follow-up and download sections. Nothing here has been built or measured as built.
+2026-10-11 follow-up and download sections, and on the lab VM run in
+`docs/superpowers/verification/2026-10-11-browser-sidecar-lab-vm.md`: real sites, three browser
+boxes at once, cold start, and the isolation invariant behind the appliance's own egress floor.
+Nothing here has been built or measured as built.
 
 Risk tier: **high**. This changes a tenancy boundary. No Postgres migration is involved.
 
@@ -112,7 +115,10 @@ Non-goals:
 9. **Existing logins move once, then leave the shell box.** On an identity's first browser-box
    start, Aura copies `/workspace/.agent-browser-home` from the shell volume into the browser
    volume. After the copy is verified, Aura deletes it from the shell volume. If the copy were left
-   behind, every existing user would keep a cookie jar the shell can read.
+   behind, every existing user would keep a cookie jar the shell can read. On the lab VM the
+   operator's box holds 553 MB in 4013 files there, 117 MB of it outside Chrome's caches: 20
+   profiles, 19 cookie databases and 19 `Login Data` files, all readable by its shell
+   (measured 2026-10-11).
 10. **Destroying an identity destroys its browser box.** `SandboxRouter.Destroy`, called by the
     deprovision saga (`cmd/aura/serve_provisioning.go:322`), also removes `aura-browser-<id>`, its
     egress sidecar and its volume. A login must not outlive its identity. The step stays
@@ -121,7 +127,9 @@ Non-goals:
     `extraArgs` (`internal/agent/mcptools/bridge_browser_profile.go`). Flags such as `--state`,
     `--restore` and `--auto-connect` move session state. Every one of the 29 tool schemas also
     takes `restore`, `restoreSave`, `restoreCheck*`, `caCert`, `clearCaCert`, `namespace` and
-    `idleTimeout` as first-class arguments (measured from `tools/list`, 2026-10-11). The bridge
+    `idleTimeout` as first-class arguments (measured from `tools/list`, 2026-10-11).
+    `agent_browser_open` also takes `allowedDomains`, `headed`, `timeoutMs`, `webgpu` and
+    `webmcp` (lab VM image, 2026-10-11). The bridge
     should pass only the arguments and flags the recipe needs and drop the rest. The list comes
     from the plan, after reading the installed CLI's flags.
 12. **`agent_browser_eval` asks the operator. Agreed 2026-10-11.** JavaScript in the page reads
@@ -149,22 +157,28 @@ Non-goals:
 
 ## RAM
 
-The figures were measured on 2026-10-11 under runc with the 2 GiB, 1024-pid cap, on a light
-page. Real sites are heavier: prd.md §12 records up to 868 MiB and 137 to 263 pids for one browser
-on the lab VM.
+Measured on the lab VM on 2026-10-11 under runc, with the 2 GiB, 1024-pid cap, on ansa.it,
+lastampa.it and youtube.com
+(`docs/superpowers/verification/2026-10-11-browser-sidecar-lab-vm.md`). Memory is the box
+cgroup's anon. Page cache is left out because it is charged to whichever box first read a file,
+the Chromium binary included, and is reclaimable.
 
-| What | Memory | PIDs |
+| What | Anon | PIDs |
 |---|---|---|
-| Idle box | 4.3 MiB | 1 |
-| Idle egress sidecar | 1.2 MiB | 1 |
-| One session | 251.7 MiB | 174 |
-| Three sessions | 692.5 MiB | 529 |
-| Three sessions closed, daemons not yet timed out | 256.6 MiB | 39 |
+| Box before its first browser | 0.6 to 0.7 MiB | 4 |
+| Idle egress sidecar | 1.2 MiB (2026-10-11, light-page run) | 1 |
+| One session (ansa.it) | 464 to 496 MiB | 243 to 250 |
+| Three sessions (+ lastampa.it, youtube.com) | 1081 to 1096 MiB | 641 to 645 |
+| 10 s after closing all three | 3.3 to 3.8 MiB | 4 |
+| Running box 200 s after its last call, Chrome closed by its idle timeout | 3.7 MiB | 4 |
+
+The 2026-10-11 light-page figures (251.7 MiB per session, 692.5 MiB for three) understate real
+sites by about half. prd.md §12 records up to 868 MiB for one ANSA browser on 2026-10-10.
 
 What follows from the table:
-- **The sidecar barely costs anything.** While the browser box runs, it adds about 5.5 MiB per
-  identity: an idle box plus an idle egress sidecar. When stopped, it adds nothing. The browser's
-  own memory moves to another box but does not grow.
+- **The sidecar barely costs anything.** While the browser box runs with no browser in it, it
+  adds a few MiB per identity, egress sidecar included. When stopped, it adds nothing. The
+  browser's own memory moves to another box but does not grow.
 - **The per-identity cap does grow.** Today one 2 GiB cap covers the shell and the browsers
   together. With decision 6, the worst case per identity becomes 2 GiB for the shell plus 2 GiB
   for the browser. Docker memory limits are caps, not reservations, so the real host load is the
@@ -176,11 +190,20 @@ What follows from the table:
 - **What bounds the host is admission plus idle stop.** Proposed default for
   `AURA_SANDBOX_BROWSER_MAX_ACTIVE`: when unset or 0, derive
   `max(1, floor(0.5 × host MemTotal / AURA_SANDBOX_BROWSER_MEMORY_LIMIT))` from
-  `docker info` at startup, and log the derived value. Half of host memory is a starting point,
-  not a measurement. It must be measured on the lab VM with real sites before the default is
-  recorded in the PRD.
-- **The idle TTL is where memory comes back.** After the sessions closed, 39 daemon pids and
-  about 256 MiB stayed until agent-browser's own idle timeout. Stopping the box returns all of it.
+  `docker info` at startup, and log the derived value. On the lab VM it gives 3. Measured
+  there on 2026-10-11 with the full stack up, three boxes of three heavy sessions each fit:
+  - no box reached its cap, and none was OOM-killed;
+  - host `MemAvailable` went from 8184 MiB to a low of 3482 MiB;
+  - swap in use rose from 193 to 835 MiB.
+
+  The 3 matched only because half of `MemTotal` (7.5 GiB) is close to what this stack leaves
+  free (8.2 GiB). The formula does not see the stack. Open question 3 keeps the choice.
+- **Chrome returns its memory before the box stops.** agent-browser closes an idle Chrome after
+  180 s, and `agent_browser_close` frees a session within 10 s. Either way the box is back to
+  about 4 MiB of anon and 4 pids. Stopping the box then frees almost nothing more. What it does
+  free is an admission slot (decision 7), because a running box counts whether or not Chrome is
+  in it. A cold start costs about 1.6 s more than a warm one on the lab VM: 4.1 to 4.5 s against
+  2.5 to 2.7 s on a local page.
 
 A search of `internal` and `cmd` found no host-wide admission for shell boxes. That gap exists
 already, and this spec does not widen it. It is noted, not fixed here.
@@ -218,7 +241,7 @@ browser and the shell share a box get updated.
 | `AURA_SANDBOX_BROWSER_MEMORY_LIMIT` | 2 GiB | Memory cap of a browser box |
 | `AURA_SANDBOX_BROWSER_PIDS_LIMIT` | 1024 | PID cap of a browser box |
 | `AURA_SANDBOX_BROWSER_CPU_LIMIT` | 2 | CPU cap of a browser box |
-| `AURA_SANDBOX_BROWSER_IDLE_TTL_SEC` | to measure | Seconds without a browser call before the box stops |
+| `AURA_SANDBOX_BROWSER_IDLE_TTL_SEC` | open question 2 | Seconds without a browser call before the box stops |
 | `AURA_SANDBOX_BROWSER_MAX_ACTIVE` | 0 = derived | Running browser boxes allowed on the host |
 
 ## Acceptance
@@ -227,10 +250,12 @@ Integration tests under `docker_integration`, plus daemon-free unit tests for na
 translate and admission:
 1. With a session open in the browser box, the shell box shows:
    - `find /` for `Cookies`, `Login Data` and `*.sock` under `.agent-browser*` finds nothing;
-   - `/proc/mounts` has no `aura-browser-` volume;
+   - `/proc/self/mountinfo` has no `aura-browser-` volume. `/proc/mounts` shows only the device
+     and the mount point, never the volume name, so a check against it passes vacuously;
    - no Chromium pid;
    - no loopback listener other than its own, and a connect to the browser box's address on the
-     CDP port fails.
+     CDP port fails. Chrome is launched with `--remote-debugging-port=0`, so the test reads the
+     port inside the browser box first (lab VM, 2026-10-11).
 2. The key file is absent from the shell box and present, 0600, in the browser box.
 3. `agent-browser` run through `shell_exec` exits 78.
 4. A login cookie survives a browser-box stop and start.
@@ -266,20 +291,30 @@ Live end-to-end on the lab VM, with its dated file in `docs/superpowers/verifica
    and runs `agent-browser upload` there. The other is to drop upload. Neither has been measured.
 2. **Browser idle TTL.** agent-browser closes Chrome after 180 s of idleness
    (`AGENT_BROWSER_IDLE_TIMEOUT_MS`). Should the box stop at the same moment, or later so a resumed
-   task does not pay a cold start? This needs measuring: a cold start on the lab VM against the
-   memory held.
-3. **The admission default.** Half of host memory is a guess until measured on the lab VM.
-4. **gVisor.** Does Chromium run under runsc in a browser box? All measurements so far are under
-   runc.
-5. **The seeded `local` identity.** What happens to its browser box when it is retired at first
+   task does not pay a cold start? Measured on the lab VM, 2026-10-11:
+   - after Chrome closes, a running box holds 3.7 MiB of anon and 4 pids, so memory does not
+     decide this;
+   - a cold start costs about 1.6 s more than a warm one;
+   - a running box still holds an admission slot (decision 7).
+
+   So the choice is between 1.6 s per resumed task and a slot kept by a box with no browser in
+   it. A third option is to count running Chromes instead of running boxes in admission. That
+   cannot be read from Docker, so it would mean a count kept by the bridge.
+3. **The admission default.** Half of `MemTotal` gave 3 on the lab VM, and three heavy boxes
+   fit there with swap starting (RAM above). Should the default keep reading `MemTotal`, or read
+   what the running stack leaves free, which this formula does not see?
+4. **The seeded `local` identity.** What happens to its browser box when it is retired at first
    enrolment?
 
 ## What this spec does not prove
 
 - None of it is built. The invariant was measured on two hand-built boxes, not on the router
   wiring proposed here.
-- The RAM table comes from a light page. The real-site figures are from prd.md §12, measured on
-  another day under another load.
+- The RAM table comes from three real sites on the lab VM. Heavier pages, video playback and
+  logged-in sessions were not measured, and the three-box run shared the host with an
+  unattributed workload of about 1.6 GiB.
+- gVisor is not covered. The operator retired it on 2026-10-11: runc works well, and gVisor
+  caused problems in the past. Every box runs on runc.
 - Nothing here protects what the page shows to the model. `eval` is gated by the operator's
   approval, not removed: an approved call still returns what the page's JavaScript can read.
 - The sidecar does not bound shell-box memory across the host. That gap exists today and remains.
