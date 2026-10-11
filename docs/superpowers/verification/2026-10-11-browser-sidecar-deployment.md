@@ -57,6 +57,11 @@ each update below adds a directory beside `-01` and changes only the overlay.
   `aura-sandbox:lab-browser-base-20261011`) tells the shell to use the
   `browser__agent_browser_*` tools; `agent-browser --version` in that image exits 78 with
   the new text. Existing boxes are replaced on their next Resolve, as for any image change.
+- `-04` (aura `1c1427468`, sandbox still `-03`): the file preview highlights by extension.
+  The SPA was built in WSL only to embed it in this binary, and the committed dist restored
+  afterwards. Checked by eye in the cockpit: `tenant_sandbox_checks.py` from the browser test
+  conversation renders with Python highlighting in the light theme, long lines still wrapped.
+  The `-02` image was removed; `-03` stays as the rollback.
 
 Neither update re-ran the agent E2E: a screenshot sent after an approval and the shell
 refusal seen by the agent are unmeasured on the VM.
