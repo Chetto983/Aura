@@ -132,7 +132,7 @@ func TestChatGPTLoginBrowserRoutesRequireAuthentication(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, route := range []struct{ method, suffix string }{{http.MethodGet, "stream"}, {http.MethodPost, "input"}} {
+		for _, route := range []struct{ method, suffix string }{{http.MethodGet, "stream"}, {http.MethodPost, "input"}, {http.MethodPost, "control"}} {
 			request := httptest.NewRequest(route.method, "/api/browser/sessions/"+session+"/"+route.suffix, strings.NewReader(`{}`))
 			if authenticated {
 				addAuthulaSession(request)

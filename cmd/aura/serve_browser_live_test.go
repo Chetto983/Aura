@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// The live view drives the agent's browser, so both routes must reach the AG-UI handler through
-// the parent mux AND carry agentRunCapability: a route present only on Server.Mux would answer
-// the SPA shell through the real daemon while its handler test passed.
+// The live view drives the agent's browser, so its routes must reach the AG-UI handler through
+// the parent mux AND carry agentRunCapability: a route present only on Server.Mux answers 404
+// through the real daemon while its handler test passes (the "let Aura drive" button did, 2026-10-11).
 func TestBrowserLiveRoutesAreMountedBehindAgentRun(t *testing.T) {
 	var hits int
 	aguiHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -19,6 +19,7 @@ func TestBrowserLiveRoutesAreMountedBehindAgentRun(t *testing.T) {
 	requests := []struct{ method, path string }{
 		{http.MethodGet, "/api/browser/sessions/login/stream"},
 		{http.MethodPost, "/api/browser/sessions/login/input"},
+		{http.MethodPost, "/api/browser/sessions/login/control"},
 	}
 	for _, tc := range []struct {
 		name       string

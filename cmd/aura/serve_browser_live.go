@@ -1,7 +1,7 @@
 package main
 
 // serve_browser_live.go wires the cockpit's live view of an agent-browser session (prd.md §12):
-// the relay adapter over the sandbox router, and the two parent-mux mounts. Ordinary browser
+// the relay adapter over the sandbox router, and the three parent-mux mounts. Ordinary browser
 // sessions require agent.run. Reserved ChatGPT login sessions are additionally owner-checked
 // by the AG-UI handler and need only the authenticated connection owner's session.
 
@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	browserStreamRoute = "GET /api/browser/sessions/{session}/stream"
-	browserInputRoute  = "POST /api/browser/sessions/{session}/input"
+	browserStreamRoute  = "GET /api/browser/sessions/{session}/stream"
+	browserInputRoute   = "POST /api/browser/sessions/{session}/input"
+	browserControlRoute = "POST /api/browser/sessions/{session}/control"
 	// browserRelayScript is baked into docker/aura-sandbox (browser-relay.mjs).
 	browserRelayScript = "/usr/local/lib/aura/browser-relay.mjs"
 )
@@ -33,6 +34,7 @@ func registerBrowserLiveRoutes(mux *http.ServeMux, aguiHandler http.Handler, aut
 	})
 	mux.Handle(browserStreamRoute, handler)
 	mux.Handle(browserInputRoute, handler)
+	mux.Handle(browserControlRoute, handler)
 }
 
 // sandboxBrowserRelay opens the relay in the box of the identity ctx carries. The session name
