@@ -104,8 +104,9 @@ The session-7→20 areas each carry their own non-negotiables in `references/<ar
   unified Gemma sidecar does NOT retire the 3-CPU-sidecar 9c stack.
 - **FunctionGemma**: finetune mandatory (base unusable); train safetensors; custom
   `<start_function_call>` parser; keep off the selection hot path; **074 eval PENDING**.
-- **Packaging**: fat full-power box, **REVERT `ec7fe2f6`**; gVisor `runsc` optional tier
-  (native-Linux/arm64, PRD amendment); `sbx` is not the appliance runtime.
+- **Packaging**: fat full-power box, **REVERT `ec7fe2f6`**; `sbx` is not the appliance runtime.
+  The gVisor `runsc` tier is **RETIRED (operator, 2026-10-11)**: runc works well and gVisor
+  caused problems. Every box and the aura container run on runc (prd.md §12). Do not reuse it.
 - **Calendar/PIM**: fork to `aura-pim-mcp` HTTP sidecar replacing mail-mcp; managed-config
   registration; Google Desktop-app OAuth client; Graph email ~25s read-back lag.
 - **Graph-DB**: STAY with Neo4j; embeddings **384d** (pin every vector DDL); AGE rejected,

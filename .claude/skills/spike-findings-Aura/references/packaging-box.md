@@ -2,8 +2,12 @@
 
 Phase-17 packaging. The box = a FAT, full-power container (writable rootfs, container
 root, `shell_exec` + skills self-extension + `mcp-neo4j-cypher` parity), NOT a distroless
-jail. Optional strong-isolation appliance tier = gVisor `runsc` via `compose.gvisor.yaml`,
-native-Linux/arm64 only. Docker Sandboxes `sbx` is NOT the appliance runtime.
+jail. Docker Sandboxes `sbx` is NOT the appliance runtime.
+
+> **gVisor RETIRED, 2026-10-11 (operator).** runc works well and gVisor caused problems. The
+> optional `runsc` tier described below was shipped and then removed: every box and the aura
+> container run on runc (prd.md §12, ADR 0037 amendment). The text below is history, not a
+> finding to build on.
 
 ## Requirements
 

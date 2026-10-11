@@ -41,9 +41,9 @@ validators.
   Enforcement requires the proxy to be the ONLY route: native-Linux dockerd +
   genuinely non-masquerading bridge. npm/github/skills.sh/pypi go on the allowlist
   when the skills CLI lives in-sandbox.
-- gVisor (010, PARTIAL): `runsc` cannot run on Docker Desktop (no runtime slot). The
-  python/uv workload SURVIVES gVisor (proven via `runsc do`); it's a native-Linux/CI/
-  prod tier — `compose.gvisor.yaml` with `runtime: runsc` applied there only.
+- gVisor (010, PARTIAL): **RETIRED 2026-10-11 by the operator** (runc works well, gVisor
+  caused problems; prd.md §12). History: `runsc` cannot run on Docker Desktop (no runtime
+  slot), and the python/uv workload survived it (`runsc do`) on native Linux.
 
 ## What to Avoid
 
