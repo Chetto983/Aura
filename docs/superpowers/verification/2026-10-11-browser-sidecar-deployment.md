@@ -50,7 +50,8 @@ each update below adds a directory beside `-01` and changes only the overlay.
 - `-02` (aura `0d72913d7`): the live view's `POST /api/browser/sessions/{session}/control`
   was never mounted on the cockpit mux. Measured with the operator's session: 404 before,
   400 `held_required` for a body without `held` and 409 `no_live_view` with no viewer open
-  after. The release with a viewer open was left to the operator.
+  after. The operator then clicked "Let Aura drive" with a viewer open and confirmed it
+  hands the browser back.
 - `-03` (aura `f5e5b7b74`, image `aura:lab-browser-sidecar-20261011-03`): a turn's MCP files
   survive an `ask_user` pause, and the sandbox child
   `aura-sandbox:lab-browser-sidecar-20261011-03` (base tagged
