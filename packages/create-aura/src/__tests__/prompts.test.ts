@@ -8,6 +8,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { createTranslator } from '../i18n.js';
 import { collectSettings, collectTarget } from '../prompts.js';
 
+// The free-text key question only exists on a machine with no key pair in ~/.ssh; without
+// this the suite passes on a CI runner and fails on any developer laptop that holds one.
+vi.mock('../identity.js', () => ({ discoverIdentityFiles: () => [] }));
+
 describe('collectTarget', () => {
   it('collects and validates one remote target', async () => {
     const prompt = {
