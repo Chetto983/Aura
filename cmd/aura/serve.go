@@ -238,6 +238,7 @@ func bootServe(ctx context.Context, channelOverride func(name string) (enabled, 
 		chat.close()
 		return nil, err
 	}
+	startBrowserBoxes(ctx, chat)
 	logMultiUserAvailability(chat.cfg)
 	memoryProvisioner := buildArcadeMemoryProvisioner(chat.cfg)
 	if err := reconcileArcadeMemoryTenants(ctx, chat.identity, memoryProvisioner); err != nil {

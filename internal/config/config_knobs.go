@@ -169,7 +169,6 @@ func knobRegistry() []KnobSpec {
 		// validate). AURA_SANDBOX_EGRESS_IMAGE defaults NON-EMPTY (aura-egress:latest) so the
 		// SBX-04 tenancy floor is on-by-default under a strict tier (SC#4) — it is NOT Secret.
 		{Name: "AURA_SANDBOX_IDLE_TTL_SEC", Kind: KindInt, Default: "1800"},
-		{Name: "AURA_SANDBOX_BROWSER_IDLE_TTL_SEC", Kind: KindInt, Default: "180"},
 		{Name: "AURA_SANDBOX_BROWSER_CPU_LIMIT", Kind: KindInt, Default: "2"},
 		{Name: "AURA_SANDBOX_BROWSER_MEMORY_LIMIT", Kind: KindInt, Default: "2147483648"},
 		{Name: "AURA_SANDBOX_BROWSER_PIDS_LIMIT", Kind: KindInt, Default: "1024"},

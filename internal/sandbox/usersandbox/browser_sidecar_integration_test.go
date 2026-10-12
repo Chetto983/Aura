@@ -5,6 +5,7 @@ package usersandbox
 import (
 	"context"
 	"io"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -29,7 +30,7 @@ func browserSidecarFixture(t *testing.T, maxActive int) (*client.Client, *Docker
 		}))
 	cfg := config.SandboxConfig{
 		Image: testBoxImage(), IdleTTLSec: 1800, MemoryLimit: 256 << 20, PidsLimit: 128, CPULimit: 1,
-		BrowserIdleTTLSec: 180, BrowserMemoryLimit: 256 << 20, BrowserPidsLimit: 128, BrowserCPULimit: 1,
+		BrowserMemoryLimit: 256 << 20, BrowserPidsLimit: 128, BrowserCPULimit: 1,
 		BrowserMaxActive: maxActive,
 	}
 	router := NewSandboxRouter(backend, cfg)
@@ -147,7 +148,7 @@ func TestBrowserSidecarLazyIsolationPersistenceAndPurge(t *testing.T) {
 	}
 }
 
-func TestBrowserSidecarIdleClockIsIndependentOfShell(t *testing.T) {
+func TestBrowserSidecarKeepsRunningWhenTheShellIdles(t *testing.T) {
 	cli, _, router, ctx, _ := browserSidecarFixture(t, 32)
 	now := time.Now().UTC()
 	router.now = func() time.Time { return now }
@@ -159,28 +160,32 @@ func TestBrowserSidecarIdleClockIsIndependentOfShell(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	now = now.Add(181 * time.Second)
-	if _, err := router.Route(ctx); err != nil {
-		t.Fatal(err)
-	}
-	n, err := router.SuspendIdle(ctx, now)
+	n, err := router.SuspendIdle(ctx, now.Add(1801*time.Second))
 	if err != nil || n != 1 {
-		t.Fatalf("browser idle sweep = %d, %v", n, err)
-	}
-	if !containerRunning(t, cli, shell.ContainerID) || containerRunning(t, cli, browser.ContainerID) {
-		t.Fatal("shell activity kept browser alive or browser idle stopped shell")
-	}
-	if _, err := router.RouteBrowser(ctx); err != nil {
-		t.Fatal(err)
-	}
-	now = now.Add(1801 * time.Second)
-	router.TouchBrowser(identityctx.IdentityID(ctx))
-	n, err = router.SuspendIdle(ctx, now)
-	if err != nil || n != 1 {
-		t.Fatalf("shell idle sweep = %d, %v", n, err)
+		t.Fatalf("idle sweep = %d, %v; want the shell box alone", n, err)
 	}
 	if containerRunning(t, cli, shell.ContainerID) || !containerRunning(t, cli, browser.ContainerID) {
-		t.Fatal("browser activity kept shell alive or shell idle stopped browser")
+		t.Fatal("the idle sweep kept the shell box or stopped the browser box")
+	}
+}
+
+// TestBrowserSidecarInventorySeesAStoppedBox lists through the real daemon. It does not call
+// StartBrowserBoxes, which would start every browser box on the host, a live stack's included.
+func TestBrowserSidecarInventorySeesAStoppedBox(t *testing.T) {
+	_, backend, router, ctx, id := browserSidecarFixture(t, 32)
+	browser, err := router.RouteBrowser(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := backend.Suspend(ctx, browser); err != nil {
+		t.Fatal(err)
+	}
+	boxes, err := backend.BrowserBoxes(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(boxes, func(h BoxHandle) bool { return h.IdentityID == id && h.ContainerID == browser.ContainerID }) {
+		t.Fatalf("BrowserBoxes = %+v, want the stopped box of %s", boxes, id)
 	}
 }
 

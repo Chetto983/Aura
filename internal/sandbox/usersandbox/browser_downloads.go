@@ -48,8 +48,6 @@ func (b *DockerBackend) collectBrowserDownloads(ctx context.Context, r *SandboxR
 	if err != nil {
 		return "", err
 	}
-	release := r.HoldBrowser(h.IdentityID)
-	defer release()
 	res, err := b.Exec(ctx, h, ExecRequest{Command: pythonCommand(browserDownloadListScript)})
 	if err != nil {
 		return "", err

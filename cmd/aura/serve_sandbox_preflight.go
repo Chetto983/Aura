@@ -30,6 +30,33 @@ import (
 // registry cannot wedge daemon boot forever.
 const sandboxImageBootTimeout = 5 * time.Minute
 
+// browserBoxBootTimeout bounds starting the browser boxes at boot: an existing box starts in a
+// few seconds, and a stuck daemon must not hold the listeners closed.
+const browserBoxBootTimeout = 2 * time.Minute
+
+// sandboxBootEnabled is the deployment whose tools run in boxes: a strict profile with isolation
+// on. Boot touches the sandbox only there.
+func sandboxBootEnabled(chat *chatEnv) bool {
+	return chat != nil && chat.cfg != nil && chat.cfg.Profile.Strict() && chat.cfg.MUSRIsolation
+}
+
+// startBrowserBoxes starts every identity's existing browser box at boot, so the browser MCP
+// server answers the first call and the board's probe (operator, 2026-10-12). A box that does
+// not start is logged and boot goes on; its next browser call starts it.
+func startBrowserBoxes(ctx context.Context, chat *chatEnv) {
+	if !sandboxBootEnabled(chat) {
+		return
+	}
+	bctx, cancel := context.WithTimeout(ctx, browserBoxBootTimeout)
+	defer cancel()
+	started, err := chat.sandboxRouter.StartBrowserBoxes(bctx)
+	if err != nil {
+		slog.Warn("aura serve: a browser box did not start at boot; its next browser call starts it", "started", started, "err", err)
+		return
+	}
+	slog.Info("aura serve: browser boxes started", "count", started)
+}
+
 // sandboxImagePreflight refuses to boot a strict, isolation-on `aura serve` whose box image is
 // neither present locally nor pullable (D-03). It is a no-op — nil immediately — unless BOTH
 // chat.cfg.Profile.Strict() and chat.cfg.MUSRIsolation hold, so `aura chat` (a different entry
@@ -38,7 +65,7 @@ const sandboxImageBootTimeout = 5 * time.Minute
 // registry pull form — never a knob with no effect (the scar tissue
 // gateMultiUserRequiresStrictProfile's own comment records).
 func sandboxImagePreflight(ctx context.Context, chat *chatEnv) error {
-	if chat == nil || chat.cfg == nil || !chat.cfg.Profile.Strict() || !chat.cfg.MUSRIsolation {
+	if !sandboxBootEnabled(chat) {
 		return nil
 	}
 	pctx, cancel := context.WithTimeout(ctx, sandboxImageBootTimeout)

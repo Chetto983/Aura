@@ -23,10 +23,17 @@ import (
 type fakePreflightBackend struct {
 	ensureImageErr   error
 	ensureImageCalls int
+	browserBoxes     []usersandbox.BoxHandle
+	resolved         []usersandbox.SandboxSpec
 }
 
-func (f *fakePreflightBackend) Resolve(context.Context, usersandbox.SandboxSpec) (usersandbox.BoxHandle, error) {
-	return usersandbox.BoxHandle{}, nil
+func (f *fakePreflightBackend) Resolve(_ context.Context, spec usersandbox.SandboxSpec) (usersandbox.BoxHandle, error) {
+	f.resolved = append(f.resolved, spec)
+	return usersandbox.BoxHandle{IdentityID: spec.IdentityID, Kind: spec.Kind}, nil
+}
+
+func (f *fakePreflightBackend) BrowserBoxes(context.Context) ([]usersandbox.BoxHandle, error) {
+	return f.browserBoxes, nil
 }
 func (f *fakePreflightBackend) Exec(context.Context, usersandbox.BoxHandle, usersandbox.ExecRequest) (usersandbox.ExecResult, error) {
 	return usersandbox.ExecResult{}, nil
@@ -115,6 +122,38 @@ func TestSandboxPreflightSkipsIsolationOff(t *testing.T) {
 	}
 	if be.ensureImageCalls != 0 {
 		t.Errorf("EnsureImage called %d times, want 0 (isolation off must never reach the router)", be.ensureImageCalls)
+	}
+}
+
+// TestStartBrowserBoxesAtBoot proves a strict, isolated deployment starts every existing browser
+// box at boot.
+func TestStartBrowserBoxesAtBoot(t *testing.T) {
+	boxes := []usersandbox.BoxHandle{{IdentityID: "a", Kind: usersandbox.Browser}, {IdentityID: "b", Kind: usersandbox.Browser}}
+	be := &fakePreflightBackend{browserBoxes: boxes}
+	startBrowserBoxes(context.Background(), preflightChatEnv(config.ProfileSingleUserHardened, true, be))
+	if len(be.resolved) != 2 {
+		t.Fatalf("resolved %+v, want both browser boxes", be.resolved)
+	}
+	for i, spec := range be.resolved {
+		if spec.Kind != usersandbox.Browser || spec.IdentityID != boxes[i].IdentityID {
+			t.Fatalf("resolved %+v, want the browser box of %s", spec, boxes[i].IdentityID)
+		}
+	}
+}
+
+// TestStartBrowserBoxesSkipsWithoutIsolation proves boot leaves browser boxes alone wherever no
+// tool runs in a box.
+func TestStartBrowserBoxesSkipsWithoutIsolation(t *testing.T) {
+	boxes := []usersandbox.BoxHandle{{IdentityID: "a", Kind: usersandbox.Browser}}
+	for _, tc := range []struct {
+		profile   config.RuntimeProfile
+		isolation bool
+	}{{config.ProfileDev, true}, {config.ProfileDev, false}, {config.ProfileSingleUserHardened, false}} {
+		be := &fakePreflightBackend{browserBoxes: boxes}
+		startBrowserBoxes(context.Background(), preflightChatEnv(tc.profile, tc.isolation, be))
+		if len(be.resolved) != 0 {
+			t.Errorf("profile=%s isolation=%v: resolved %+v, want nothing", tc.profile, tc.isolation, be.resolved)
+		}
 	}
 }
 

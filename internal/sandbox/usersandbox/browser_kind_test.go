@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/identityctx"
@@ -59,11 +58,9 @@ func TestBrowserMountsCannotReachShellVolumes(t *testing.T) {
 	}
 }
 
-func TestBrowserRoutingAndIdleAreIndependent(t *testing.T) {
+func TestBrowserRoutingIsIndependentOfShell(t *testing.T) {
 	b := &fakeBackend{}
-	r := NewSandboxRouter(b, config.SandboxConfig{IdleTTLSec: 1800, BrowserIdleTTLSec: 180, BrowserMemoryLimit: 123, BrowserPidsLimit: 456, BrowserCPULimit: 3})
-	now := time.Now()
-	r.now = func() time.Time { return now }
+	r := NewSandboxRouter(b, config.SandboxConfig{IdleTTLSec: 1800, BrowserMemoryLimit: 123, BrowserPidsLimit: 456, BrowserCPULimit: 3})
 	ctx := identityctx.WithIdentityID(context.Background(), "a")
 	if _, err := r.Route(ctx); err != nil {
 		t.Fatal(err)
@@ -77,13 +74,6 @@ func TestBrowserRoutingAndIdleAreIndependent(t *testing.T) {
 	}
 	if h.Kind != Browser || b.resolved[1].Kind != Browser || b.resolved[1].Limits.MemoryBytes != 123 {
 		t.Fatalf("browser = %+v; specs = %+v", h, b.resolved)
-	}
-	n, err := r.SuspendIdle(ctx, now.Add(181*time.Second))
-	if err != nil || n != 1 {
-		t.Fatalf("reap = %d,%v", n, err)
-	}
-	if len(b.suspended) != 1 || b.suspended[0].Kind != Browser {
-		t.Fatalf("suspended %+v", b.suspended)
 	}
 	if err := r.Destroy(ctx, "a"); err != nil {
 		t.Fatal(err)

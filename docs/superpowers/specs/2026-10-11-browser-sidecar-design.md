@@ -76,6 +76,15 @@ Non-goals:
    30 minutes. When that TTL passes, it is **stopped**, which returns its memory, and the profile
    volume keeps the login (prd.md §12). The next browser call starts it again. Suspending the shell
    box never touches the browser box, and the reverse also holds.
+   - *Amended 2026-10-12 by the operator: the sidecar is always running, not the browser.* The
+     box is still created at the identity's first browser call. After that it is never stopped
+     for idleness. `aura serve` starts every existing browser box at boot, egress sidecar included
+     (`StartBrowserBoxes`). Then the browser MCP server answers the first call and the board's
+     probe instead of showing "dial failed". Chrome inside still closes after its own 180 s
+     (`AGENT_BROWSER_IDLE_TIMEOUT_MS`). The box it leaves holds 3.7 MiB and 4 pids (measured
+     2026-10-11, open question 2), so the cost is the admission slot.
+     `AURA_SANDBOX_BROWSER_IDLE_TTL_SEC` and the browser's hold and touch on the reaper's clock
+     are gone with the idle stop.
 6. **Its own resource caps.** The browser box gets `AURA_SANDBOX_BROWSER_MEMORY_LIMIT`,
    `_PIDS_LIMIT` and `_CPU_LIMIT`. They default to today's per-box envelope of 2 GiB, 1024 pids and
    2 CPUs, the envelope three browsers were measured inside. The shell box keeps its own caps.
@@ -241,7 +250,7 @@ browser and the shell share a box get updated.
 | `AURA_SANDBOX_BROWSER_MEMORY_LIMIT` | 2 GiB | Memory cap of a browser box |
 | `AURA_SANDBOX_BROWSER_PIDS_LIMIT` | 1024 | PID cap of a browser box |
 | `AURA_SANDBOX_BROWSER_CPU_LIMIT` | 2 | CPU cap of a browser box |
-| `AURA_SANDBOX_BROWSER_IDLE_TTL_SEC` | open question 2 | Seconds without a browser call before the box stops |
+| ~~`AURA_SANDBOX_BROWSER_IDLE_TTL_SEC`~~ | removed 2026-10-12 | The browser box is never stopped for idleness (decision 5) |
 | `AURA_SANDBOX_BROWSER_MAX_ACTIVE` | 0 = derived | Running browser boxes allowed on the host |
 
 ## Acceptance
@@ -259,8 +268,10 @@ translate and admission:
 2. The key file is absent from the shell box and present, 0600, in the browser box.
 3. `agent-browser` run through `shell_exec` exits 78.
 4. A login cookie survives a browser-box stop and start.
-5. No browser box exists before the first browser call. It is stopped after its idle TTL, and its
-   memory is measured before and after.
+5. No browser box exists before the first browser call. ~~It is stopped after its idle TTL, and
+   its memory is measured before and after.~~ *Amended 2026-10-12:* the box is still running
+   long after its last call. After `docker restart aura` it is running again before any browser
+   call. The board's probe of `browser` reads "ok (29 tools)".
 6. With `MAX_ACTIVE=1`, a second identity's browser call is refused and the first identity's
    browser keeps running.
 7. Deprovisioning an identity removes its browser container, egress sidecar and volume.
@@ -306,6 +317,8 @@ Live end-to-end on the lab VM, with its dated file in `docs/superpowers/verifica
    So the choice is between 1.6 s per resumed task and a slot kept by a box with no browser in
    it. A third option is to count running Chromes instead of running boxes in admission. That
    cannot be read from Docker, so it would mean a count kept by the bridge.
+   *Closed 2026-10-12 by the operator:* the box keeps its slot and is never stopped for idleness
+   (decision 5, amended).
 3. **The admission default.** Half of `MemTotal` gave 3 on the lab VM, and three heavy boxes
    fit there with swap starting (RAM above). Should the default keep reading `MemTotal`, or read
    what the running stack leaves free, which this formula does not see?

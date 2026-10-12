@@ -51,7 +51,6 @@ const (
 // 37-05/37-06 wire these primitives into usersandbox.specFor / buildEgressSidecar. All
 // fields follow the AURA_<DOMAIN>_<UNIT> convention.
 type SandboxConfig struct {
-	BrowserIdleTTLSec  int
 	BrowserCPULimit    int
 	BrowserMemoryLimit int64
 	BrowserPidsLimit   int64
@@ -95,7 +94,6 @@ type SandboxConfig struct {
 // silent fallback into an unsafe cap/TTL — the W-cfg bug this KindInt registration fixes).
 func loadSandboxConfig() SandboxConfig {
 	return SandboxConfig{
-		BrowserIdleTTLSec:  envutil.IntDefault("AURA_SANDBOX_BROWSER_IDLE_TTL_SEC", 180),
 		BrowserCPULimit:    envutil.IntDefault("AURA_SANDBOX_BROWSER_CPU_LIMIT", defaultSandboxCPULimit),
 		BrowserMemoryLimit: int64Default("AURA_SANDBOX_BROWSER_MEMORY_LIMIT", defaultSandboxMemoryLimit),
 		BrowserPidsLimit:   int64Default("AURA_SANDBOX_BROWSER_PIDS_LIMIT", defaultSandboxPidsLimit),

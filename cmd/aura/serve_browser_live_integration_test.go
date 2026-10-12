@@ -35,9 +35,6 @@ func TestBrowserRelayDrivesTheBoxBrowser(t *testing.T) {
 	run(`agent-browser --session live open "data:text/html,<input id=u autofocus style='position:absolute;left:0;top:0;width:400px;height:40px'>"`)
 
 	view := openLiveView(t, ctx, router, "live")
-	if n, err := router.SuspendIdle(ctx, time.Now().Add(10*time.Second)); err != nil || n != 0 {
-		t.Fatalf("active live view was reaped: %d, %v", n, err)
-	}
 	view.click(100, 20)
 	for _, ch := range "hi.1" {
 		s := string(ch)
@@ -61,8 +58,8 @@ func TestBrowserRelayDrivesTheBoxBrowser(t *testing.T) {
 	}
 
 	view.close()
-	if n, err := router.SuspendIdle(ctx, time.Now().Add(10*time.Second)); err != nil || n != 1 {
-		t.Fatalf("closed live view retained its browser lease: %d, %v", n, err)
+	if n, err := router.SuspendIdle(ctx, time.Now().Add(24*time.Hour)); err != nil || n != 0 {
+		t.Fatalf("the idle sweep stopped the browser box: %d, %v", n, err)
 	}
 }
 
@@ -77,7 +74,7 @@ func liveBox(t *testing.T) (context.Context, *usersandbox.SandboxRouter, usersan
 	cfg := &config.Config{
 		Profile:       config.ProfileSingleUserHardened,
 		AuthulaSecret: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-		Sandbox:       config.SandboxConfig{Image: image, CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 256, BrowserIdleTTLSec: 1},
+		Sandbox:       config.SandboxConfig{Image: image, CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 256, IdleTTLSec: 1},
 	}
 	router := buildSandboxRouter(cfg, nil)
 	ctx := identityctx.WithIdentityID(context.Background(), egressITIdentity(t))

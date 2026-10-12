@@ -26,10 +26,7 @@ func (r *SandboxRouter) PurgeBrowserCredentials(ctx context.Context, id string) 
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := trackingKey(id, Browser)
-	delete(r.handles, key)
-	delete(r.lastUsed, key)
-	delete(r.active, key)
+	delete(r.handles, trackingKey(id, Browser))
 	return nil
 }
 

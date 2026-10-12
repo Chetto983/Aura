@@ -15,7 +15,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"sync"
 )
 
 // EnsureBox is the provisioning saga's explicit-identity get-or-create seam (D-09). It
@@ -52,57 +51,27 @@ func (r *SandboxRouter) resolveKindAndTrack(ctx context.Context, id string, kind
 	}
 	r.mu.Lock()
 	key := trackingKey(id, kind)
-	r.lastUsed[key] = r.clock()
 	r.handles[key] = h
+	// Only a shell box idles out; a browser box is never put on the reaper's clock.
+	if kind == Shell {
+		r.lastUsed[key] = r.clock()
+	}
 	r.mu.Unlock()
 	return h, nil
 }
 
-// Touch records a use of identityID's box without resolving it again. A caller that holds
-// one long-lived exec open — an MCP server session, the browser live view — reaches Route
-// once, and without this the idle reaper would suspend the box under it while it works. A
-// box the reaper already suspended is untracked and stays so: the next Route resumes it.
+// Touch records a use of identityID's shell box without resolving it again. A caller that
+// holds one long-lived exec open — an MCP server session — reaches Route once, and without
+// this the idle reaper would suspend the box under it while it works. A box the reaper
+// already suspended is untracked and stays so: the next Route resumes it.
 func (r *SandboxRouter) Touch(identityID string) {
-	r.touchKind(identityID, Shell)
-}
-
-// TouchBrowser updates only browser idleness, independently of shell activity.
-func (r *SandboxRouter) TouchBrowser(identityID string) {
-	r.touchKind(identityID, Browser)
-}
-
-func (r *SandboxRouter) touchKind(identityID string, kind BoxKind) {
 	if r == nil {
 		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := trackingKey(identityID, kind)
+	key := trackingKey(identityID, Shell)
 	if _, tracked := r.lastUsed[key]; tracked {
 		r.lastUsed[key] = r.clock()
-	}
-}
-
-// HoldBrowser prevents an idle sweep during an in-flight MCP call or live relay.
-func (r *SandboxRouter) HoldBrowser(identityID string) func() {
-	if r == nil {
-		return func() {}
-	}
-	key := trackingKey(identityID, Browser)
-	r.mu.Lock()
-	r.active[key]++
-	r.mu.Unlock()
-	var once sync.Once
-	return func() {
-		once.Do(func() {
-			r.mu.Lock()
-			defer r.mu.Unlock()
-			if r.active[key] > 0 {
-				r.active[key]--
-			}
-			if _, ok := r.lastUsed[key]; ok {
-				r.lastUsed[key] = r.clock()
-			}
-		})
 	}
 }

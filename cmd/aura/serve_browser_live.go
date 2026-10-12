@@ -9,7 +9,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"sync"
 
 	"github.com/chetto1983/aura/internal/agui"
 	"github.com/chetto1983/aura/internal/sandbox/usersandbox"
@@ -48,27 +47,12 @@ func (r sandboxBrowserRelay) Open(ctx context.Context, session string, in io.Rea
 	if err != nil {
 		return nil, err
 	}
-	release := r.router.HoldBrowser(h.IdentityID)
 	handle, err := r.router.ExecStream(ctx, h, usersandbox.ExecRequest{
 		Command: "node " + browserRelayScript + " " + session,
 		Dir:     "/workspace",
 	}, in, out)
 	if err != nil {
-		release()
 		return nil, err
 	}
-	return &leasedBrowserHandle{BrowserRelayHandle: handle, release: release}, nil
-}
-
-// An open viewer/login owns a lease even while no keyboard input arrives.
-// Kill is asynchronous, so release only after Wait confirms process termination.
-type leasedBrowserHandle struct {
-	agui.BrowserRelayHandle
-	release func()
-	once    sync.Once
-}
-
-func (h *leasedBrowserHandle) Wait() (int, error) {
-	defer h.once.Do(h.release)
-	return h.BrowserRelayHandle.Wait()
+	return handle, nil
 }

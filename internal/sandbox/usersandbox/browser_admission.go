@@ -29,9 +29,15 @@ func browserResources(r Resources) Resources {
 	return r
 }
 
-// RunningBrowserBoxes includes prior daemon lifetimes for admission and idle reaping.
-func (b *DockerBackend) RunningBrowserBoxes(ctx context.Context) ([]BoxHandle, error) {
-	result, err := b.cli.ContainerList(ctx, client.ContainerListOptions{Filters: make(client.Filters).Add("name", "^/aura-browser-")})
+// BrowserBoxes lists every identity's browser box, stopped ones included, so the boot start
+// finds a box the daemon stopped.
+func (b *DockerBackend) BrowserBoxes(ctx context.Context) ([]BoxHandle, error) {
+	return b.listBrowserBoxes(ctx, true)
+}
+
+// listBrowserBoxes reads the daemon, not a cache, so a box from a prior Aura lifetime counts.
+func (b *DockerBackend) listBrowserBoxes(ctx context.Context, all bool) ([]BoxHandle, error) {
+	result, err := b.cli.ContainerList(ctx, client.ContainerListOptions{All: all, Filters: make(client.Filters).Add("name", "^/aura-browser-")})
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +55,7 @@ func (b *DockerBackend) RunningBrowserBoxes(ctx context.Context) ([]BoxHandle, e
 
 // Called under lifecycle, so concurrent first calls cannot oversubscribe this daemon.
 func (b *DockerBackend) admitBrowser(ctx context.Context, spec SandboxSpec) error {
-	boxes, err := b.RunningBrowserBoxes(ctx)
+	boxes, err := b.listBrowserBoxes(ctx, false)
 	if err != nil {
 		return fmt.Errorf("browser admission inventory: %w", err)
 	}
@@ -68,7 +74,7 @@ func (b *DockerBackend) admitBrowser(ctx context.Context, spec SandboxSpec) erro
 		slog.Info("sandbox: derived browser admission limit", "max_active", limit, "host_memory_bytes", info.Info.MemTotal, "browser_memory_bytes", browserResources(spec.Limits).MemoryBytes)
 	}
 	if len(boxes) >= limit {
-		return fmt.Errorf("browser capacity exhausted (%d active); retry after an idle browser stops", limit)
+		return fmt.Errorf("browser capacity exhausted: %d identities already keep a browser box running on this host (AURA_SANDBOX_BROWSER_MAX_ACTIVE)", limit)
 	}
 	return nil
 }

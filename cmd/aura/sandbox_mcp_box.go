@@ -57,28 +57,20 @@ func (b sandboxMCPBox) startStdio(ctx context.Context, name string, argv, env []
 	if err != nil {
 		return nil, err
 	}
-	proc := boxStdioProcess{ExecStreamHandle: job, touch: func() { b.router.Touch(h.IdentityID) }}
-	if browser {
-		proc.touch = func() { b.router.TouchBrowser(h.IdentityID) }
-		proc.hold = func() func() { return b.router.HoldBrowser(h.IdentityID) }
+	// The browser box is never suspended for idleness, so its calls keep no clock.
+	touch := func() {}
+	if !browser {
+		touch = func() { b.router.Touch(h.IdentityID) }
 	}
-	return proc, nil
+	return boxStdioProcess{ExecStreamHandle: job, touch: touch}, nil
 }
 
 type boxStdioProcess struct {
 	*usersandbox.ExecStreamHandle
 	touch func()
-	hold  func() func()
 }
 
 func (p boxStdioProcess) Touch() { p.touch() }
-
-func (p boxStdioProcess) Hold() func() {
-	if p.hold == nil {
-		return func() {}
-	}
-	return p.hold()
-}
 
 var unsafeFileNameChars = regexp.MustCompile(`[^A-Za-z0-9_-]`)
 

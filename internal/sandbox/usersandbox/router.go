@@ -37,12 +37,10 @@ type SandboxRouter struct {
 	backend Backend
 	cfg     config.SandboxConfig
 
-	mu         sync.Mutex
-	lifecycle  sync.Mutex
-	lastUsed   map[string]time.Time
-	handles    map[string]BoxHandle
-	active     map[string]int
-	discovered bool
+	mu        sync.Mutex
+	lifecycle sync.Mutex
+	lastUsed  map[string]time.Time
+	handles   map[string]BoxHandle
 
 	// now is the injectable clock for tests; nil → time.Now().UTC() via clock().
 	now func() time.Time
@@ -56,7 +54,6 @@ func NewSandboxRouter(backend Backend, cfg config.SandboxConfig) *SandboxRouter 
 		cfg:      cfg,
 		lastUsed: make(map[string]time.Time),
 		handles:  make(map[string]BoxHandle),
-		active:   make(map[string]int),
 	}
 }
 
@@ -179,7 +176,6 @@ func (r *SandboxRouter) Destroy(ctx context.Context, identityID string) error {
 		r.mu.Lock()
 		delete(r.handles, key)
 		delete(r.lastUsed, key)
-		delete(r.active, key)
 		r.mu.Unlock()
 	}
 	return result

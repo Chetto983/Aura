@@ -128,9 +128,6 @@ func touchBoxOnCall(proc BoxProcess) sdkmcp.Middleware {
 		return func(ctx context.Context, method string, req sdkmcp.Request) (sdkmcp.Result, error) {
 			if method == "tools/call" {
 				proc.Touch()
-				if lease, ok := proc.(interface{ Hold() func() }); ok {
-					defer lease.Hold()()
-				}
 			}
 			return next(ctx, method, req)
 		}
