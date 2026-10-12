@@ -59,6 +59,8 @@ func (s *Server) handleSwarmWorkerEvents(w http.ResponseWriter, r *http.Request)
 	h.Set("Content-Type", "text/event-stream")
 	h.Set("Cache-Control", "no-cache")
 	h.Set("X-Content-Type-Options", "nosniff")
+	ctx, endStream := s.untilShutdown(ctx)
+	defer endStream()
 	stream := Translate(
 		conv+"-swarm-"+childID,
 		childID,

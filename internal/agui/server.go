@@ -262,6 +262,11 @@ type Server struct {
 	// seconds-only, mirroring the probeTimeout override seam above.
 	heartbeatInterval time.Duration
 
+	// stopping is cancelled by BeginShutdown (server_shutdown.go): an observer stream
+	// ends on it, and a turn's stream cancels its turn. Set by NewServer.
+	stopping    context.Context
+	stopStreams context.CancelFunc
+
 	// tts/stt are the 37C web-voice clients injected via SetVoice (D-13) as narrow
 	// seams (voice_api.go) so the handlers unit-test with no network. A nil client ⇒
 	// that capability is absent: its POST answers 503 and GET /api/voice/capabilities
@@ -327,12 +332,15 @@ type Server struct {
 // wired separately via SetApprovalStore (optional, kept off the constructor so the
 // existing NewServer callers/tests stay unchanged — D-A2-02 narrow seams).
 func NewServer(run Runner, conv ConversationStore, cfg ServerConfig) *Server {
+	stopping, stopStreams := context.WithCancel(context.Background())
 	return &Server{
 		run:               run,
 		conv:              conv,
 		idgen:             NewIDGenerator(),
 		cfg:               cfg,
 		heartbeatInterval: heartbeatIntervalFromConfig(cfg.SSEHeartbeatSec),
+		stopping:          stopping,
+		stopStreams:       stopStreams,
 	}
 }
 

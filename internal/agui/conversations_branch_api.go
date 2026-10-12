@@ -206,7 +206,10 @@ func (s *Server) rerunBranch(w http.ResponseWriter, r *http.Request, convID stri
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 
-	turn := s.run.TurnBranch(ctx, convID, leaf)
+	// Shutdown cancels the re-run, not its stream, as in handleRun.
+	turnCtx, endTurn := s.untilShutdown(ctx)
+	defer endTurn()
+	turn := s.run.TurnBranch(turnCtx, convID, leaf)
 	// Cockpit reasoning-on (D-01), same as handleRun: the only viewer is the
 	// authenticated operator (whole-origin private), so the live CoT stream is surfaced.
 	s.streamSSE(ctx, w, Translate(convID, runID, s.idgen, turn, true))

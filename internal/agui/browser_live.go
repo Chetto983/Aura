@@ -79,7 +79,8 @@ func (s *Server) handleBrowserStream(w http.ResponseWriter, r *http.Request) {
 		writeJSONStatus(w, http.StatusServiceUnavailable, map[string]string{"error": "browser_unavailable"})
 		return
 	}
-	ctx := r.Context()
+	ctx, endStream := s.untilShutdown(r.Context())
+	defer endStream()
 	key := scopedIdentityID(ctx) + "\x00" + session
 	lines := make(chan []byte, browserLineBuffer)
 	pr, pw := io.Pipe()

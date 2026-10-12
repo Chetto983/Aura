@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -44,10 +43,6 @@ import (
 // (AURA_SERVE_SHUTDOWN_GRACE_SEC) bounds the whole drain; this is the inner
 // http.Server.Shutdown deadline so a slow SSE client cannot wedge the HTTP teardown.
 const aguiShutdownTimeout = 10 * time.Second
-
-// aguiReadHeaderTimeout bounds the request-header read to defang slow-loris on the
-// unauthenticated loopback endpoint (T-12-09).
-const aguiReadHeaderTimeout = 10 * time.Second
 
 // reconcileTickInterval is the cadence of the crash-orphan reconciler in the daemon
 // (D-01d / GATE-04 recovery): often enough to close a crash-orphaned reservation within
@@ -89,11 +84,13 @@ func runServe(args []string) {
 	// signal.NotifyContext cancels signalCtx on SIGINT/SIGTERM; the scheduler's Start
 	// returns on that cancel after the in-flight tick drains (graceful, D-15). The
 	// signal is ONLY the stop-trigger — it must NOT directly cancel the per-turn work
-	// ctx, or an in-flight turn is hard-killed mid-stream instead of reaching its
-	// terminal frame (audit O-06 / AP-17). workCtx is therefore a SEPARATE,
-	// background-derived ctx that parents the actual work (the channel handler turns +
-	// HTTP requests); on the signal the daemon stops accepting NEW work, drains the
-	// in-flight turns under a bounded grace, THEN workCancel fires as the final backstop.
+	// ctx, or an in-flight turn is hard-killed mid-stream instead of persisting its
+	// records and reaching its terminal frame (audit O-06 / AP-17). workCtx is therefore
+	// a SEPARATE, background-derived ctx that parents the channel handler turns; a web
+	// turn runs on its request's context, which the agui server's BeginShutdown cancels
+	// while its stream waits for it. On the signal the daemon stops accepting NEW work,
+	// drains the in-flight turns under a bounded grace, THEN workCancel fires as the
+	// final backstop.
 	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	// The web console's restart (POST /api/admin/restart) ends the daemon exactly as a
@@ -192,12 +189,14 @@ func runServe(args []string) {
 		shutdownBackgroundWork(env)
 
 		// Bounded in-flight turn drain (O-06/AP-17): the signal stopped NEW work, but a
-		// turn already mid-stream must reach its terminal frame rather than being hard-
-		// killed. drainShutdown stops the poller + HTTP listener (no new turns) and joins
-		// the in-flight turns under the grace window; only AFTER the grace does workCancel
-		// fire as the final backstop. drainWithGrace never blocks past the grace on an
-		// overrunning turn — the backstop unwedges it. workCtx parents the per-turn work,
-		// so it stays valid for the whole drain (it is NOT signal-derived).
+		// turn already mid-stream must persist its records and reach its terminal frame
+		// rather than being hard-killed: env.close() closes the pool once runServe
+		// returns. drainShutdown stops the poller + HTTP listener (no new turns), cancels
+		// the web turns, and joins every in-flight turn under the grace window; only AFTER
+		// the grace does workCancel fire as the final backstop. drainWithGrace never blocks
+		// past the grace on an overrunning turn — the backstop unwedges it. workCtx
+		// parents the channel turns, so it stays valid for the whole drain (it is NOT
+		// signal-derived).
 		grace := time.Duration(env.cfg.ServeShutdownGraceSec) * time.Second
 		res := drainWithGrace(func() { drainShutdown(workCtx, env) }, grace)
 		if res == drainResultTimedOut {
@@ -486,11 +485,7 @@ func bootServe(ctx context.Context, channelOverride func(name string) (enabled, 
 		chat.close()
 		return nil, err
 	}
-	httpSrv := &http.Server{
-		Addr:              chat.cfg.AGUIBind,
-		Handler:           serveHandler,
-		ReadHeaderTimeout: aguiReadHeaderTimeout,
-	}
+	httpSrv := newServeHTTPServer(chat.cfg.AGUIBind, serveHandler, aguiServer.BeginShutdown)
 
 	// Periodic sidecar sweep (M-06 part 2): the boot ScanOrphans is one-shot, so a
 	// long-running daemon would let aged/orphaned sidecars accumulate between reboots.

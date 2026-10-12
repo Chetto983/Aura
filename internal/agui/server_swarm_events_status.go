@@ -57,7 +57,9 @@ func (s *Server) handleSwarmWorkerStatuses(w http.ResponseWriter, r *http.Reques
 	if flusher, ok := w.(http.Flusher); ok {
 		flusher.Flush()
 	}
-	s.streamSSE(r.Context(), w, s.swarmWorkerStatusSequence(r.Context(), conv, children))
+	ctx, endStream := s.untilShutdown(r.Context())
+	defer endStream()
+	s.streamSSE(ctx, w, s.swarmWorkerStatusSequence(ctx, conv, children))
 }
 
 func (s *Server) swarmWorkerStatusSequence(ctx context.Context, conv string, initialChildren []string) iter.Seq2[events.Event, error] {

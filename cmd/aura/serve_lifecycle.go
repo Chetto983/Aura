@@ -22,6 +22,10 @@ type schedulerLifecycle interface {
 
 const backgroundStopTimeout = 5 * time.Second
 
+// aguiReadHeaderTimeout bounds the request-header read to defang slow-loris on the
+// unauthenticated loopback endpoint (T-12-09).
+const aguiReadHeaderTimeout = 10 * time.Second
+
 type shellCompletionHookSetter interface {
 	SetCompletionHook(tools.BackgroundShellCompletionHook)
 }
@@ -135,6 +139,19 @@ func bindMetricsListener(address string, listen listenFunc) (net.Listener, error
 		return nil, fmt.Errorf("bind metrics listener %s: %w", address, err)
 	}
 	return listener, nil
+}
+
+// newServeHTTPServer builds the server aura serve listens with. endStreams runs when Shutdown
+// starts (agui.Server.BeginShutdown): it ends the observer streams and cancels the web turns,
+// so Shutdown waits for those turns to finish rather than for its timeout.
+func newServeHTTPServer(address string, handler http.Handler, endStreams func()) *http.Server {
+	srv := &http.Server{
+		Addr:              address,
+		Handler:           handler,
+		ReadHeaderTimeout: aguiReadHeaderTimeout,
+	}
+	srv.RegisterOnShutdown(endStreams)
+	return srv
 }
 
 func newMetricsServer(address string, handler http.Handler) *http.Server {

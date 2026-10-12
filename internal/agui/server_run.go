@@ -131,10 +131,14 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
-	turn := s.run.Turn(ctx, in.ThreadID, modelUserMsg)
+	// Shutdown cancels the turn, not its stream: streamSSE keeps draining on the request
+	// context until the turn has persisted its records and sent its terminal frame.
+	turnCtx, endTurn := s.untilShutdown(ctx)
+	defer endTurn()
+	turn := s.run.Turn(turnCtx, in.ThreadID, modelUserMsg)
 	if userMsg != nil && modelUserMsg != nil && *userMsg != *modelUserMsg {
 		if split, ok := s.run.(modelUserMessageRunner); ok {
-			turn = split.TurnWithModelUserMessage(ctx, in.ThreadID, *userMsg, *modelUserMsg)
+			turn = split.TurnWithModelUserMessage(turnCtx, in.ThreadID, *userMsg, *modelUserMsg)
 		}
 	}
 	// D-01: the cockpit SSE stream surfaces live REASONING_* delta text (showReasoning
