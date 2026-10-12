@@ -1,8 +1,11 @@
 package main
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chetto1983/aura/internal/config"
 )
@@ -55,5 +58,31 @@ func TestAuraMountsTheUpdaterChannelWhereItsConfigLooks(t *testing.T) {
 	aura := composeServiceBlock(t, readProjectFile(t, root, "compose.yaml"), "aura")
 	if want := "      - ./update:" + config.DefaultUpdateStateDir + "\n"; !strings.Contains(aura, want) {
 		t.Fatalf("aura must mount %q:\n%s", strings.TrimSpace(want), aura)
+	}
+}
+
+// docker stop sends SIGKILL once the service's stop_grace_period has passed, 10 s when
+// compose sets none, while aura serve's drain may take AURA_SERVE_SHUTDOWN_GRACE_SEC. A
+// shorter grace period cuts a turn mid-write, which is what the drain exists to prevent.
+func TestAuraStopGracePeriodOutlastsTheDrain(t *testing.T) {
+	aura := composeServiceBlock(t, readProjectFile(t, repoRootForTest(t), "compose.yaml"), "aura")
+	drain := regexp.MustCompile(`AURA_SERVE_SHUTDOWN_GRACE_SEC: \$\{AURA_SERVE_SHUTDOWN_GRACE_SEC:-(\d+)\}`).FindStringSubmatch(aura)
+	if drain == nil {
+		t.Fatalf("aura sets no default for AURA_SERVE_SHUTDOWN_GRACE_SEC:\n%s", aura)
+	}
+	drainSec, err := strconv.Atoi(drain[1])
+	if err != nil {
+		t.Fatalf("drain default %q: %v", drain[1], err)
+	}
+	period := regexp.MustCompile(`(?m)^    stop_grace_period: (\S+)$`).FindStringSubmatch(aura)
+	if period == nil {
+		t.Fatalf("aura sets no stop_grace_period, so docker stop kills it 10 s into a drain of up to %d s", drainSec)
+	}
+	grace, err := time.ParseDuration(period[1])
+	if err != nil {
+		t.Fatalf("stop_grace_period %q: %v", period[1], err)
+	}
+	if grace <= time.Duration(drainSec)*time.Second {
+		t.Fatalf("stop_grace_period %s does not outlast the %d s drain", grace, drainSec)
 	}
 }

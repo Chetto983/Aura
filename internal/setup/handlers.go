@@ -112,10 +112,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 // event-stream headers then polls telegram_setup_pending.consumed_at every
 // pollInterval (2s default, D-03) for the token in ?onboarding= and, when the
 // row flips to consumed, emits one onboarding_completed event carrying the
-// telegram_user_id + username. The poll goroutine MUST exit on r.Context().Done()
-// — client disconnect AND server-shutdown both cancel the request ctx
-// (goleak-clean, T-13-07-SSELeak / Pitfall 5). Without ?onboarding= the stream
-// is a no-op heartbeat that still terminates on disconnect.
+// telegram_user_id + username. The poll loop MUST exit when its client leaves and
+// when the server shuts down (goleak-clean, T-13-07-SSELeak / Pitfall 5). Only the
+// first cancels the request ctx: http.Server.Shutdown waits for a handler rather
+// than cancelling it, so the loop also ends on s.stopping, which HTTPServer cancels
+// when Shutdown starts. Without ?onboarding= the stream is a no-op heartbeat that
+// still terminates on either.
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	onboardingToken := r.URL.Query().Get("onboarding")
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -127,14 +129,17 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
-	ctx := r.Context()
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	stop := context.AfterFunc(s.stopping, cancel)
+	defer stop()
 	ticker := time.NewTicker(s.pollInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			// Client disconnect OR server shutdown — the request ctx is cancelled
-			// either way. The pump unwinds here (goleak-clean, Pitfall 5).
+			// Client disconnect or server shutdown. The pump unwinds here
+			// (goleak-clean, Pitfall 5).
 			return
 		case <-ticker.C:
 			done, ev := s.pollCompletion(ctx, onboardingToken)

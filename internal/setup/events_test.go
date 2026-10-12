@@ -3,7 +3,9 @@ package setup
 import (
 	"bufio"
 	"context"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -127,4 +129,47 @@ func TestEventsSSEPumpExitsOnClientDisconnect(t *testing.T) {
 	// Give the server goroutine a moment to observe the cancel and unwind before
 	// goleak's TestMain snapshot runs. The httptest server is closed by t.Cleanup.
 	time.Sleep(50 * time.Millisecond)
+}
+
+// TestEventsStreamEndsOnShutdown: net/http does not cancel a request context when Shutdown
+// starts, so an open /setup/events with nothing to report held the daemon's setup-server
+// Shutdown for its whole timeout. The server HTTPServer builds ends the stream instead.
+func TestEventsStreamEndsOnShutdown(t *testing.T) {
+	srv := NewServer(Deps{
+		Store:        &togglingStore{flipAt: 1 << 30},
+		Token:        "tok",
+		TokenOut:     io.Discard,
+		QROut:        io.Discard,
+		PollInterval: 5 * time.Millisecond,
+	})
+	httpSrv := srv.HTTPServer("127.0.0.1:0")
+	listener, err := net.Listen("tcp", httpSrv.Addr)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { _ = httpSrv.Close() })
+	served := make(chan error, 1)
+	go func() { served <- httpSrv.Serve(listener) }()
+
+	resp, err := http.Get("http://" + listener.Addr().String() + "/setup/events?token=tok&onboarding=never")
+	if err != nil {
+		t.Fatalf("open events: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d, want 200", resp.StatusCode)
+	}
+
+	// Only a stream that never ends exhausts this deadline.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := httpSrv.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown with /setup/events open: %v", err)
+	}
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		t.Fatalf("the events stream did not end cleanly: %v", err)
+	}
+	if err := <-served; !errors.Is(err, http.ErrServerClosed) {
+		t.Fatalf("Serve returned %v, want http.ErrServerClosed", err)
+	}
 }

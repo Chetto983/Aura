@@ -379,8 +379,9 @@ func startChannelSubsystems(ctx context.Context, reg *channels.Registry, setupSr
 
 // stopChannelSubsystems drains the channels Registry + the setup HTTP server on
 // shutdown. StopAll joins every started channel (goleak-clean); the setup server
-// gets a bounded graceful Shutdown. Both run BEFORE env.close() so the pool is
-// still open while the channels drain. Idempotent: safe with nothing started.
+// gets a bounded graceful Shutdown, then a Close (shutdownHTTPServer). Both run
+// BEFORE env.close() so the pool is still open while the channels drain.
+// Idempotent: safe with nothing started.
 func stopChannelSubsystems(ctx context.Context, reg *channels.Registry, setupSrv *http.Server) {
 	if reg != nil {
 		if err := reg.StopAll(ctx); err != nil {
@@ -388,11 +389,7 @@ func stopChannelSubsystems(ctx context.Context, reg *channels.Registry, setupSrv
 		}
 	}
 	if setupSrv != nil {
-		shutCtx, cancel := context.WithTimeout(context.Background(), setupShutdownTimeout)
-		defer cancel()
-		if err := setupSrv.Shutdown(shutCtx); err != nil {
-			slog.Warn("aura serve: setup http server shutdown", "err", err)
-		}
+		shutdownHTTPServer("setup", setupSrv, setupShutdownTimeout)
 	}
 }
 

@@ -84,6 +84,9 @@ type Server struct {
 	token        *Token
 	identityID   string
 	pollInterval time.Duration
+	// stopping ends the /setup/events stream; HTTPServer cancels it when Shutdown starts.
+	stopping    context.Context
+	stopStreams context.CancelFunc
 
 	qrOut io.Writer
 
@@ -112,12 +115,15 @@ func NewServer(deps Deps) *Server {
 	if poll <= 0 {
 		poll = defaultPollInterval
 	}
+	stopping, stopStreams := context.WithCancel(context.Background())
 	return &Server{
 		store:        deps.Store,
 		probe:        deps.Probe,
 		token:        NewToken(deps.Token, out),
 		identityID:   deps.IdentityID,
 		pollInterval: poll,
+		stopping:     stopping,
+		stopStreams:  stopStreams,
 		qrOut:        qrOut,
 	}
 }
@@ -148,13 +154,17 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 
 // HTTPServer builds the *http.Server the daemon runs (loopback bind + a
 // slow-loris-defanging ReadHeaderTimeout, mirrors serve.go). The composition
-// root (13-09) owns ListenAndServe + the graceful Shutdown call.
+// root (13-09) owns ListenAndServe + the graceful Shutdown call. Shutdown does not
+// cancel a request context, so the server ends the /setup/events stream itself when
+// Shutdown starts; otherwise Shutdown would wait for its timeout.
 func (s *Server) HTTPServer(bind string) *http.Server {
-	return &http.Server{
+	srv := &http.Server{
 		Addr:              bind,
 		Handler:           s.Mux(),
 		ReadHeaderTimeout: setupReadHeaderTimeout,
 	}
+	srv.RegisterOnShutdown(func() { s.stopStreams() })
+	return srv
 }
 
 // InvalidateToken burns the one-time token after onboarding completes (the

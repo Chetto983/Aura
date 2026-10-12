@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"time"
 )
 
@@ -69,9 +70,10 @@ func drainWithGrace(drain func(), grace time.Duration) drainResult {
 // poller (no new channel turns) and StopAll joins each channel's in-flight turn
 // WaitGroup. When the HTTP drain below starts, agui.Server.BeginShutdown ends the
 // observer streams and cancels each request-scoped web turn; the drain then waits up
-// to aguiShutdownTimeout for the turn's stream to carry its terminal frame. workCtx
-// parents the channel turns and is STILL LIVE here (it is not signal-derived), so a
-// turn mid-stream can finalize while this joins it. The caller wraps this in
+// to aguiShutdownTimeout for the turn's stream to carry its terminal frame, and
+// shutdownHTTPServer closes whatever is still open after that. workCtx parents the
+// channel turns and is STILL LIVE here (it is not signal-derived), so a turn
+// mid-stream can finalize while this joins it. The caller wraps this in
 // drainWithGrace and fires workCancel as the backstop only after the grace elapses.
 func drainShutdown(workCtx context.Context, env *serveEnv) {
 	stopChannelSubsystems(workCtx, env.channels, env.setupSrv)
@@ -120,9 +122,22 @@ func drainShutdown(workCtx context.Context, env *serveEnv) {
 		env.runRegistry.Close()
 	}
 
-	shutCtx, cancel := context.WithTimeout(context.Background(), aguiShutdownTimeout)
+	shutdownHTTPServer("agui", env.httpSrv, aguiShutdownTimeout)
+}
+
+// shutdownHTTPServer gives srv up to timeout to finish its requests, then closes whatever is
+// still open. Every stream ends or has its turn cancelled when Shutdown starts
+// (RegisterOnShutdown), so a request still running at the timeout is a defect: it is logged
+// as an error, and Close ends it rather than leaving its connection to the process exit.
+func shutdownHTTPServer(name string, srv *http.Server, timeout time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	if err := env.httpSrv.Shutdown(shutCtx); err != nil {
-		slog.Warn("aura serve: agui http server shutdown", "err", err)
+	err := srv.Shutdown(ctx)
+	if err == nil {
+		return
+	}
+	slog.Error("aura serve: http server did not shut down cleanly, closing it", "server", name, "timeout", timeout, "err", err)
+	if err := srv.Close(); err != nil {
+		slog.Warn("aura serve: http server close", "server", name, "err", err)
 	}
 }

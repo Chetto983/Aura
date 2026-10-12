@@ -1,6 +1,9 @@
 package main
 
 import (
+	"net"
+	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -57,4 +60,44 @@ func TestDrainWithGrace_ExceedsGrace(t *testing.T) {
 	// test's goroutine unwinds cleanly (mirrors workCancel firing).
 	close(release)
 	wg.Wait()
+}
+
+// TestShutdownHTTPServerClosesWhatOutlivesTheTimeout: a request that does not end when
+// Shutdown starts used to keep its connection until the process exited, because the
+// timeout was only a warning. It is now an error, and Close ends the request.
+func TestShutdownHTTPServerClosesWhatOutlivesTheTimeout(t *testing.T) {
+	log := captureLog(t)
+	ended := make(chan struct{})
+	srv := &http.Server{
+		Addr: "127.0.0.1:0",
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.(http.Flusher).Flush()
+			<-r.Context().Done()
+			close(ended)
+		}),
+	}
+	listener, err := net.Listen("tcp", srv.Addr)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	go func() { _ = srv.Serve(listener) }()
+	resp, err := http.Get("http://" + listener.Addr().String())
+	if err != nil {
+		t.Fatalf("open request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	shutdownHTTPServer("test", srv, 100*time.Millisecond)
+	// Close returns before the server notices the dead connection and cancels the
+	// request, so this waits; only a connection nothing closed exhausts it.
+	select {
+	case <-ended:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the request outlived shutdownHTTPServer: nothing closed its connection")
+	}
+	if !strings.Contains(log.String(), "level=ERROR") {
+		t.Fatalf("the drain timeout was not logged as an error:\n%s", log.String())
+	}
 }

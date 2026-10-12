@@ -38,10 +38,11 @@ import (
 	"github.com/chetto1983/aura/internal/steer"
 )
 
-// aguiShutdownTimeout bounds the HTTP-layer drain of in-flight SSE streams inside
-// drainShutdown (the bounded-drain body, O-06/AP-17). The outer drainWithGrace
+// aguiShutdownTimeout bounds the HTTP-layer drain inside drainShutdown (the
+// bounded-drain body, O-06/AP-17): a cancelled web turn persisting its records and
+// sending its terminal frame, and any other request in flight. The outer drainWithGrace
 // (AURA_SERVE_SHUTDOWN_GRACE_SEC) bounds the whole drain; this is the inner
-// http.Server.Shutdown deadline so a slow SSE client cannot wedge the HTTP teardown.
+// http.Server.Shutdown deadline, after which shutdownHTTPServer closes what is left.
 const aguiShutdownTimeout = 10 * time.Second
 
 // reconcileTickInterval is the cadence of the crash-orphan reconciler in the daemon

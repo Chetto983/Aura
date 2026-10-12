@@ -30,6 +30,8 @@ services:
     mem_limit: ${AURA_MEM_LIMIT:-768m}
     cpus: ${AURA_CPUS:-1.0}
     pids_limit: ${AURA_PIDS_LIMIT:-512}
+    # Docker's default 10 s would SIGKILL aura serve mid-drain; AURA_SERVE_SHUTDOWN_GRACE_SEC allows 25 s.
+    stop_grace_period: 30s
     # Amendment #88: bootstrap the fixed /workspace layout (scripts/artifacts/.toolchain/
     # scratch) and the read-only skills symlink BEFORE the daemon starts, on every boot —
     # mkdir -p and ln -sfn are both idempotent, so this is safe across `docker compose up
