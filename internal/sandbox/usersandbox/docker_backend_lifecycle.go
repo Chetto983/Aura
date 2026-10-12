@@ -29,9 +29,6 @@ func (b *DockerBackend) Resolve(ctx context.Context, spec SandboxSpec) (BoxHandl
 	if spec.Kind != Shell && spec.Kind != Browser {
 		return BoxHandle{}, fmt.Errorf("invalid box kind")
 	}
-	if err := b.prepareBrowserIsolation(ctx, spec.IdentityID); err != nil {
-		return BoxHandle{}, fmt.Errorf("browser isolation: %w", err)
-	}
 	name := workspaceName(spec.IdentityID, spec.Kind)
 	if spec.Image == "" {
 		spec.Image = b.image
@@ -157,15 +154,6 @@ func (b *DockerBackend) Stop(ctx context.Context, h BoxHandle) error {
 }
 
 func (b *DockerBackend) stop(ctx context.Context, h BoxHandle) error {
-	if h.Kind == Shell {
-		if helper, err := b.findBox(ctx, migrationHelperName(h.IdentityID)); err != nil {
-			return err
-		} else if helper != "" {
-			if _, err := b.cli.ContainerRemove(ctx, helper, client.ContainerRemoveOptions{Force: true}); ignoreNotFound(err) != nil {
-				return err
-			}
-		}
-	}
 	if err := b.teardownEgress(ctx, sidecarIdentity(h.IdentityID, h.Kind)); err != nil {
 		return fmt.Errorf("stop: remove egress sidecar: %w", err)
 	}

@@ -264,8 +264,14 @@ translate and admission:
 6. With `MAX_ACTIVE=1`, a second identity's browser call is refused and the first identity's
    browser keeps running.
 7. Deprovisioning an identity removes its browser container, egress sidecar and volume.
-8. A shell volume carrying `.agent-browser-home` is migrated. The shell box then holds no cookie
-   database, and the login works in the browser box.
+8. ~~A shell volume carrying `.agent-browser-home` is migrated. The shell box then holds no cookie
+   database, and the login works in the browser box.~~ *Removed 2026-10-12 by the operator: the
+   legacy migration is gone.* On the lab VM, `Resolve` ran it before every box start, for both
+   kinds. It copied the shell's profile onto a browser volume that already held its own and
+   compared the copy back, and the comparison failed on every call. Every browser call then ended
+   after 18 to 42 s with `browser migration verification mismatch`, and the browser box never
+   started. Starting a box now touches only that box's own objects
+   (`TestResolveBrowserNeverTouchesTheShellBox`). A profile left in a shell volume stays there.
 9. Arguments and `extraArgs` outside the allowlist are refused, and `eval` reaches the approval
    gate as `MCPActionDestructive`.
 10. A slow download, the 2026-10-11 fixture of 8 MiB over 8 s, behaves as follows:

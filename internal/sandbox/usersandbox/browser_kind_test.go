@@ -2,12 +2,47 @@ package usersandbox
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/identityctx"
 )
+
+// TestResolveBrowserNeverTouchesTheShellBox: starting the browser box reads and writes only
+// browser objects. Resolve once copied a legacy profile out of the shell box first, and on the
+// lab VM (2026-10-12) a copy that failed its verification kept the browser box from starting.
+func TestResolveBrowserNeverTouchesTheShellBox(t *testing.T) {
+	const id = "448ddbe1"
+	var touched []string
+	cli := newFakeDockerClient(t, func(req *http.Request) (*http.Response, error) {
+		if target := req.URL.Path + " " + req.URL.Query().Get("filters"); strings.Contains(target, boxName(id)) {
+			touched = append(touched, req.Method+" "+target)
+		}
+		switch {
+		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/volumes/create"):
+			return dockerJSONResponse(http.StatusCreated, `{"Name":"volume"}`), nil
+		case req.Method == http.MethodGet && strings.HasSuffix(req.URL.Path, "/containers/json"):
+			return dockerJSONResponse(http.StatusOK, `[]`), nil
+		case req.Method == http.MethodGet && strings.HasSuffix(req.URL.Path, "/info"):
+			return dockerJSONResponse(http.StatusOK, `{"MemTotal":17179869184}`), nil
+		case req.Method == http.MethodGet && strings.Contains(req.URL.Path, "/images/"):
+			return dockerJSONResponse(http.StatusOK, `{}`), nil
+		}
+		return nil, fmt.Errorf("stop here: %s %s", req.Method, req.URL.Path)
+	})
+	backend := NewDockerBackend(cli, "aura-sandbox:test", Resources{})
+	_, err := backend.Resolve(context.Background(), SandboxSpec{IdentityID: id, Kind: Browser})
+	if !strings.Contains(fmt.Sprint(err), "create box") {
+		t.Fatalf("Resolve stopped before creating the browser box: %v", err)
+	}
+	if len(touched) > 0 {
+		t.Fatalf("browser resolve touched the shell box: %v", touched)
+	}
+}
 
 func TestBrowserMountsCannotReachShellVolumes(t *testing.T) {
 	for _, kind := range []BoxKind{Shell, Browser} {

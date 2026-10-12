@@ -4,7 +4,6 @@ package usersandbox
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -218,87 +217,6 @@ func TestBrowserSidecarAdmissionSurvivesBackendRestart(t *testing.T) {
 	}
 }
 
-func TestBrowserSidecarMigratesBeforeEitherRouteReturns(t *testing.T) {
-	for _, scenario := range []struct{ browserFirst, containerRemoved bool }{{false, false}, {true, false}, {false, true}, {true, true}} {
-		t.Run(fmt.Sprintf("browser-first=%t/container-removed=%t", scenario.browserFirst, scenario.containerRemoved), func(t *testing.T) {
-			cli, backend, router, ctx, id := browserSidecarFixture(t, 32)
-			legacy, err := backend.Resolve(ctx, SandboxSpec{IdentityID: id, Image: testBoxImage(), Limits: testLimits()})
-			if err != nil {
-				t.Fatal(err)
-			}
-			requireSidecarCommand(t, cli, legacy, "mkdir -p /workspace/.agent-browser-home/profiles/legacy/Default /run/aura; printf legacy-login > /workspace/.agent-browser-home/profiles/legacy/Default/Cookies; printf ordinary-work > /workspace/work.txt; printf old-key > /run/aura/agent-browser.key")
-			if scenario.containerRemoved {
-				if _, err := cli.ContainerRemove(ctx, legacy.ContainerID, client.ContainerRemoveOptions{Force: true}); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if scenario.browserFirst {
-				if _, err := router.RouteBrowser(ctx); err != nil {
-					t.Fatal(err)
-				}
-			}
-			shell, err := router.Route(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
-			requireSidecarCommand(t, cli, shell, "test ! -e /workspace/.agent-browser-home; test ! -e /run/aura/agent-browser.key; test \"$(cat /workspace/work.txt)\" = ordinary-work")
-			browser, err := router.RouteBrowser(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if body := requireSidecarCommand(t, cli, browser, "cat /workspace/.agent-browser-home/profiles/legacy/Default/Cookies"); body != "legacy-login" {
-				t.Fatal("migration lost synthetic login")
-			}
-		})
-	}
-}
-
-func TestBrowserSidecarColdPurgeRemovesCrashedMigrationHelper(t *testing.T) {
-	for _, running := range []bool{false, true} {
-		t.Run(fmt.Sprintf("helper-running=%t", running), func(t *testing.T) {
-			cli, backend, router, ctx, id := browserSidecarFixture(t, 32)
-			if _, err := router.Route(ctx); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := router.RouteBrowser(ctx); err != nil {
-				t.Fatal(err)
-			}
-			helperID, err := backend.createBox(ctx, migrationHelperName(id), SandboxSpec{IdentityID: id, Image: testBoxImage(), Limits: testLimits()})
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() {
-				_, _ = cli.ContainerRemove(context.Background(), helperID, client.ContainerRemoveOptions{Force: true})
-			})
-			if !running {
-				if _, err := cli.ContainerStop(ctx, helperID, stopOptions()); err != nil {
-					t.Fatal(err)
-				}
-			}
-			boxes, err := backend.RunningBrowserBoxes(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, box := range boxes {
-				if box.ContainerID == helperID {
-					t.Fatal("migration helper consumed a browser admission slot")
-				}
-			}
-			cold := NewSandboxRouter(NewDockerBackend(cli, testBoxImage(), testLimits()), router.cfg)
-			if err := cold.Destroy(ctx, id); err != nil {
-				t.Fatalf("cold purge cannot recover crashed migration helper: %v", err)
-			}
-			requireSidecarAbsent(t, cli, migrationHelperName(id))
-			for _, name := range []string{"aura-box-" + id, "aura-browser-" + id} {
-				requireSidecarAbsent(t, cli, name)
-				if _, err := cli.VolumeInspect(ctx, name, client.VolumeInspectOptions{}); !cerrdefs.IsNotFound(err) {
-					t.Fatalf("cold purge retained volume %s: %v", name, err)
-				}
-			}
-		})
-	}
-}
-
 func TestBrowserSidecarEgressFailureLeavesBoxStopped(t *testing.T) {
 	cli, _, router, ctx, id := browserSidecarFixture(t, 32)
 	backend := NewDockerBackend(cli, testBoxImage(), testLimits(), WithBrowserLimits(testLimits(), 32), WithEgress(testBoxImage()))
@@ -336,53 +254,32 @@ func TestBrowserSidecarResumeRefusesMissingEgress(t *testing.T) {
 }
 
 func TestBrowserSidecarRetirementPurgesCredentialsNotWork(t *testing.T) {
-	for _, legacy := range []bool{false, true} {
-		t.Run(fmt.Sprintf("legacy=%t", legacy), func(t *testing.T) {
-			cli, backend, router, ctx, id := browserSidecarFixture(t, 32)
-			shellID, err := backend.createBox(ctx, boxName(id), router.specFor(id))
-			if err != nil {
-				t.Fatal(err)
-			}
-			shell := BoxHandle{ContainerID: shellID, IdentityID: id}
-			requireSidecarCommand(t, cli, shell, "printf ordinary-work > /workspace/work.txt")
-			if legacy {
-				requireSidecarCommand(t, cli, shell, "mkdir -p /workspace/.agent-browser-home/profiles/old/Default; printf synthetic-login > /workspace/.agent-browser-home/profiles/old/Default/Cookies")
-			} else {
-				browser, err := router.RouteBrowser(ctx)
-				if err != nil {
-					t.Fatal(err)
-				}
-				requireSidecarCommand(t, cli, browser, "mkdir -p /workspace/.agent-browser-home; printf synthetic-login > /workspace/.agent-browser-home/Cookies")
-			}
-			if err := router.PurgeBrowserCredentials(ctx, id); err != nil {
-				t.Fatal(err)
-			}
-			requireSidecarAbsent(t, cli, "aura-browser-"+id)
-			if _, err := cli.VolumeInspect(ctx, "aura-browser-"+id, client.VolumeInspectOptions{}); !cerrdefs.IsNotFound(err) {
-				t.Fatalf("retired browser volume remains: %v", err)
-			}
-			shell, err = router.Route(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
-			requireSidecarCommand(t, cli, shell, "test ! -e /workspace/.agent-browser-home; test \"$(cat /workspace/work.txt)\" = ordinary-work")
-			requireSidecarAbsent(t, cli, "aura-browser-"+id)
-		})
-	}
-}
-
-func TestBrowserSidecarMigrationOmitsStaleUnixSocket(t *testing.T) {
-	t.Setenv("AURA_SANDBOX_TEST_IMAGE", "python:3.13-alpine")
 	cli, backend, router, ctx, id := browserSidecarFixture(t, 32)
 	shellID, err := backend.createBox(ctx, boxName(id), router.specFor(id))
 	if err != nil {
 		t.Fatal(err)
 	}
 	shell := BoxHandle{ContainerID: shellID, IdentityID: id}
-	requireSidecarCommand(t, cli, shell, `mkdir -p /workspace/.agent-browser-home/Default; printf synthetic-login > /workspace/.agent-browser-home/Default/Cookies; python3 -c 'import socket; s=socket.socket(socket.AF_UNIX); s.bind("/workspace/.agent-browser-home/SingletonSocket")'`)
+	requireSidecarCommand(t, cli, shell, "printf ordinary-work > /workspace/work.txt")
 	browser, err := router.RouteBrowser(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	requireSidecarCommand(t, cli, browser, `test ! -e /workspace/.agent-browser-home/SingletonSocket; test "$(cat /workspace/.agent-browser-home/Default/Cookies)" = synthetic-login`)
+	if !containerRunning(t, cli, shell.ContainerID) {
+		t.Fatal("starting the browser box stopped the shell box")
+	}
+	requireSidecarCommand(t, cli, browser, "mkdir -p /workspace/.agent-browser-home; printf synthetic-login > /workspace/.agent-browser-home/Cookies")
+	if err := router.PurgeBrowserCredentials(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	requireSidecarAbsent(t, cli, "aura-browser-"+id)
+	if _, err := cli.VolumeInspect(ctx, "aura-browser-"+id, client.VolumeInspectOptions{}); !cerrdefs.IsNotFound(err) {
+		t.Fatalf("retired browser volume remains: %v", err)
+	}
+	shell, err = router.Route(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireSidecarCommand(t, cli, shell, "test ! -e /workspace/.agent-browser-home; test \"$(cat /workspace/work.txt)\" = ordinary-work")
+	requireSidecarAbsent(t, cli, "aura-browser-"+id)
 }

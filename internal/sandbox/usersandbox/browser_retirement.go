@@ -33,12 +33,9 @@ func (r *SandboxRouter) PurgeBrowserCredentials(ctx context.Context, id string) 
 	return nil
 }
 
-// PurgeBrowserCredentials removes legacy copies before destroying the browser volume.
+// PurgeBrowserCredentials destroys the browser box and the volume that holds its logins.
 func (b *DockerBackend) PurgeBrowserCredentials(ctx context.Context, id string) error {
 	b.lifecycle.Lock()
 	defer b.lifecycle.Unlock()
-	if err := b.prepareBrowserIsolation(ctx, id); err != nil {
-		return err
-	}
 	return b.stop(ctx, BoxHandle{ContainerID: workspaceName(id, Browser), IdentityID: id, Kind: Browser})
 }
