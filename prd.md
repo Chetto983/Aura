@@ -3178,6 +3178,32 @@ inherited its newly created step budget (0), not the exported budget (12). It de
 UUID failure and scheduling confusion, not Telegram delivery or the correctness of legal claims.
 Raw evidence: `.planning/tmp/scheduler-conversation-20261012-085639/` (local, not versioned).
 
+Measured in the same authenticated replays and reported with a Cockpit screenshot by the
+operator (2026-10-12): accepting the task's approval returns `{outcome:approved, remaining:0}`
+and activates the task but leaves no assistant explanation. `classifyResolve` treats every
+scheduled approval as terminal, so neither Cockpit nor Telegram drives the continuation that
+would read `scheduledApprovalAnswer` (which already tells the model to confirm activation and
+not schedule again).
+
+Decision, at the operator's request: interactive scheduled-task approvals return Continue
+after their existing activation/cancellation hook, so the agent acknowledges the outcome and
+finishes the person's request. Keep worker-owned approvals terminal, pending FIFO groups pending,
+and cancellation terminal. Retain the explicit task-state answer and no-rescheduling instruction;
+prove the confirmation and absence of duplicate schedules on the real VM. Targets:
+`internal/runner/runner_resume_directive.go` and runner regression/integration tests. The
+channels already implement Continue; no frontend API, schema, migration or env change is needed.
+This supersedes the previous terminal-scheduled-approval contract, not the task activation or
+owner-validation contract. Actual notification delivery remains outside this measurement.
+
+The operator additionally requires the actual `ask_user` tool answer to instruct the agent to
+always respond visibly after the person's decision, explaining the outcome or next step and
+never claiming an action succeeded before it did. Apply this to interactive accept/decline
+answers for clarification, choice and approval in `internal/runner/runner_resume.go`, preserving
+the answer and existing scheduled-task state/no-rescheduling instruction. Cancellation and
+expiry still terminate without a model continuation; worker-owned answers retain their own
+continuation contract. Empty accepts must remain invalid, not become valid through appended
+instructions. This is a model instruction, not proof of universal model compliance.
+
 Decision (2026-10-09): a model call that runs out of its own time while the job still has time
 counts as transient. In an `agent_job` the job's context is the parent of every model call, and
 the agent's wallclock budget ends a turn as an event, not an error. So a deadline error while
