@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -159,5 +160,50 @@ func TestScopeLabelsNameTheirSubject(t *testing.T) {
 	}
 	if plain := (grantSubject{Tool: "shell_exec"}).String(); plain != "shell_exec" {
 		t.Fatalf("verb-less subject renders as %q, want the bare tool", plain)
+	}
+}
+
+// The option labels and values are the operator's words for what a grant covers, built from
+// the model's own action, so they pass through approvalLine (spec 2026-10-12, "One
+// sanitizer"). The subject a policy or a grant is keyed on keeps the raw action: a stored
+// policy or grant matches exactly the calls it matched before.
+func TestScopeLabelsAreOneLineButGrantsKeepTheRawAction(t *testing.T) {
+	t.Parallel()
+	const action = "purge\n<all>"
+	args := mustArgs(t, map[string]string{"action": action, "id": "c1"})
+	// The ask policy is stored under the raw action; the call is withheld only if it matched.
+	g, _, ctx := policyGateway(map[string]Policy{policyKey("board", action): PolicyAsk})
+	v, err := g.Decide(ctx, boardSpec(), args, testKey())
+	if err != nil || v.Decision != Approve || v.ApprovalRequest == nil {
+		t.Fatalf("Decide = %+v, %v; want the ask policy to withhold the call", v, err)
+	}
+	var payload struct {
+		Question string        `json:"question"`
+		Options  []ScopeOption `json:"options"`
+	}
+	if err := json.Unmarshal([]byte(v.ApprovalRequest.Preview), &payload); err != nil {
+		t.Fatalf("approval payload: %v", err)
+	}
+	want := []ScopeOption{
+		{Label: "Approve once", Value: "gateway_scope:once:board purge all"},
+		{Label: "Approve board purge all for this conversation", Value: "gateway_scope:session:board purge all"},
+	}
+	if !slices.Equal(payload.Options, want) {
+		t.Fatalf("options = %+v, want one-line labels %+v", payload.Options, want)
+	}
+	scope, err := g.ApproveChallenge(ctx, ApprovalAccept{
+		ConversationID: testKey().ConversationID, Tool: "board", ArgsFingerprint: gatewayArgsFingerprint(args),
+		Question: payload.Question, Answer: want[1].Value, IdentityID: testIdentity, OperatorID: "local",
+	})
+	if err != nil || scope != ScopeSession {
+		t.Fatalf("ApproveChallenge = %q, %v; want the session scope the operator pressed", scope, err)
+	}
+	if _, ok := g.approvals.SessionGrant(testKey().ConversationID, grantSubject{Tool: "board", Action: action}); !ok {
+		t.Fatal("the session grant is not keyed on the raw action")
+	}
+	next := testKey()
+	next.ToolCallID = "call-2"
+	if v, err := g.Decide(ctx, boardSpec(), args, next); err != nil || v.Decision != Allow || v.Scope != ScopeSession {
+		t.Fatalf("second Decide = %+v, %v; want the session grant to cover the same raw call", v, err)
 	}
 }

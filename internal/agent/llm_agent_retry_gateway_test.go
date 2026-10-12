@@ -112,6 +112,22 @@ func TestExecToolGatewayApprovalWithheldThenReEnters(t *testing.T) {
 	}
 }
 
+// The model copies question, options and resume_context verbatim, so a withheld call's
+// approval request reaches it as Aura's own text: no untrusted envelope, no &#34; to read
+// through (spec 2026-10-12, finding 5).
+func TestWithheldCallReachesTheModelUnescaped(t *testing.T) {
+	a := &LlmAgent{gateway: gateway.New(config.ProfileSingleUserHardened, &fakeReserveStore{}), ledgerConvID: "conv-gw-plain"}
+	spy := &spyMutatingTool{name: "skill_manage"}
+	res, err := a.execTool(gateway.WithResponder(context.Background()), spy, true, json.RawMessage(`{"action":"delete","name":"obsolete-skill"}`))
+	if err != nil || !containsGatewayApproval(res.Preview) {
+		t.Fatalf("withheld call = %q, %v; want an approval request", res.Preview, err)
+	}
+	text := renderToolResultForPrompt(spy.name, res)
+	if !strings.Contains(text, `"question"`) || strings.Contains(text, "&#34;") || strings.Contains(text, "<tool_output") {
+		t.Fatalf("model-facing approval request is wrapped or escaped: %q", text)
+	}
+}
+
 // TestExecToolGatewayNoApprovalRequiredPaths proves the non-approval arms are unchanged:
 // a dev-profile gateway and a read-only tool both dispatch normally (Execute runs, no
 // approval-required preview); a hardened+mutating call with NO responder DENIES

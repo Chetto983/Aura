@@ -44,6 +44,13 @@ type grantSubject struct {
 // an operator approved and the label they later revoke cannot drift apart.
 func (s grantSubject) String() string { return approvalgrants.Subject(s.Tool, s.Action) }
 
+// label is the subject as an option shows it to the operator. The action is the model's own
+// text, so it goes through approvalLine (spec 2026-10-12); the subject a grant or a policy is
+// keyed on keeps the raw action, so stored grants and policies match exactly what they did.
+// Every action a tool declares is an identifier, which approvalLine leaves as it is, so for
+// those the label and the revoke list's String read the same.
+func (s grantSubject) label() string { return approvalLine(s.String()) }
+
 // subjectFor derives the grant subject from the spec and the model's own arguments. The
 // action is read ONLY for a tool registered in multiplexedClassifiers — the same map
 // classify dispatches through, so the set of tools whose verb matters cannot drift between
@@ -79,12 +86,12 @@ type scopeLabel struct {
 func scopeLabels(s grantSubject, policy Policy) []scopeLabel {
 	labels := []scopeLabel{
 		{Label: "Approve once", Scope: ScopeOnce},
-		{Label: fmt.Sprintf("Approve %s for this conversation", s), Scope: ScopeSession},
+		{Label: fmt.Sprintf("Approve %s for this conversation", s.label()), Scope: ScopeSession},
 	}
 	if policy == PolicyAsk {
 		return labels
 	}
-	return append(labels, scopeLabel{Label: fmt.Sprintf("Always approve %s", s), Scope: ScopeAlways})
+	return append(labels, scopeLabel{Label: fmt.Sprintf("Always approve %s", s.label()), Scope: ScopeAlways})
 }
 
 // scopeOptionPrefix marks an option VALUE as a gateway scope choice. The value is a
@@ -104,10 +111,10 @@ type ScopeOption struct {
 
 // scopeOptionValue encodes a scope and its subject into the wire value.
 // "gateway_scope:<scope>:<subject>" — a surface splits on the first two colons and
-// localizes the rest. Neither a tool name nor a multiplexed action contains a colon, so the
-// subject is the whole remainder and needs no escaping.
+// localizes the rest. The subject is the whole remainder, so it needs no escaping. It is the
+// subject's label: both surfaces show it on the button.
 func scopeOptionValue(scope ApprovalScope, s grantSubject) string {
-	return scopeOptionPrefix + string(scope) + ":" + s.String()
+	return scopeOptionPrefix + string(scope) + ":" + s.label()
 }
 
 // scopeOptions is the option list routeApprove hands the model to relay verbatim into

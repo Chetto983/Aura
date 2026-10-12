@@ -177,6 +177,10 @@ func (s *ShellExec) requireShellApproval(ctx context.Context, command, cwd strin
 	return &res, nil
 }
 
+// shellApprovalRequiredResult is Aura's own text, marked trusted so the model copies the
+// question and resume_context without reading through an HTML-escaped envelope (spec
+// 2026-10-12). The command and cwd are the model's own arguments, and json.Marshal's
+// HTML-safe encoding keeps every <, > and & of them out of the payload.
 func shellApprovalRequiredResult(challenge ShellApprovalChallenge) ToolResult {
 	payload := map[string]string{
 		"error":          "shell_approval_required",
@@ -193,7 +197,10 @@ func shellApprovalRequiredResult(challenge ShellApprovalChallenge) ToolResult {
 	if err != nil {
 		raw = []byte(`{"error":"shell_approval_required"}`)
 	}
-	return ToolResult{Preview: string(raw), Bytes: len(raw)}
+	return ToolResult{
+		Preview: string(raw), Bytes: len(raw),
+		Provenance: &ToolResultProvenance{Source: "aura:shell_approval", Trust: TrustTrusted},
+	}
 }
 
 func shellApprovalQuestion(command, cwd, digest string) string {

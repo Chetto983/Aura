@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html"
 	"iter"
 	"maps"
 	"slices"
@@ -72,6 +71,11 @@ func TestGatewayApprovalRoundTrip(t *testing.T) {
 	paused, err := drainForPause(run.Turn(ctx, convID, new("launch a swarm to build the thing")))
 	if err != nil {
 		t.Fatalf("round 1 turn: %v", err)
+	}
+	// The approval request is Aura's own text (spec 2026-10-12): the model reads it in the live
+	// turn as plain JSON, not HTML-escaped inside an untrusted <tool_output> envelope.
+	if seen := client.approvalRequest(); !strings.Contains(seen, `"question"`) || strings.Contains(seen, "&#34;") || strings.Contains(seen, "<tool_output") {
+		t.Fatalf("the model read the approval request as %q, want plain JSON carrying \"question\"", seen)
 	}
 	if !paused {
 		t.Fatal("round 1 must PAUSE on the relayed gateway_approval ask_user")
@@ -141,12 +145,17 @@ func drainForPause(seq iter.Seq2[*agent.Event, error]) (bool, error) {
 type roundTripClient struct {
 	mu    sync.Mutex
 	calls int
+	// seenApproval is the last approval request the model was shown, exactly as it read it.
+	seenApproval string
 }
 
 func (c *roundTripClient) Stream(_ context.Context, req llm.Request) (<-chan llm.Chunk, error) {
 	c.mu.Lock()
 	c.calls++
 	n := c.calls
+	if last, ok := lastToolResult(req.Messages); ok && strings.Contains(last, "gateway_approval_required") {
+		c.seenApproval = last
+	}
 	c.mu.Unlock()
 
 	turn := scriptRoundTripTurn(req.Messages, n)
@@ -156,6 +165,12 @@ func (c *roundTripClient) Stream(_ context.Context, req llm.Request) (<-chan llm
 	}
 	close(ch)
 	return ch, nil
+}
+
+func (c *roundTripClient) approvalRequest() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.seenApproval
 }
 
 func scriptRoundTripTurn(msgs []llm.Message, n int) agenttest.FakeTurn {
@@ -177,63 +192,19 @@ func scriptRoundTripTurn(msgs []llm.Message, n int) agenttest.FakeTurn {
 		fmt.Sprintf("call-skill-%d", n), "skill_manage", `{"action":"delete","name":"obsolete-skill"}`))
 }
 
-// extractApprovalRelay pulls the gateway approval-required JSON out of the (untrusted
-// <tool_output> envelope-wrapped) RoleTool content and returns the question +
-// resume_context the model relays via ask_user. It locates the balanced JSON object
-// inside the envelope, so it is robust to the trust-wrapper the agent adds around tool
-// output.
+// extractApprovalRelay reads the gateway approval-required JSON a RoleTool message carries and
+// returns the question + resume_context the model relays via ask_user. The request is Aura's
+// own text and reaches the model unwrapped and unescaped, so it parses exactly as stored.
 func extractApprovalRelay(content string) (question string, resumeContext json.RawMessage, ok bool) {
-	// The untrusted <tool_output> envelope HTML-escapes the body (" → &#34;); unescape it
-	// the way a real model reads through the entities before parsing the JSON.
-	obj, found := firstJSONObject(html.UnescapeString(content))
-	if !found {
-		return "", nil, false
-	}
 	var p struct {
 		Error         string          `json:"error"`
 		Question      string          `json:"question"`
 		ResumeContext json.RawMessage `json:"resume_context"`
 	}
-	if err := json.Unmarshal([]byte(obj), &p); err != nil || p.Error != "gateway_approval_required" {
+	if err := json.Unmarshal([]byte(content), &p); err != nil || p.Error != "gateway_approval_required" {
 		return "", nil, false
 	}
 	return p.Question, p.ResumeContext, true
-}
-
-// firstJSONObject returns the first balanced {...} JSON object substring, honoring string
-// literals + escapes so nested braces (the resume_context object) do not confuse it.
-func firstJSONObject(s string) (string, bool) {
-	start := strings.IndexByte(s, '{')
-	if start < 0 {
-		return "", false
-	}
-	depth, inStr, esc := 0, false, false
-	for i := start; i < len(s); i++ {
-		ch := s[i]
-		if inStr {
-			switch {
-			case esc:
-				esc = false
-			case ch == '\\':
-				esc = true
-			case ch == '"':
-				inStr = false
-			}
-			continue
-		}
-		switch ch {
-		case '"':
-			inStr = true
-		case '{':
-			depth++
-		case '}':
-			depth--
-			if depth == 0 {
-				return s[start : i+1], true
-			}
-		}
-	}
-	return "", false
 }
 
 func lastToolResult(msgs []llm.Message) (string, bool) {

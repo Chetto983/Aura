@@ -161,6 +161,12 @@ func (g *Gateway) routeApprove(ctx context.Context, spec tools.Spec, tier scorin
 // the same resume_context, then "retry the exact call only after the user accepts." The fp
 // and question are computed ONCE by routeApprove and threaded in (IN-02: a single
 // gatewayArgsFingerprint call site, and the SAME question recorded as the challenge).
+//
+// It is Aura's own text, marked trusted so the model copies it without reading through an
+// HTML-escaped envelope (spec 2026-10-12): the registry's tool name, the tier, the
+// fingerprint, server-generated options and a question that carries no third-party text. The
+// model-chosen parts (argument keys, the action in the option labels) went through
+// approvalLine, and json.Marshal's HTML-safe encoding keeps every <, > and & out of the bytes.
 func gatewayApprovalRequiredResult(
 	spec tools.Spec, tier scoring.RiskTier, key ReservationKey, fp, question string, subject grantSubject, policy Policy,
 ) tools.ToolResult {
@@ -184,7 +190,10 @@ func gatewayApprovalRequiredResult(
 	if err != nil {
 		raw = []byte(`{"error":"gateway_approval_required"}`)
 	}
-	return tools.ToolResult{Preview: string(raw), Bytes: len(raw)}
+	return tools.ToolResult{
+		Preview: string(raw), Bytes: len(raw),
+		Provenance: &tools.ToolResultProvenance{Source: "aura:gateway_approval", Trust: tools.TrustTrusted},
+	}
 }
 
 // gatewayApprovalQuestion renders a descriptive, secret-safe approval prompt (mirroring
@@ -200,6 +209,7 @@ func gatewayApprovalQuestion(spec tools.Spec, tier scoring.RiskTier, rawArgs jso
 
 // argKeySummary renders the sorted top-level argument keys (NOT values — secret-safe) so
 // the operator sees the shape of the withheld action without any secret value surfacing.
+// A key is the model's own text, so each one is cut to one line by approvalLine.
 func argKeySummary(rawArgs json.RawMessage) string {
 	var obj map[string]json.RawMessage
 	if err := json.Unmarshal(rawArgs, &obj); err != nil || len(obj) == 0 {
@@ -207,7 +217,7 @@ func argKeySummary(rawArgs json.RawMessage) string {
 	}
 	keys := make([]string, 0, len(obj))
 	for k := range obj {
-		keys = append(keys, k)
+		keys = append(keys, approvalLine(k))
 	}
 	sort.Strings(keys)
 	return strings.Join(keys, ", ")
