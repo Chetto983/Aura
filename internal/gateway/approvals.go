@@ -61,6 +61,11 @@ type gatewayChallenge struct {
 	// policy is the subject's policy when the challenge was issued. Under PolicyAsk the
 	// options carried no "always", so the answer must be resolved against that same table.
 	policy Policy
+	// target is what the tool said the call acts on, through approvalLine, or "". It reaches
+	// the operator through the runner's stamp on the pause, never through the model.
+	target string
+	// toolCallID is the withheld call's id, so a declined pause can name the call it refused.
+	toolCallID string
 }
 
 // NewGatewayApprovals builds an empty ledger with both maps initialized.
@@ -126,7 +131,7 @@ func (a *GatewayApprovals) Consume(convID, toolName, argsFingerprint string) (Re
 // resume hook later calls ApproveChallenge, which records the operator's approval ONLY IF
 // this challenge exists AND the operator-visible question matches it. An empty coordinate
 // is a no-op (guard parity with Approve); nil-receiver-safe; guarded by a.mu.
-func (a *GatewayApprovals) Challenge(convID, toolName, argsFingerprint, question string, subject grantSubject, policy Policy) {
+func (a *GatewayApprovals) Challenge(convID, toolName, argsFingerprint string, ch gatewayChallenge) {
 	if a == nil || convID == "" || toolName == "" || argsFingerprint == "" {
 		return
 	}
@@ -135,11 +140,18 @@ func (a *GatewayApprovals) Challenge(convID, toolName, argsFingerprint, question
 	if a.pending == nil {
 		a.pending = map[string]gatewayChallenge{}
 	}
-	a.pending[gatewayApprovalKey(convID, toolName, argsFingerprint)] = gatewayChallenge{
-		question: question,
-		subject:  subject,
-		policy:   policy,
+	a.pending[gatewayApprovalKey(convID, toolName, argsFingerprint)] = ch
+}
+
+// pendingChallenge returns the unresolved challenge for one withheld call. Nil-receiver-safe.
+func (a *GatewayApprovals) pendingChallenge(convID, toolName, argsFingerprint string) (gatewayChallenge, bool) {
+	if a == nil {
+		return gatewayChallenge{}, false
 	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	ch, ok := a.pending[gatewayApprovalKey(convID, toolName, argsFingerprint)]
+	return ch, ok
 }
 
 // ApproveChallenge records the operator's ResolvedApproval for (convID, toolName,

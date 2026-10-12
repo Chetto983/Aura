@@ -99,7 +99,9 @@ func replayLayerAttributes(operationDecision idempotency.Decision, replay bool) 
 // (dev-parity). ask_user is EXEMPT: it is the approval primitive, so gating it risks
 // approve→ask_user→Decide→approve recursion — it structurally never reaches execTool
 // (llm_agent_pause.go pre-executes ask_user), and this defensive short-circuit keeps it
-// that way even if the dispatch path changes (D-03/CV-1).
+// that way even if the dispatch path changes (D-03/CV-1). The tool's own
+// tools.ApprovalDescriber, or nil, rides the context to the gateway, which asks it only
+// right before a prompt.
 func (a *LlmAgent) execTool(ctx context.Context, tool tools.Tool, mutating bool, args json.RawMessage) (tools.ToolResult, error) {
 	spec := tool.Spec()
 	if mutating {
@@ -122,6 +124,8 @@ func (a *LlmAgent) execTool(ctx context.Context, tool tools.Tool, mutating bool,
 		// marked delegated (a swarm worker): a Runner-observed call keeps the Runner's
 		// richer end.
 		ctx = gateway.WithReservationKey(ctx, key, spec.Name)
+		describer, _ := tool.(tools.ApprovalDescriber)
+		ctx = gateway.WithApprovalDescriber(ctx, describer)
 		verdict, derr := a.gateway.Decide(ctx, spec, args, key)
 		// Read the claim BEFORE the error check: Decide can acquire the operation and then
 		// fail on the policy reservation that follows it, and returning early here left that

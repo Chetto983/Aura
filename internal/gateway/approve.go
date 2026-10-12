@@ -51,6 +51,30 @@ func responderPresent(ctx context.Context) bool {
 // Headless agent roots must fail closed instead of creating an unanswerable draft.
 func HasResponder(ctx context.Context) bool { return responderPresent(ctx) }
 
+type approvalDescriberCtxKey struct{}
+
+// WithApprovalDescriber carries the dispatched tool's describer to routeApprove, which asks
+// it only right before a prompt. The agent's dispatch sets it on every call, nil for a tool
+// that describes nothing, so a call dispatched inside another tool's call never borrows the
+// outer tool's describer.
+func WithApprovalDescriber(ctx context.Context, d tools.ApprovalDescriber) context.Context {
+	return context.WithValue(ctx, approvalDescriberCtxKey{}, d)
+}
+
+// describeTarget asks the dispatched tool what the withheld call acts on and returns the
+// answer through approvalLine, ready to keep on the challenge.
+func describeTarget(ctx context.Context, rawArgs json.RawMessage) (string, error) {
+	d, _ := ctx.Value(approvalDescriberCtxKey{}).(tools.ApprovalDescriber)
+	if d == nil {
+		return "", nil
+	}
+	target, err := d.DescribeForApproval(ctx, rawArgs)
+	if err != nil {
+		return "", err
+	}
+	return approvalLine(target), nil
+}
+
 // ResolvedApproval is an operator's answer to a gateway_approval pause. The resume hook
 // records it in the one-shot cross-turn ledger consumed by the next Decide.
 type ResolvedApproval struct {
@@ -70,9 +94,10 @@ type ResolvedApproval struct {
 //     operator's accept on a prior Turn) → Verdict{Allow, OperatorID} via a one-shot
 //     Consume keyed on the re-computed args fingerprint. Reachable only under hardened +
 //     a live responder now. NO Insert here (D-03 point 2).
-//   - single_user_hardened + a live responder + no ledger hit → record a server-side
-//     Challenge (the gateway-generated question, keyed on the AUTHENTICATED triple) and
-//     return Verdict{Approve, ApprovalRequest} — the shell_exec-style approval-required
+//   - single_user_hardened + a live responder + no ledger hit → ask the tool's describer, if
+//     any, then record a server-side Challenge (the gateway-generated question and the
+//     described target, keyed on the AUTHENTICATED triple) and return
+//     Verdict{Approve, ApprovalRequest} — the shell_exec-style approval-required
 //     tool RESULT (no pause sentinel). The resume hook records the operator's accept ONLY
 //     IF this challenge exists AND the operator-visible question matches it (CR-01).
 func (g *Gateway) routeApprove(ctx context.Context, spec tools.Spec, tier scoring.RiskTier, rawArgs json.RawMessage, key ReservationKey, policy Policy) (Verdict, error) {
@@ -143,8 +168,20 @@ func (g *Gateway) routeApprove(ctx context.Context, spec tools.Spec, tier scorin
 	// computed ONCE here and threaded into Challenge + the result (IN-02). The resume hook's
 	// ApproveChallenge requires this challenge AND a matching operator-visible question before
 	// recording — the informed-consent binding a benign relayed question cannot satisfy (CR-01).
+	//
+	// Only now is the tool asked what the call acts on (spec 2026-10-12): everything above has
+	// decided, so a call that never reaches a prompt is never described. A describer's error
+	// refuses the call as a failure, not as the gateway's refusal: no deny fact, nothing
+	// reserved yet, and execTool reports it as not executed. The target stays on the challenge
+	// with the withheld call's id; the question the model relays does not change.
+	target, err := describeTarget(ctx, rawArgs)
+	if err != nil {
+		return Verdict{Tier: tier}, err
+	}
 	question := gatewayApprovalQuestion(spec, tier, rawArgs)
-	g.approvals.Challenge(key.ConversationID, spec.Name, fp, question, subject, policy)
+	g.approvals.Challenge(key.ConversationID, spec.Name, fp, gatewayChallenge{
+		question: question, subject: subject, policy: policy, target: target, toolCallID: key.ToolCallID,
+	})
 	result := gatewayApprovalRequiredResult(spec, tier, key, fp, question, subject, policy)
 	return Verdict{Decision: Approve, Tier: tier, ApprovalRequest: &result}, nil
 }

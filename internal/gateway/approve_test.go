@@ -230,7 +230,7 @@ func TestRouteApproveProductionDeniesEvenWithLedgerApproval(t *testing.T) {
 func TestGatewayApproveChallengeRefusedUnderProduction(t *testing.T) {
 	g := New(config.ProfileServerProduction, &fakeStore{})
 	conv, tool, fp := testKey().ConversationID, gatedSpec().Name, "fp-prod"
-	g.approvals.Challenge(conv, tool, fp, "q", grantSubject{Tool: tool}, "")
+	g.approvals.Challenge(conv, tool, fp, gatewayChallenge{question: "q", subject: grantSubject{Tool: tool}})
 
 	accept := ApprovalAccept{
 		ConversationID: conv, Tool: tool, ArgsFingerprint: fp, Question: "q", OperatorID: "local",
@@ -363,12 +363,9 @@ func TestGatewayApprovalLedgerMissNeverLogsRawArgs(t *testing.T) {
 	}
 }
 
-// pendingQuestion reads the recorded challenge question for the key (in-package test
-// accessor to the unexported pending map, under the ledger mutex for -race safety).
+// pendingQuestion reads the recorded challenge question for the key.
 func pendingQuestion(a *GatewayApprovals, convID, tool, fp string) (string, bool) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	ch, ok := a.pending[gatewayApprovalKey(convID, tool, fp)]
+	ch, ok := a.pendingChallenge(convID, tool, fp)
 	return ch.question, ok
 }
 

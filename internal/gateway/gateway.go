@@ -243,6 +243,19 @@ func (g *Gateway) DiscardApprovalChallenge(convID, toolName, argsFingerprint str
 	g.approvals.DiscardChallenge(convID, toolName, argsFingerprint)
 }
 
+// ApprovalChallengeDetails returns what the pending challenge for one withheld call knows and
+// the request the model relays must not supply: the target its tool described, through
+// approvalLine, and the withheld call's tool_call_id. The runner stamps both on the pause it
+// saves (spec 2026-10-12). ok is false unless a challenge is pending under exactly this
+// conversation, tool and fingerprint. A nil Gateway has none.
+func (g *Gateway) ApprovalChallengeDetails(convID, toolName, argsFingerprint string) (target, toolCallID string, ok bool) {
+	if g == nil {
+		return "", "", false
+	}
+	ch, ok := g.approvals.pendingChallenge(convID, toolName, argsFingerprint)
+	return ch.target, ch.toolCallID, ok
+}
+
 // EvictSession drops a conversation's resolved-but-unconsumed approvals (R-41 parity
 // with ShellApprovals.Evict) so a long-running serve daemon does not retain them across
 // conversations. The gateway ledger lives OUTSIDE the tool registry, so the runner's

@@ -1,5 +1,10 @@
 package tools
 
+import (
+	"context"
+	"encoding/json"
+)
+
 // SessionEvictor is implemented by tools that hold per-session (per-conversation)
 // state keyed by the WithToolCallContext session id. In a long-running `serve`
 // daemon a finished conversation's tool state would otherwise accumulate forever
@@ -21,4 +26,18 @@ type SessionEvictor interface {
 // concurrency-safe.
 type SessionJobTerminator interface {
 	TerminateSession(ownerID, sessionID string)
+}
+
+// ApprovalDescriber is implemented by tools that can name what a withheld call acts on, for
+// the operator asked to approve it (spec 2026-10-12). The gateway asks it right before the
+// prompt, once the profile, the policies, the grants and the operator's accept have all
+// decided, so a call that never reaches a prompt is never described. The text is raw: the
+// gateway sanitizes it and shows it to the operator only, never to the model. A call the tool
+// has nothing to say about answers "" and nil.
+//
+// An error refuses the call as not executed, before the prompt and before anything is
+// reserved. Its text is control-plane text the model reads, so it must never quote
+// third-party content such as a card label.
+type ApprovalDescriber interface {
+	DescribeForApproval(ctx context.Context, args json.RawMessage) (string, error)
 }
