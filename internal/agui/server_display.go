@@ -11,6 +11,7 @@ import (
 	"github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/types"
 	"github.com/chetto1983/aura/internal/agent/display"
 	"github.com/chetto1983/aura/internal/conversations"
+	"github.com/chetto1983/aura/internal/gateway"
 	"github.com/chetto1983/aura/internal/llm"
 	"github.com/chetto1983/aura/internal/toolinvocations"
 )
@@ -39,6 +40,7 @@ type displaySnapshotMessage struct {
 	Content             string                    `json:"content,omitempty"`
 	ToolCallID          string                    `json:"toolCallId,omitempty"`
 	IsError             bool                      `json:"isError,omitempty"`
+	Refused             bool                      `json:"refused,omitempty"`
 	WorkerReport        bool                      `json:"workerReport,omitempty"`
 	ToolCalls           []displaySnapshotToolCall `json:"toolCalls,omitempty"`
 	Reasoning           string                    `json:"reasoning,omitempty"`
@@ -47,6 +49,9 @@ type displaySnapshotMessage struct {
 	// on every other role, and on user turns that predate the column — which is what
 	// lets the cockpit keep its old positional fold as the fallback for those alone.
 	AttachmentIDs []string `json:"attachmentIds,omitempty"`
+	// recoveryPlaceholder marks the result LoadHistory invented for a call with none
+	// (conversations.RecoveryToolResultContent). It never reaches the wire.
+	recoveryPlaceholder bool
 }
 
 // displaySnapshotToolCall mirrors types.ToolCall (id/type/function) plus the additive
@@ -75,6 +80,7 @@ func projectDisplaySnapshot(hist []llm.Message) displaySnapshotEvent {
 func projectDisplaySnapshotWithFacts(hist []llm.Message, conversationID string, facts []toolinvocations.Event) displaySnapshotEvent {
 	displays := rederiveDisplaysWithFacts(hist, conversationID, facts)
 	views := replayMCPViews(hist, conversationID, facts)
+	outcomes := callOutcomes(hist, conversationID, facts)
 	recoveryResults := make(map[string]string)
 	for _, m := range hist {
 		for _, call := range m.ToolCalls {
@@ -84,16 +90,57 @@ func projectDisplaySnapshotWithFacts(hist []llm.Message, conversationID string, 
 	msgs := make([]displaySnapshotMessage, 0, len(hist))
 	for i, m := range hist {
 		recovery, knownCall := recoveryResults[m.ToolCallID]
+		isTool := m.Role == llm.RoleTool
+		placeholder := isTool && knownCall && m.Content == recovery
+		outcome := outcomes[m.ToolCallID]
 		msgs = append(msgs, displaySnapshotMessage{
-			ID:         msgID(i),
-			Role:       types.Role(m.Role),
-			Content:    snapshotContent(m),
-			ToolCallID: m.ToolCallID,
-			IsError:    m.Role == llm.RoleTool && knownCall && m.Content == recovery,
-			ToolCalls:  projectDisplayToolCalls(m.ToolCalls, displays, views),
+			ID:                  msgID(i),
+			Role:                types.Role(m.Role),
+			Content:             snapshotContent(m),
+			ToolCallID:          m.ToolCallID,
+			IsError:             placeholder || isTool && outcome.failed,
+			Refused:             isTool && outcome.refused,
+			ToolCalls:           projectDisplayToolCalls(m.ToolCalls, displays, views),
+			recoveryPlaceholder: placeholder,
 		})
 	}
 	return displaySnapshotEvent{Type: events.EventTypeMessagesSnapshot, Messages: msgs}
+}
+
+// callOutcome is what a reload knows of a call that did not succeed: failed when its end
+// row says status 'error', refused when that row carries the gateway's deny verdict
+// (recordDenyFact's row, or the runner's own stamped one). A refused call is failed too,
+// as it is live.
+type callOutcome struct{ failed, refused bool }
+
+// callOutcomes reads each call's outcome from its end row (spec 2026-10-12, finding 4).
+// Like matchingEndFacts it decorates only an id it can pin to one call. An id carried by
+// two tool messages, or by two end rows (the ledger takes one per call and request),
+// repeats across turns, and gets nothing.
+func callOutcomes(hist []llm.Message, conversationID string, facts []toolinvocations.Event) map[string]callOutcome {
+	results := make(map[string]int)
+	for _, m := range hist {
+		if m.Role == llm.RoleTool {
+			results[m.ToolCallID]++
+		}
+	}
+	ends := make(map[string]int)
+	out := make(map[string]callOutcome)
+	for _, fact := range facts {
+		if fact.ConversationID != conversationID || fact.Event != toolinvocations.EventEnd {
+			continue
+		}
+		ends[fact.ToolCallID]++
+		if fact.Status == "error" {
+			out[fact.ToolCallID] = callOutcome{failed: true, refused: fact.Meta["gateway_verdict"] == string(gateway.Deny)}
+		}
+	}
+	for id := range out {
+		if results[id] > 1 || ends[id] > 1 {
+			delete(out, id)
+		}
+	}
+	return out
 }
 
 func snapshotContent(m llm.Message) string {
@@ -337,22 +384,19 @@ func attachTurnReasoning(snap *displaySnapshotEvent, rows []conversations.TurnRe
 	}
 }
 
-// projectDisplayToolCalls maps the persisted tool calls onto the display-aware shape,
-// attaching the re-derived display (when the matching result turn was recognized).
-// Returns nil for an empty input so the omitempty toolCalls key is absent on non-tool
-// turns.
 // markAwaitingInput shows a tool call whose turn is paused on the person's answer as still
 // waiting rather than failed. While the pause is pending the call has no result, so
 // LoadHistory pairs it with the crash-recovery placeholder and the projection flags that
 // as an error. For a pending call the placeholder is dropped and the call carries
-// AwaitingInput instead, which the cockpit renders as still running.
+// AwaitingInput instead, which the cockpit renders as still running. Only the placeholder
+// goes: a real result the ledger marks failed stays.
 func markAwaitingInput(snap *displaySnapshotEvent, pending map[string]struct{}) {
 	if len(pending) == 0 {
 		return
 	}
 	kept := snap.Messages[:0]
 	for _, m := range snap.Messages {
-		if _, ok := pending[m.ToolCallID]; ok && m.IsError {
+		if _, ok := pending[m.ToolCallID]; ok && m.recoveryPlaceholder {
 			continue
 		}
 		for i := range m.ToolCalls {
@@ -365,6 +409,10 @@ func markAwaitingInput(snap *displaySnapshotEvent, pending map[string]struct{}) 
 	snap.Messages = kept
 }
 
+// projectDisplayToolCalls maps the persisted tool calls onto the display-aware shape,
+// attaching the re-derived display (when the matching result turn was recognized).
+// Returns nil for an empty input so the omitempty toolCalls key is absent on non-tool
+// turns.
 func projectDisplayToolCalls(calls []llm.ToolCall, displays map[string]*display.Payload, views map[string]map[string]any) []displaySnapshotToolCall {
 	if len(calls) == 0 {
 		return nil

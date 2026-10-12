@@ -25,15 +25,18 @@ import (
 // MESSAGES_SNAPSHOT JSON body (one-shot read, NOT SSE — OQ2). Each persisted
 // llm.Message is projected to an events.Message.
 func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
 	ctx := r.Context()
 	// A malformed thread id (non-UUID) is definitionally not an existing thread —
 	// 404 before the store round-trip rather than a 500 from the id parse failure
 	// (T-12-11; the live smoke's `does-not-exist` chokepoint).
-	if _, err := uuid.Parse(id); err != nil {
+	parsed, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
 		http.Error(w, "thread not found", http.StatusNotFound)
 		return
 	}
+	// The canonical form: the ledger and pause rows carry it, and the snapshot compares
+	// their conversation id with this one as a string.
+	id := parsed.String()
 	// Owner-scoped thread resolution (MUSR-01 / D-06): a foreign/absent thread is 404 before
 	// the history read, so a MESSAGES_SNAPSHOT never leaks another identity's conversation.
 	if _, err := s.conv.GetForIdentity(ctx, id, scopedIdentityID(ctx)); err != nil {
