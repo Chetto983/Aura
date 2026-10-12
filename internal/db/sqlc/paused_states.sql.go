@@ -269,6 +269,47 @@ func (q *Queries) ListAllPendingPausedStatesForIdentity(ctx context.Context, arg
 	return items, nil
 }
 
+const listDeclinedGatewayToolCallIDsForIdentity = `-- name: ListDeclinedGatewayToolCallIDsForIdentity :many
+SELECT (resume_context->>'tool_call_id')::text AS tool_call_id
+FROM aura.paused_states
+WHERE conversation_id = $1
+  AND identity_id = $2
+  AND resumed_answer->>'action' = 'decline'
+  AND resume_context->>'type' = 'gateway_approval'
+  AND resume_context->>'tool_call_id' <> ''
+ORDER BY created_at ASC, token ASC
+`
+
+type ListDeclinedGatewayToolCallIDsForIdentityParams struct {
+	ConversationID pgtype.UUID `json:"conversation_id"`
+	IdentityID     pgtype.UUID `json:"identity_id"`
+}
+
+// The calls the operator refused in one conversation (spec 2026-10-12, "The operator's
+// rejection is a refusal too"): the root tool_call_id of each declined gateway_approval pause.
+// The decline lives only here. The withheld call's own end row is the approval request,
+// status 'ok', and the append-only ledger takes one end per call. Owner-scoped like
+// ListAllPendingPausedStatesForIdentity: identity_id predicate, run in db.WithIdentityTx.
+func (q *Queries) ListDeclinedGatewayToolCallIDsForIdentity(ctx context.Context, arg ListDeclinedGatewayToolCallIDsForIdentityParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listDeclinedGatewayToolCallIDsForIdentity, arg.ConversationID, arg.IdentityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var tool_call_id string
+		if err := rows.Scan(&tool_call_id); err != nil {
+			return nil, err
+		}
+		items = append(items, tool_call_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExpiredPendingApprovals = `-- name: ListExpiredPendingApprovals :many
 SELECT token, conversation_id, kind, question, options, priority,
        resume_context, tool_call_id, proxied_from_child_id, proxied_tool_call_id,

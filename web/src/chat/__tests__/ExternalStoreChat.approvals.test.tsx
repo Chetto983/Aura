@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactElement } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import i18n from '../../i18n/i18n';
 import type { Approval } from '../../approvals/useApprovals';
 import { ExternalStoreChat } from '../ExternalStoreChat';
@@ -47,8 +47,8 @@ function sseResponse(): Response {
   return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
 }
 
-function historyResponse(): Response {
-  return json({ type: 'MESSAGES_SNAPSHOT', messages: [] });
+function historyResponse(messages: readonly unknown[]): Response {
+  return json({ type: 'MESSAGES_SNAPSHOT', messages });
 }
 
 function conversationResponse(): Response {
@@ -71,6 +71,7 @@ function conversationResponse(): Response {
 function approvalsFetch(
   initial: readonly Approval[],
   runRequests: RequestInit[],
+  history: readonly unknown[] = [],
 ): ReturnType<typeof vi.fn> {
   let pending = [...initial];
   return vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -97,7 +98,7 @@ function approvalsFetch(
       runRequests.push(init ?? {});
       return Promise.resolve(sseResponse());
     }
-    if (url === '/threads/c-1/messages') return Promise.resolve(historyResponse());
+    if (url === '/threads/c-1/messages') return Promise.resolve(historyResponse(history));
     if (url.startsWith('/api/assets?')) return Promise.resolve(json([]));
     if (url === '/api/composer/skills') return Promise.resolve(json({ skills: [] }));
     if (url === '/api/composer/reasoning-capabilities') {
@@ -296,6 +297,52 @@ describe('ExternalStoreChat approval gate', () => {
           ?.closest('[data-approval-token]')
           ?.getAttribute('data-approval-token'),
       ).toBe(nextToken);
+    });
+  });
+
+  // The operator's rejection is a refusal too (spec 2026-10-12): a decline marks the call the
+  // gateway withheld Refused at once, before any reload. An accept leaves its call as it was.
+  it('a decline marks the withheld call Refused at once, and an accept does not', async () => {
+    const withheldCall = (id: string) => ({
+      id,
+      type: 'function',
+      function: { name: 'board', arguments: `{"action":"delete","id":"${id}"}` },
+    });
+    const withheldResult = (id: string) => ({
+      id: `msg-${id}`,
+      role: 'tool',
+      toolCallId: id,
+      content: '{"error":"gateway_approval_required"}',
+    });
+    const approval = (token: string, call: string): Approval => ({
+      ...row(token, `Approve board (risk=destructive)? ${call}`),
+      kind: 'approval',
+      withheld_tool_call_id: call,
+    });
+    const history = [
+      { id: 'msg-0', role: 'user', content: 'delete both cards' },
+      { id: 'msg-1', role: 'assistant', toolCalls: [withheldCall('a'), withheldCall('b')] },
+      withheldResult('a'),
+      withheldResult('b'),
+    ];
+    vi.stubGlobal(
+      'fetch',
+      approvalsFetch([approval('gate-a', 'a'), approval('gate-b', 'b')], [], history),
+    );
+    renderChat(<ExternalStoreChat threadId="c-1" />);
+
+    fireEvent.click(first(await screen.findAllByRole('option', { name: 'Yes' })));
+    fireEvent.click(first(screen.getAllByRole('button', { name: 'Answer' })));
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Decline' })).toHaveLength(1);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+
+    // Each row: how many times it says Refused (the visible word and the sr-only status).
+    await waitFor(() => {
+      expect(
+        screen.getAllByTestId('tool-row').map((r) => within(r).queryAllByText('Refused').length),
+      ).toEqual([0, 2]);
     });
   });
 });

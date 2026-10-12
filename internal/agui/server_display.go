@@ -74,13 +74,16 @@ type displaySnapshotToolCall struct {
 // + replay"). It builds ONE registry for the whole thread and feeds it in turn order,
 // mirroring the live per-run registry, so source RefIDs/Index match the live run.
 func projectDisplaySnapshot(hist []llm.Message) displaySnapshotEvent {
-	return projectDisplaySnapshotWithFacts(hist, "", nil)
+	return projectDisplaySnapshotWithFacts(hist, "", nil, nil)
 }
 
-func projectDisplaySnapshotWithFacts(hist []llm.Message, conversationID string, facts []toolinvocations.Event) displaySnapshotEvent {
+// projectDisplaySnapshotWithFacts is projectDisplaySnapshot plus what the thread's rows
+// add: the ledger's end rows (MCP displays and each call's outcome) and the calls the
+// operator refused by declining their gateway approval.
+func projectDisplaySnapshotWithFacts(hist []llm.Message, conversationID string, facts []toolinvocations.Event, declined []string) displaySnapshotEvent {
 	displays := rederiveDisplaysWithFacts(hist, conversationID, facts)
 	views := replayMCPViews(hist, conversationID, facts)
-	outcomes := callOutcomes(hist, conversationID, facts)
+	outcomes := callOutcomes(hist, conversationID, facts, declined)
 	recoveryResults := make(map[string]string)
 	for _, m := range hist {
 		for _, call := range m.ToolCalls {
@@ -109,15 +112,15 @@ func projectDisplaySnapshotWithFacts(hist []llm.Message, conversationID string, 
 
 // callOutcome is what a reload knows of a call that did not succeed: failed when its end
 // row says status 'error', refused when that row carries the gateway's deny verdict
-// (recordDenyFact's row, or the runner's own stamped one). A refused call is failed too,
-// as it is live.
+// (recordDenyFact's row, or the runner's own stamped one), or when the operator declined
+// the gateway approval that withheld it. A refused call is failed too, as it is live.
 type callOutcome struct{ failed, refused bool }
 
-// callOutcomes reads each call's outcome from its end row (spec 2026-10-12, finding 4).
-// Like matchingEndFacts it decorates only an id it can pin to one call. An id carried by
-// two tool messages, or by two end rows (the ledger takes one per call and request),
-// repeats across turns, and gets nothing.
-func callOutcomes(hist []llm.Message, conversationID string, facts []toolinvocations.Event) map[string]callOutcome {
+// callOutcomes reads each call's outcome from its end row and from the declined pauses
+// (spec 2026-10-12, finding 4). Like matchingEndFacts it decorates only an id it can pin to
+// one call. An id carried by two tool messages, or by two end rows (the ledger takes one per
+// call and request), repeats across turns, and gets nothing.
+func callOutcomes(hist []llm.Message, conversationID string, facts []toolinvocations.Event, declined []string) map[string]callOutcome {
 	results := make(map[string]int)
 	for _, m := range hist {
 		if m.Role == llm.RoleTool {
@@ -134,6 +137,9 @@ func callOutcomes(hist []llm.Message, conversationID string, facts []toolinvocat
 		if fact.Status == "error" {
 			out[fact.ToolCallID] = callOutcome{failed: true, refused: fact.Meta["gateway_verdict"] == string(gateway.Deny)}
 		}
+	}
+	for _, id := range declined {
+		out[id] = callOutcome{failed: true, refused: true}
 	}
 	for id := range out {
 		if results[id] > 1 || ends[id] > 1 {

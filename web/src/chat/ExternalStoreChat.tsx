@@ -43,6 +43,8 @@ import {
   attachAssetsToUserMessages,
   isAbortError,
   isAbortSignalAborted,
+  placeAssistant,
+  refuseDeclinedCall,
   userMessage,
 } from './ExternalStoreChat_folds';
 import { useAssetActions } from './ExternalStoreChat_assets';
@@ -208,16 +210,8 @@ export function ExternalStoreChat({
         }
         if (controller.signal.aborted) return;
         if (runThreadId.length === 0) {
-          setMessages((prev) => {
-            const next = prev.slice();
-            const assistant = assistantErrorMessage(t('chat.error.createConversation'));
-            if (assistantIndex >= 0 && assistantIndex < next.length) {
-              next[assistantIndex] = assistant;
-            } else {
-              next.push(assistant);
-            }
-            return next;
-          });
+          const failure = assistantErrorMessage(t('chat.error.createConversation'));
+          setMessages((prev) => placeAssistant(prev, assistantIndex, failure));
           return;
         }
         if (!(await prepareUsageBaseline(runThreadId, usageRunId, controller.signal))) return;
@@ -242,29 +236,13 @@ export function ExternalStoreChat({
           },
           onUpdate: (assistant, usage) => {
             usageLifecycle.update(usageRunId, usage);
-            setMessages((prev) => {
-              const next = prev.slice();
-              if (assistantIndex >= 0 && assistantIndex < next.length) {
-                next[assistantIndex] = assistant;
-              } else {
-                next.push(assistant);
-              }
-              return next;
-            });
+            setMessages((prev) => placeAssistant(prev, assistantIndex, assistant));
           },
         });
       } catch (err) {
         if (!isAbortError(err)) {
-          setMessages((prev) => {
-            const next = prev.slice();
-            const assistant = assistantErrorMessage(t('chat.error.stream'));
-            if (assistantIndex >= 0 && assistantIndex < next.length) {
-              next[assistantIndex] = assistant;
-            } else {
-              next.push(assistant);
-            }
-            return next;
-          });
+          const failure = assistantErrorMessage(t('chat.error.stream'));
+          setMessages((prev) => placeAssistant(prev, assistantIndex, failure));
         }
       } finally {
         usageLifecycle.settle(usageRunId);
@@ -568,7 +546,10 @@ export function ExternalStoreChat({
               isStreaming={isRunning}
               onResolutionStarted={threadApprovals.onResolutionStarted}
               onResolutionFailed={threadApprovals.onResolutionFailed}
-              onResolved={threadApprovals.onResolved}
+              onResolved={(resolution) => {
+                setMessages((prev) => refuseDeclinedCall(prev, resolution));
+                return threadApprovals.onResolved(resolution);
+              }}
             />
             <Composer
               inputRef={composerInputRef}

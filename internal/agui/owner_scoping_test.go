@@ -173,6 +173,10 @@ func (o *ownerApprovalStore) ListPendingAllForIdentity(context.Context, string, 
 	return nil, nil
 }
 
+func (o *ownerApprovalStore) ListDeclinedGatewayToolCallIDsForIdentity(context.Context, string, string) ([]string, error) {
+	return nil, nil
+}
+
 func (o *ownerApprovalStore) GetByTokenForIdentity(_ context.Context, token, identity string) (askuser.Pending, error) {
 	if token == o.token && identity == o.owner {
 		return askuser.Pending{Token: token}, nil

@@ -116,6 +116,9 @@ type ApprovalStore interface {
 	// 0089: no read can see another identity's pause, so the probe could only ever miss.
 	ListPendingAllForIdentity(ctx context.Context, identityID string, limit int) ([]askuser.Pending, error)
 	GetByTokenForIdentity(ctx context.Context, token, identityID string) (askuser.Pending, error)
+	// ListDeclinedGatewayToolCallIDsForIdentity names the calls the operator refused in one
+	// conversation, which the thread snapshot replays as refused (spec 2026-10-12).
+	ListDeclinedGatewayToolCallIDsForIdentity(ctx context.Context, conversationID, identityID string) ([]string, error)
 }
 
 // Server is the minimal AG-UI HTTP gateway (Slice 8b): POST /agent/run streams a

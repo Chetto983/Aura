@@ -143,7 +143,7 @@ func TestSnapshotReplaysTheLedgerOutcome(t *testing.T) {
 		endRow("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "r1", "ok", "error", nil),
 		{ConversationID: convID, ToolCallID: "ok", Event: toolinvocations.EventStart, Status: "error"},
 	}
-	messages := replayed(t, projectDisplaySnapshotWithFacts(outcomeTurn("failed", "refused", "stamped", "ok"), convID, facts))
+	messages := replayed(t, projectDisplaySnapshotWithFacts(outcomeTurn("failed", "refused", "stamped", "ok"), convID, facts, nil))
 	want := map[string][2]bool{"failed": {true, false}, "refused": {true, true}, "stamped": {true, true}, "ok": {false, false}}
 	for _, m := range messages[2:] {
 		if got := [2]bool{m.IsError, m.Refused}; got != want[m.ToolCallID] {
@@ -166,18 +166,21 @@ func TestSnapshotDecoratesOnlyACallItCanPin(t *testing.T) {
 	twice := append(outcomeTurn(id, "solo"), outcomeTurn(id)...)
 	solo := endRow(convID, "r1", "solo", "error", nil)
 	for name, tc := range map[string]struct {
-		history []llm.Message
-		facts   []toolinvocations.Event
+		history  []llm.Message
+		facts    []toolinvocations.Event
+		declined []string
 	}{
 		"end rows that disagree": {once, []toolinvocations.Event{solo,
-			endRow(convID, "r1", id, "error", nil), endRow(convID, "r2", id, "ok", nil)}},
+			endRow(convID, "r1", id, "error", nil), endRow(convID, "r2", id, "ok", nil)}, nil},
 		"refusals in two turns": {twice, []toolinvocations.Event{solo,
 			endRow(convID, "r1", id, "error", map[string]any{"gateway_verdict": "deny"}),
-			endRow(convID, "r2", id, "error", map[string]any{"gateway_verdict": "deny"})}},
+			endRow(convID, "r2", id, "error", map[string]any{"gateway_verdict": "deny"})}, nil},
 		"one end row for a call made twice": {twice, []toolinvocations.Event{solo,
-			endRow(convID, "r1", id, "error", nil)}},
+			endRow(convID, "r1", id, "error", nil)}, nil},
+		"a declined call made twice": {twice, []toolinvocations.Event{solo,
+			endRow(convID, "r1", id, "ok", nil), endRow(convID, "r2", id, "ok", nil)}, []string{id}},
 	} {
-		for _, m := range replayed(t, projectDisplaySnapshotWithFacts(tc.history, convID, tc.facts)) {
+		for _, m := range replayed(t, projectDisplaySnapshotWithFacts(tc.history, convID, tc.facts, tc.declined)) {
 			if m.ToolCallID == "solo" && !m.IsError {
 				t.Errorf("%s: the call it can pin lost its failure: %+v", name, m)
 			}
@@ -195,7 +198,7 @@ func TestPendingPauseKeepsARealFailedResult(t *testing.T) {
 	history := outcomeTurn("pause-call")
 	history[1].ToolCalls[0].Function.Name = "ask_user"
 	snap := projectDisplaySnapshotWithFacts(history, convID, []toolinvocations.Event{
-		endRow(convID, "r1", "pause-call", "error", nil)})
+		endRow(convID, "r1", "pause-call", "error", nil)}, nil)
 	markAwaitingInput(&snap, map[string]struct{}{"pause-call": {}})
 	if len(snap.Messages) != 3 || !snap.Messages[2].IsError || !snap.Messages[1].ToolCalls[0].AwaitingInput {
 		t.Fatalf("a pending call's real failed result was dropped: %+v", snap.Messages)
@@ -236,6 +239,33 @@ func TestSnapshotReadsTheLedgerForAnUppercaseThreadID(t *testing.T) {
 	server.SetToolInvocationReader(ledgerRows{endRow(convID, "r1", "failed", "error", nil)})
 	if messages := servedSnapshot(t, server, upper); len(messages) != 3 || !messages[2].IsError {
 		t.Fatalf("the failed call lost its ledger outcome: %+v", messages)
+	}
+}
+
+// The operator's rejection is a refusal too (spec 2026-10-12). The withheld call's own end
+// row is the approval request, status 'ok', so a reload learns of the decline from the pause:
+// the snapshot reads the calls this thread's declined gateway approvals name. Without that
+// read the snapshot is served as before.
+func TestSnapshotReplaysTheOperatorsRejectionAsRefused(t *testing.T) {
+	const convID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	approvals := &fakeApprovalStore{declined: []string{"withheld"}}
+	server := NewServer(nil, &fakeConvStore{
+		known:   map[string]bool{convID: true},
+		history: map[string][]llm.Message{convID: outcomeTurn("withheld", "other")},
+	}, ServerConfig{})
+	server.SetToolInvocationReader(ledgerRows{
+		endRow(convID, "r1", "withheld", "ok", nil), endRow(convID, "r1", "other", "ok", nil)})
+	server.SetApprovalStore(approvals)
+	messages := servedSnapshot(t, server, convID)
+	if !messages[2].IsError || !messages[2].Refused || messages[3].IsError || messages[3].Refused {
+		t.Fatalf("withheld %+v, other %+v: want only the withheld call refused", messages[2], messages[3])
+	}
+	if approvals.declinedFor != convID {
+		t.Fatalf("declined pauses read for %q, want %q", approvals.declinedFor, convID)
+	}
+	approvals.err = errors.New("db down")
+	if messages := servedSnapshot(t, server, convID); messages[2].IsError || messages[2].Refused {
+		t.Fatalf("a failed pause read still marked the call: %+v", messages[2])
 	}
 }
 

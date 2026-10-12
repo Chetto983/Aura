@@ -36,6 +36,8 @@ export interface Approval {
   readonly source?: string;
   /** D-06: a terminal (expired / auto-resolved) marker so the row never vanishes. */
   readonly terminal?: boolean;
+  /** The call a gateway approval withheld; a decline marks it refused (spec 2026-10-12). */
+  readonly withheld_tool_call_id?: string;
 }
 
 export interface ApprovalPresentation {

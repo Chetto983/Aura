@@ -126,3 +126,18 @@ WHERE resumed_at IS NULL
   AND identity_id = $1
 ORDER BY priority DESC, created_at ASC, token ASC
 LIMIT $2;
+
+-- name: ListDeclinedGatewayToolCallIDsForIdentity :many
+-- The calls the operator refused in one conversation (spec 2026-10-12, "The operator's
+-- rejection is a refusal too"): the root tool_call_id of each declined gateway_approval pause.
+-- The decline lives only here. The withheld call's own end row is the approval request,
+-- status 'ok', and the append-only ledger takes one end per call. Owner-scoped like
+-- ListAllPendingPausedStatesForIdentity: identity_id predicate, run in db.WithIdentityTx.
+SELECT (resume_context->>'tool_call_id')::text AS tool_call_id
+FROM aura.paused_states
+WHERE conversation_id = $1
+  AND identity_id = $2
+  AND resumed_answer->>'action' = 'decline'
+  AND resume_context->>'type' = 'gateway_approval'
+  AND resume_context->>'tool_call_id' <> ''
+ORDER BY created_at ASC, token ASC;

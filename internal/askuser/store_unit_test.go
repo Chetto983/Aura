@@ -216,6 +216,14 @@ func TestStore_ParseFailWrapMessages(t *testing.T) {
 		{"autoresolve-parse", func() error {
 			return s.AutoResolveForConversation(ctx, bad)
 		}, "auto-resolve: invalid conversation_id"},
+		{"declined-conversation-parse", func() error {
+			_, err := s.ListDeclinedGatewayToolCallIDsForIdentity(ctx, bad, goodTok)
+			return err
+		}, "list declined gateway approvals: invalid conversation_id"},
+		{"declined-identity-parse", func() error {
+			_, err := s.ListDeclinedGatewayToolCallIDsForIdentity(ctx, goodTok, bad)
+			return err
+		}, "list declined gateway approvals: invalid identity_id"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

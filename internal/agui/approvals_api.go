@@ -174,6 +174,10 @@ type approvalItem struct {
 	Options        json.RawMessage            `json:"options,omitempty"`
 	Priority       int                        `json:"priority"`
 	Source         string                     `json:"source,omitempty"`
+	// WithheldToolCallID names the call a gateway approval withheld, so the cockpit that
+	// declines it can mark that call refused at once (spec 2026-10-12). It is not the pause's
+	// own tool_call_id, which is the ask_user call.
+	WithheldToolCallID string `json:"withheld_tool_call_id,omitempty"`
 }
 
 // handleListApprovals returns ListPendingAll(ctx, limit) projected to JSON — the
@@ -198,17 +202,31 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		items = append(items, approvalItem{
-			Token:          p.Token,
-			ConversationID: p.ConversationID,
-			Kind:           p.Kind,
-			Question:       SanitizeString(p.Question), // V7: a question may echo a secret
-			Presentation:   approvalPresentation(p),
-			Options:        p.Options,
-			Priority:       p.Priority,
-			Source:         p.WorkerID(),
+			Token:              p.Token,
+			ConversationID:     p.ConversationID,
+			Kind:               p.Kind,
+			Question:           SanitizeString(p.Question), // V7: a question may echo a secret
+			Presentation:       approvalPresentation(p),
+			Options:            p.Options,
+			Priority:           p.Priority,
+			Source:             p.WorkerID(),
+			WithheldToolCallID: withheldToolCallID(p.ResumeContext),
 		})
 	}
 	writeJSON(w, items)
+}
+
+// withheldToolCallID reads the root tool_call_id of a gateway_approval resume_context, and ""
+// for any other pause.
+func withheldToolCallID(resumeContext json.RawMessage) string {
+	var rc struct {
+		Type       string `json:"type"`
+		ToolCallID string `json:"tool_call_id"`
+	}
+	if json.Unmarshal(resumeContext, &rc) != nil || rc.Type != "gateway_approval" {
+		return ""
+	}
+	return rc.ToolCallID
 }
 
 // approvalPresentation exposes only recognized metadata that still matches a fresh derivation

@@ -66,7 +66,7 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	// thread renders typed displays identically to live. The envelope is byte-compatible
 	// with the SDK MESSAGES_SNAPSHOT plus the additive per-tool-call `display` key the
 	// cockpit replay reads.
-	snap := projectDisplaySnapshotWithFacts(hist, id, facts)
+	snap := projectDisplaySnapshotWithFacts(hist, id, facts, s.declinedToolCalls(ctx, id))
 	// Amendment #91 (fix-plan 1.12) display rehydration: merge the persisted per-turn
 	// CoT onto the assistant answer messages so the ReasoningDrawer survives reload.
 	// Fail-soft: reasoning is additive display data — a read failure degrades to a
@@ -96,6 +96,21 @@ func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(snap); err != nil {
 		slog.Warn("agui: encode messages snapshot", "err", err)
 	}
+}
+
+// declinedToolCalls returns the calls of this thread the operator refused by declining their
+// gateway approval (spec 2026-10-12). Fail-soft like the pending read: without it such a call
+// replays as the approval request it returned.
+func (s *Server) declinedToolCalls(ctx context.Context, threadID string) []string {
+	if s.approvals == nil {
+		return nil
+	}
+	declined, err := s.approvals.ListDeclinedGatewayToolCallIDsForIdentity(ctx, threadID, scopedIdentityID(ctx))
+	if err != nil {
+		slog.Warn("agui: list declined approvals (serving snapshot without them)", "thread", threadID, "err", err)
+		return nil
+	}
+	return declined
 }
 
 // pendingToolCalls returns the tool calls of this thread whose turn waits on a pending

@@ -1,4 +1,5 @@
 import type { AppendMessage, ThreadMessageLike } from '@assistant-ui/react';
+import type { ApprovalResolution } from '../approvals/useThreadApprovals';
 import type { Asset } from './attachments/types';
 
 // Pure message/asset-fold helpers for the ExternalStoreChat lane (extracted so the component
@@ -99,6 +100,48 @@ export function hasAnswerText(message: ThreadMessageLike): boolean {
   if (typeof message.content === 'string') return message.content.trim().length > 0;
   return message.content.some(
     (part) => part.type === 'text' && typeof part.text === 'string' && part.text.trim().length > 0,
+  );
+}
+
+/** The list with `assistant` in its turn's slot, or appended when the slot is gone. */
+export function placeAssistant(
+  messages: readonly ThreadMessageLike[],
+  index: number,
+  assistant: ThreadMessageLike,
+): ThreadMessageLike[] {
+  const next = messages.slice();
+  if (index >= 0 && index < next.length) {
+    next[index] = assistant;
+  } else {
+    next.push(assistant);
+  }
+  return next;
+}
+
+/**
+ * The operator's rejection is a refusal too (spec 2026-10-12): once a gateway approval is
+ * declined, the call it withheld shows Refused, before any reload. Any other resolution, or an
+ * approval that names no call, leaves the list as it is.
+ */
+export function refuseDeclinedCall(
+  messages: ThreadMessageLike[],
+  resolution: ApprovalResolution,
+): ThreadMessageLike[] {
+  const withheld = resolution.approval.withheld_tool_call_id;
+  if (resolution.action !== 'decline' || withheld === undefined || withheld === '') {
+    return messages;
+  }
+  const isWithheld = (part: { readonly type: string; readonly toolCallId?: string }) =>
+    part.type === 'tool-call' && part.toolCallId === withheld;
+  return messages.map((message) =>
+    typeof message.content === 'string' || !message.content.some(isWithheld)
+      ? message
+      : {
+          ...message,
+          content: message.content.map((part) =>
+            isWithheld(part) ? { ...part, isError: true, refused: true } : part,
+          ),
+        },
   );
 }
 

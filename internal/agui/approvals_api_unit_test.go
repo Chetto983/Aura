@@ -35,6 +35,10 @@ type fakeApprovalStore struct {
 	pendings []askuser.Pending
 	err      error
 	getErr   error
+	// declined are the calls the declined gateway approvals name; declinedFor records the
+	// conversation the snapshot asked about.
+	declined    []string
+	declinedFor string
 }
 
 func (f *fakeApprovalStore) ListPendingAll(_ context.Context, _ int) ([]askuser.Pending, error) {
@@ -53,8 +57,9 @@ func (f *fakeApprovalStore) GetByTokenForIdentity(_ context.Context, _, _ string
 	return askuser.Pending{}, f.getErr
 }
 
-func (f *fakeApprovalStore) GetByToken(_ context.Context, _ string) (askuser.Pending, error) {
-	return askuser.Pending{}, nil
+func (f *fakeApprovalStore) ListDeclinedGatewayToolCallIDsForIdentity(_ context.Context, conversationID, _ string) ([]string, error) {
+	f.declinedFor = conversationID
+	return f.declined, f.err
 }
 
 // newResolveTestServer builds a server over the scripted runner (optionally also a
@@ -396,5 +401,35 @@ func TestApprovalPresentationProjectionRecognizesAndSanitizes(t *testing.T) {
 	nonApproval.Kind = "clarification"
 	if got := approvalPresentation(nonApproval); got != nil {
 		t.Fatalf("non-approval pause should not expose presentation, got %+v", got)
+	}
+}
+
+// A gateway approval names the call it withheld, so the cockpit that declines it can mark
+// that call refused at once (spec 2026-10-12). No other pause names one, and the pause's own
+// tool_call_id is the ask_user call, never the withheld one.
+func TestApprovalsAPI_ListNamesTheWithheldCall(t *testing.T) {
+	store := &fakeApprovalStore{pendings: []askuser.Pending{
+		{Token: "gateway", Kind: "approval", ToolCallID: "ask-1",
+			ResumeContext: json.RawMessage(`{"type":"gateway_approval","tool":"board","tool_call_id":"call-board-1"}`)},
+		{Token: "shell", Kind: "approval", ToolCallID: "ask-2",
+			ResumeContext: json.RawMessage(`{"type":"shell_exec_approval","command_sha256":"ab","tool_call_id":"call-shell"}`)},
+		{Token: "question", Kind: "clarification", ToolCallID: "ask-3"},
+	}}
+	srv := newResolveTestServer(t, &scriptedRunner{}, store)
+	resp, err := http.Get(srv.URL + "/api/approvals")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	var items []map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil || len(items) != 3 {
+		t.Fatalf("decode %v, items %v", err, items)
+	}
+	want := map[string]any{"gateway": "call-board-1", "shell": nil, "question": nil}
+	for _, item := range items {
+		token, _ := item["token"].(string)
+		if got := item["withheld_tool_call_id"]; got != want[token] {
+			t.Errorf("%s: withheld_tool_call_id = %v, want %v", token, got, want[token])
+		}
 	}
 }

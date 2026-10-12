@@ -87,3 +87,34 @@ func (s *Store) GetByTokenForIdentity(ctx context.Context, token, identityID str
 	}
 	return pending, nil
 }
+
+// ListDeclinedGatewayToolCallIDsForIdentity returns the calls the operator refused in one of
+// identityID's conversations: the call each declined gateway_approval pause names (spec
+// 2026-10-12, "The operator's rejection is a refusal too"). Owner-scoped like
+// ListPendingAllForIdentity.
+func (s *Store) ListDeclinedGatewayToolCallIDsForIdentity(ctx context.Context, conversationID, identityID string) ([]string, error) {
+	conv, err := db.ParseUUID("conversation_id", conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("list declined gateway approvals: %w", err)
+	}
+	owner, err := db.ParseUUID("identity_id", identityID)
+	if err != nil {
+		return nil, fmt.Errorf("list declined gateway approvals: %w", err)
+	}
+	var ids []string
+	txErr := db.WithIdentityTx(ctx, s.pool, identityID, func(q *sqlc.Queries) error {
+		var lErr error
+		ids, lErr = q.ListDeclinedGatewayToolCallIDsForIdentity(ctx, sqlc.ListDeclinedGatewayToolCallIDsForIdentityParams{
+			ConversationID: conv,
+			IdentityID:     owner,
+		})
+		if lErr != nil {
+			return fmt.Errorf("list declined gateway approvals for %s: %w", conversationID, lErr)
+		}
+		return nil
+	})
+	if txErr != nil {
+		return nil, txErr
+	}
+	return ids, nil
+}

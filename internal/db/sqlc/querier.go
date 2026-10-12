@@ -424,6 +424,12 @@ type Querier interface {
 	// Owner-scoped conversation list (Phase 36 MUSR-01): ListConversations restricted to one
 	// identity. identity_id is NOT NULL (0005) so every conversation is attributable.
 	ListConversationsForIdentity(ctx context.Context, arg ListConversationsForIdentityParams) ([]AuraConversations, error)
+	// The calls the operator refused in one conversation (spec 2026-10-12, "The operator's
+	// rejection is a refusal too"): the root tool_call_id of each declined gateway_approval pause.
+	// The decline lives only here. The withheld call's own end row is the approval request,
+	// status 'ok', and the append-only ledger takes one end per call. Owner-scoped like
+	// ListAllPendingPausedStatesForIdentity: identity_id predicate, run in db.WithIdentityTx.
+	ListDeclinedGatewayToolCallIDsForIdentity(ctx context.Context, arg ListDeclinedGatewayToolCallIDsForIdentityParams) ([]string, error)
 	// The conversation id lives in payload because D-01 reused the generic ingestion queue.
 	// identity_id provides tenant isolation; child_id is optional so targeted reads do
 	// not become false not-found results when the worker is older than the list cap.
