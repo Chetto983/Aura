@@ -54,6 +54,9 @@ export function useCapabilities() {
       rawWindow !== undefined && Number.isFinite(rawWindow) && rawWindow > 0
         ? rawWindow
         : undefined,
+    // True only when the server said false: a notice that showed while loading or on an
+    // error would flash on every strict deployment.
+    policiesInert: query.data?.policies_enforced === false,
   };
 }
 

@@ -1,5 +1,6 @@
-import { ShieldCheck, X } from 'lucide-react';
+import { ShieldCheck, ShieldOff, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useCapabilities } from '../admin/useAdmin';
 import {
   useApprovalGrants,
   useRevokeApprovalGrant,
@@ -22,6 +23,7 @@ export function StandingApprovalsPanel() {
   const { t } = useTranslation();
   const grantsQuery = useApprovalGrants();
   const revoke = useRevokeApprovalGrant();
+  const { policiesInert } = useCapabilities();
   const grants = grantsQuery.data ?? [];
 
   return (
@@ -34,6 +36,17 @@ export function StandingApprovalsPanel() {
           {t('settings.standingApprovals.body')}
         </p>
       </div>
+
+      {policiesInert ? (
+        // Under dev and local_trusted the gateway returns before it reads a policy or a grant,
+        // so without this both lists below would look active.
+        <Alert role="status" className="border-warning bg-warning/10 text-warning">
+          <ShieldOff aria-hidden="true" />
+          <AlertDescription className="text-warning">
+            {t('settings.standingApprovals.notEnforced')}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {grantsQuery.isPending ? <Spinner /> : null}
 

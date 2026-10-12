@@ -45,6 +45,8 @@ export const settingsEn = {
       revoke: 'Revoke',
       revokeError: 'Could not revoke that approval. Nothing changed.',
       grantedAt: 'Granted {{date}}',
+      notEnforced:
+        'Tool policies and standing approvals below are saved but not applied on this profile (dev or local_trusted).',
     },
     toolPolicies: {
       heading: 'Tool policies',
@@ -275,6 +277,8 @@ export const settingsIt = {
       revoke: 'Revoca',
       revokeError: 'Non sono riuscito a revocare questa approvazione. Non è cambiato niente.',
       grantedAt: 'Concessa il {{date}}',
+      notEnforced:
+        'Le policy degli strumenti e le approvazioni permanenti qui sotto sono salvate ma non applicate su questo profilo (dev o local_trusted).',
     },
     toolPolicies: {
       heading: 'Regole sugli strumenti',

@@ -113,6 +113,35 @@ describe('useCapabilities', () => {
     });
   });
 
+  // policiesInert is true only when the server said false: while loading, on an error, or
+  // from a daemon that predates the field there is nothing to warn about.
+  it.each([
+    { enforced: false, inert: true },
+    { enforced: true, inert: false },
+    { enforced: undefined, inert: false },
+  ])('policies_enforced $enforced gives policiesInert $inert', async ({ enforced, inert }) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              identity_id: 'local',
+              capabilities: [],
+              policies_enforced: enforced,
+            }),
+            { status: 200 },
+          ),
+        ),
+      ),
+    );
+    const { result } = renderHook(() => useCapabilities(), { wrapper: wrapper() });
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(result.current.policiesInert).toBe(inert);
+  });
+
   it('leaves contextWindow undefined when /api/me omits context_window (unwired daemon)', async () => {
     vi.stubGlobal(
       'fetch',

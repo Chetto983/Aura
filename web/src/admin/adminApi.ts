@@ -35,6 +35,9 @@ export interface MeResponse {
   readonly name?: string;
   readonly capabilities: readonly string[];
   readonly context_window?: number;
+  /** The deployment profile's Strict(): false under dev and local_trusted, where the gateway
+   * applies neither tool policies nor standing approvals. Absent from a daemon that predates it. */
+  readonly policies_enforced?: boolean;
 }
 
 /** One row of GET /api/admin/identities — an identity + its current grants. */
