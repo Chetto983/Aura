@@ -60,7 +60,8 @@ the target lives, what shutdown does to a running turn, and whether a rejection 
     runner looks up the challenge behind the relayed `resume_context` (conversation, tool,
     `args_sha256`) through a seam the composition root wires, as it wires the resume hook. It
     writes `target` and `tool_call_id` into that context as root fields, replacing whatever the
-    model copied there; a miss writes neither. `deriveGateway` reads `target` from those fields,
+    model copied there. A miss writes neither, and the model's copies are dropped all the same.
+    `deriveGateway` reads `target` from those fields,
     so `approvaltext.FromContext` still accepts a presentation only when it equals a fresh
     derivation. The cockpit (`web/src/approvals/approvalQuestion.ts`) and Telegram
     (`RenderItalian`) show it.
@@ -149,6 +150,12 @@ the target lives, what shutdown does to a running turn, and whether a rejection 
   - *Amended 2026-10-12, while amending.* The option the operator chose said the rejection
     "writes the deny fact too". Read after the choice, that row cannot land, for the reason
     above. The behaviour the operator chose is unchanged; only its carrier is.
+  - *Amended 2026-10-12, while planning v2.* A reload decorates a call only when its id is
+    unique in the conversation. This holds for an outcome from the ledger and for one from a
+    declined pause. Ids do repeat: the blank-id fallback, `deterministicBlankCallID`, hashes only
+    name, arguments and position (`internal/agent/llm_agent_call_dedup.go:93-96`), so the same call
+    in two turns shares one. It is the rule `matchingEndFacts` already applies to MCP displays. A call left
+    undecorated is better than the wrong call painted "Negata" or red.
 - **A turn is cancelled at shutdown, and its stream waits for it** (operator, 2026-10-12). The
   agui server takes a shutdown signal that `httpSrv.RegisterOnShutdown` closes.
   - The observer streams end on it at once: the browser live view, both swarm event streams and
@@ -257,7 +264,9 @@ pre-push gates are the only gate until it is lifted, and the closing report says
   stops markup and line forgery only.
 - That a rejection shows live everywhere. An open cockpit learns of a decline from Telegram only
   at its next snapshot. A pause row deleted by the operator's manual purge
-  (`cmd/aura/paused_states.go:96`) takes its "Negata" with it.
+  (`cmd/aura/paused_states.go:96`) takes its "Negata" with it. A decline of an approval relayed
+  from a swarm child names the child's call, which is no part of the parent conversation, so
+  nothing there turns "Negata".
 - That a turn always finishes inside the drain. A turn that ignores cancellation is cut by
   `Close`, as today.
 - That untrusted tool output stays wrapped after its own turn. Read while planning, not
