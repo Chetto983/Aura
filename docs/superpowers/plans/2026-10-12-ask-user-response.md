@@ -39,7 +39,12 @@ answer or change cancel, expiry, worker-owned or policy/fencing behavior.
 - [x] Verify affected packages, race/goleak, real disposable PostgreSQL, static gates.
 - [x] Deploy the binary-only lab child; replay daily news and approve with the real agent.
 - [x] Verify final assistant text, one schedule, and test-resource cleanup.
-- [ ] Review diff; commit the measured spec before the source commit, then push and check CI.
+- [x] Review diff; commit the measured spec (`ddf316df2`) before the repair (`17ebb1f81`).
+- [x] Recheck affected package tests and full vet/build after the concurrent browser
+  retirement commit `150cf3f65`; preserve its changes and unrelated staged/dirty work.
+- [x] Push using the WSL recipe: `17ebb1f81` reached origin/master; clean-tree build,
+  deadcode and tagged-tier compilation passed. CI API check returned no runs for
+  that exact SHA, so remote CI is not claimed green.
 
 ## Decisions taken during implementation
 

@@ -78,3 +78,18 @@ request as Cockpit on Continue; it does not automate a browser click. Local evid
 `.planning/tmp/scheduler-conversation-20261012-094634/`, including SSE, resolution and
 machine-checked task/answer assertions. The requested response-after-approval behavior
 is observed; universal model compliance is not claimed.
+
+## Commit and shared-workspace check
+
+Measured specification: `ddf316df2`; repair: `17ebb1f81`. A concurrent browser-retirement
+commit moved HEAD while the first commit was in flight. Git rejected the stale update;
+an isolated temporary index was rebuilt from the new HEAD so unrelated staged work
+was never included or reverted. Affected package tests and full native vet/build passed
+again with that committed browser delta. Pre-commit file-size, gofmt, vet and lint passed.
+
+WSL push with the repository recipe succeeded (`6a47560b8..17ebb1f81`, master).
+Pre-push ran against the clean pushed tree: build, deadcode and compilation of
+25 tagged tiers across 49 packages passed. Tagged compilation is not claimed as
+execution of those integration tiers; the runner PostgreSQL tier actually ran above.
+GitHub Actions API returned no workflow runs for the exact pushed repair SHA on
+the post-push check. Remote CI is therefore unavailable/unmeasured, not green.

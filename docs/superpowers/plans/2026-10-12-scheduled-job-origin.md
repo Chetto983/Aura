@@ -52,7 +52,9 @@ the execution instruction. Explicit follow-up scheduling must not be disabled gl
 - [x] Finish vet/build/lint/deadcode evidence and final diff review.
 - [x] Commit measured PRD/spec record separately (`796bdc2a9`).
 - [x] Commit the repair and verification (`bf9586a3d`).
-- [ ] Push using the repository WSL recipe and report remote CI availability honestly.
+- [x] Push using the repository WSL recipe: origin/master reached `17ebb1f81`, including
+  `bf9586a3d`; clean-tree pre-push gates passed. CI API returned no runs for the pushed
+  SHA, so remote CI is not claimed green.
 
 ## Decisions taken during the run
 
