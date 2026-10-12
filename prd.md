@@ -3156,6 +3156,28 @@ conversation it was called from, and the boot seeders create system sweeps, not 
 CLI is a debug tool nobody uses in production, so the operator closed this as not relevant
 (2026-10-09).
 
+Measured on the lab VM (2026-10-12), replaying the exported noleggio-sociale conversation's
+exact `payload.goal`: run `01a12ee6-c00a-7257-a11c-de02d003fc93` repeatedly called `task schedule`
+instead of checking the official sites. Every call failed with `invalid UUID length: 46`:
+the task tool forwarded the ephemeral `agent_job:<run id>` session as its origin conversation,
+even though this job DID have a real origin. The previous CLI-only finding does not cover this
+production path. The completed summary incorrectly promised a newly scheduled recurring check.
+
+Decision: keep the technical session for run isolation, but propagate the durable origin
+conversation separately to conversation-bound tools in cron and swarm workers. Seed scheduled
+runs with execution context: this is the current occurrence of an existing schedule, not a new
+scheduling request, and the scheduler handles notification of its final result. Keep the original
+goal intact and retain this context when auto-rejecting human-input requests. File targets:
+`internal/agent/llm_agent*.go`, `internal/agent/tools/{result,task}.go`,
+`internal/cron/handlers/{agentjob,handler}.go`, `internal/swarm/swarm.go` and their regression tests.
+No migration or environment variable is required.
+
+This reproduction used the real agent and a persisted recurring job, with final notification
+redirected to the test conversation (`stdout`) to avoid unsolicited Telegram messages. The row
+inherited its newly created step budget (0), not the exported budget (12). It demonstrates the
+UUID failure and scheduling confusion, not Telegram delivery or the correctness of legal claims.
+Raw evidence: `.planning/tmp/scheduler-conversation-20261012-085639/` (local, not versioned).
+
 Decision (2026-10-09): a model call that runs out of its own time while the job still has time
 counts as transient. In an `agent_job` the job's context is the parent of every model call, and
 the agent's wallclock budget ends a turn as an event, not an error. So a deadline error while
