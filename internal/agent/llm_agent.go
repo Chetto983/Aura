@@ -67,10 +67,14 @@ type LlmAgent struct {
 	previewCap int
 	runDir     string
 	sessionID  string
-	workspace  string
-	location   *time.Location
-	builder    *prompt.PromptBuilder
-	hooks      *HookManager
+	// originConversationID is the durable conversation owning this invocation. It
+	// differs from sessionID for headless swarm and scheduled workers, whose
+	// session ids are intentionally flat technical identifiers.
+	originConversationID string
+	workspace            string
+	location             *time.Location
+	builder              *prompt.PromptBuilder
+	hooks                *HookManager
 
 	// gateway is the optional Phase-35 policy PEP (GATE-01): execTool calls its Decide
 	// before tool.Execute. nil is an Allow no-op (dev-parity for tests/standalone).

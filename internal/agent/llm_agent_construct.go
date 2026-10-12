@@ -33,33 +33,38 @@ func NewLlmAgent(cfg LlmAgentConfig) *LlmAgent {
 	if ledgerConvID == "" {
 		ledgerConvID = cfg.SessionID
 	}
+	originConversationID := cfg.OriginConversationID
+	if originConversationID == "" {
+		originConversationID = cfg.SessionID
+	}
 	agent := &LlmAgent{
-		name:              name,
-		description:       desc,
-		client:            cfg.Client,
-		cfg:               cfg.LLM,
-		registry:          cfg.Registry,
-		activated:         deriveActivated(hist, cfg.Registry),
-		everLoaded:        deriveEverLoaded(hist, cfg.Registry),
-		previewCap:        cfg.PreviewCap,
-		runDir:            cfg.RunDir,
-		sessionID:         cfg.SessionID,
-		workspace:         cfg.Workspace,
-		location:          cfg.Location,
-		builder:           prompt.NewPromptBuilder(),
-		hooks:             cfg.HookManager,
-		gateway:           cfg.Gateway,
-		messageDrafts:     cfg.MessageDrafts,
-		steer:             cfg.Steer,
-		ledger:            cfg.Ledger,
-		ledgerConvID:      ledgerConvID,
-		history:           hist,
-		breaker:           resolveBreaker(cfg),
-		classifier:        resolveClassifier(cfg),
-		reasoningOverride: cfg.ReasoningOverride,
-		turnReading:       cfg.TurnReading,
-		sources:           display.NewRegistry(),
-		background:        cfg.BackgroundCalls,
+		name:                 name,
+		description:          desc,
+		client:               cfg.Client,
+		cfg:                  cfg.LLM,
+		registry:             cfg.Registry,
+		activated:            deriveActivated(hist, cfg.Registry),
+		everLoaded:           deriveEverLoaded(hist, cfg.Registry),
+		previewCap:           cfg.PreviewCap,
+		runDir:               cfg.RunDir,
+		sessionID:            cfg.SessionID,
+		originConversationID: originConversationID,
+		workspace:            cfg.Workspace,
+		location:             cfg.Location,
+		builder:              prompt.NewPromptBuilder(),
+		hooks:                cfg.HookManager,
+		gateway:              cfg.Gateway,
+		messageDrafts:        cfg.MessageDrafts,
+		steer:                cfg.Steer,
+		ledger:               cfg.Ledger,
+		ledgerConvID:         ledgerConvID,
+		history:              hist,
+		breaker:              resolveBreaker(cfg),
+		classifier:           resolveClassifier(cfg),
+		reasoningOverride:    cfg.ReasoningOverride,
+		turnReading:          cfg.TurnReading,
+		sources:              display.NewRegistry(),
+		background:           cfg.BackgroundCalls,
 	}
 	return agent
 }
@@ -141,6 +146,11 @@ type LlmAgentConfig struct {
 	// the main runner path (session_id == conversation_id UUID); the headless swarm/cron
 	// roots pass the originating conversation UUID so a flat session never keys the ledger.
 	LedgerConversationID string
+	// OriginConversationID is the durable conversation UUID passed to tools that
+	// create or own conversation-bound records. Empty defaults to SessionID for an
+	// interactive turn; headless workers supply their source conversation while
+	// retaining a distinct technical SessionID.
+	OriginConversationID string
 	// ReasoningOverride is the FIXED per-turn reasoning effort selected in the web
 	// Composer (37E), threaded here by runner.buildAgent from runner.WithReasoningOverride
 	// on ctx. When non-empty the agent BYPASSES the adaptive classifier and forces

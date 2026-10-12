@@ -32,6 +32,27 @@ func (s *scheduledMutationTool) Execute(context.Context, json.RawMessage) (tools
 	return tools.ToolResult{Preview: "restored"}, nil
 }
 
+type agentJobTaskStore struct{ created tools.CreateTaskInput }
+
+func (s *agentJobTaskStore) CreateScheduledTask(_ context.Context, in tools.CreateTaskInput) (tools.ScheduledTask, error) {
+	s.created = in
+	return tools.ScheduledTask{ID: "11111111-1111-1111-1111-111111111112"}, nil
+}
+
+func (*agentJobTaskStore) ListScheduledTasks(context.Context) ([]tools.ScheduledTask, error) {
+	return nil, nil
+}
+
+func (*agentJobTaskStore) CancelScheduledTask(context.Context, string) error { return nil }
+
+func (*agentJobTaskStore) RunScheduledTaskNow(context.Context, string) error { return nil }
+
+func (*agentJobTaskStore) PauseScheduledTask(context.Context, string) error { return nil }
+
+func (*agentJobTaskStore) ResumeScheduledTask(context.Context, string) (time.Time, error) {
+	return time.Time{}, nil
+}
+
 type scheduledOperationRegistry struct {
 	request *idempotency.BeginRequest
 	replay  *idempotency.ReplayResult
@@ -250,6 +271,32 @@ func TestAskUserAutoReject(t *testing.T) {
 	}
 	if !strings.Contains(summary, "proceeding without you") {
 		t.Fatalf("expected the post-rejection final answer in the summary, got %q", summary)
+	}
+}
+
+func TestAgentJobTaskUsesOriginConversation(t *testing.T) {
+	t.Parallel()
+	store := &agentJobTaskStore{}
+	registry := tools.NewRegistry()
+	registry.Register(&tools.TaskTool{Store: store})
+	args := `{"action":"schedule","schedule_kind":"at","at":"2030-01-01T09:30:00Z","kind":"reminder","payload":{"text":"audit"},"notify":"none"}`
+	client := agenttest.NewFakeClient(
+		agenttest.ToolCallTurn(agenttest.MakeToolCall("load-task", "task", args)),
+		agenttest.ToolCallTurn(agenttest.MakeToolCall("schedule-task", "task", args)),
+		agenttest.TextChunks("stop", "done"),
+	)
+	origin := "11111111-1111-1111-1111-111111111111"
+	h := AgentJobHandler{Deps: AgentDeps{Client: client, Registry: registry}}
+	if _, err := h.Run(context.Background(), Job{
+		Payload:              []byte(`{"goal":"schedule the audit"}`),
+		StepBudget:           10,
+		RunID:                "run-task-origin",
+		OriginConversationID: origin,
+	}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if got := store.created.OriginConversationID; got != origin {
+		t.Fatalf("scheduled task origin = %q, want source conversation UUID %q", got, origin)
 	}
 }
 

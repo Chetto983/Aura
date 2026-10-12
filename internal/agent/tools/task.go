@@ -249,12 +249,14 @@ func (t *TaskTool) actionSchedule(ctx context.Context, raw json.RawMessage) (Too
 		status = "pending_approval"
 	}
 
-	// Capture the scheduling conversation id off the tool-call ctx (==a.sessionID,
-	// set at llm_agent.go:470). The two-value form is bare-ctx-safe: a CLI/unit-test
-	// ctx yields "" with no panic (mirror shellSessionKey, shell_exec.go:328-333).
-	originConvID := ""
-	if tc, ok := toolCallCtx(ctx); ok {
-		originConvID = tc.sessionID
+	// Headless workers have a flat technical session id, so use their explicit
+	// origin conversation for the durable owner. Direct calls retain the historic
+	// tool-call-session fallback.
+	originConvID := OriginConversationIDFromContext(ctx)
+	if originConvID == "" {
+		if tc, ok := toolCallCtx(ctx); ok {
+			originConvID = tc.sessionID
+		}
 	}
 
 	created, err := t.Store.CreateScheduledTask(ctx, CreateTaskInput{

@@ -153,6 +153,7 @@ func newAgentWorker(deps AgentDeps, client llm.Client, cfg llm.Config, runID, le
 		// The gateway ledger key is the ORIGINATING conversation UUID, NOT the flat
 		// "agent_job:<runID>" SessionID above (uuid.Parse fails on it) (Open Q1).
 		LedgerConversationID: ledgerConvID,
+		OriginConversationID: ledgerConvID,
 		Gateway:              deps.Gateway,
 		Workspace:            ws,
 		UserTurns:            prior,

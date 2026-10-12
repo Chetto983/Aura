@@ -308,6 +308,7 @@ func runChild(ctx context.Context, rc RunConfig, budget *agent.Budget, idx int, 
 		// The gateway ledger key is the ORIGINATING conversation UUID (rc.ConvID), NOT the
 		// flat worker SessionID above — uuid.Parse fails on the flat session (Open Q1).
 		LedgerConversationID: rc.ConvID,
+		OriginConversationID: rc.ConvID,
 		Gateway:              rc.Gateway,
 		UserTurns:            userTurns,
 		Steer:                inbox,

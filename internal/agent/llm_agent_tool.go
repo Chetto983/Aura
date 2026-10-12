@@ -184,6 +184,7 @@ func (a *LlmAgent) runTool(ctx context.Context, budget *Budget, call llm.ToolCal
 	// their own span off the shared turn ctx — otel spans are safe to start in parallel.
 	spanCtx, span := startToolSpan(ctx, call.Function.Name, run.Mutating)
 	toolCtx := tools.WithToolCallContext(spanCtx, a.sessionID, call.ID, a.runDir, a.previewCap)
+	toolCtx = tools.WithOriginConversationID(toolCtx, a.originConversationID)
 	toolCtx = WithSwarmContext(
 		toolCtx,
 		budget,

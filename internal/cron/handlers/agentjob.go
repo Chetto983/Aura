@@ -36,6 +36,13 @@ const autoRejectMarker = "<auto-rejected: scheduled job has no human responder>"
 // regardless of model behavior (D-25 never-blocks).
 const maxAutoRejects = 8
 
+// A stored recurring goal otherwise looks like a fresh scheduling request (lab, 2026-10-12).
+// Keep this outside the shared system prefix and retain it across auto-reject resumes.
+const agentJobExecutionContext = `You are running an already scheduled agent job now.
+Execute the goal for the current occurrence. Any recurring cadence in the goal is already configured: do not create, duplicate, or change that schedule unless the goal explicitly asks to manage scheduled tasks.
+Return the outcome in your final response; the scheduler handles notification using the task's configured route. Do not send a separate notification just to deliver this result.
+No human is available during this run. If a check or dependency fails, report that limitation honestly rather than promising future action.`
+
 // AgentJobHandler runs a scheduled agent_job: a fresh, tool-bound, budget-bounded
 // LlmAgent constructed DIRECTLY (mirroring swarm.runChild, NEVER runner.Turn —
 // amendment #23), with its step budget INHERITED from the agent_job_runs row (D-24)
@@ -88,7 +95,10 @@ func (h AgentJobHandler) Run(ctx context.Context, job Job) (string, error) {
 		return "", fmt.Errorf("agent_job: budget: %w", err)
 	}
 
-	prior := []llm.Message{{Role: llm.RoleUser, Content: goal}}
+	prior := []llm.Message{
+		{Role: llm.RoleSystem, Content: agentJobExecutionContext},
+		{Role: llm.RoleUser, Content: goal},
+	}
 	var summary strings.Builder
 	askedMutating := false
 

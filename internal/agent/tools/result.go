@@ -27,6 +27,8 @@ type toolCallContext struct {
 	cap        int
 }
 
+type originConversationIDCtxKey struct{}
+
 const (
 	// MetaAcceptedFact is the structured, model-invisible evidence emitted only
 	// after memory_upsert_fact accepts a write.
@@ -75,6 +77,13 @@ func WithToolCallContext(ctx context.Context, sessionID, toolCallID, runDir stri
 		runDir:     runDir,
 		cap:        previewCap,
 	})
+}
+
+// WithOriginConversationID binds a tool call to the conversation that owns it. A
+// headless worker keeps its own session id for sidecars and telemetry, so this is
+// deliberately distinct from the tool-call session id.
+func WithOriginConversationID(ctx context.Context, conversationID string) context.Context {
+	return context.WithValue(ctx, originConversationIDCtxKey{}, conversationID)
 }
 
 func newSidecarID(toolCallID string) string {
@@ -137,6 +146,13 @@ func SessionIDFromContext(ctx context.Context) string {
 		return ""
 	}
 	return tc.sessionID
+}
+
+// OriginConversationIDFromContext returns the owning conversation id injected by
+// the agent, or "" when the caller did not provide one.
+func OriginConversationIDFromContext(ctx context.Context) string {
+	id, _ := ctx.Value(originConversationIDCtxKey{}).(string)
+	return id
 }
 
 // delegatedDispatchCtxKey marks a dispatch whose events no Runner observes --

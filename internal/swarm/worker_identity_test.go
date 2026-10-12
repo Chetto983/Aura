@@ -16,9 +16,10 @@ import (
 )
 
 type workerIdentityProbe struct {
-	mu         sync.Mutex
-	origins    []string
-	operations []idempotency.Operation
+	mu          sync.Mutex
+	origins     []string
+	toolOrigins []string
+	operations  []idempotency.Operation
 }
 
 func (p *workerIdentityProbe) Spec() tools.Spec {
@@ -34,6 +35,7 @@ func (p *workerIdentityProbe) Execute(ctx context.Context, _ json.RawMessage) (t
 	op, _ := idempotency.OperationFromContext(ctx)
 	p.mu.Lock()
 	p.origins = append(p.origins, sc.ConvID)
+	p.toolOrigins = append(p.toolOrigins, tools.OriginConversationIDFromContext(ctx))
 	p.operations = append(p.operations, op)
 	p.mu.Unlock()
 	return tools.NewResult(ctx, "probe executed")
@@ -80,6 +82,9 @@ func TestWorkerDispatchPreservesOriginConversation(t *testing.T) {
 	}
 	if probe.origins[0] != rc.ConvID {
 		t.Fatalf("nested adapter origin = %q, want root UUID %q", probe.origins[0], rc.ConvID)
+	}
+	if probe.toolOrigins[0] != rc.ConvID {
+		t.Fatalf("tool origin = %q, want root UUID %q", probe.toolOrigins[0], rc.ConvID)
 	}
 }
 
