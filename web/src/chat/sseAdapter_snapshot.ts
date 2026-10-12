@@ -156,11 +156,19 @@ function attachmentIDsFromSnapshot(message: SnapshotMessage): string[] {
   );
 }
 
+/** The outcome the server read from the call's ledger row; absent keys for a success. */
+function toolOutcomeFromSnapshot(message: SnapshotMessage): Pick<ToolPart, 'isError' | 'refused'> {
+  return {
+    ...(message.isError === true ? { isError: true } : {}),
+    ...(message.refused === true ? { refused: true } : {}),
+  };
+}
+
 function mergeToolResult(
   messages: ThreadMessageLike[],
   toolCallId: string,
   result: string,
-  isError: boolean,
+  outcome: Pick<ToolPart, 'isError' | 'refused'>,
 ): boolean {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const candidate = messages[i];
@@ -172,7 +180,7 @@ function mergeToolResult(
     if (partIndex < 0) continue;
     const part = parts[partIndex];
     if (part?.type !== 'tool-call') continue;
-    parts[partIndex] = { ...part, result, ...(isError ? { isError: true } : {}) };
+    parts[partIndex] = { ...part, result, ...outcome };
     messages[i] = { ...candidate, content: parts };
     return true;
   }
@@ -195,7 +203,8 @@ export function snapshotToThreadMessages(snapshot: unknown): ThreadMessageLike[]
     if (role === 'system') continue;
     if (role === 'tool') {
       if (typeof raw.toolCallId === 'string' && raw.toolCallId.length > 0) {
-        if (!mergeToolResult(messages, raw.toolCallId, text, raw.isError === true)) {
+        const outcome = toolOutcomeFromSnapshot(raw);
+        if (!mergeToolResult(messages, raw.toolCallId, text, outcome)) {
           messages.push({
             ...(id !== undefined ? { id } : {}),
             ...(metadata !== undefined ? { metadata } : {}),
@@ -207,7 +216,7 @@ export function snapshotToThreadMessages(snapshot: unknown): ThreadMessageLike[]
                 toolName: '',
                 argsText: '',
                 result: text,
-                ...(raw.isError === true ? { isError: true } : {}),
+                ...outcome,
               },
             ],
             status: { type: 'complete', reason: 'stop' },

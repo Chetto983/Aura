@@ -8,6 +8,7 @@ import {
   discardText,
   ensureText,
   isDiscardNotice,
+  isToolOutcome,
   ensureTool,
   frameTimestamp,
   newAssistantTurn,
@@ -38,6 +39,7 @@ import type { GarageDocumentScope } from './composer/garageMentions';
 //   TEXT_MESSAGE_START/CONTENT/END         → a single { type: "text" } part
 //   REASONING_START/MESSAGE_*/END          → a { type: "reasoning" } part (pill) + span timestamps
 //   TOOL_CALL_START(name)/ARGS/END/RESULT  → a { type: "tool-call" } part (raw result)
+//   CUSTOM aura.tool_outcome               → isError (+ refused) on that tool part
 //   STATE_DELTA { tool_call_id }           → a tool-result marker → tool part (Pitfall 2)
 //   STATE_DELTA { usage keys }             → footer usage (NOT a message part)
 //   RUN_FINISHED(success)                  → status: complete
@@ -300,6 +302,15 @@ export function reduceFrame(state: AssistantTurnState, frame: AguiFrame): Assist
       // never after a draft the completion gate threw away.
       if (frame.name === 'aura.discard' && isDiscardNotice(frame.value)) {
         discardText(state, frame.value.message_id);
+      }
+      if (frame.name === 'aura.tool_outcome' && isToolOutcome(frame.value)) {
+        const { tool_call_id: toolCallId, outcome } = frame.value;
+        const part = ensureTool(state, toolCallId, state.tools.get(toolCallId)?.toolName ?? '');
+        writeTool(state, {
+          ...part,
+          isError: true,
+          ...(outcome === 'refused' ? { refused: true } : {}),
+        });
       }
       // aura.steer (amendment #132, STEER-03) and aura.elicitation* (spec 2026-09-25) are
       // deliberately NOT handled here: they fall through to the default no-op below every

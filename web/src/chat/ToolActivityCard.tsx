@@ -18,7 +18,9 @@ import { Button } from '@/components/ui/button';
 // chevron], COLLAPSED BY DEFAULT in every state — the auto-expand/auto-collapse
 // machinery is deleted (C2). Expanding reveals the typed DisplayRouter card
 // (evidence types) or the structured ToolResultPanel (raw), inside the row.
-// Errors stay collapsed with a danger tint + a visible "Error" word (OQ-2).
+// Errors stay collapsed with a danger tint + a visible "Error" word (OQ-2). A refused
+// call is a decision, not a fault: it shows "Refused" in the neutral tone a cancel uses
+// (spec 2026-10-12).
 //
 // SECURITY (T-25-11 / HARDEN-08): summaries and raw bodies are untrusted
 // tool/swarm output — they render as escaped React text (the panel's highlight
@@ -28,6 +30,7 @@ const DOT_CLASS: Record<ToolStatus, string> = {
   running: 'bg-warning aura-dot-pulse',
   done: 'bg-success',
   error: 'bg-danger',
+  refused: 'bg-text-faint',
   canceled: 'bg-text-faint',
   interrupted: 'bg-text-faint',
 };
@@ -38,6 +41,7 @@ export interface ToolActivityChild {
   readonly argsText?: string;
   readonly result?: string;
   readonly isError?: boolean;
+  readonly refused?: boolean;
 }
 
 export interface ToolActivityCardProps {
@@ -47,6 +51,7 @@ export interface ToolActivityCardProps {
   /** Raw tool-result preview, when the call has completed. */
   readonly result?: string;
   readonly isError?: boolean;
+  readonly refused?: boolean;
   /** The turn is paused on the person's answer to this call. */
   readonly awaitingInput?: boolean;
   readonly partStatus?: ToolCallMessagePartStatus;
@@ -68,6 +73,7 @@ export function ToolActivityCard({
   argsText,
   result,
   isError,
+  refused,
   awaitingInput,
   partStatus,
   startedAt,
@@ -81,7 +87,7 @@ export function ToolActivityCard({
   const bodyId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const status = toolStatus({ result, isError, awaitingInput, display, partStatus });
+  const status = toolStatus({ result, isError, refused, awaitingInput, display, partStatus });
   const running = status === 'running';
   const elapsed = useElapsed(
     status === 'interrupted' && finishedAt === undefined ? undefined : startedAt,
@@ -149,7 +155,7 @@ export function ToolActivityCard({
           ) : null}
           {/* Non-success outcomes remain explicit, including for assistive technology. */}
           <span className="sr-only">{t(`chat.tool.status.${status}`)}</span>
-          {status === 'error' || status === 'canceled' || status === 'interrupted' ? (
+          {status !== 'running' && status !== 'done' ? (
             <span
               className={`shrink-0 text-xs font-medium ${status === 'error' ? 'text-danger' : 'text-text-muted'}`}
             >
@@ -220,6 +226,7 @@ export function ToolActivityCard({
                 {...(child.argsText !== undefined ? { argsText: child.argsText } : {})}
                 {...(child.result !== undefined ? { result: child.result } : {})}
                 {...(child.isError !== undefined ? { isError: child.isError } : {})}
+                {...(child.refused === true ? { refused: true } : {})}
               />
             ))}
           </div>

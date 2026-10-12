@@ -4,11 +4,13 @@
 import type { ToolCallMessagePartStatus } from '@assistant-ui/react';
 import type { DisplayPayload } from './displays/types';
 
-export type ToolStatus = 'running' | 'done' | 'error' | 'canceled' | 'interrupted';
+export type ToolStatus = 'running' | 'done' | 'error' | 'refused' | 'canceled' | 'interrupted';
 
 export interface ToolStatusInput {
   readonly result?: string | undefined;
   readonly isError?: boolean | undefined;
+  /** The call was refused, a decision rather than a fault; it outranks its isError. */
+  readonly refused?: boolean | undefined;
   readonly display?: DisplayPayload | undefined;
   readonly partStatus?: ToolCallMessagePartStatus | undefined;
   /** The turn is paused on the person's answer to this call (snapshot `awaitingInput`). */
@@ -19,6 +21,7 @@ export interface ToolStatusInput {
  *  is paused waiting on the person: that call is still open, not lost. */
 export function toolStatus(input: ToolStatusInput): ToolStatus {
   if (input.awaitingInput === true && input.result === undefined) return 'running';
+  if (input.refused === true) return 'refused';
   if (input.isError === true) return 'error';
   if (input.display?.type === 'code' && input.display.code?.cancelled === true) return 'canceled';
   if (

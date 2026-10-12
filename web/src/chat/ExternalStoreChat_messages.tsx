@@ -378,6 +378,7 @@ export const ToolFallback: ToolCallMessagePartComponent = ({
     display?: unknown;
     mcpView?: unknown;
     awaitingInput?: unknown;
+    refused?: unknown;
     startedAt?: unknown;
     finishedAt?: unknown;
   };
@@ -450,6 +451,7 @@ export const ToolFallback: ToolCallMessagePartComponent = ({
         argsText?: unknown;
         result?: unknown;
         isError?: unknown;
+        refused?: unknown;
         startedAt?: unknown;
         finishedAt?: unknown;
         display?: unknown;
@@ -463,6 +465,7 @@ export const ToolFallback: ToolCallMessagePartComponent = ({
           argsText: typeof p.argsText === 'string' ? p.argsText : undefined,
           result: typeof p.result === 'string' ? p.result : undefined,
           isError: p.isError === true ? true : undefined,
+          refused: p.refused === true ? true : undefined,
           startedAt: typeof p.startedAt === 'number' ? p.startedAt : undefined,
           finishedAt: typeof p.finishedAt === 'number' ? p.finishedAt : undefined,
           display: isDisplayPayload(p.display) ? p.display : undefined,
@@ -488,6 +491,7 @@ export const ToolFallback: ToolCallMessagePartComponent = ({
       partStatus={status}
       {...(resultText !== undefined ? { result: resultText } : {})}
       {...(isError !== undefined ? { isError } : {})}
+      {...(part.refused === true ? { refused: true } : {})}
       {...(part.awaitingInput === true ? { awaitingInput: true } : {})}
       {...(startedAt !== undefined ? { startedAt } : {})}
       {...(finishedAt !== undefined ? { finishedAt } : {})}

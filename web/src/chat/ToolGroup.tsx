@@ -11,10 +11,12 @@ import { Button } from '@/components/ui/button';
 // ToolGroup (compact-chat spec §3.3): one 44px header for a run of ≥3
 // consecutive settled tool parts — deep-research turns fire 5-15 sequential
 // searches; the stack turns N rows into one. Rollup dot (danger when any
-// member errored), "N tools" count, wall-clock span (first member startedAt →
-// last member finishedAt), chevron. Expanded: the member rows stack (each
-// still individually expandable — two-level disclosure). Collapse state lives
-// in this group-leader component (ephemeral, never persisted).
+// member errored, else neutral when any was refused or canceled: a failure
+// needs the operator, a decision does not), "N tools" count, wall-clock span
+// (first member startedAt → last member finishedAt), chevron. Expanded: the
+// member rows stack (each still individually expandable — two-level
+// disclosure). Collapse state lives in this group-leader component
+// (ephemeral, never persisted).
 
 export interface ToolGroupMember {
   readonly toolCallId: string;
@@ -22,6 +24,7 @@ export interface ToolGroupMember {
   readonly argsText?: string | undefined;
   readonly result?: string | undefined;
   readonly isError?: boolean | undefined;
+  readonly refused?: boolean | undefined;
   readonly startedAt?: number | undefined;
   readonly finishedAt?: number | undefined;
   readonly display?: DisplayPayload | undefined;
@@ -40,8 +43,9 @@ export function ToolGroup({ members, onOpenSource }: ToolGroupProps) {
   const bodyId = useId();
   const [expanded, setExpanded] = useState(false);
 
-  const anyError = members.some((m) => m.isError === true);
-  const anyCanceled = members.some((member) => toolStatus(member) === 'canceled');
+  const statuses = members.map((member) => toolStatus(member));
+  const anyError = statuses.includes('error');
+  const anyNeutral = statuses.some((status) => status === 'refused' || status === 'canceled');
   const startedAt = members[0]?.startedAt;
   const finishedAt = members[members.length - 1]?.finishedAt;
   const span =
@@ -68,7 +72,7 @@ export function ToolGroup({ members, onOpenSource }: ToolGroupProps) {
         <span className="flex min-w-0 items-center gap-2">
           <span
             aria-hidden="true"
-            className={`inline-block h-2 w-2 shrink-0 rounded-sm ${anyError ? 'bg-danger' : anyCanceled ? 'bg-text-faint' : 'bg-success'}`}
+            className={`inline-block h-2 w-2 shrink-0 rounded-sm ${anyError ? 'bg-danger' : anyNeutral ? 'bg-text-faint' : 'bg-success'}`}
           />
           <span className="text-xs text-text">
             {t('chat.tool.group', { count: members.length })}
@@ -103,6 +107,7 @@ export function ToolGroup({ members, onOpenSource }: ToolGroupProps) {
             {...(member.argsText !== undefined ? { argsText: member.argsText } : {})}
             {...(member.result !== undefined ? { result: member.result } : {})}
             {...(member.isError !== undefined ? { isError: member.isError } : {})}
+            {...(member.refused === true ? { refused: true } : {})}
             {...(member.startedAt !== undefined ? { startedAt: member.startedAt } : {})}
             {...(member.finishedAt !== undefined ? { finishedAt: member.finishedAt } : {})}
             {...(member.display !== undefined

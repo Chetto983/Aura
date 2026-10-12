@@ -74,6 +74,21 @@ describe('ToolGroup (AC-10)', () => {
     expect(group.querySelector(':scope > button .bg-danger')).not.toBeNull();
   });
 
+  it('rolls a refused member up to the neutral dot, and an error still wins', () => {
+    const refused = member('b', { isError: true, refused: true });
+    const { rerender } = render(<ToolGroup members={[member('a'), refused, member('c')]} />);
+    const header = () => screen.getByRole('button', { name: 'Grouped tool activity' });
+    expect(screen.getByTestId('tool-group').className).not.toContain('border-danger/40');
+    expect(header().querySelector('.bg-danger')).toBeNull();
+    expect(header().querySelector('.bg-success')).toBeNull();
+    expect(header().querySelector('.bg-text-faint')).not.toBeNull();
+    fireEvent.click(header());
+    expect(within(screen.getByTestId('tool-group-body')).getAllByText('Refused').length).toBe(2);
+    rerender(<ToolGroup members={[member('a', { isError: true }), refused, member('c')]} />);
+    expect(screen.getByTestId('tool-group').className).toContain('border-danger/40');
+    expect(header().querySelector('.bg-danger')).not.toBeNull();
+  });
+
   it('forwards a member display citation click to onOpenSource with that display', () => {
     const onOpenSource = vi.fn();
     const display = {

@@ -85,6 +85,16 @@ export function isDiscardNotice(value: unknown): value is { readonly message_id:
   );
 }
 
+/** The `aura.tool_outcome` CUSTOM payload (spec 2026-10-12): the call named by `tool_call_id`
+ *  failed, or the gateway refused it. TOOL_CALL_RESULT itself carries no error field. */
+export function isToolOutcome(
+  value: unknown,
+): value is { readonly tool_call_id: string; readonly outcome: 'error' | 'refused' } {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as { readonly tool_call_id?: unknown; readonly outcome?: unknown };
+  return typeof v.tool_call_id === 'string' && (v.outcome === 'error' || v.outcome === 'refused');
+}
+
 /**
  * Drop the text part a repudiated message streamed. The part leaves `content`, every
  * index map shifts down past it, and `text` is rebuilt from what remains, so the real

@@ -155,6 +155,10 @@ export interface ToolPart {
   readonly mcpView?: McpViewDescriptor;
   /** Replay only: the turn is paused waiting on the person's answer to this call. */
   readonly awaitingInput?: boolean;
+  /** The call did not succeed: CUSTOM/aura.tool_outcome live, the snapshot's isError on replay. */
+  readonly isError?: boolean;
+  /** The call was refused, a decision rather than a fault. A refused call is also isError. */
+  readonly refused?: boolean;
 }
 export interface TextPart {
   readonly type: 'text';
@@ -203,6 +207,7 @@ export interface SnapshotMessage {
   readonly content?: unknown;
   readonly toolCallId?: unknown;
   readonly isError?: unknown;
+  readonly refused?: unknown;
   readonly toolCalls?: unknown;
   /** 1.12: optional reasoning decoration on answer-shaped assistant messages
    *  (no tool calls) — camelCase, omitempty on the Go side. */

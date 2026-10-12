@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../../i18n/i18n';
 import { ExternalStoreChat } from '../ExternalStoreChat';
@@ -164,6 +164,46 @@ describe('compact tool cards on snapshot rehydration', () => {
     const body = screen.getByTestId('tool-group-body');
     expect(body.hidden).toBe(false);
     expect(body.querySelectorAll('[data-testid="tool-row"]')).toHaveLength(3);
+  });
+
+  // Spec 2026-10-12: the outcome the server reads from the ledger reaches the row through
+  // the real runtime, alone and inside a group.
+  it('a refused call replays as Refused, never as a red Error, alone and grouped', async () => {
+    const call = (id: string) => ({
+      id,
+      type: 'function',
+      function: { name: `tool_${id}`, arguments: '{"query":"q"}' },
+    });
+    const denied = 'error: tool dispatch denied by policy';
+    const refusedTurn = (ids: readonly string[]) => [
+      { id: 'msg-0', role: 'user', content: 'do it' },
+      { id: 'msg-1', role: 'assistant', content: '', toolCalls: ids.map(call) },
+      ...ids.map((id, i) => ({
+        id: `msg-${String(i + 2)}`,
+        role: 'tool',
+        toolCallId: id,
+        content: id === 'c2' ? denied : `r-${id}`,
+        ...(id === 'c2' ? { isError: true, refused: true } : {}),
+      })),
+      { id: 'msg-9', role: 'assistant', content: 'Answer.' },
+    ];
+
+    vi.stubGlobal('fetch', vi.fn(snapshotFetchMock(refusedTurn(['c2']))));
+    const alone = renderChat(<ExternalStoreChat threadId="conv-1" />);
+    await screen.findByText('Answer.');
+    const row = screen.getByTestId('tool-row');
+    expect(row.className).not.toContain('border-danger/40');
+    expect(within(row).getAllByText('Refused').length).toBe(2);
+    alone.unmount();
+
+    vi.stubGlobal('fetch', vi.fn(snapshotFetchMock(refusedTurn(['c1', 'c2', 'c3']))));
+    renderChat(<ExternalStoreChat threadId="conv-1" />);
+    await screen.findByText('Answer.');
+    const header = screen.getByRole('button', { name: 'Grouped tool activity' });
+    expect(header.querySelector('.bg-danger')).toBeNull();
+    expect(header.querySelector('.bg-text-faint')).not.toBeNull();
+    fireEvent.click(header);
+    expect(within(screen.getByTestId('tool-group-body')).getAllByText('Refused').length).toBe(2);
   });
 
   it('AC-7 on replay: a raw tool turn (no display) expands to the Request/Result panel', async () => {

@@ -136,6 +136,32 @@ describe('ToolActivityCard — compact row (AC-6/AC-7/AC-11)', () => {
     expect(body().hidden).toBe(false);
   });
 
+  it('a refused row says Refused in a neutral tone, never the danger Error', () => {
+    render(
+      <ToolActivityCard
+        toolName="web_search"
+        result="error: tool dispatch denied by policy"
+        isError
+        refused
+      />,
+    );
+    expect(row().className).not.toContain('border-danger/40');
+    expect(row().querySelector('.bg-danger')).toBeNull();
+    expect(row().querySelector('.bg-text-faint')).not.toBeNull();
+    const visible = within(row())
+      .getAllByText('Refused')
+      .find((w) => !w.className.includes('sr-only'));
+    expect(visible?.className).toContain('text-text-muted');
+    expect(within(row()).queryByText('Error')).toBeNull();
+    expect(i18n.t('chat.tool.status.refused', { lng: 'it' })).toBe('Negata');
+  });
+
+  it('toolStatus puts a refusal ahead of the error it also is', () => {
+    expect(toolStatus({ result: 'x', isError: true, refused: true })).toBe('refused');
+    expect(toolStatus({ result: 'x', refused: true })).toBe('refused');
+    expect(toolStatus({ result: 'x', isError: true, refused: false })).toBe('error');
+  });
+
   it('renders untrusted tool output as TEXT, never as HTML (XSS guard)', () => {
     const payload = '<img src=x onerror="alert(1)"><b>bold</b>';
     render(<ToolActivityCard toolName="evil_tool" result={payload} />);
@@ -238,6 +264,29 @@ describe('ToolActivityCard — nested subagent / child rows', () => {
     expect(within(childList).getByText('sandbox_exec')).toBeTruthy();
     // Each child is its own disclosure row.
     expect(within(childList).getAllByTestId('tool-row')).toHaveLength(3);
+  });
+
+  it('a refused child row says Refused in the neutral tone, never the danger Error', () => {
+    render(
+      <ToolActivityCard
+        toolName="swarm_coordinator"
+        result="parent done"
+        childActivity={[
+          {
+            toolName: 'web_search',
+            result: 'error: tool dispatch denied by policy',
+            isError: true,
+            refused: true,
+          },
+        ]}
+      />,
+    );
+    fireEvent.click(trigger());
+    const child = within(screen.getByTestId('tool-children')).getByTestId('tool-row');
+    expect(child.className).not.toContain('border-danger/40');
+    expect(child.querySelector('.bg-danger')).toBeNull();
+    expect(within(child).queryByText('Error')).toBeNull();
+    expect(within(child).getAllByText('Refused')).toHaveLength(2);
   });
 
   it('child raw output renders as escaped TEXT, never HTML (XSS guard on children)', () => {
