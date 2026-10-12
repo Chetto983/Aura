@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -165,6 +166,32 @@ func TestActiveContextWindowReadsHotRuntimeSnapshot(t *testing.T) {
 	runtime.Replace(nil, llm.Config{ContextWindow: 131072})
 	if got := s.activeContextWindow(); got != 131072 {
 		t.Fatalf("active context after hot swap = %d, want 131072", got)
+	}
+}
+
+// TestHandleMeReportsWhetherPoliciesAreEnforced: under dev and local_trusted gateway.Decide
+// returns before it reads a tool policy or a standing grant, and the cockpit learns it from
+// here. The field is present in both cases because false is the value the notice needs,
+// and an omitempty would drop exactly that one.
+func TestHandleMeReportsWhetherPoliciesAreEnforced(t *testing.T) {
+	for _, enforced := range []bool{true, false} {
+		t.Run(strconv.FormatBool(enforced), func(t *testing.T) {
+			s := NewServer(nil, nil, ServerConfig{PoliciesEnforced: enforced})
+			s.SetIdentityAdmin(&fakeIdentityAdmin{caps: map[string][]string{testLocalID: {"agent.run"}}})
+			rec := httptest.NewRecorder()
+			s.handleMe(rec, withPrincipal(httptest.NewRequest(http.MethodGet, "/api/me", nil), testLocalID))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rec.Code)
+			}
+			var out map[string]any
+			if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			got, present := out["policies_enforced"]
+			if !present || got != enforced {
+				t.Fatalf("policies_enforced = %v (present %v), want %v", got, present, enforced)
+			}
+		})
 	}
 }
 

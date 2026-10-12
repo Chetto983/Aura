@@ -56,6 +56,10 @@ type ServerConfig struct {
 	// (auth.go:282) returns `next` unchanged because SecretConfigured is false. Default false
 	// (fail-closed): a zero-value ServerConfig must never allow a public mint.
 	SharePublicEnabled bool
+	// PoliciesEnforced is the deployment profile's Strict(). Under dev and local_trusted
+	// gateway.Decide returns before it reads a tool policy or a standing grant, so
+	// GET /api/me reports it and the cockpit says those are saved but not applied.
+	PoliciesEnforced bool
 	// Detached-run knobs (fix-plan 1.3 Tier B, AURA_AGUI_RUN_*): RunDetach gates the
 	// context.WithoutCancel producer path (default false = today's request-scoped
 	// runs); the ints size the RunRegistry via NewRunRegistry (runregistry.go), where

@@ -100,11 +100,15 @@ func (s *Server) registerAuditRoutes(mux *http.ServeMux) {
 // no other source for it: authentication is external, so the SPA never sees the login email,
 // and the profile document's display name is a different (optionally blank) field. It is
 // empty when the lookup fails, and the caller must not render a bare interpolation of it.
+//
+// PoliciesEnforced is ServerConfig.PoliciesEnforced. It has no omitempty: false is the
+// value the cockpit's notice reads, and omitempty would drop exactly that one.
 type meDTO struct {
-	IdentityID    string   `json:"identity_id"`
-	Name          string   `json:"name"`
-	Capabilities  []string `json:"capabilities"`
-	ContextWindow int      `json:"context_window"`
+	IdentityID       string   `json:"identity_id"`
+	Name             string   `json:"name"`
+	Capabilities     []string `json:"capabilities"`
+	ContextWindow    int      `json:"context_window"`
+	PoliciesEnforced bool     `json:"policies_enforced"`
 }
 
 // handleMe returns the authenticated caller's own name + capability set. In production RequireAuth
@@ -131,7 +135,13 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	if idn, nameErr := s.idAdmin.GetIdentityByID(r.Context(), id); nameErr == nil {
 		name = idn.Name
 	}
-	writeJSON(w, meDTO{IdentityID: id, Name: name, Capabilities: caps, ContextWindow: s.activeContextWindow()})
+	writeJSON(w, meDTO{
+		IdentityID:       id,
+		Name:             name,
+		Capabilities:     caps,
+		ContextWindow:    s.activeContextWindow(),
+		PoliciesEnforced: s.cfg.PoliciesEnforced,
+	})
 }
 
 // adminIdentityDTO is one row of the admin identity roster: the identity + its current

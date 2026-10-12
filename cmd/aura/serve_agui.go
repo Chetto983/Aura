@@ -18,6 +18,7 @@ import (
 	"github.com/chetto1983/aura/internal/approvalpolicies"
 	"github.com/chetto1983/aura/internal/board"
 	"github.com/chetto1983/aura/internal/chatgptplan"
+	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/cron"
 	"github.com/chetto1983/aura/internal/documents"
 	"github.com/chetto1983/aura/internal/identity"
@@ -57,46 +58,7 @@ func wireAGUIServer(ctx context.Context, chat *chatEnv, store *cron.Store, sched
 	// before httpSrv is built) refuses a non-loopback AURA_AGUI_BIND unless Authula
 	// auth or AURA_WEB_TRUST_PROXY is set, so the auth boundary — not a hardcoded
 	// bind — is the compensating control.
-	serverCfg := agui.ServerConfig{
-		BufferCap:       chat.cfg.AGUIBufferCap,
-		SSEHeartbeatSec: chat.cfg.AGUISSEHeartbeatSec,
-		// Detached-run knobs (fix-plan 1.3 Tier B, amendment #90), resolved like
-		// SSEHeartbeatSec; the registry construction below is what activates them.
-		RunDetach:          chat.cfg.AGUIRun.Detach,
-		RunBufferEvents:    chat.cfg.AGUIRun.BufferEvents,
-		RunLingerSec:       chat.cfg.AGUIRun.LingerSec,
-		RunMaxWallclockSec: chat.cfg.AGUIRun.MaxWallclockSec,
-		RunMaxLive:         chat.cfg.AGUIRun.MaxLive,
-		ReadinessState:     readinessState,
-		HealthDetails: func() map[string]any {
-			// WEB-04/D-07: the read-only health panel reads bind + build from this
-			// EXISTING /healthz body — no new backend endpoint. Both are non-secret
-			// (a bind address and build provenance, not a DSN/credential).
-			buildVersion, buildCommit, buildDate := buildInfo()
-			details := map[string]any{
-				"bind_address":  chat.cfg.AGUIBind,
-				"build_version": buildVersion,
-			}
-			if buildCommit != "" {
-				details["build_commit"] = buildCommit
-			}
-			if buildDate != "" {
-				details["build_date"] = buildDate
-			}
-			last := scheduler.LastTick()
-			if last.IsZero() {
-				details["scheduler_last_tick"] = ""
-			} else {
-				details["scheduler_last_tick"] = last.Format(time.RFC3339)
-			}
-			return details
-		},
-		// /readyz reflects the daemon's REQUIRED backends (O-05/AP-14): Postgres (the
-		// open pool) and memory. When any required dep is unreachable /readyz answers
-		// 503 so an orchestrator stops routing to this instance; /healthz stays cheap
-		// process liveness.
-		ReadinessProbes: serveReadinessProbes(chat),
-	}
+	serverCfg := aguiServerConfig(chat.cfg, scheduler, readinessState, serveReadinessProbes(chat))
 	aguiServer := agui.NewServer(chat.run, chat.conv, serverCfg)
 	aguiServer.SetToolInvocationReader(chat.toolInvocations)
 	// Fix-plan 1.3 Tier B (amendment #90 point 1): the detached-run registry exists
@@ -322,6 +284,52 @@ func wireAGUIServer(ctx context.Context, chat *chatEnv, store *cron.Store, sched
 		aguiServer.SetGovernanceWriteProviders(agui.GovernanceWriteProviders{MCP: mcpWrite, Skills: skillsWrite})
 	}
 	return aguiServer, runRegistry
+}
+
+// aguiServerConfig is the agui.ServerConfig the daemon's config resolves to. The readiness
+// probes come in built, because serveReadinessProbes needs the whole chatEnv.
+func aguiServerConfig(cfg *config.Config, scheduler *cron.Scheduler, readinessState *readiness.Snapshot, probes []agui.ReadinessProbe) agui.ServerConfig {
+	return agui.ServerConfig{
+		BufferCap:       cfg.AGUIBufferCap,
+		SSEHeartbeatSec: cfg.AGUISSEHeartbeatSec,
+		// Detached-run knobs (fix-plan 1.3 Tier B, amendment #90), resolved like
+		// SSEHeartbeatSec; the registry construction in wireAGUIServer is what activates them.
+		RunDetach:          cfg.AGUIRun.Detach,
+		RunBufferEvents:    cfg.AGUIRun.BufferEvents,
+		RunLingerSec:       cfg.AGUIRun.LingerSec,
+		RunMaxWallclockSec: cfg.AGUIRun.MaxWallclockSec,
+		RunMaxLive:         cfg.AGUIRun.MaxLive,
+		ReadinessState:     readinessState,
+		PoliciesEnforced:   cfg.Profile.Strict(),
+		HealthDetails: func() map[string]any {
+			// WEB-04/D-07: the read-only health panel reads bind + build from this
+			// EXISTING /healthz body — no new backend endpoint. Both are non-secret
+			// (a bind address and build provenance, not a DSN/credential).
+			buildVersion, buildCommit, buildDate := buildInfo()
+			details := map[string]any{
+				"bind_address":  cfg.AGUIBind,
+				"build_version": buildVersion,
+			}
+			if buildCommit != "" {
+				details["build_commit"] = buildCommit
+			}
+			if buildDate != "" {
+				details["build_date"] = buildDate
+			}
+			last := scheduler.LastTick()
+			if last.IsZero() {
+				details["scheduler_last_tick"] = ""
+			} else {
+				details["scheduler_last_tick"] = last.Format(time.RFC3339)
+			}
+			return details
+		},
+		// /readyz reflects the daemon's REQUIRED backends (O-05/AP-14): Postgres (the
+		// open pool) and memory. When any required dep is unreachable /readyz answers
+		// 503 so an orchestrator stops routing to this instance; /healthz stays cheap
+		// process liveness.
+		ReadinessProbes: probes,
+	}
 }
 
 // serveReadinessProbes builds the /readyz probe set over the daemon's required
