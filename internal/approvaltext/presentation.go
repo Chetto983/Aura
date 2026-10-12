@@ -25,6 +25,8 @@ const (
 	maxShortParamBytes = 256
 	maxArgsBytes       = 1024
 	maxCommandBytes    = 8192
+	// maxTargetBytes holds the gateway's 120-rune target at four bytes a rune.
+	maxTargetBytes = 512
 )
 
 // Presentation is persisted inside resume_context beside the canonical question. Key is stable
@@ -112,6 +114,11 @@ func deriveGateway(question string, fields map[string]json.RawMessage) (Presenta
 		return Presentation{}, false
 	}
 	p := Presentation{Key: GatewayKey, Params: map[string]string{"tool": tool, "risk": risk, "args": args}}
+	// The runner stamps target from the gateway's challenge when the tool described the call;
+	// the question the model relays never carries it.
+	if target, described := stringField(fields, "target"); described {
+		p.Params["target"] = target
+	}
 	return p, valid(p)
 }
 
@@ -200,7 +207,7 @@ func valid(p Presentation) bool {
 	var limits map[string]int
 	switch p.Key {
 	case GatewayKey:
-		limits = map[string]int{"tool": maxShortParamBytes, "risk": maxShortParamBytes, "args": maxArgsBytes}
+		limits = map[string]int{"tool": maxShortParamBytes, "risk": maxShortParamBytes, "args": maxArgsBytes, "target": maxTargetBytes}
 	case ShellKey:
 		limits = map[string]int{"cwd": maxArgsBytes, "command": maxCommandBytes, "digest": maxShortParamBytes}
 	case ScheduledKey:
@@ -247,7 +254,11 @@ func RenderItalian(p Presentation, fallback string) string {
 		if args == "(none)" {
 			args = "(nessuno)"
 		}
-		return fmt.Sprintf("Approva %s (rischio=%s)?\nQuesta azione mutante resta BLOCCATA finché non accetti.\nargomenti: %s", p.Params["tool"], p.Params["risk"], args)
+		question := fmt.Sprintf("Approva %s (rischio=%s)?\nQuesta azione mutante resta BLOCCATA finché non accetti.\nargomenti: %s", p.Params["tool"], p.Params["risk"], args)
+		if target := p.Params["target"]; target != "" {
+			question += "\noggetto: " + target
+		}
+		return question
 	case ShellKey:
 		//nolint:misspell // "comando" is the correct Italian noun, not English "commando".
 		return fmt.Sprintf("Approva il comando shell_exec?\ndirectory: %s\ncomando:\n%s\nsha256: %s", p.Params["cwd"], p.Params["command"], p.Params["digest"])

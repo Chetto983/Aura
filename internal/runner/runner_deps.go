@@ -135,6 +135,11 @@ type Deps struct {
 	// deployment's alone, which is the pre-#214 block byte for byte.
 	AlwaysBlock func(context.Context) string
 	ResumeHook  ResumeHook
+	// ApprovalChallenges finds the gateway challenge behind a relayed gateway_approval pause,
+	// so the saved pause carries the server's target and withheld call id, never the model's
+	// (spec 2026-10-12). The composition root wires the gateway's ApprovalChallengeDetails;
+	// nil finds nothing, and the pause keeps neither field.
+	ApprovalChallenges ApprovalChallengeLookup
 	// Embedder wires the local embedding-based reasoning-tier classifier into
 	// each per-turn agent. nil => an adaptive turn is decided static low, and a dispatched
 	// one is labelled by the background teacher. The composition root passes
@@ -187,6 +192,11 @@ type Deps struct {
 // ResumeHook is called after a paused ask_user response is persisted and before
 // the runner resumes the pending turn.
 type ResumeHook func(ctx context.Context, pending askuser.Pending, resp ResponseInput) error
+
+// ApprovalChallengeLookup returns the target a tool described for a withheld call and that
+// call's tool_call_id, from the challenge the gateway issued under exactly this conversation,
+// tool and argument fingerprint; ok is false when there is none.
+type ApprovalChallengeLookup func(conversationID, tool, argsFingerprint string) (target, toolCallID string, ok bool)
 
 // New builds a Runner over the supplied dependencies, applying the timeout
 // defaults when a caller leaves them zero.
@@ -265,6 +275,7 @@ func New(d Deps) *Runner {
 		teacherTimeout:            teacherTimeout,
 		stopTimeout:               stopTimeout,
 		resumeHook:                d.ResumeHook,
+		approvalChallenges:        d.ApprovalChallenges,
 		hookManager:               d.HookManager,
 		verificationStore:         d.VerificationStore,
 		verificationDetector:      d.VerificationDetector,

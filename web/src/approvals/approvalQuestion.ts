@@ -21,7 +21,9 @@ export function approvalQuestion(approval: Approval, t: TFunction): string {
         presentation.params.args === '(none)'
           ? t('approval.question.none')
           : presentation.params.args;
-      return t('approval.question.gateway', { ...presentation.params, args });
+      const question = t('approval.question.gateway', { ...presentation.params, args });
+      const target = presentation.params.target;
+      return target ? `${question}\n${t('approval.question.target', { target })}` : question;
     }
     case SHELL_KEY:
       return hasParams(presentation, 'cwd', 'command', 'digest')

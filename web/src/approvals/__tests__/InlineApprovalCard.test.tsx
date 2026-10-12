@@ -460,6 +460,28 @@ describe('InlineApprovalCard (APRV-02/03 / D-03/D-05/D-06)', () => {
     expect(screen.getByRole('button', { name: 'Approve' }).className).toContain('bg-destructive');
   });
 
+  it('a gateway approval names the card it acts on', () => {
+    renderCard({
+      approval: approval({
+        token: 't-target',
+        conversation_id: 'c-1',
+        kind: 'approval',
+        question: 'Approve board?',
+        options: [{ label: 'Approve once', value: 'gateway_scope:once:board delete' }],
+        presentation: {
+          key: 'approval.gateway.mutation',
+          params: {
+            tool: 'board',
+            risk: 'destructive',
+            args: 'action, id',
+            target: 'Fattura fornitore · Fatto',
+          },
+        },
+      }),
+    });
+    expect(screen.getByText(/target: Fattura fornitore · Fatto/)).toBeTruthy();
+  });
+
   // The spec keeps ask_user's behaviour: an approval with no options still takes a reply.
   it('an approval with no options keeps its free-text reply and Answer', async () => {
     renderCard({

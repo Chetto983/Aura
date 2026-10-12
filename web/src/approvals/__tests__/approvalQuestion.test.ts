@@ -36,6 +36,28 @@ describe('approvalQuestion', () => {
     expect(approvalQuestion(row, i18n.t)).toContain('argomenti: (nessuno)');
   });
 
+  it('adds the target a tool described as its own line, and only then', async () => {
+    const params = { tool: 'board', risk: 'destructive', args: 'action, id' };
+    const described = approval({
+      presentation: {
+        key: 'approval.gateway.mutation',
+        params: { ...params, target: 'Fattura fornitore · Fatto' },
+      },
+    });
+
+    await i18n.changeLanguage('en');
+    expect(approvalQuestion(described, i18n.t)).toBe(
+      'Approve board (risk=destructive)?\nThis mutating action is WITHHELD until you accept.\nargs: action, id\ntarget: Fattura fornitore · Fatto',
+    );
+    const undescribed = approval({ presentation: { key: 'approval.gateway.mutation', params } });
+    expect(approvalQuestion(undescribed, i18n.t)).not.toContain('target');
+
+    await i18n.changeLanguage('it');
+    expect(approvalQuestion(described, i18n.t)).toBe(
+      'Approva board (rischio=destructive)?\nQuesta azione mutante resta BLOCCATA finché non accetti.\nargomenti: action, id\noggetto: Fattura fornitore · Fatto',
+    );
+  });
+
   it('renders shell and scheduled approvals without changing the canonical payload', async () => {
     await i18n.changeLanguage('it');
     const shell = approval({

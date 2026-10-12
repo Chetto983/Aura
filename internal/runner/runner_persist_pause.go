@@ -42,6 +42,10 @@ func (r *Runner) persistPause(ctx context.Context, tr *turnTracker, ai *agent.Aw
 	if err != nil {
 		return fmt.Errorf("persist pause decision policy: %w", err)
 	}
+	resumeContext, err = stampGatewayChallenge(resumeContext, tr.convID, r.approvalChallenges)
+	if err != nil {
+		return fmt.Errorf("persist pause challenge: %w", err)
+	}
 	resumeContext, err = approvaltext.Enrich(ai.Question, resumeContext)
 	if err != nil {
 		return fmt.Errorf("persist pause presentation: %w", err)
@@ -65,6 +69,50 @@ func (r *Runner) persistPause(ctx context.Context, tr *turnTracker, ai *agent.Aw
 		ProxiedToolCallID:  ai.ProxiedToolCallID,
 	})
 	return nil
+}
+
+// stampGatewayChallenge writes the gateway challenge's target and withheld tool_call_id into
+// a relayed gateway_approval resume context, replacing whatever the model copied there (spec
+// 2026-10-12). The model relays the coordinates; the server supplies what the operator reads
+// and which call a decline refuses. The lookup is keyed on the pause's own conversation, the
+// key the resume hook approves under, so a mismatch is a miss. A miss removes both fields: a
+// target the model wrote never reaches the cockpit or Telegram. Other contexts pass through.
+func stampGatewayChallenge(raw json.RawMessage, conversationID string, lookup ApprovalChallengeLookup) (json.RawMessage, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, fmt.Errorf("approval resume_context must be a JSON object: %w", err)
+	}
+	if rootString(fields, "type") != "gateway_approval" {
+		return raw, nil
+	}
+	delete(fields, "target")
+	delete(fields, "tool_call_id")
+	var target, toolCallID string
+	found := false
+	if lookup != nil {
+		target, toolCallID, found = lookup(conversationID, rootString(fields, "tool"), rootString(fields, "args_sha256"))
+	}
+	if found {
+		stamped := map[string]string{"tool_call_id": toolCallID}
+		if target != "" {
+			stamped["target"] = target
+		}
+		for name, value := range stamped {
+			encoded, err := json.Marshal(value)
+			if err != nil {
+				return nil, fmt.Errorf("stamp %s: %w", name, err)
+			}
+			fields[name] = encoded
+		}
+	}
+	return json.Marshal(fields)
+}
+
+// rootString reads a string root field of a resume context: "" when it is absent or not a string.
+func rootString(fields map[string]json.RawMessage, name string) string {
+	var value string
+	_ = json.Unmarshal(fields[name], &value)
+	return value
 }
 
 // flushPause commits the round's pause exposure atomically (D-05/F-030): the SINGLE

@@ -502,8 +502,11 @@ func assembleChatEnv(
 		AlwaysBlock:              alwaysBlockProvider(cfg, newSharedSkillReader(cfg, pool)),
 		// The gateway resume hook records an operator's accept of a relayed gateway_approval
 		// pause into the SAME gateway instance (gw) the runner's PEP reads (D-03 point 2).
-		ResumeHook:  chainResumeHooks(newShellResumeHook(toolHandles.ShellApprovals), newGatewayResumeHook(gw), newScheduledTaskResumeHook(taskStore)),
-		HookManager: hookManager,
+		ResumeHook: chainResumeHooks(newShellResumeHook(toolHandles.ShellApprovals), newGatewayResumeHook(gw), newScheduledTaskResumeHook(taskStore)),
+		// The same gateway stamps a saved gateway pause with its challenge's target and
+		// withheld call id (spec 2026-10-12): the model relays neither.
+		ApprovalChallenges: gw.ApprovalChallengeDetails,
+		HookManager:        hookManager,
 		// The verify-on-stop evidence ledger (migration 0094). Built ONCE here because it
 		// holds the pool; the runner derives the per-turn read and write halves from it.
 		VerificationStore: agent.NewEvidenceStore(pool),

@@ -106,6 +106,8 @@ type Runner struct {
 	teacherTimeout time.Duration
 	stopTimeout    time.Duration
 	resumeHook     ResumeHook
+	// approvalChallenges stamps a saved gateway pause from the gateway's challenge.
+	approvalChallenges ApprovalChallengeLookup
 
 	hookManager *agent.HookManager // optional per-turn LlmAgent hooks
 	// verificationStore is the process-wide evidence ledger (pool-owning); nil disables

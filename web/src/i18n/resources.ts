@@ -235,6 +235,7 @@ export const resources = {
           none: '(none)',
           gateway:
             'Approve {{tool}} (risk={{risk}})?\nThis mutating action is WITHHELD until you accept.\nargs: {{args}}',
+          target: 'target: {{target}}',
           shell:
             'Approve the shell_exec command?\ndirectory: {{cwd}}\ncommand:\n{{command}}\nsha256: {{digest}}',
           scheduled: 'Approve scheduled {{kind}} task {{task}}? It will not run until you approve.',
@@ -513,6 +514,7 @@ export const resources = {
           none: '(nessuno)',
           gateway:
             'Approva {{tool}} (rischio={{risk}})?\nQuesta azione mutante resta BLOCCATA finché non accetti.\nargomenti: {{args}}',
+          target: 'oggetto: {{target}}',
           shell:
             'Approva il comando shell_exec?\ndirectory: {{cwd}}\ncomando:\n{{command}}\nsha256: {{digest}}',
           scheduled:

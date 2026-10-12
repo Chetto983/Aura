@@ -15,6 +15,7 @@ import (
 	"github.com/chetto1983/aura/internal/agent"
 	"github.com/chetto1983/aura/internal/agent/agenttest"
 	"github.com/chetto1983/aura/internal/agent/tools"
+	"github.com/chetto1983/aura/internal/approvaltext"
 	"github.com/chetto1983/aura/internal/askuser"
 	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/gateway"
@@ -43,23 +44,8 @@ func TestGatewayApprovalRoundTrip(t *testing.T) {
 	reg.Register(tools.AskUser{})
 	reg.Register(tools.TextResponse{})
 
-	conv := newMemConvStore()
 	client := &roundTripClient{}
-	run := runner.New(runner.Deps{
-		Conv:            conv,
-		Pause:           newRTPauseStore(),
-		Identity:        memIdentityStore{},
-		CacheMetrics:    memCacheMetricStore{},
-		ToolInvocations: memToolInvocationStore{},
-		Client:          client,
-		Registry:        reg,
-		LLM:             llm.Config{Model: "test-model", ContextWindow: 1000000, MaxOutputTokens: 32768, TotalTimeoutSec: 120},
-		TitleTimeout:    time.Second,
-		StopTimeout:     time.Second,
-		Gateway:         gw,
-		// The SAME gateway instance the runner's PEP reads — the hook writes its ledger.
-		ResumeHook: chainResumeHooks(newGatewayResumeHook(gw)),
-	})
+	run := newRoundTripRunner(gw, reg, client)
 	ctx := context.Background()
 	convID, err := run.NewConversation(ctx)
 	if err != nil {
@@ -123,6 +109,80 @@ func TestGatewayApprovalRoundTrip(t *testing.T) {
 	}
 }
 
+// TestGatewayApprovalRoundTripShowsTheDescribedTarget carries a described target through the
+// same round trip (spec 2026-10-12). The tool's label holds typographic punctuation a model
+// would straighten; the relayed question carries none of it, the model writes its own target
+// and tool_call_id into resume_context, and the runner's stamp replaces both from the
+// challenge. The accept resumes on the first try because the question never held the label.
+func TestGatewayApprovalRoundTripShowsTheDescribedTarget(t *testing.T) {
+	const label = "Fattura dell’Enel “urgente” · Fatto"
+	gw := gateway.New(config.ProfileSingleUserHardened, acquireStore{})
+	spy := &describingDeleteTool{target: label}
+	reg := tools.NewRegistry()
+	reg.Register(spy)
+	reg.Register(tools.AskUser{})
+	reg.Register(tools.TextResponse{})
+	client := &roundTripClient{forge: map[string]string{"target": "written by the model", "tool_call_id": "call-forged"}}
+	run := newRoundTripRunner(gw, reg, client)
+	ctx := context.Background()
+	convID, err := run.NewConversation(ctx)
+	if err != nil {
+		t.Fatalf("new conversation: %v", err)
+	}
+	if paused, err := drainForPause(run.Turn(ctx, convID, new("delete the obsolete skill"))); err != nil || !paused {
+		t.Fatalf("round 1 = paused %v, %v; want the relayed approval to pause", paused, err)
+	}
+	pending, err := run.PendingFor(ctx, convID)
+	if err != nil || len(pending) != 1 {
+		t.Fatalf("pending = %d, %v; want exactly one", len(pending), err)
+	}
+	const question = "Approve skill_manage (risk=destructive)?\nThis mutating action is WITHHELD until you accept.\nargs: action, name"
+	if pending[0].Question != question {
+		t.Fatalf("relayed question = %q, want it free of the target: %q", pending[0].Question, question)
+	}
+	var stamped struct {
+		Target     string `json:"target"`
+		ToolCallID string `json:"tool_call_id"`
+	}
+	if err := json.Unmarshal(pending[0].ResumeContext, &stamped); err != nil {
+		t.Fatalf("resume context: %v", err)
+	}
+	if stamped.Target != label || stamped.ToolCallID != client.withheldCall() {
+		t.Fatalf("resume context = %+v, want the challenge's target and the withheld call %q", stamped, client.withheldCall())
+	}
+	if p, ok := approvaltext.FromContext(pending[0].Question, pending[0].ResumeContext); !ok || p.Params["target"] != label {
+		t.Fatalf("presentation = %+v (%v), want the stamped target %q", p, ok, label)
+	}
+	if _, err := run.SubmitAnswers(ctx, map[string]runner.ResponseInput{
+		pending[0].Token: {Action: askuser.ActionAccept, Content: "approved"},
+	}); err != nil {
+		t.Fatalf("submit answers (accept): %v", err)
+	}
+	if paused, err := drainForPause(run.Turn(ctx, convID, nil)); err != nil || paused || spy.Count() != 1 {
+		t.Fatalf("resume = paused %v, %v, executed %d; want the first accept to run the call once", paused, err, spy.Count())
+	}
+}
+
+// newRoundTripRunner is a real Runner wired as the composition root wires it: the same gateway
+// instance answers the PEP, the resume hook and the pause stamp.
+func newRoundTripRunner(gw *gateway.Gateway, reg *tools.Registry, client *roundTripClient) *runner.Runner {
+	return runner.New(runner.Deps{
+		Conv:               newMemConvStore(),
+		Pause:              newRTPauseStore(),
+		Identity:           memIdentityStore{},
+		CacheMetrics:       memCacheMetricStore{},
+		ToolInvocations:    memToolInvocationStore{},
+		Client:             client,
+		Registry:           reg,
+		LLM:                llm.Config{Model: "test-model", ContextWindow: 1000000, MaxOutputTokens: 32768, TotalTimeoutSec: 120},
+		TitleTimeout:       time.Second,
+		StopTimeout:        time.Second,
+		Gateway:            gw,
+		ResumeHook:         chainResumeHooks(newGatewayResumeHook(gw)),
+		ApprovalChallenges: gw.ApprovalChallengeDetails,
+	})
+}
+
 // drainForPause ranges a Runner.Turn event stream, reporting whether any pause Event was
 // emitted. A stream error aborts.
 func drainForPause(seq iter.Seq2[*agent.Event, error]) (bool, error) {
@@ -145,20 +205,25 @@ func drainForPause(seq iter.Seq2[*agent.Event, error]) (bool, error) {
 type roundTripClient struct {
 	mu    sync.Mutex
 	calls int
-	// seenApproval is the last approval request the model was shown, exactly as it read it.
-	seenApproval string
+	// seenApproval is the last approval request the model was shown, exactly as it read it,
+	// and withheldCallID the id of the call it answered.
+	seenApproval   string
+	withheldCallID string
+	// forge is written into the resume_context the model relays, as a model that edits what
+	// it was told to copy would.
+	forge map[string]string
 }
 
 func (c *roundTripClient) Stream(_ context.Context, req llm.Request) (<-chan llm.Chunk, error) {
 	c.mu.Lock()
 	c.calls++
 	n := c.calls
-	if last, ok := lastToolResult(req.Messages); ok && strings.Contains(last, "gateway_approval_required") {
-		c.seenApproval = last
+	if last, ok := lastToolMessage(req.Messages); ok && strings.Contains(last.Content, "gateway_approval_required") {
+		c.seenApproval, c.withheldCallID = last.Content, last.ToolCallID
 	}
 	c.mu.Unlock()
 
-	turn := scriptRoundTripTurn(req.Messages, n)
+	turn := scriptRoundTripTurn(req.Messages, n, c.forge)
 	ch := make(chan llm.Chunk, len(turn.Chunks)+1)
 	for _, ck := range turn.Chunks {
 		ch <- ck
@@ -173,16 +238,23 @@ func (c *roundTripClient) approvalRequest() string {
 	return c.seenApproval
 }
 
-func scriptRoundTripTurn(msgs []llm.Message, n int) agenttest.FakeTurn {
+func (c *roundTripClient) withheldCall() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.withheldCallID
+}
+
+func scriptRoundTripTurn(msgs []llm.Message, n int, forge map[string]string) agenttest.FakeTurn {
 	// The spy already executed (its "executed" result is in history) → finish the turn.
 	if anyToolResultContains(msgs, "executed") {
 		return agenttest.ToolCallTurn(agenttest.MakeToolCall("call-final", "text_response", `{"text":"swarm launched"}`))
 	}
 	// The last tool result is the gateway approval-required message → relay it via ask_user,
-	// copying the question + resume_context VERBATIM (fidelity, not a fabricated context).
-	if last, ok := lastToolResult(msgs); ok {
-		if q, rc, ok := extractApprovalRelay(last); ok {
-			askArgs, _ := json.Marshal(map[string]any{"question": q, "kind": "approval", "resume_context": rc})
+	// copying the question + resume_context VERBATIM (fidelity, not a fabricated context),
+	// apart from the fields forge writes over.
+	if last, ok := lastToolMessage(msgs); ok {
+		if q, rc, ok := extractApprovalRelay(last.Content); ok {
+			askArgs, _ := json.Marshal(map[string]any{"question": q, "kind": "approval", "resume_context": withForgedFields(rc, forge)})
 			return agenttest.ToolCallTurn(agenttest.MakeToolCall("call-ask", "ask_user", string(askArgs)))
 		}
 	}
@@ -207,13 +279,32 @@ func extractApprovalRelay(content string) (question string, resumeContext json.R
 	return p.Question, p.ResumeContext, true
 }
 
-func lastToolResult(msgs []llm.Message) (string, bool) {
+// withForgedFields writes forge over a relayed resume_context's root fields.
+func withForgedFields(rc json.RawMessage, forge map[string]string) json.RawMessage {
+	if len(forge) == 0 {
+		return rc
+	}
+	var fields map[string]any
+	if json.Unmarshal(rc, &fields) != nil {
+		return rc
+	}
+	for name, value := range forge {
+		fields[name] = value
+	}
+	out, err := json.Marshal(fields)
+	if err != nil {
+		return rc
+	}
+	return out
+}
+
+func lastToolMessage(msgs []llm.Message) (llm.Message, bool) {
 	for _, v := range slices.Backward(msgs) {
 		if v.Role == llm.RoleTool {
-			return v.Content, true
+			return v, true
 		}
 	}
-	return "", false
+	return llm.Message{}, false
 }
 
 // anyToolResultContains reports whether any RoleTool message body contains marker (the
@@ -248,6 +339,16 @@ func (s *spyDeleteTool) Count() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.count
+}
+
+// describingDeleteTool is spyDeleteTool naming what it deletes, as the board names a card.
+type describingDeleteTool struct {
+	spyDeleteTool
+	target string
+}
+
+func (d *describingDeleteTool) DescribeForApproval(context.Context, json.RawMessage) (string, error) {
+	return d.target, nil
 }
 
 // acquireStore is a gateway reservationStore that always acquires (rows==1 → Allow →
