@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/chetto1983/aura/internal/agent/tools"
+	"github.com/chetto1983/aura/internal/gateway"
 	"github.com/chetto1983/aura/internal/llm"
 	"github.com/chetto1983/aura/internal/pausable"
 )
@@ -93,6 +94,7 @@ type toolRunResult struct {
 	Preview    string
 	Result     tools.ToolResult
 	Err        string
+	Refused    bool
 	// Mutating mirrors the dispatched tool's Spec().Mutating so dispatch can flag
 	// the run as side-effecting (D-43) without re-resolving the spec.
 	Mutating bool
@@ -215,6 +217,9 @@ func (a *LlmAgent) runTool(ctx context.Context, budget *Budget, call llm.ToolCal
 	if err != nil {
 		boundaryErr = err
 		run.Err = err.Error()
+		if denied, ok := errors.AsType[*gateway.ErrDenied](err); ok {
+			run.Refused = denied.Refusal
+		}
 		recordToolError(call.Function.Name)
 		slog.Error("agent tool error", "tool", call.Function.Name, "tool_call_id", call.ID, "err", err)
 		// An Execute error (and the ErrAwaitingUserInput pause sentinel rendered as

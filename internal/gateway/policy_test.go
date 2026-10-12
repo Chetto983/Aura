@@ -234,3 +234,23 @@ func TestPolicyForWithoutAStoreOrIdentityIsNone(t *testing.T) {
 	var nilGateway *Gateway
 	nilGateway.SetPolicyStore(newFakePolicies(nil))
 }
+
+// A refusal is the policy's answer: the identity's deny rule, or nobody there to ask. Those
+// are the two denials recordDenyFact writes, so they are the two a reload can show as
+// refused. A denial from the gateway's own bookkeeping is a failure and must stay red.
+func TestOnlyThePolicysAnswerIsARefusal(t *testing.T) {
+	t.Parallel()
+	write := json.RawMessage(`{"command":"ls"}`)
+	denying, _, ctx := policyGateway(map[string]Policy{policyKey("shell_exec", ""): PolicyDeny})
+	if v, _ := denying.Decide(ctx, ordinaryWriteSpec(), write, testKey()); v.Decision != Deny || !v.Refusal {
+		t.Fatalf("deny policy = %+v, want a refusal", v)
+	}
+	headless := New(config.ProfileSingleUserHardened, &fakeStore{})
+	if v, _ := headless.Decide(context.Background(), gatedSpec(), gatedArgs(), testKey()); v.Decision != Deny || !v.Refusal {
+		t.Fatalf("no approver = %+v, want a refusal", v)
+	}
+	broken := New(config.ProfileSingleUserHardened, &fakeStore{reserveErr: errors.New("insert boom")})
+	if v, _ := broken.Decide(context.Background(), ordinaryWriteSpec(), write, testKey()); v.Decision != Deny || v.Refusal {
+		t.Fatalf("failed reservation = %+v, want a deny that is not a refusal", v)
+	}
+}

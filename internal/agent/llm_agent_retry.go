@@ -158,7 +158,7 @@ func (a *LlmAgent) execTool(ctx context.Context, tool tools.Tool, mutating bool,
 		}
 		switch verdict.Decision {
 		case gateway.Deny:
-			denied := &gateway.ErrDenied{Reason: verdict.Reason, Tier: verdict.Tier}
+			denied := &gateway.ErrDenied{Reason: verdict.Reason, Tier: verdict.Tier, Refusal: verdict.Refusal}
 			if operationAcquired {
 				bctx, cancel := bookkeepingCtx(ctx)
 				defer cancel()

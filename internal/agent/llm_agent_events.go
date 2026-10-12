@@ -151,6 +151,7 @@ func (a *LlmAgent) toolResultEvent(ic InvocationContext, spanID [8]byte, parentS
 		DurationMS:        run.EndedAt.Sub(run.StartedAt).Milliseconds(),
 		Status:            status,
 		Error:             errText,
+		Refused:           run.Refused,
 		ResultPreview:     rawPreview,
 		PreviewBytes:      len(rawPreview),
 		ResultBytes:       run.Result.Bytes,

@@ -123,6 +123,7 @@ type ToolInvocation struct {
 	DurationMS        int64          `json:"duration_ms,omitempty"`
 	Status            string         `json:"status,omitempty"`
 	Error             string         `json:"error,omitempty"`
+	Refused           bool           `json:"refused,omitempty"`
 	ResultPreview     string         `json:"result_preview,omitempty"`
 	PreviewBytes      int            `json:"preview_bytes,omitempty"`
 	ResultBytes       int            `json:"result_bytes,omitempty"`

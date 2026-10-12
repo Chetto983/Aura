@@ -39,6 +39,10 @@ const SwarmWorkerEventName = "aura.swarm.worker"
 // it once, by (server, resource_uri), from an authenticated Aura route.
 const ViewEventName = "aura.mcp_view"
 
+// ToolOutcomeEventName names a call that did not succeed, right behind its TOOL_CALL_RESULT,
+// which has no error field: {"tool_call_id", "outcome": "error" | "refused"}.
+const ToolOutcomeEventName = "aura.tool_outcome"
+
 // SteerEventName is the stable AG-UI CUSTOM-event name the mid-turn steer
 // echo emits (amendment #132, STEER-03): every operator redirect that drains
 // into a round is echoed on the wire under this name, carrying the same
@@ -453,7 +457,7 @@ func (s *reasoningRunState) close(yield func(events.Event, error) bool) bool {
 
 // emitToolInvocation maps a ToolInvocation lifecycle Event onto AG-UI tool events:
 // start → TOOL_CALL_START (+ TOOL_CALL_ARGS when Arguments != ""); end →
-// TOOL_CALL_END + TOOL_CALL_RESULT.
+// TOOL_CALL_END + TOOL_CALL_RESULT, + the outcome of a call that did not succeed.
 func emitToolInvocation(yield func(events.Event, error) bool, idgen IDGenerator, ti *agent.ToolInvocation) bool {
 	switch ti.Event {
 	case agent.ToolInvocationStart:
@@ -472,8 +476,24 @@ func emitToolInvocation(yield func(events.Event, error) bool, idgen IDGenerator,
 		if !yield(events.NewToolCallResultEvent(idgen.NewToolResultID(ti.ToolCallID), ti.ToolCallID, toolResultContent(ti.ResultPreview)), nil) {
 			return false
 		}
+		if outcome := toolOutcome(ti); outcome != "" {
+			return yield(events.NewCustomEvent(ToolOutcomeEventName, events.WithValue(map[string]any{
+				"tool_call_id": ti.ToolCallID, "outcome": outcome,
+			})), nil)
+		}
 	}
 	return true
+}
+
+func toolOutcome(ti *agent.ToolInvocation) string {
+	switch {
+	case ti.Status != "error":
+		return ""
+	case ti.Refused:
+		return "refused"
+	default:
+		return "error"
+	}
 }
 
 // emitToolResultCustom emits the additive CUSTOM events (artifact descriptor, typed

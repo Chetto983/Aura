@@ -74,6 +74,10 @@ type Verdict struct {
 	Tier       scoring.RiskTier
 	Reason     string
 	OperatorID string
+	// Refusal marks the Deny that is the policy's answer — the identity's deny rule, or no
+	// approver to ask — as opposed to a fault in the gateway's own bookkeeping. Only a
+	// refusal writes the deny fact, so it is the one deny a reload can tell apart.
+	Refusal bool
 	// Scope is set on an Allow that a STANDING grant produced (amendment #127) — a
 	// ScopeSession or ScopeAlways the operator granted on an earlier accept. It is empty on
 	// every other Allow, including the one-shot approved re-drive, whose authorization was
@@ -117,8 +121,9 @@ type ReservationKey struct {
 // ErrDenied is the typed error execTool returns when the gateway denies a dispatch.
 // The mutating tool is NOT executed — Decide returns before tool.Execute.
 type ErrDenied struct {
-	Reason string
-	Tier   scoring.RiskTier
+	Reason  string
+	Tier    scoring.RiskTier
+	Refusal bool
 }
 
 // ErrOperationRejected is the replay of a terminal domain rejection.

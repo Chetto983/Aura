@@ -108,7 +108,7 @@ func (g *Gateway) routeApprove(ctx context.Context, spec tools.Spec, tier scorin
 	if g.profile == config.ProfileServerProduction || !responderPresent(ctx) {
 		g.recordDenyFact(ctx, spec, key, tier, "gateway degraded_deny: no interactive approver",
 			map[string]any{"degraded_deny": true, "reason": "no_approver"})
-		return Verdict{Decision: Deny, Tier: tier, Reason: "no interactive approver — action declined"}, nil
+		return Verdict{Decision: Deny, Tier: tier, Reason: "no interactive approver — action declined", Refusal: true}, nil
 	}
 	// Standing grants (amendment #127) come FIRST, after the hard-deny and before the
 	// one-shot ledger: an operator who said "for this conversation" or "always" already

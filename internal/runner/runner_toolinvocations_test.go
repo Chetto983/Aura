@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"errors"
+	"maps"
 	"testing"
 	"time"
 
@@ -132,6 +133,41 @@ func TestPersistEvent_LedgerFailureDoesNotAbortTurn(t *testing.T) {
 	r.toolInvocations = nil
 	if err := r.persistEvent(context.Background(), tr, start); err != nil {
 		t.Fatalf("a nil ledger must be a no-op, got %v", err)
+	}
+}
+
+// A refused call's own end row says refused too (spec 2026-10-12, finding 4). recordDenyFact
+// is best-effort and both writers insert with ON CONFLICT DO NOTHING, so this row can be the
+// one a reload reads. The agent's meta map is copied, never written.
+func TestPersistToolInvocationLedgerStampsARefusal(t *testing.T) {
+	r, _, _ := newTestRunner(t, agenttest.NewFakeClient())
+	ledger := newFakeToolInvocationStore()
+	r.toolInvocations = ledger
+	tr := &turnTracker{convID: newConvID(t)}
+	agentMeta := map[string]any{"exit_code": 1}
+	for _, tc := range []struct {
+		refused bool
+		meta    map[string]any
+		want    map[string]any
+	}{
+		{true, agentMeta, map[string]any{"exit_code": 1, "gateway_verdict": "deny"}},
+		{true, nil, map[string]any{"gateway_verdict": "deny"}},
+		{false, agentMeta, map[string]any{"exit_code": 1}},
+	} {
+		ledger.events = nil
+		ev := &agent.Event{RequestID: uuid.Must(uuid.NewV7()), Actions: agent.Actions{ToolInvocation: &agent.ToolInvocation{
+			Event: agent.ToolInvocationEnd, ToolCallID: "call-1", ToolName: "web_search",
+			Status: "error", Error: "tool dispatch denied by policy", Refused: tc.refused, Meta: tc.meta,
+		}}}
+		if err := r.persistToolInvocationLedger(context.Background(), tr, ev); err != nil {
+			t.Fatalf("persist: %v", err)
+		}
+		if got := ledger.events[0].Meta; !maps.Equal(got, tc.want) {
+			t.Errorf("refused=%v: end row meta = %v, want %v", tc.refused, got, tc.want)
+		}
+	}
+	if _, stamped := agentMeta["gateway_verdict"]; stamped {
+		t.Fatal("the stamp wrote into the agent's own meta map")
 	}
 }
 

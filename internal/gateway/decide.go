@@ -64,7 +64,7 @@ func (g *Gateway) Decide(ctx context.Context, spec tools.Spec, rawArgs json.RawM
 	case PolicyDeny:
 		reason := policyDenyReason(subject)
 		g.recordDenyFact(ctx, spec, key, tier, reason, map[string]any{"gateway_policy": string(PolicyDeny), "reason": "policy"})
-		return Verdict{Decision: Deny, Tier: tier, Reason: reason}, nil
+		return Verdict{Decision: Deny, Tier: tier, Reason: reason, Refusal: true}, nil
 	case PolicyAsk:
 		spec.Mutating = true
 	}

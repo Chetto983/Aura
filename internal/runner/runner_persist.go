@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/chetto1983/aura/internal/cachemetrics"
 	"github.com/chetto1983/aura/internal/conversations"
 	"github.com/chetto1983/aura/internal/db/sqlc"
+	"github.com/chetto1983/aura/internal/gateway"
 	"github.com/chetto1983/aura/internal/identityctx"
 	"github.com/chetto1983/aura/internal/llm"
 	"github.com/chetto1983/aura/internal/toolinvocations"
@@ -295,7 +297,7 @@ func (r *Runner) persistToolInvocationLedger(ctx context.Context, tr *turnTracke
 		ResultTruncated:   ti.ResultTruncated,
 		ResultSidecarPath: ti.ResultSidecarPath,
 		ExitCode:          ti.ExitCode,
-		Meta:              ti.Meta,
+		Meta:              ledgerMeta(ti),
 	}
 	// Detached from ctx with a bound of its own. This row is the `end` that closes the
 	// gateway's reservation, and the most common way to reach it is a turn that has just
@@ -310,6 +312,20 @@ func (r *Runner) persistToolInvocationLedger(ctx context.Context, tr *turnTracke
 		return fmt.Errorf("persist tool invocation %s/%s: %w", ti.ToolName, ti.ToolCallID, err)
 	}
 	return nil
+}
+
+// ledgerMeta is the meta of the runner's own row. A refused call carries the gateway's deny
+// verdict here as on recordDenyFact's row: that insert is best-effort, both writers use
+// ON CONFLICT DO NOTHING, and a reload reads the refusal from whichever row landed (spec
+// 2026-10-12). The agent's map is copied, never written.
+func ledgerMeta(ti *agent.ToolInvocation) map[string]any {
+	if !ti.Refused {
+		return ti.Meta
+	}
+	meta := make(map[string]any, len(ti.Meta)+1)
+	maps.Copy(meta, ti.Meta)
+	meta["gateway_verdict"] = string(gateway.Deny)
+	return meta
 }
 
 func timePtrValue(t *time.Time) time.Time {
