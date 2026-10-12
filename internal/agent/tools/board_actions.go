@@ -12,6 +12,7 @@ import (
 )
 
 type boardArgs struct {
+	Action      string    `json:"action"`
 	Column      string    `json:"column"`
 	Query       string    `json:"query"`
 	ID          string    `json:"id"`

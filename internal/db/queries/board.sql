@@ -6,6 +6,11 @@ VALUES ($1, $2, $3)
 ON CONFLICT (identity_id, name) DO UPDATE SET name = EXCLUDED.name
 RETURNING *;
 
+-- name: GetBoard :one
+-- Reads a board without creating it, unlike EnsureBoard: naming a card for an approval
+-- must write nothing.
+SELECT * FROM aura.boards WHERE id = $1;
+
 -- name: UpdateBoardColumns :one
 UPDATE aura.boards
 SET columns = $2, updated_at = now()

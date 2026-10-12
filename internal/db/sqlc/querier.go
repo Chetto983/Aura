@@ -210,6 +210,9 @@ type Querier interface {
 	GetAsset(ctx context.Context, id pgtype.UUID) (AuraAssets, error)
 	GetAssetByObjectKey(ctx context.Context, arg GetAssetByObjectKeyParams) (AuraAssets, error)
 	GetAssetForIdentity(ctx context.Context, arg GetAssetForIdentityParams) (AuraAssets, error)
+	// Reads a board without creating it, unlike EnsureBoard: naming a card for an approval
+	// must write nothing.
+	GetBoard(ctx context.Context, id pgtype.UUID) (AuraBoards, error)
 	GetBoardCard(ctx context.Context, id pgtype.UUID) (AuraBoardCards, error)
 	GetCloudflareRemoteAccess(ctx context.Context) (AuraCloudflareRemoteAccess, error)
 	GetConversation(ctx context.Context, id pgtype.UUID) (AuraConversations, error)

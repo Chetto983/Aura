@@ -64,6 +64,26 @@ func (q *Queries) EnsureBoard(ctx context.Context, arg EnsureBoardParams) (AuraB
 	return i, err
 }
 
+const getBoard = `-- name: GetBoard :one
+SELECT id, identity_id, name, columns, created_at, updated_at FROM aura.boards WHERE id = $1
+`
+
+// Reads a board without creating it, unlike EnsureBoard: naming a card for an approval
+// must write nothing.
+func (q *Queries) GetBoard(ctx context.Context, id pgtype.UUID) (AuraBoards, error) {
+	row := q.db.QueryRow(ctx, getBoard, id)
+	var i AuraBoards
+	err := row.Scan(
+		&i.ID,
+		&i.IdentityID,
+		&i.Name,
+		&i.Columns,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getBoardCard = `-- name: GetBoardCard :one
 SELECT id, board_id, identity_id, column_id, position, label, description, priority, tags, due_at, conversation_id, task_id, source, updated_by, created_at, updated_at FROM aura.board_cards WHERE id = $1
 `

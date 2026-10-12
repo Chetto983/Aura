@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -32,6 +33,7 @@ type BoardTool struct {
 type boardStore interface {
 	Board(ctx context.Context, identityID string) (board.Board, error)
 	Cards(ctx context.Context, identityID string) ([]board.Card, error)
+	CardOnBoard(ctx context.Context, identityID, cardID string) (board.Card, board.Board, error)
 	Search(ctx context.Context, identityID, query string, limit int) ([]board.Card, error)
 	AddCard(ctx context.Context, identityID string, in board.NewCard, source board.Source, actor board.Actor) (board.Card, error)
 	UpdateCard(ctx context.Context, identityID, cardID string, patch board.CardPatch, actor board.Actor) (board.Card, error)
@@ -43,6 +45,13 @@ type boardStore interface {
 const (
 	boardSnapshotCards = 32
 	boardSnapshotRunes = 160
+)
+
+// An approval target fits the gateway's 120-rune line whole: an 80-rune label, " · ", and two
+// column names of at most 16 runes joined by " → ".
+const (
+	boardTargetLabelRunes  = 80
+	boardTargetColumnRunes = 16
 )
 
 const boardParamsSchema = `{
@@ -147,6 +156,61 @@ func (t *BoardTool) requireSeen(ctx context.Context, id string) error {
 		return fmt.Errorf("card %s is not on the board you listed: run board list or board search first", id)
 	}
 	return nil
+}
+
+// DescribeForApproval names the card an update, move or delete acts on, for the operator
+// asked to approve it (ApprovalDescriber, spec 2026-10-12): "<label> · <column>", and for a
+// move "<label> · <from> → <to>". It applies the seen check first, as Execute does, so an id
+// this conversation was not shown, which after a restart is every id, is refused before the
+// prompt rather than after it. It reads the card and its board without creating either. A
+// card that is gone has nothing to name: Execute reports it, as it always has.
+func (t *BoardTool) DescribeForApproval(ctx context.Context, raw json.RawMessage) (string, error) {
+	a, err := decodeBoardArgs(raw)
+	if err != nil || t.Store == nil {
+		return "", nil
+	}
+	switch a.Action {
+	case "update", "move", "delete":
+	default:
+		return "", nil
+	}
+	if err := t.requireSeen(ctx, a.ID); err != nil {
+		return "", err
+	}
+	if a.Action == "move" && a.Before != "" {
+		if err := t.requireSeen(ctx, a.Before); err != nil {
+			return "", err
+		}
+	}
+	card, b, err := t.Store.CardOnBoard(ctx, boardIdentity(ctx), a.ID)
+	if errors.Is(err, board.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	target := clipRunes(card.Label, boardTargetLabelRunes) + " · " + columnName(b, card.ColumnID)
+	if a.Action == "move" {
+		to := a.Column
+		if to == "" {
+			to = card.ColumnID
+		}
+		target += " → " + columnName(b, to)
+	}
+	return target, nil
+}
+
+// columnName is the name the operator gave a column, or its id when the board does not list
+// it, clipped to fit an approval target.
+func columnName(b board.Board, columnID string) string {
+	name := columnID
+	for _, col := range b.Columns {
+		if col.ID == columnID {
+			name = col.Label
+			break
+		}
+	}
+	return clipRunes(name, boardTargetColumnRunes)
 }
 
 // Evict forgets the ids a finished session was shown (SessionEvictor, R-41), so a

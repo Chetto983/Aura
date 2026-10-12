@@ -222,6 +222,45 @@ func TestBoardIsIdentityScoped(t *testing.T) {
 	}
 }
 
+// Naming a card for an approval reads the card and its board in one identity transaction and
+// writes nothing (spec 2026-10-12). Board would: EnsureBoard's ON CONFLICT DO UPDATE rewrites
+// the row, which moves its xmin. Another identity's card stays invisible.
+func TestBoardCardOnBoardReadsWithoutWriting(t *testing.T) {
+	pool := migratedPool(t)
+	s := New(pool)
+	owner, other := seedIdentity(t, pool), seedIdentity(t, pool)
+	ctx := context.Background()
+	c, err := s.AddCard(ctx, owner, NewCard{Column: "done", Label: "Fattura fornitore"}, SourceCockpit, ActorOperator)
+	if err != nil {
+		t.Fatalf("AddCard: %v", err)
+	}
+	boardVersion := func() string {
+		t.Helper()
+		var xmin string
+		if err := db.WithIdentityTxRaw(ctx, pool, owner, func(tx pgx.Tx) error {
+			return tx.QueryRow(ctx, `SELECT xmin::text FROM aura.boards`).Scan(&xmin)
+		}); err != nil {
+			t.Fatalf("read the board row: %v", err)
+		}
+		return xmin
+	}
+	before := boardVersion()
+	card, b, err := s.CardOnBoard(ctx, owner, c.ID)
+	if err != nil || card.ID != c.ID || card.Label != "Fattura fornitore" || card.ColumnID != "done" ||
+		len(b.Columns) != 3 || b.Columns[2].Label != "Done" {
+		t.Fatalf("CardOnBoard = %+v, %+v, %v; want the card in Done", card, b, err)
+	}
+	if after := boardVersion(); after != before {
+		t.Fatalf("CardOnBoard rewrote the board row (xmin %s -> %s)", before, after)
+	}
+	if _, _, err := s.CardOnBoard(ctx, other, c.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("another identity read the card: %v", err)
+	}
+	if _, _, err := s.CardOnBoard(ctx, owner, uuid.NewString()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a missing card = %v, want ErrNotFound", err)
+	}
+}
+
 func TestBoardColumnsAndViews(t *testing.T) {
 	pool := migratedPool(t)
 	s := New(pool)

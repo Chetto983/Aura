@@ -167,6 +167,32 @@ func (s *Store) Board(ctx context.Context, identityID string) (Board, error) {
 	return b, nil
 }
 
+// CardOnBoard returns one card and the board that holds it, read in one identity
+// transaction. Unlike Board it creates nothing: it reads the board the card already belongs
+// to, so naming a card for an approval writes no row (spec 2026-10-12). A card this identity
+// cannot see is ErrNotFound.
+func (s *Store) CardOnBoard(ctx context.Context, identityID, cardID string) (Card, Board, error) {
+	var card Card
+	var b Board
+	err := s.withIdentity(ctx, identityID, func(q *sqlc.Queries) error {
+		row, err := getCard(ctx, q, cardID)
+		if err != nil {
+			return err
+		}
+		boardRow, err := q.GetBoard(ctx, row.BoardID)
+		if err != nil {
+			return err
+		}
+		card = cardFromRow(row)
+		b, err = boardFromRow(boardRow)
+		return err
+	})
+	if err != nil {
+		return Card{}, Board{}, fmt.Errorf("card on board: %w", err)
+	}
+	return card, b, nil
+}
+
 // SetColumns replaces the board's columns. A column that still holds cards cannot be
 // removed: its cards would point at nothing and vanish from the board.
 func (s *Store) SetColumns(ctx context.Context, identityID string, columns []Column) (Board, error) {
