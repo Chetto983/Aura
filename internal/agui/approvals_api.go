@@ -217,16 +217,13 @@ func (s *Server) handleListApprovals(w http.ResponseWriter, r *http.Request) {
 }
 
 // withheldToolCallID reads the root tool_call_id of a gateway_approval resume_context, and ""
-// for any other pause.
+// for any other pause. It reads exact keys, as the runner's stamp and the declined-pause query do.
 func withheldToolCallID(resumeContext json.RawMessage) string {
-	var rc struct {
-		Type       string `json:"type"`
-		ToolCallID string `json:"tool_call_id"`
-	}
-	if json.Unmarshal(resumeContext, &rc) != nil || rc.Type != "gateway_approval" {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(resumeContext, &fields) != nil || approvaltext.RootString(fields, "type") != "gateway_approval" {
 		return ""
 	}
-	return rc.ToolCallID
+	return approvaltext.RootString(fields, "tool_call_id")
 }
 
 // approvalPresentation exposes only recognized metadata that still matches a fresh derivation

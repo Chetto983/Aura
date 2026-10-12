@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/chetto1983/aura/internal/agent"
@@ -137,10 +138,11 @@ func TestPersistPauseReplacesRelayedApprovalPresentation(t *testing.T) {
 // 2026-10-12): the target the operator reads and the withheld call's tool_call_id come from
 // the server, whatever the model copied there. A lookup that finds nothing under this
 // conversation removes both, so a target the model wrote never reaches the cockpit or Telegram.
+// The model's copies go under any spelling: a struct decode would read "Target" as target.
 func TestPersistPauseStampsTheGatewayChallenge(t *testing.T) {
 	const question = "Approve board (risk=destructive)?\nThis mutating action is WITHHELD until you accept.\nargs: action, id"
 	relayed := json.RawMessage(`{"type":"gateway_approval","tool":"board","tier":"destructive","args_sha256":"fp-1",` +
-		`"target":"written by the model","tool_call_id":"call-forged"}`)
+		`"target":"written by the model","tool_call_id":"call-forged","Target":"by case","TOOL_CALL_ID":"call-case"}`)
 	stampedConv := newConvID(t)
 	lookup := func(target string) ApprovalChallengeLookup {
 		return func(conversationID, tool, argsFingerprint string) (string, string, bool) {
@@ -209,6 +211,11 @@ func assertRootFields(t *testing.T, saved json.RawMessage, want map[string]strin
 		}
 		if present != wanted || got != value {
 			t.Errorf("%s = %q (present %v), want %q (present %v); context %s", name, got, present, value, wanted, saved)
+		}
+		for key := range fields {
+			if key != name && strings.EqualFold(key, name) {
+				t.Errorf("the model's %q survived the stamp; context %s", key, saved)
+			}
 		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/chetto1983/aura/internal/agent"
 	"github.com/chetto1983/aura/internal/approvaltext"
@@ -76,21 +77,26 @@ func (r *Runner) persistPause(ctx context.Context, tr *turnTracker, ai *agent.Aw
 // 2026-10-12). The model relays the coordinates; the server supplies what the operator reads
 // and which call a decline refuses. The lookup is keyed on the pause's own conversation, the
 // key the resume hook approves under, so a mismatch is a miss. A miss removes both fields: a
-// target the model wrote never reaches the cockpit or Telegram. Other contexts pass through.
+// target the model wrote never reaches the cockpit or Telegram. The model's copies go under
+// any spelling, so no decoder that folds case can read one back. Other contexts pass through.
 func stampGatewayChallenge(raw json.RawMessage, conversationID string, lookup ApprovalChallengeLookup) (json.RawMessage, error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return nil, fmt.Errorf("approval resume_context must be a JSON object: %w", err)
 	}
-	if rootString(fields, "type") != "gateway_approval" {
+	if approvaltext.RootString(fields, "type") != "gateway_approval" {
 		return raw, nil
 	}
-	delete(fields, "target")
-	delete(fields, "tool_call_id")
+	for name := range fields {
+		if strings.EqualFold(name, "target") || strings.EqualFold(name, "tool_call_id") {
+			delete(fields, name)
+		}
+	}
 	var target, toolCallID string
 	found := false
 	if lookup != nil {
-		target, toolCallID, found = lookup(conversationID, rootString(fields, "tool"), rootString(fields, "args_sha256"))
+		target, toolCallID, found = lookup(conversationID,
+			approvaltext.RootString(fields, "tool"), approvaltext.RootString(fields, "args_sha256"))
 	}
 	if found {
 		stamped := map[string]string{"tool_call_id": toolCallID}
@@ -106,13 +112,6 @@ func stampGatewayChallenge(raw json.RawMessage, conversationID string, lookup Ap
 		}
 	}
 	return json.Marshal(fields)
-}
-
-// rootString reads a string root field of a resume context: "" when it is absent or not a string.
-func rootString(fields map[string]json.RawMessage, name string) string {
-	var value string
-	_ = json.Unmarshal(fields[name], &value)
-	return value
 }
 
 // flushPause commits the round's pause exposure atomically (D-05/F-030): the SINGLE

@@ -433,3 +433,22 @@ func TestApprovalsAPI_ListNamesTheWithheldCall(t *testing.T) {
 		}
 	}
 }
+
+// The withheld id is read by exact key, as the runner's stamp and Postgres's ->> read it. A
+// struct tag would also match "TYPE" or "Tool_Call_ID", which the stamp never sees, and hand
+// the declining cockpit an id the model chose.
+func TestWithheldToolCallIDReadsExactKeys(t *testing.T) {
+	for _, resumeContext := range []string{
+		`{"TYPE":"gateway_approval","tool_call_id":"call-earlier"}`,
+		`{"type":"gateway_approval","tool":"board","Tool_Call_ID":"call-earlier"}`,
+		`{"type":"gateway_approval","tool_call_id":7}`,
+		`[]`,
+	} {
+		if got := withheldToolCallID(json.RawMessage(resumeContext)); got != "" {
+			t.Errorf("%s: withheld id = %q, want none", resumeContext, got)
+		}
+	}
+	if got := withheldToolCallID(json.RawMessage(`{"type":"gateway_approval","tool_call_id":"call-withheld"}`)); got != "call-withheld" {
+		t.Errorf("withheld id = %q, want call-withheld", got)
+	}
+}

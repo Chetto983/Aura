@@ -86,11 +86,7 @@ func FromContext(question string, raw json.RawMessage) (Presentation, bool) {
 }
 
 func derive(question string, fields map[string]json.RawMessage) (Presentation, bool) {
-	typeName, ok := stringField(fields, "type")
-	if !ok {
-		return Presentation{}, false
-	}
-	switch typeName {
+	switch RootString(fields, "type") {
 	case "gateway_approval":
 		return deriveGateway(question, fields)
 	case "shell_exec_approval":
@@ -103,9 +99,8 @@ func derive(question string, fields map[string]json.RawMessage) (Presentation, b
 }
 
 func deriveGateway(question string, fields map[string]json.RawMessage) (Presentation, bool) {
-	tool, toolOK := stringField(fields, "tool")
-	risk, riskOK := stringField(fields, "tier")
-	if !toolOK || !riskOK {
+	tool, risk := RootString(fields, "tool"), RootString(fields, "tier")
+	if tool == "" || risk == "" {
 		return Presentation{}, false
 	}
 	prefix := fmt.Sprintf("Approve %s (risk=%s)?\nThis mutating action is WITHHELD until you accept.\nargs: ", tool, risk)
@@ -116,15 +111,15 @@ func deriveGateway(question string, fields map[string]json.RawMessage) (Presenta
 	p := Presentation{Key: GatewayKey, Params: map[string]string{"tool": tool, "risk": risk, "args": args}}
 	// The runner stamps target from the gateway's challenge when the tool described the call;
 	// the question the model relays never carries it.
-	if target, described := stringField(fields, "target"); described {
+	if target := RootString(fields, "target"); target != "" {
 		p.Params["target"] = target
 	}
 	return p, valid(p)
 }
 
 func deriveShell(question string, fields map[string]json.RawMessage) (Presentation, bool) {
-	digest, ok := stringField(fields, "command_sha256")
-	if !ok {
+	digest := RootString(fields, "command_sha256")
+	if digest == "" {
 		return Presentation{}, false
 	}
 	rest, ok := strings.CutPrefix(question, "Approve shell_exec command?\ncwd: ")
@@ -147,8 +142,8 @@ func deriveShell(question string, fields map[string]json.RawMessage) (Presentati
 }
 
 func deriveScheduled(question string, fields map[string]json.RawMessage) (Presentation, bool) {
-	taskID, ok := stringField(fields, "task_id")
-	if !ok || taskID == "" {
+	taskID := RootString(fields, "task_id")
+	if taskID == "" {
 		return Presentation{}, false
 	}
 	task := taskID
@@ -192,12 +187,14 @@ func deriveScheduledCreated(question, task string) (Presentation, bool) {
 	return p, valid(p)
 }
 
-func stringField(fields map[string]json.RawMessage, name string) (string, bool) {
+// RootString reads a root string field of a resume context by its exact key, as Postgres's ->>
+// reads it: "" when the field is absent, empty or not a string. Every reader of a resume
+// context goes through it, because a struct tag would also match "TYPE" or "Tool_Call_ID", a
+// spelling the model can write and the runner's stamp never sees.
+func RootString(fields map[string]json.RawMessage, name string) string {
 	var value string
-	if json.Unmarshal(fields[name], &value) != nil || value == "" {
-		return "", false
-	}
-	return value, true
+	_ = json.Unmarshal(fields[name], &value)
+	return value
 }
 
 func valid(p Presentation) bool {
