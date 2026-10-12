@@ -51,7 +51,7 @@ the execution instruction. Explicit follow-up scheduling must not be disabled gl
   no task calls and no duplicate task. Cancel the isolated test task and archive its conversation.
 - [x] Finish vet/build/lint/deadcode evidence and final diff review.
 - [x] Commit measured PRD/spec record separately (`796bdc2a9`).
-- [ ] Commit the repair and verification.
+- [x] Commit the repair and verification (`bf9586a3d`).
 - [ ] Push using the repository WSL recipe and report remote CI availability honestly.
 
 ## Decisions taken during the run

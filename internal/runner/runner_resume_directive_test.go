@@ -24,8 +24,8 @@ func TestClassifyResolve(t *testing.T) {
 	}{
 		{"cancel wins", sched, askuser.ActionCancel, 0, ResolveDirective{OutcomeTerminated, 0}},
 		{"remaining wins over continue", ordinary, askuser.ActionAccept, 2, ResolveDirective{OutcomePending, 2}},
-		{"sched accept -> approved", sched, askuser.ActionAccept, 0, ResolveDirective{OutcomeApproved, 0}},
-		{"sched decline -> rejected", sched, askuser.ActionDecline, 0, ResolveDirective{OutcomeRejected, 0}},
+		{"sched accept -> acknowledgement", sched, askuser.ActionAccept, 0, ResolveDirective{OutcomeContinue, 0}},
+		{"sched decline -> acknowledgement", sched, askuser.ActionDecline, 0, ResolveDirective{OutcomeContinue, 0}},
 		{"ordinary accept -> continue", ordinary, askuser.ActionAccept, 0, ResolveDirective{OutcomeContinue, 0}},
 		{"gateway approval -> continue", gateway, askuser.ActionAccept, 0, ResolveDirective{OutcomeContinue, 0}},
 		{"sched with remaining still pending", sched, askuser.ActionAccept, 1, ResolveDirective{OutcomePending, 1}},
@@ -40,8 +40,8 @@ func TestClassifyResolve(t *testing.T) {
 }
 
 // TestIsScheduledTaskApprovalGuards covers EVERY guard of the detector, one by one. Each is
-// load-bearing: a false positive here routes an ordinary pause to a deterministic outcome and
-// silently drops the model's continuation turn, and a false negative re-drives a scheduled gate.
+// load-bearing: a false positive tells the model a generic approval activated a scheduled task;
+// a false negative omits the task-state answer and can cause duplicate scheduling on continuation.
 // A mutation run proved the compound condition was under-tested — only the whole-expression
 // happy path was pinned, so replacing either half with `true` survived.
 func TestIsScheduledTaskApprovalGuards(t *testing.T) {

@@ -1,11 +1,8 @@
 //go:build db_integration
 
-// Integration cover for the Phase A consolidation contract: a REAL scheduled_task_approval
-// pause, resolved through the REAL SubmitAnswer path against Postgres, must both (a) hand the
-// caller a deterministic Approved/Rejected directive — never Continue, which is what made a
-// channel re-drive a turn that no longer exists — and (b) leave the scheduler task in the state
-// the ResumeHook transitioned it to. Unit tests pin classifyResolve in isolation; only this
-// tier proves the directive and the durable side-effect agree.
+// A scheduled-task approval must both transition its durable task and continue the parent
+// turn so the agent acknowledges the outcome. The explicit task-state tool answer prevents
+// that continuation from scheduling a duplicate.
 package runner
 
 import (
@@ -72,9 +69,8 @@ func taskStatus(t *testing.T, pool *pgxpool.Pool, taskID string) string {
 	return status
 }
 
-// TestSubmitAnswer_ScheduledApproval_DirectiveMatchesTaskTransition_Integration is the Phase A
-// end-to-end pin. Both channels now render this directive verbatim, so a Continue here would
-// resurface as the 1.7 accept-loop on Telegram and a spurious re-drive in the cockpit.
+// TestSubmitAnswer_ScheduledApproval_DirectiveMatchesTaskTransition_Integration pins both
+// the task transition and the continuation the channels use for an assistant acknowledgement.
 func TestSubmitAnswer_ScheduledApproval_DirectiveMatchesTaskTransition_Integration(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -82,8 +78,8 @@ func TestSubmitAnswer_ScheduledApproval_DirectiveMatchesTaskTransition_Integrati
 		wantOutcome ResolveOutcome
 		wantStatus  string
 	}{
-		{"accept activates", askuser.ActionAccept, OutcomeApproved, "active"},
-		{"decline cancels", askuser.ActionDecline, OutcomeRejected, "cancelled"},
+		{"accept activates", askuser.ActionAccept, OutcomeContinue, "active"},
+		{"decline cancels", askuser.ActionDecline, OutcomeContinue, "cancelled"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			pool := migratedRunnerPool(t)
@@ -126,7 +122,7 @@ func TestSubmitAnswer_ScheduledApproval_DirectiveMatchesTaskTransition_Integrati
 // TestSubmitAnswer_ScheduledApproval_ForeignConversationDoesNotTransition_Integration keeps the
 // WR-02 owner scoping visible at this tier: the hook keys on the authenticated pause
 // conversation, so a task whose origin is a DIFFERENT conversation is untouched — while the
-// directive still reports Approved, because the pause itself did resolve.
+// directive still continues, because the pause itself did resolve.
 func TestSubmitAnswer_ScheduledApproval_ForeignConversationDoesNotTransition_Integration(t *testing.T) {
 	pool := migratedRunnerPool(t)
 	r, convStore, _ := newIntegrationRunnerWithResumeHook(

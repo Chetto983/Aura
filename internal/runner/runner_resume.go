@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/chetto1983/aura/internal/agent/tools"
@@ -212,9 +213,9 @@ func (r *Runner) applyResumeHook(ctx context.Context, pending askuser.Pending, r
 
 // answerTurn builds the RoleTool answer turn keyed by the pause's original tool_call_id
 // (SC-4 wire-correctness): decline injects the "user declined" marker; accept/cancel
-// inject the supplied content. A scheduled_task_approval pause overrides both with an
-// explicit outcome so the resumed model learns the task's new state (see
-// scheduledApprovalAnswer). Seq is left 0 — the committer reserves it under the
+// inject the supplied content. Scheduled approvals provide their already-applied outcome.
+// Interactive answers require visible closure; cancel and worker-owned answers do not
+// restart the parent. Seq is left 0 — the committer reserves it under the
 // conversation row-lock inside its tx (the split fallback lets AppendTurn allocate it).
 func (r *Runner) answerTurn(pending askuser.Pending, resp ResponseInput) conversations.AppendTurnParams {
 	content := resp.Content
@@ -223,6 +224,12 @@ func (r *Runner) answerTurn(pending askuser.Pending, resp ResponseInput) convers
 	}
 	if sc := scheduledApprovalAnswer(pending, resp); sc != "" {
 		content = sc
+	}
+	// Empty accepts must stay invalid rather than become valid through this instruction.
+	if (resp.Action == askuser.ActionAccept || resp.Action == askuser.ActionDecline) &&
+		pending.OwningWorkerID == "" && strings.TrimSpace(content) != "" {
+		content += "\n\nAlways respond to the user with a visible assistant message explaining the outcome or next step. " +
+			"Do not end silently after tool calls. Do not claim success unless the requested action actually succeeded."
 	}
 	return conversations.AppendTurnParams{
 		ConversationID: pending.ConversationID,
@@ -234,7 +241,7 @@ func (r *Runner) answerTurn(pending askuser.Pending, resp ResponseInput) convers
 
 // scheduledApprovalAnswer returns the RoleTool content that tells a resumed model the
 // outcome of an on-channel scheduled-task approval, or "" when pending is not one (the
-// caller keeps the default content, so ordinary HITL is untouched).
+// caller keeps the ordinary answer and visible-response instruction).
 //
 // Without it, accepting a model-relayed scheduled_task_approval pause injects only the raw
 // button value ("yes"): the operator-origin activation happens in the resume hook as a

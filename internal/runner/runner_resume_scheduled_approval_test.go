@@ -64,13 +64,11 @@ func TestAnswerTurn_ScheduledApprovalDecline_TellsModelCancelled(t *testing.T) {
 	}
 }
 
-// A plain approval pause (no scheduled_task_approval resume_context) is untouched — the raw
-// accept content still flows through so ordinary HITL is unaffected.
-func TestAnswerTurn_NonScheduledApproval_Unchanged(t *testing.T) {
+func TestAnswerTurn_NonScheduledApproval_PreservesAnswerAndRequiresResponse(t *testing.T) {
 	r := &Runner{}
 	p := askuser.Pending{Token: "t", ConversationID: "c", Kind: "approval", ToolCallID: "call-9"}
 	turn := r.answerTurn(p, ResponseInput{Action: askuser.ActionAccept, Content: "yes"})
-	if turn.Content != "yes" {
-		t.Fatalf("non-scheduled approval accept must keep the raw content, got %q", turn.Content)
+	if !strings.HasPrefix(turn.Content, "yes\n\n") || !strings.Contains(turn.Content, "Always respond to the user") {
+		t.Fatalf("approval must preserve the answer and require visible closure, got %q", turn.Content)
 	}
 }

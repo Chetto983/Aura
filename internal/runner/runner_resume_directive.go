@@ -15,8 +15,8 @@ type ResolveOutcome int
 // The ResolveOutcome codes a channel switches on to render a resolved pause.
 const (
 	OutcomeContinue   ResolveOutcome = iota // in-session: the channel drives its own continuation render
-	OutcomeApproved                         // scheduled gate approved: render the deterministic "approved" confirmation
-	OutcomeRejected                         // scheduled gate rejected: render the deterministic "rejected" confirmation
+	OutcomeApproved                         // worker gate approved: render its deterministic confirmation
+	OutcomeRejected                         // worker gate rejected: render its deterministic confirmation
 	OutcomePending                          // remaining>0: render the next FIFO pause, nothing else
 	OutcomeTerminated                       // cancel: the runner already auto-resolved; nothing to render
 )
@@ -34,9 +34,8 @@ type ResolveDirective struct {
 //
 //	cancel                              -> Terminated (runner already aborted the turn)
 //	remaining>0                         -> Pending (more FIFO pauses to answer first)
-//	scheduled_task_approval, accept     -> Approved (ResumeHook activated the task; nothing more to do)
-//	scheduled_task_approval, decline    -> Rejected (ResumeHook cancelled the task)
-//	otherwise (clarification/choice/gateway approval) -> Continue (the model has more work this turn)
+//	worker-owned approval              -> Approved/Rejected (the worker owns continuation)
+//	otherwise                          -> Continue (including scheduled task acknowledgements)
 func classifyResolve(pending askuser.Pending, action string, remaining int) ResolveDirective {
 	if action == askuser.ActionCancel {
 		return ResolveDirective{Outcome: OutcomeTerminated}
@@ -44,7 +43,7 @@ func classifyResolve(pending askuser.Pending, action string, remaining int) Reso
 	if remaining > 0 {
 		return ResolveDirective{Outcome: OutcomePending, Remaining: remaining}
 	}
-	if pending.OwningWorkerID != "" || isScheduledTaskApproval(pending) {
+	if pending.OwningWorkerID != "" {
 		if action == askuser.ActionDecline {
 			return ResolveDirective{Outcome: OutcomeRejected}
 		}
@@ -53,9 +52,8 @@ func classifyResolve(pending askuser.Pending, action string, remaining int) Reso
 	return ResolveDirective{Outcome: OutcomeContinue}
 }
 
-// isScheduledTaskApproval reports whether a pause is the operator governance gate whose
-// ResumeHook (activate/cancel) IS the whole intent — the single detector that supersedes
-// the ad-hoc decode duplicated in scheduledApprovalAnswer + the deleted telegram helpers.
+// isScheduledTaskApproval identifies the governance gate whose answer must tell the model
+// activation/cancellation already happened, so acknowledging it does not create another task.
 func isScheduledTaskApproval(pending askuser.Pending) bool {
 	if pending.Kind != tools.KindApproval || len(pending.ResumeContext) == 0 {
 		return false
