@@ -108,6 +108,9 @@ func buildTelegramDeps(chat *chatEnv, tgCfg telegram.Config) telegram.Deps {
 	if resolver := identityLLMResolver(chat); resolver != nil {
 		deps.LLMResolver = resolver
 	}
+	if chat.identity != nil {
+		deps.Identities = chat.identity
+	}
 	return deps
 }
 
@@ -195,11 +198,9 @@ func clampInt64ToInt(v int64) int {
 // conversation-delete lifecycle (MUSR-05 / D-22) instead of a raw store delete, so /clear
 // tears down the same live session state (pending pauses, session tools, background jobs) the
 // AG-UI and CLI deletes do — no second deletion path bypasses the lifecycle. The owner
-// identity is read from ctx (identityctx); the Telegram per-identity routing not yet threading
-// a principal (deferred to the phase-12 cutover) resolves to `local`, matching the current
-// chat ownership, and upgrades to the linked identity automatically once ctx carries it — no
-// rework here. A not-owned/absent id (rows-affected==0) is a benign no-op: the /clear reply is
-// idempotent and the next inbound message lazily re-creates the conversation.
+// identity is read from ctx: the channel's dispatchCommand binds the chat's linked identity
+// before any command runs. An absent id (rows-affected==0) is a benign no-op: the /clear reply
+// is idempotent and the next inbound message lazily re-creates the conversation.
 type telegramClearAdapter struct{ run *runner.Runner }
 
 func (a telegramClearAdapter) Delete(ctx context.Context, convID string) error {

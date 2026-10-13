@@ -124,17 +124,19 @@ type Deps struct {
 
 	// Command backends drive the bot-intercept dispatch (commands.go). Search ==
 	// conversations.SearchConversationTurns (CLI parity); Cost == the cachemetrics
-	// daily aggregation; Clear == conversations.Store.Delete (the /clear hard-delete);
+	// daily aggregation; Clear == the runner's conversation-delete lifecycle (the /clear hard-delete);
 	// Prices/Model render the /cost USD via llm.CostUSD. A nil backend degrades its
 	// command to an "unavailable" reply (never a panic).
 	Search searchBackend
 	Cost   costBackend
 	// Spend is the provider-billed figure /cost prefers over the token estimate; nil
 	// keeps the estimate. *llm.Config satisfies it.
-	Spend  spendBackend
-	Clear  clearBackend
-	Prices map[string]llm.Price
-	Model  string
+	Spend spendBackend
+	Clear clearBackend
+	// Identities names the linked identity for /whoami. *identity.Store satisfies it.
+	Identities identityReader
+	Prices     map[string]llm.Price
+	Model      string
 	// LLMRuntime supersedes the boot-only Spend/Prices/Model fields when wired.
 	// Each command snapshots it once so a concurrent settings change cannot mix
 	// provider spend with another model's rates.

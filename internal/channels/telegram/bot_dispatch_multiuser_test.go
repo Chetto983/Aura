@@ -154,3 +154,74 @@ func TestTelegramUnlinkedChatDrivesNoTurnAndPromptsWebLinking(t *testing.T) {
 		t.Fatalf("unlinked chat must be pointed to web linking, got %v", texts)
 	}
 }
+
+// identityRecordingClear records the identity every /clear runs as.
+type identityRecordingClear struct {
+	mu  sync.Mutex
+	ids []string
+}
+
+func (f *identityRecordingClear) Delete(ctx context.Context, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.ids = append(f.ids, identityctx.IdentityID(ctx))
+	return nil
+}
+
+func (f *identityRecordingClear) snapshot() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.ids...)
+}
+
+// MEASURED on the lab VM, 2026-10-13: /clear on the operator's linked chat answered
+// "Conversazione cancellata" and deleted nothing. The command ran on the bare daemon
+// context, so the delete looked the conversation up as the local operator, found no row
+// that identity owned, and reported the no-op as done; the next message carried on with
+// every old turn. A command runs as the chat's linked identity, as a turn does.
+func TestOnTextCommandRunsAsTheLinkedIdentity(t *testing.T) {
+	t.Parallel()
+	const identityA = "aaaaaaaa-0000-4000-8000-00000000000a"
+	clear := &identityRecordingClear{}
+	tg := dispatchChannel(t, &recordingTurn{}, func(d *Deps) {
+		d.profileAccounts = multiIdentityAccountFake{ids: map[int64]string{5551: identityA}}
+		d.Clear = clear
+	})
+
+	msg := chatMsg(5551)
+	msg.Sender = &tele.User{ID: 5551}
+	msg.Text = "/clear"
+	if err := tg.onText(context.Background())(msgContext(&dispatchBot{}, msg)); err != nil {
+		t.Fatalf("onText(/clear): %v", err)
+	}
+
+	if got := clear.snapshot(); len(got) != 1 || got[0] != identityA {
+		t.Fatalf("/clear ran as %q, want once as the linked identity %q", got, identityA)
+	}
+}
+
+// A command whose chat resolves to no identity runs nothing: on an unscoped context
+// every store it reaches would fall back to the local operator.
+func TestOnTextCommandWithoutAChatIdentityRunsNothing(t *testing.T) {
+	t.Parallel()
+	clear := &identityRecordingClear{}
+	tg := dispatchChannel(t, &recordingTurn{}, func(d *Deps) {
+		d.profileAccounts = multiIdentityAccountFake{ids: map[int64]string{555: "aaaaaaaa-0000-4000-8000-00000000000a"}}
+		d.Clear = clear
+	})
+
+	bot := &dispatchBot{}
+	msg := chatMsg(42)
+	msg.Sender = &tele.User{ID: 555}
+	msg.Text = "/clear"
+	if err := tg.onText(context.Background())(msgContext(bot, msg)); err != nil {
+		t.Fatalf("onText(/clear): %v", err)
+	}
+
+	if got := clear.snapshot(); len(got) != 0 {
+		t.Fatalf("/clear ran as %q for a chat with no identity, want no run", got)
+	}
+	if texts := bot.sentTexts(); len(texts) != 1 || texts[0] != activationRequiredMsg {
+		t.Fatalf("replies = %v, want the activation message", texts)
+	}
+}

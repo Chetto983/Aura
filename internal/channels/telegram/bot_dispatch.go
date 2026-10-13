@@ -56,14 +56,15 @@ const (
 // shared asset pipeline.
 func (t *Telegram) buildDispatch() {
 	t.cmds = newCommands(commandDeps{
-		Search:   t.deps.Search,
-		Cost:     t.deps.Cost,
-		Spend:    t.deps.Spend,
-		Clear:    t.deps.Clear,
-		Prices:   t.deps.Prices,
-		Model:    t.deps.Model,
-		Runtime:  t.deps.LLMRuntime,
-		Resolver: t.deps.LLMResolver,
+		Search:     t.deps.Search,
+		Cost:       t.deps.Cost,
+		Spend:      t.deps.Spend,
+		Clear:      t.deps.Clear,
+		Identities: t.deps.Identities,
+		Prices:     t.deps.Prices,
+		Model:      t.deps.Model,
+		Runtime:    t.deps.LLMRuntime,
+		Resolver:   t.deps.LLMResolver,
 	})
 	var onboardStore onboardingStore
 	if t.deps.Store != nil {
@@ -130,9 +131,9 @@ func (t *Telegram) onText(daemonCtx context.Context) tele.HandlerFunc {
 		if name, _ := splitCommand(text); name == "/cancel" && t.cancelPendingPause(daemonCtx, c, chatID) {
 			return nil
 		}
-		// 1) Command intercept — a handled /command never reaches the LLM.
-		if handled, reply := t.cmds.dispatchRich(daemonCtx, chatID, text); handled {
-			t.replyCommand(c, reply)
+		// 1) Command intercept — a /command never reaches the LLM.
+		if isCommand(text) {
+			t.dispatchCommand(daemonCtx, c, chatID, text)
 			return nil
 		}
 		// 2) A pending pause + a non-command message → a free-text HITL answer.
@@ -149,6 +150,22 @@ func (t *Telegram) onText(daemonCtx context.Context) tele.HandlerFunc {
 		t.runTurn(daemonCtx, c, chatID, text, false)
 		return nil
 	}
+}
+
+// dispatchCommand answers a /command as the chat's linked identity, as startTurn runs a
+// turn: /clear deletes, /search reads and /cost prices that identity's own rows. On the
+// bare daemon context all three resolved the local operator, and /clear on a linked chat
+// matched no row yet still answered "Conversazione cancellata" (measured on the lab VM
+// 2026-10-13). A chat that resolves to no identity fails closed and runs nothing.
+func (t *Telegram) dispatchCommand(daemonCtx context.Context, c tele.Context, chatID int64, text string) {
+	ctx, ok := t.scopeTurnToIdentity(daemonCtx, chatID)
+	if !ok {
+		slog.Warn("telegram: unscoped command refused (no linked identity)", "chat", chatID)
+		t.reply(c, activationRequiredMsg)
+		return
+	}
+	_, reply := t.cmds.dispatchRich(ctx, chatID, text)
+	t.replyCommand(c, reply)
 }
 
 // handleStartPayload consumes a Telegram deep-link "/start <token>" before the

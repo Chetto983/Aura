@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/chetto1983/aura/internal/conversations"
+	"github.com/chetto1983/aura/internal/identity"
 	"github.com/chetto1983/aura/internal/identityctx"
 	"github.com/chetto1983/aura/internal/llm"
 	tele "gopkg.in/telebot.v4"
@@ -50,7 +51,7 @@ type spendBackend interface {
 }
 
 // clearBackend is the consumer-side seam over the locked conversation hard-delete
-// (conversations.Store.Delete). /clear deletes the chat's conversation row, which
+// (the runner's conversation-delete lifecycle). /clear deletes the chat's conversation row, which
 // cascades to its turns, pending pauses, cache metrics and tool invocations and
 // purges the sidecar dir (the migrations FK these ON DELETE CASCADE). The next
 // inbound message lazily re-creates a fresh conversation (serve_channels.go
@@ -80,15 +81,25 @@ type identityLLMResolver interface {
 	SnapshotFor(ctx context.Context, identityID string) (llm.RuntimeSnapshot, error)
 }
 
+// identityReader names the identity a chat is linked to, for /whoami. *identity.Store
+// satisfies it; aura.identities carries no RLS, so the read needs no scoped transaction.
+type identityReader interface {
+	GetIdentityByID(ctx context.Context, identityID string) (identity.Identity, error)
+}
+
+// whoamiUnavailableMessage answers /whoami when the linked identity cannot be read.
+const whoamiUnavailableMessage = "Identità collegata non disponibile per ora."
+
 // commandDeps are the dispatcher inputs: the two reused backends plus the price
 // table + model that drive the /cost render (identical to the CLI cost footer).
 type commandDeps struct {
-	Search searchBackend
-	Cost   costBackend
-	Spend  spendBackend
-	Clear  clearBackend
-	Prices map[string]llm.Price
-	Model  string
+	Search     searchBackend
+	Cost       costBackend
+	Spend      spendBackend
+	Clear      clearBackend
+	Identities identityReader
+	Prices     map[string]llm.Price
+	Model      string
 	// Runtime is the process-wide fallback activeModelProfile reads when Resolver
 	// is unset, or when the linked chat's identity has none (CRED-07/D-11: an
 	// identity's own spend must not read the deployment-wide key's figures).
@@ -156,11 +167,10 @@ func (c *commands) dispatch(ctx context.Context, chatID int64, text string) (han
 }
 
 func (c *commands) dispatchRich(ctx context.Context, chatID int64, text string) (handled bool, reply commandReply) {
-	trimmed := strings.TrimSpace(text)
-	if !strings.HasPrefix(trimmed, "/") {
+	if !isCommand(text) {
 		return false, commandReply{}
 	}
-	name, arg := splitCommand(trimmed)
+	name, arg := splitCommand(strings.TrimSpace(text))
 	switch name {
 	case "/start":
 		return true, textReply("Ciao! Sono Aura. Scrivimi quello che ti serve, oppure usa /help per i comandi.")
@@ -183,7 +193,7 @@ func (c *commands) dispatchRich(ctx context.Context, chatID int64, text string) 
 	case "/clear":
 		return true, textReply(c.clear(ctx, chatID))
 	case "/whoami":
-		return true, textReply("Sei l'utente locale di questa istanza di Aura.")
+		return true, textReply(c.whoami(ctx))
 	case "/stop":
 		return true, textReply(c.cancel(chatID) + "\nIl bot resta attivo.")
 	default:
@@ -252,6 +262,19 @@ func (c *commands) clear(ctx context.Context, chatID int64) string {
 		return "Non sono riuscita a cancellare la conversazione, riprova."
 	}
 	return "Conversazione cancellata. Ricominciamo da capo."
+}
+
+// whoami names the Aura identity the chat is linked to, the one the command runs as.
+func (c *commands) whoami(ctx context.Context) string {
+	identityID := identityctx.IdentityID(ctx)
+	if identityID == "" || c.deps.Identities == nil {
+		return whoamiUnavailableMessage
+	}
+	linked, err := c.deps.Identities.GetIdentityByID(ctx, identityID)
+	if err != nil {
+		return whoamiUnavailableMessage
+	}
+	return "Questo account Telegram è collegato all'identità Aura " + linked.Name + "."
 }
 
 // cost renders today's spend. It prefers what the provider actually billed this key
@@ -436,6 +459,11 @@ func parseSearchCallback(data string) (page int, close bool, ok bool) {
 		return 0, false, false
 	}
 	return n, false, true
+}
+
+// isCommand reports whether text is a /command, which the bot answers instead of the model.
+func isCommand(text string) bool {
+	return strings.HasPrefix(strings.TrimSpace(text), "/")
 }
 
 // splitCommand splits "/name rest of args" into the lowercased command name and

@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/chetto1983/aura/internal/conversations"
+	"github.com/chetto1983/aura/internal/identity"
+	"github.com/chetto1983/aura/internal/identityctx"
 	"github.com/chetto1983/aura/internal/llm"
 )
 
@@ -462,5 +464,38 @@ func TestHelpCopyMatchesThreadBoundSemantics(t *testing.T) {
 	}
 	if !strings.Contains(lower, "thread continuo") {
 		t.Fatalf("/help should explain Telegram's continuous thread model, got %q", reply)
+	}
+}
+
+type fakeIdentities map[string]identity.Identity
+
+func (f fakeIdentities) GetIdentityByID(_ context.Context, identityID string) (identity.Identity, error) {
+	if got, ok := f[identityID]; ok {
+		return got, nil
+	}
+	return identity.Identity{}, identity.ErrIdentityNotFound
+}
+
+// /whoami answered "Sei l'utente locale di questa istanza di Aura." whatever the chat was
+// linked to; on the lab VM (2026-10-13) the chat links a Google-signed identity, not the local
+// one. It names the identity the command runs as, and claims none it cannot read.
+func TestWhoamiNamesTheLinkedIdentity(t *testing.T) {
+	t.Parallel()
+	const linked = "aaaaaaaa-0000-4000-8000-00000000000a"
+	cmds := newTestCommands(commandDeps{Identities: fakeIdentities{
+		linked: {ID: linked, Name: "operatore@example.com", Kind: "User"},
+	}})
+
+	_, reply := cmds.dispatch(identityctx.WithIdentityID(context.Background(), linked), 42, "/whoami")
+	if !strings.Contains(reply, "operatore@example.com") {
+		t.Fatalf("/whoami = %q, want the linked identity's name", reply)
+	}
+	for _, ctx := range []context.Context{
+		context.Background(),
+		identityctx.WithIdentityID(context.Background(), "bbbbbbbb-0000-4000-8000-00000000000b"),
+	} {
+		if _, reply := cmds.dispatch(ctx, 42, "/whoami"); reply != whoamiUnavailableMessage {
+			t.Errorf("/whoami without a readable identity = %q, want %q", reply, whoamiUnavailableMessage)
+		}
 	}
 }
