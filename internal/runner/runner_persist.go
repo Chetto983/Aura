@@ -131,18 +131,24 @@ func (r *Runner) persistEvent(ctx context.Context, tr *turnTracker, ev *agent.Ev
 	}
 	if ev.Actions.ToolInvocation != nil {
 		r.observeReasoningTool(tr, ev)
-		if err := r.persistToolTurnEvent(ctx, tr, ev.Actions.ToolInvocation, ev); err != nil {
+		// A call that ran is a fact, whatever happened to the turn waiting for it: shutdown
+		// cancels a web turn mid-call (spec 2026-10-12, D), and writing the call's turns and
+		// ledger rows with that context lost them, leaving a start without an end and a
+		// tool_call without its answer (measured on the lab VM, 2026-10-13). The same reason
+		// flushPause and recordInterruptedRound write with WithoutCancel.
+		durable := context.WithoutCancel(ctx)
+		if err := r.persistToolTurnEvent(durable, tr, ev.Actions.ToolInvocation, ev); err != nil {
 			return err
 		}
-		if err := r.acceptMemoryCapture(ctx, tr, ev); err != nil {
+		if err := r.acceptMemoryCapture(durable, tr, ev); err != nil {
 			return err
 		}
 		// The ledger is operational observability (migration 0011 header), NOT a
-		// permission system: a transient insert failure (pg hiccup, pool exhaustion,
-		// mid-round cancel) must NOT abort the user-facing turn. Log and continue.
+		// permission system: a transient insert failure (pg hiccup, pool exhaustion)
+		// must NOT abort the user-facing turn. Log and continue.
 		// Contrast persistPause/persistAssistantAnswer, which gate durable history and
 		// stay turn-fatal below.
-		if err := r.persistToolInvocationLedger(ctx, tr, ev); err != nil {
+		if err := r.persistToolInvocationLedger(durable, tr, ev); err != nil {
 			ti := ev.Actions.ToolInvocation
 			slog.Warn("tool invocation ledger insert failed (continuing)",
 				"tool", ti.ToolName, "tool_call_id", ti.ToolCallID, "event", ti.Event, "err", err)

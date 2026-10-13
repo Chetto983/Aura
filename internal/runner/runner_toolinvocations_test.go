@@ -9,6 +9,7 @@ import (
 
 	"github.com/chetto1983/aura/internal/agent"
 	"github.com/chetto1983/aura/internal/agent/agenttest"
+	"github.com/chetto1983/aura/internal/conversations"
 	"github.com/chetto1983/aura/internal/llm"
 	"github.com/chetto1983/aura/internal/toolinvocations"
 	"github.com/google/uuid"
@@ -168,6 +169,72 @@ func TestPersistToolInvocationLedgerStampsARefusal(t *testing.T) {
 	}
 	if _, stamped := agentMeta["gateway_verdict"]; stamped {
 		t.Fatal("the stamp wrote into the agent's own meta map")
+	}
+}
+
+// ctxStrictConv and ctxStrictLedger refuse a write whose context is done, as Postgres does.
+// The shared fakes ignore ctx, which hid the failure below.
+type ctxStrictConv struct{ *fakeConvStore }
+
+func (c ctxStrictConv) AppendTurn(ctx context.Context, p conversations.AppendTurnParams) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return c.fakeConvStore.AppendTurn(ctx, p)
+}
+
+type ctxStrictLedger struct{ *fakeToolInvocationStore }
+
+func (l ctxStrictLedger) Insert(ctx context.Context, e toolinvocations.Event) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return l.fakeToolInvocationStore.Insert(ctx, e)
+}
+
+// MEASURED on the lab VM, 2026-10-13 (acceptance item 5, after-2): docker stop while
+// browser__agent_browser_open ran. The shutdown cancelled the turn, as it must; the tool
+// came back with "context canceled", and the runner wrote its result with that same context:
+// "persist tool result turn …: append turn …: context canceled". The call's end row and its
+// tool turn were never written, so the ledger kept a start without an end and the history an
+// assistant tool_call without its answer. The end of a call that ran is a fact to record,
+// whatever happened to the turn that was waiting for it.
+func TestPersistEvent_RecordsAToolEndAfterTheTurnIsCancelled(t *testing.T) {
+	r, conv, _ := newTestRunner(t, agenttest.NewFakeClient())
+	r.Conv = ctxStrictConv{conv}
+	ledger := newFakeToolInvocationStore()
+	r.toolInvocations = ctxStrictLedger{ledger}
+	convID := newConvID(t)
+	tr := &turnTracker{convID: convID}
+	requestID := uuid.Must(uuid.NewV7())
+	startedAt := time.Now().UTC()
+	call := func(event string) *agent.Event {
+		return &agent.Event{RequestID: requestID, Actions: agent.Actions{ToolInvocation: &agent.ToolInvocation{
+			Event: event, ToolCallID: "call_86nz4f3i", ToolName: "browser__agent_browser_open",
+			Arguments: `{"url":"https://arcadedb.com"}`, StartedAt: &startedAt,
+		}}}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := r.persistEvent(ctx, tr, call(agent.ToolInvocationStart)); err != nil {
+		t.Fatalf("persist start: %v", err)
+	}
+	cancel()
+	end := call(agent.ToolInvocationEnd)
+	end.Actions.ToolInvocation.Status = "error"
+	end.Actions.ToolInvocation.ResultPreview = "context canceled"
+
+	if err := r.persistEvent(ctx, tr, end); err != nil {
+		t.Fatalf("persist end after the cancel: %v", err)
+	}
+	if len(ledger.events) != 2 || ledger.events[1].Event != toolinvocations.EventEnd {
+		t.Fatalf("ledger = %+v, want the start and its end", ledger.events)
+	}
+	hist, err := conv.LoadHistory(context.Background(), convID)
+	if err != nil {
+		t.Fatalf("load history: %v", err)
+	}
+	if len(hist) != 2 || hist[1].Role != llm.RoleTool || hist[1].ToolCallID != "call_86nz4f3i" {
+		t.Fatalf("history = %+v, want the call and its result", hist)
 	}
 }
 
