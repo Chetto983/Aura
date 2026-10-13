@@ -121,7 +121,8 @@ export function placeAssistant(
 /**
  * The operator's rejection is a refusal too (spec 2026-10-12): once a gateway approval is
  * declined, the call it withheld shows Refused, before any reload. Any other resolution, or an
- * approval that names no call, leaves the list as it is.
+ * approval that names no call, leaves the list as it is. So does an id that more than one call
+ * in the thread carries: a reload paints neither, and the wrong call painted is worse than none.
  */
 export function refuseDeclinedCall(
   messages: ThreadMessageLike[],
@@ -133,6 +134,16 @@ export function refuseDeclinedCall(
   }
   const isWithheld = (part: { readonly type: string; readonly toolCallId?: string }) =>
     part.type === 'tool-call' && part.toolCallId === withheld;
+  const carriers = messages.reduce(
+    (count, message) =>
+      typeof message.content === 'string'
+        ? count
+        : count + message.content.filter(isWithheld).length,
+    0,
+  );
+  if (carriers !== 1) {
+    return messages;
+  }
   return messages.map((message) =>
     typeof message.content === 'string' || !message.content.some(isWithheld)
       ? message
