@@ -3,9 +3,14 @@
 
 Agreed with the operator on 2026-10-13, at `003835005`. GitHub flagged the operator's account on
 2026-10-11. Since then nobody but the owner can pull from `ghcr.io/chetto1983`, so no appliance
-can update. Andrea's appliance is frozen on the images it pulled before that day. This spec
-moves the appliances to a temporary registry on GitLab and brings them back to ghcr when GitHub
-returns. Neither trip needs a person on the machine, except Andrea's one-time patch.
+can update, and no new one can be installed. Andrea's appliance is frozen on the images it
+pulled before that day. This spec moves the images, and the installer's sources, to GitLab
+until GitHub returns, if it does:
+- running appliances move there;
+- fresh installs start there;
+- every host comes back to ghcr the same way when GitHub returns.
+
+Neither trip needs a person on the machine, except Andrea's one-time patch.
 
 ## What was measured on 2026-10-13
 
@@ -27,8 +32,28 @@ returns. Neither trip needs a person on the machine, except Andrea's one-time pa
   - `AURA_INGEST_IMAGE`
   - `AURA_ARCADEDB_MCP_IMAGE`
 
-  The tenth `chetto1983` image is the whisper mirror. `compose.yaml` pins it by digest, and it
-  runs in no profile, so every appliance already holds it.
+  The tenth `chetto1983` image is the whisper mirror, which `compose.yaml` pins by digest
+  (`aura-whisper-server:2026.10.08.1056@sha256:c6c6311a…`). It runs in no profile, so every
+  appliance already holds it.
+  - Docker Hub's `hwdsl2/whisper-server:latest` is still that digest, published 2026-10-08
+    10:56, and the digest still answers 200 there.
+  - `scripts/mirror_whisper_server.sh` takes its destination from `DEST_REPO` and copies with
+    `skopeo --preserve-digests`. So a GitLab copy keeps the tag and the digest.
+  - skopeo is not installed in WSL.
+- **Fresh installs: every entry point is blocked.**
+
+  | Entry point | Files come from | Images |
+  |---|---|---|
+  | `npx create-aura-appliance` (npm 0.2.10, published 2026-10-11; the repo is at 0.2.11) | the payload inside the package | ghcr; the preflight requires `https://ghcr.io` (`packages/create-aura/src/local.ts:40`, `remote.ts:71`) |
+  | `curl …raw.githubusercontent.com/chetto1983/Aura/…/install.sh \| bash` | `RAW_BASE`, GitHub raw (`scripts/install.sh:88`), which answers 404 | `DEFAULT_IMAGE`, ghcr (`install.sh:97`) |
+  | `npx github:chetto1983/Aura` | GitHub, which answers 404 | ghcr |
+
+  `install_env.sh:171-197` writes the sidecar defaults, all under ghcr. `compose.yaml` falls
+  back to ghcr for pim, whatsapp and whisper. Several tests pin these references:
+  - `install_lib_test.sh`, `cloudflare_update_test.sh` and `install_remote_access_test.sh`;
+  - `distribution_artifacts_test.go`;
+  - the "ours" rule in `image_pin_artifacts_test.go:91`;
+  - create-aura's `local.test.ts` and `remote.test.ts`.
 - **The GitLab registry.** The public mirror `gitlab.com/Chetto1983/aura` has its container
   registry on. From the PC and from the VM, an anonymous pull token answers 200 (0.44 s from
   the VM), and the repository list is empty. GitLab documents that a public project whose
@@ -59,9 +84,16 @@ whisper image is present. The patch checks what it depends on.
 
 ## Decisions (operator, 2026-10-13)
 
-- **The bridge is temporary.** The repo's defaults stay on ghcr: `install.sh`, `install_env.sh`,
-  create-aura, `.env.example` and the `compose.yaml` fallbacks. Only the updater's idea of where
-  images live changes, and it changes back on the return trip.
+- **The bridge lasts until GitHub returns, and it covers fresh installs.** The first draft left
+  the installer on ghcr. The operator rejected that: GitHub has not answered, and nobody knows
+  when it will. Every default the repo ships therefore names GitLab while the bridge lasts:
+  - the installer's image and the place it fetches its files from;
+  - the sidecar defaults;
+  - the `compose.yaml` fallbacks;
+  - create-aura;
+  - the install docs.
+
+  The return trip reverses all of it.
 - **Images are published from the operator's PC,** through a script run in WSL. There is no
   GitLab CI.
 - **The updater moves each host, and moves it back** (approach A). The return needs no second
@@ -79,9 +111,10 @@ whisper image is present. The patch checks what it depends on.
 Every image lives under the one project's registry, one level deep:
 `registry.gitlab.com/chetto1983/aura/<name>`. The names stay the ones ghcr uses: `aura`,
 `aura-caddy`, `aura-cloudflared`, `aura-ingest`, `aura-sandbox`, `aura-egress`,
-`aura-arcadedb-mcp`, `aura-pim-mcp` and `whatsapp-mcp`. Moving between the two registries is a
-prefix swap: `ghcr.io/chetto1983/<name>:<tag>` ⇄ `registry.gitlab.com/chetto1983/aura/<name>:<tag>`.
-Tags are unchanged.
+`aura-arcadedb-mcp`, `aura-pim-mcp`, `whatsapp-mcp` and `aura-whisper-server`. Moving between the
+two registries is a prefix swap:
+`ghcr.io/chetto1983/<name>:<tag>` ⇄ `registry.gitlab.com/chetto1983/aura/<name>:<tag>`.
+Tags, and the whisper digest, are unchanged.
 
 ### Publisher: `scripts/publish_images.sh`
 
@@ -124,9 +157,8 @@ The operator runs `docker login registry.gitlab.com` once, with a token scoped t
   the other `.env` edits, so it runs only once an update has been decided. It looks at every
   `AURA_*_IMAGE` line whose value starts with a home other than `IMAGE_HOME`:
   1. It pulls the same `<name>:<tag>` under `IMAGE_HOME`, through `pull_retrying`.
-  2. On success, it rewrites that one line in place. GNU `sed -i` keeps the file's 0600 mode and
-     owner. It appends the old reference to `INSTALL_DIR/image_moves.pending` and logs the key
-     name.
+  2. On success, it rewrites that one line in place and logs the key name. GNU `sed -i` keeps
+     the file's 0600 mode and owner.
   3. On failure, the key stays as it is and the tick goes on. A pull that fails today is
      retried on the next tick.
 
@@ -134,14 +166,19 @@ The operator runs `docker login registry.gitlab.com` once, with a token scoped t
   alone, such as an operator's own `AURA_STT_IMAGE`.
 - **The cloudflared default.** `ensure_cloudflared_edge_env` writes
   `${IMAGE_HOME}/aura-cloudflared:edge` instead of the ghcr literal.
-- **`remove_moved_images`.** It runs at the end of a finished apply, after
-  `remove_superseded_images`. It removes each reference in `image_moves.pending`:
-  - one that is removed, or already absent, leaves the list;
-  - one that a container still uses stays for the next tick.
+- **Old images leave the disk.** `remove_superseded_images` already exists so that a pin that
+  moved registry still supersedes the image it replaced: SearXNG moved from Docker Hub to ghcr on
+  2026-10-07. Two changes extend it to this move:
+  - `image_repository` folds every home in `IMAGE_HOMES` to one name. Today
+    `chetto1983/aura-caddy` and `chetto1983/aura/aura-caddy` read as two repositories, so
+    nothing would be superseded.
+  - The two box images from `.env` (`AURA_SANDBOX_IMAGE`, `AURA_SANDBOX_EGRESS_IMAGE`) join
+    the pinned set. They are not compose services, so today the function never sees them.
+    `refresh_sandbox_images` runs before it, so no box still holds the old image.
 
-  It is needed because `remove_superseded_images` matches repositories, and
-  `chetto1983/aura-caddy` is not `chetto1983/aura/aura-caddy`. It also never looks at the
-  sandbox images. Without it, about 6 GB of ghcr images would stay on the VM's disk.
+  Without these changes about 6 GB of ghcr images would stay on the VM's disk, whisper's
+  842 MB included. A ghcr name on the same image ID as its GitLab pin is skipped, as today.
+  That happens to whisper, whose digest does not change, and it costs no disk.
 - **Cosmetics.**
   - The service's `Description` stops saying "from GHCR".
   - The header's prerequisite list names `IMAGE_HOME`.
@@ -166,9 +203,8 @@ download it.
    - the pull of `registry.gitlab.com/chetto1983/aura/aura:<same tag>` fails.
 
    The floor is the measured size of the published set plus a margin, fixed in the plan.
-2. **It rewrites `AURA_IMAGE` only,** and appends the old reference to
-   `INSTALL_DIR/image_moves.pending`. Otherwise the ghcr `aura:edge`, 2.6 GB on the VM, would
-   never leave the disk.
+2. **It rewrites `AURA_IMAGE` only.** The old ghcr `aura:edge` leaves the disk at the end of
+   the first apply, through `remove_superseded_images`.
 3. **It starts `aura-image-update.service`** and says what comes next:
    1. The updater downloads the new aura.
    2. The cockpit offers the update.
@@ -180,45 +216,92 @@ Andrea runs it from the public mirror:
 `curl -fsSL https://gitlab.com/Chetto1983/aura/-/raw/master/deploy/aura-registry-bridge.sh | sudo bash`.
 The operator can also send him the file.
 
+### Fresh installs
+
+Every default the repo ships names the current home, `registry.gitlab.com/chetto1983/aura`, and
+fetches from the GitLab mirror:
+
+- **`scripts/install.sh`.**
+  - `DEFAULT_IMAGE` takes the home.
+  - `RAW_BASE` defaults to `https://gitlab.com/Chetto1983/aura/-/raw/${RAW_REF}`.
+  - The usage lines in the header follow.
+- **`scripts/install_env.sh`.** The sidecar defaults take the home.
+- **`compose.yaml`.**
+  - The fallbacks for pim, whatsapp and whisper take the home.
+  - The whisper pin keeps its tag and digest (`2026.10.08.1056@sha256:c6c6311a…`).
+  - The comments that name the ghcr channel follow.
+- **`.env.example`.**
+- **create-aura.**
+  - The required host is `https://registry.gitlab.com`, in `local.ts` and `remote.ts`.
+  - The package version is bumped, and the operator publishes it to npm with their own login.
+- **`docs/INSTALL.md` and `docs/cloudflare-remote-access.md`.**
+  - The install command fetches from the GitLab raw URL.
+  - The `npx github:chetto1983/Aura` line is dropped for as long as the bridge lasts, because
+    nothing replaces it.
+
+`docs/aura-quality-snapshot.md` is a ledger of past measurements, and it is not edited.
+
+**Whisper is mirrored once,** by the existing `scripts/mirror_whisper_server.sh` with
+`DEST_REPO=registry.gitlab.com/chetto1983/aura/aura-whisper-server`. Docker Hub still serves the
+pinned digest, so the copy keeps it. The mirror needs skopeo in WSL and a `skopeo login`.
+
+**An anti-drift test** keeps the shipped files in step. It reads `IMAGE_HOME` from the updater
+and fails on any reference to another home in the files a host receives:
+- `scripts/install.sh` and `scripts/install_env.sh`;
+- the compose files;
+- `.env.example`;
+- `deploy/`;
+- create-aura's sources.
+
+GitHub raw counts as the ghcr home, and GitLab raw as the GitLab one. The rule for "ours" in
+`image_pin_artifacts_test.go:91` accepts both homes. The tests that pin ghcr today move to the
+home.
+
 ### Return trip
 
 When GitHub reinstates the account:
-1. One commit sets `IMAGE_HOME` back to ghcr and deletes `deploy/aura-registry-bridge.sh`.
-2. CI publishes that commit to ghcr.
-3. `scripts/publish_images.sh` publishes it once more to GitLab.
+1. One commit sets `IMAGE_HOME` back to ghcr, reverses the defaults above, and deletes
+   `deploy/aura-registry-bridge.sh`. The anti-drift test fails until no GitLab reference is
+   left in a shipped file.
+2. CI publishes that commit to ghcr, and the operator publishes create-aura to npm.
+3. `scripts/publish_images.sh` publishes the commit once more to GitLab.
 4. Every bridged host pulls that GitLab `aura:edge` and installs its updater. The updater then
    moves each key back once the ghcr image pulls.
 5. When no bridged host is left, the publisher script is deleted.
 
 ## Out of scope
 
-- **Fresh installs.** `install.sh`, `install_env.sh` and create-aura stay on ghcr, so no new
-  appliance can be installed during the bridge.
-- **The CI workflows**, which stay as they are.
+- **The CI workflows**, which stay as they are and publish to ghcr whenever GitHub runs them.
 - **arm64 cloudflared.**
 - **A cleanup policy for the GitLab registry.** Its storage is outside the free limit.
 - **The aura-connect page**, which is a separate design.
-- **Whisper.** Its digest pin stays on ghcr, and every appliance holds that image. **Constraint:**
-  the whisper pin must not change while the bridge is active, because a new digest would have to
-  be pulled from ghcr.
 
 ## Tests
 
 - **`scripts/aura_image_update_test.sh`** keeps its strict-stub harness and adds these cases:
   - a key moves only after its pull succeeded;
-  - a failed pull changes neither `.env` nor `image_moves.pending`;
+  - a failed pull leaves `.env` byte-identical;
   - a quoted value moves;
   - a key already at home, and a value under another registry, are untouched;
   - with `IMAGE_HOME` flipped, the move runs in the return direction;
   - the log carries key names, never values;
   - `.env` keeps its mode;
-  - `remove_moved_images` keeps a reference in use and drops one that is removed or absent;
+  - `image_repository` folds both homes to one name;
+  - a ghcr image whose GitLab pin moved is removed, the box images included;
   - the cloudflared default follows `IMAGE_HOME`.
 - **`scripts/aura_registry_bridge_test.sh`** (new) stubs `docker`, `systemctl` and `df`, and
   covers these cases:
-  - each refusal leaves `.env` and `image_moves.pending` byte-identical;
-  - only `AURA_IMAGE` changes, and its old reference is recorded;
+  - each refusal leaves `.env` byte-identical;
+  - only `AURA_IMAGE` changes;
   - a second run is a no-op that only starts the updater.
+- **The anti-drift test** (new, Go, beside `image_pin_artifacts_test.go`) has three jobs:
+  - it fails on a reference to the other home in any shipped file;
+  - it proves it can fail, on a synthetic file that names the other home;
+  - it reads `IMAGE_HOME` from the updater, never from a second copy.
+- **Existing tests that move to the home:**
+  - `install_lib_test.sh`, `cloudflare_update_test.sh` and `install_remote_access_test.sh`;
+  - `distribution_artifacts_test.go`;
+  - create-aura's `local.test.ts` and `remote.test.ts`.
 - **`scripts/publish_images_test.sh`** (new) covers these cases:
   - the script's Aura images and Dockerfiles equal what the two workflows build, parsed from
     the YAML, so the two cannot drift;
@@ -230,9 +313,10 @@ When GitHub reinstates the account:
 
 The VM runs the exact path Andrea will run, before he gets it.
 
-1. **Publish.** Publish the commit that lands this work from the operator's PC. Then read back
-   from the VM, anonymously:
-   - all nine manifests are present;
+1. **Publish.** Publish the commit that lands this work from the operator's PC, and mirror
+   whisper. Then read back from the VM, anonymously:
+   - all ten manifests are present;
+   - whisper's digest is the pinned one;
    - `aura version` in the published image names the commit.
 2. **Patch.** Run `deploy/aura-registry-bridge.sh` from the GitLab raw URL.
 3. **Apply.** "Update now" comes from the operator's cockpit session.
@@ -243,9 +327,17 @@ The VM runs the exact path Andrea will run, before he gets it.
    - through the integrations proxy, the PIM `/admin/accounts` and the WhatsApp `/api/status`
      answer;
    - the updater's journal shows each move and exit 0;
-   - the ghcr images other than whisper are gone, and free space is back.
+   - the superseded ghcr images are gone, and free space is back.
 5. **Second tick:** nothing to move, exit 0.
 6. **Smoke:** one chat turn in the cockpit and one on Telegram.
+7. **Fresh-install reachability, the cheap probe.** In a clean `ubuntu` container, with no
+   credentials and an empty Docker config:
+   - `install.sh` and every payload file it lists (`scripts/payload_files.sh`) download from
+     the GitLab raw URL;
+   - the manifest of every image a fresh install names resolves anonymously.
+
+   It does not start a stack. The published create-aura tarball is also checked: its installer
+   names the GitLab home.
 
 The VM leaves the lab overlay for `edge`, which is intended. The run is recorded in
 `docs/superpowers/verification/` under its date. When Andrea runs the patch, his updater's
@@ -255,7 +347,9 @@ bridge after the VM run, citing the ledger.
 ## What this does not establish
 
 - **The return trip.** It runs only in the tests until ghcr is reachable again.
-- **Fresh installs.** None can happen during the bridge.
+- **A complete fresh install.** The probe shows that every file and image is reachable, not that
+  a clean machine reaches a working chat. That needs a clean VM, and the operator chose the
+  cheap probe.
 - **Build provenance.** The images are built on the operator's PC, not in a clean runner. The
   provenance is a `git archive` of a named commit plus its revision label, not a hermetic build.
 - **Andrea's host.** Anything the patch does not check, such as a full disk after the pull, or a
