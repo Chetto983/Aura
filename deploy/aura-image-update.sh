@@ -48,6 +48,12 @@ PENDING_PAYLOAD=payload_changes.pending
 RETIRED_ENV_KEYS=(POSTGRES_IMAGE AURA_EMBED_IMAGE AURA_EMBED_MODEL_PATH AURA_EMBED_MODEL_URL AURA_EMBED_DIMENSIONS AURA_OTEL_ENDPOINT AURA_PIM_EXTERNAL_BASE_URL)
 # Repo-built services on the edge channel's moving tags, refreshed after aura.
 SIDECARS=(arcadedb-mcp aura-pim-mcp whatsapp caddy aura-ingest aura-cloudflared)
+# Every registry path the repo-built images have been published under, and the one they live
+# under now. move_image_registry moves a host's .env from any other home to IMAGE_HOME, one key
+# at a time, so the constant that sends hosts to the GitLab bridge also brings them back
+# (docs/superpowers/specs/2026-10-13-gitlab-image-bridge-design.md).
+IMAGE_HOMES=(ghcr.io/chetto1983 registry.gitlab.com/chetto1983/aura)
+IMAGE_HOME=registry.gitlab.com/chetto1983/aura
 # Sourced by main from INSTALL_DIR; replacing it counts as a new updater (see sync_payload).
 CONSENT_LIB=deploy/aura-update-consent.sh
 
@@ -210,7 +216,7 @@ ensure_cloudflared_edge_env() {
   for key in AURA_CLOUDFLARED_IMAGE AURA_CLOUDFLARED_PULL_POLICY; do
     [[ -z "$(env_value "$key")" ]] || continue
     case "$key" in
-      AURA_CLOUDFLARED_IMAGE) value=ghcr.io/chetto1983/aura-cloudflared:edge ;;
+      AURA_CLOUDFLARED_IMAGE) value="${IMAGE_HOME}/aura-cloudflared:edge" ;;
       AURA_CLOUDFLARED_PULL_POLICY) value=always ;;
     esac
     # GNU sed preserves .env's mode/owner; no backup or log may copy its secret values.
@@ -218,6 +224,28 @@ ensure_cloudflared_edge_env() {
     printf '%s=%s\n' "$key" "$value" >>"${INSTALL_DIR}/.env"
     echo "env: initialized ${key}."
   done
+}
+
+# A key of .env that names a repo-built image under another home moves to IMAGE_HOME, keeping
+# its name and tag, but only once that image pulls from there: a host never points at an image
+# the home does not serve yet, and a key whose pull fails is tried again next tick. Like
+# retire_env_keys it logs key names only; GNU sed keeps .env's mode and owner.
+move_image_registry() {
+  local env_file="${INSTALL_DIR}/.env" key value home target
+  [[ -f "${env_file}" ]] || return 0
+  while IFS='=' read -r key value; do
+    value="$(tr -d "\"'" <<<"${value}")"
+    for home in "${IMAGE_HOMES[@]}"; do
+      [[ "${home}" != "${IMAGE_HOME}" && "${value}" == "${home}/"* ]] || continue
+      target="${IMAGE_HOME}/${value#"${home}"/}"
+      if pull_retrying docker pull -q "${target}" >/dev/null; then
+        sed -i "s|^${key}=.*|${key}=${target}|" "${env_file}"
+        echo "env: ${key} moved to ${IMAGE_HOME}."
+      else
+        echo "env: ${key} stays put until its image pulls from ${IMAGE_HOME}."
+      fi
+    done
+  done < <(grep -E '^AURA_([A-Z0-9_]+_)?IMAGE=' "${env_file}" || true)
 }
 
 # [registry/]path[:tag][@digest] -> path. The registry host (a first component with a
@@ -432,6 +460,7 @@ apply_update() {
   fi
   retire_env_keys
   ensure_cloudflared_edge_env
+  move_image_registry
 
   # A pre-existing .env used to omit these keys forever, silently retaining dev.
   bash scripts/appliance_posture.sh .env
