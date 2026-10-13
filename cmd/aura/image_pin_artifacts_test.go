@@ -26,10 +26,12 @@ func TestThirdPartyImagesArePinnedWhereTheUpdaterDeliversThem(t *testing.T) {
 	// below still holds CUDA, Vulkan, CPU and CI to ONE llama.cpp, which is the point.
 	llamaBuild := regexp.MustCompile(`llama\.cpp:server(?:-cuda|-vulkan)?-(b\d+|v\d+\.\d+\.\d+)`)
 	builds := map[string][]string{}
+	home, others := imageHomes(t, root)
+	homes := append([]string{home}, others...)
 	for rel, contents := range files {
 		for _, match := range imageLine.FindAllStringSubmatch(contents, -1) {
 			ref := composeDefault(match[1])
-			if !isThirdPartyImage(ref) {
+			if !isThirdPartyImage(ref, homes) {
 				continue
 			}
 			if !isPinnedImage(ref) {
@@ -86,9 +88,17 @@ func composeDefault(ref string) string {
 }
 
 // Repo-built images ride the edge channel's moving tags on purpose, published and pulled by
-// the same pipeline; locally built ones are named aura*.
-func isThirdPartyImage(ref string) bool {
-	return !strings.HasPrefix(ref, "ghcr.io/chetto1983/") && !strings.HasPrefix(ref, "aura")
+// the same pipeline, under any image home the updater knows; locally built ones are named aura*.
+func isThirdPartyImage(ref string, homes []string) bool {
+	if strings.HasPrefix(ref, "aura") {
+		return false
+	}
+	for _, h := range homes {
+		if strings.HasPrefix(ref, h+"/") {
+			return false
+		}
+	}
+	return true
 }
 
 // A digest is a pin; so is a tag carrying a version number. latest, server-cuda and their kind

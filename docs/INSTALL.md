@@ -24,9 +24,11 @@ proxy that allows the box lifecycle verbs.
 `Release` workflow on a `v*` tag, and only after the exact-SHA *Production Readiness*
 check passed for that commit ([release-readiness.md](release-readiness.md)). Check the
 [Releases page](https://github.com/chetto1983/Aura/releases) for the current tag
-(`v1.1.0` is the latest) and use it as `vX.Y.Z` below. Independently of releases,
-every master push publishes the moving `ghcr.io/chetto1983/aura:edge` image (plus an
-immutable `master-<sha>` tag), the continuous-delivery channel a default install tracks.
+(`v1.1.0` is the latest) and use it as `vX.Y.Z` below. Independently of releases, the
+moving edge image every default install tracks is published as
+`registry.gitlab.com/chetto1983/aura/aura:edge` (plus an immutable `master-<sha>` tag) while
+GitHub blocks the account: release tags stay on ghcr and are not mirrored, so a pinned
+`vX.Y.Z` install is not available until GitHub returns.
 
 ## Linux or macOS
 
@@ -45,18 +47,12 @@ exposing `/dev/dri`, otherwise CPU. See the
 [installer guide](../packages/create-aura/README.md) for supported targets and
 prerequisites. The npm installer carries its own payload.
 
-The source-hosted installer remains available. Install Docker, then run it on a
-machine with Node 18+ (`npx` fetches the repo and runs `scripts/install.sh`):
+The source-hosted installer remains available. Install Docker, then run the script from
+the GitLab mirror. Use `master` to track the edge channel, or a release tag `vX.Y.Z` to
+pin:
 
 ```bash
-sudo npx github:chetto1983/Aura -- --appliance
-```
-
-or the curl equivalent of the same script. Use `master` to track the edge channel, or
-a release tag `vX.Y.Z` to pin:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/chetto1983/Aura/master/scripts/install.sh | sudo bash -s -- --appliance
+curl -fsSL https://gitlab.com/Chetto1983/aura/-/raw/master/scripts/install.sh | sudo bash -s -- --appliance
 ```
 
 The installer checks hardware, creates `.env` with generated `POSTGRES_PASSWORD`, the
@@ -89,6 +85,7 @@ POSTGRES_DB=aura
 ARCADEDB_PASSWORD=$(New-Hex)
 ARCADEDB_APP_PASSWORD=$(New-Hex)
 AURA_ARCADEDB_TENANT_SECRET=$(New-Hex)
+# a release image is on ghcr only; while GitHub blocks it, use registry.gitlab.com/chetto1983/aura/aura:edge
 AURA_IMAGE=ghcr.io/chetto1983/aura:vX.Y.Z
 AURA_ACCESS_TOKEN=$(New-Hex)
 AURA_AUTHULA_SECRET=$(New-Hex)

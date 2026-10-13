@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Aura appliance installer. Intended usage (equivalent — the npx bin is a veneer
 # over this script, see scripts/create-aura.mjs):
-#   sudo npx github:chetto1983/Aura -- --appliance
-#   curl -fsSL https://raw.githubusercontent.com/chetto1983/Aura/<tag>/scripts/install.sh | bash
+#   npx create-aura-appliance            (the npm installer, which carries this script)
+#   curl -fsSL https://gitlab.com/Chetto1983/aura/-/raw/<ref>/scripts/install.sh | bash
 #
 # Without AURA_INSTALL_REF the install tracks master and defaults the image to
-# the ghcr :edge moving tag (published on every master push); --appliance then
+# the image home's :edge moving tag (published on every master push); --appliance then
 # also enables the aura-image-update timer so the machine self-updates.
 #
 # Optional env:
 #   AURA_INSTALL_REF=vX.Y.Z
-#   AURA_IMAGE=ghcr.io/chetto1983/aura:vX.Y.Z
+#   AURA_IMAGE=registry.gitlab.com/chetto1983/aura/aura:edge
 #   AURA_INSTALL_DIR=/opt/aura
 
 set -euo pipefail
@@ -85,16 +85,16 @@ if [ -z "$INSTALL_DIR" ]; then
 fi
 
 RAW_REF="${AURA_INSTALL_REF:-master}"
-RAW_BASE="${AURA_INSTALL_BASE_URL:-https://raw.githubusercontent.com/chetto1983/Aura/${RAW_REF}}"
+RAW_BASE="${AURA_INSTALL_BASE_URL:-https://gitlab.com/Chetto1983/aura/-/raw/${RAW_REF}}"
 IMAGE_TAG="${AURA_IMAGE_TAG:-${RAW_REF}}"
 # A master install rides the continuous-delivery channel: every master push
-# publishes ghcr.io/chetto1983/aura:edge (there is no :master image tag), and
+# publishes registry.gitlab.com/chetto1983/aura/aura:edge (there is no :master image tag), and
 # the aura-image-update timer keeps the appliance tracking it. Pinned installs
 # (AURA_INSTALL_REF=vX.Y.Z) keep the exact-tag image and skip the timer.
 if [ "$IMAGE_TAG" = "master" ]; then
   IMAGE_TAG="edge"
 fi
-DEFAULT_IMAGE="ghcr.io/chetto1983/aura:${IMAGE_TAG}"
+DEFAULT_IMAGE="registry.gitlab.com/chetto1983/aura/aura:${IMAGE_TAG}"
 
 need_sudo() {
   [ "$(id -u)" -ne 0 ]

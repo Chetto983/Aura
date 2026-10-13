@@ -360,3 +360,4 @@ bridge after the VM run, citing the ledger.
 - **Andrea's host.** Anything the patch does not check, such as a full disk after the pull, or a
   host on a much older payload.
 - **GitLab's pull limits.** Nothing beyond the handful of pulls the acceptance makes.
+- **Release installs.** A pinned `vX.Y.Z` install names a release tag that only ghcr carries; the bridge mirrors the edge channel.
