@@ -188,3 +188,44 @@ func TestDropRepeatedUserTurnsLeavesShortHistoriesAlone(t *testing.T) {
 	assertSeqs(t, dropRepeatedUserTurns(nil))
 	assertSeqs(t, dropRepeatedUserTurns([]Turn{userTurn(1, "ciao")}), 1)
 }
+
+// The shape of lab-VM conversation 01a13418 on 2026-10-13: a stopped run, then two cockpit
+// retries, each forking an empty assistant turn as its branch anchor, then a failing provider.
+// Ollama rejects an empty assistant message (HTTP 400 "invalid message content type: <nil>"),
+// and from the first anchor on every turn of the conversation failed the same way. The
+// anchors carry nothing for the model; a call's turn and the runner's notes do.
+func TestPrepareTurnsDropsEmptyAssistantTurnsFromTheWireCopy(t *testing.T) {
+	interrupted := "[run interrupted before it produced an answer: the run was stopped; " +
+		"the question above is unanswered — send it again to retry]"
+	call := Turn{Seq: 7, Role: llm.RoleAssistant,
+		ToolCalls: []byte(`[{"id":"call-1","type":"function","function":{"name":"web_search","arguments":"{}"}}]`)}
+	turns := []Turn{
+		userTurn(1, "cerca sul web le ultime notizie su ArcadeDB e fammi un riassunto"),
+		assistantTurn(2, interrupted),
+		assistantTurn(3, ""),
+		assistantTurn(4, interrupted),
+		assistantTurn(5, ""),
+		userTurn(6, "riprova"),
+		call,
+		{Seq: 8, Role: llm.RoleTool, ToolCallID: "call-1", Content: "risultati"},
+		assistantTurn(9, "Ecco le notizie"),
+	}
+
+	assertSeqs(t, prepareTurns(turns, ContextConfig{}), 1, 2, 4, 6, 7, 8, 9)
+}
+
+// A retry's path ends on its own anchor: the question, then the empty sibling of the answer
+// being replaced. Without the anchor the question is the last message again, which is what
+// the model is asked to answer, and it is not marked unanswered.
+func TestPrepareTurnsEndsARetryOnTheQuestion(t *testing.T) {
+	turns := []Turn{
+		userTurn(1, "che ore sono?"),
+		assistantTurn(3, ""),
+	}
+
+	got := prepareTurns(turns, ContextConfig{})
+	assertSeqs(t, got, 1)
+	if got[0].Role != llm.RoleUser {
+		t.Fatalf("last turn = %#v, want the question", got[0])
+	}
+}

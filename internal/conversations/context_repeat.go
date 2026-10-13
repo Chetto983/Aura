@@ -1,6 +1,10 @@
 package conversations
 
-import "github.com/chetto1983/aura/internal/llm"
+import (
+	"slices"
+
+	"github.com/chetto1983/aura/internal/llm"
+)
 
 // dropRepeatedUserTurns collapses a user turn whose immediate predecessor is a user turn
 // with the same content, keeping the later one.
@@ -57,11 +61,8 @@ const unansweredMarker = "[no answer was produced for the message above]"
 //
 // The approach is hermes-agent's (`repair_empty_non_final_messages`, whose reasoning applies
 // unchanged here): repair the per-call copy, never the stored history, so the conversation
-// the person scrolls stays exactly what happened. Its specific pass -- substituting a
-// placeholder into EMPTY non-final messages, which some providers reject with a 400 that
-// then poisons every later turn -- is deliberately NOT ported: measured 2026-08-16, Aura
-// holds zero turns of that shape, so porting it would be curing a disease this corpus does
-// not have.
+// the person scrolls stays exactly what happened. Its pass for EMPTY messages is
+// dropEmptyAssistantTurns below.
 func markUnansweredUserTurns(turns []Turn) []Turn {
 	if len(turns) < 2 {
 		return turns
@@ -80,6 +81,26 @@ func markUnansweredUserTurns(turns []Turn) []Turn {
 		})
 	}
 	return out
+}
+
+// dropEmptyAssistantTurns leaves out of the wire copy an assistant turn with no content and
+// no tool calls.
+//
+// The cockpit's retry forks one as the anchor of the new branch, the empty sibling of the
+// answer it replaces, and the rerun's path ends on it. Some providers reject the empty
+// message with a 400 that then poisons every later turn: MEASURED on the lab VM 2026-10-13,
+// conversation 01a13418, where two retries left two anchors and Ollama answered every turn
+// after them with "invalid message content type: <nil>". On 2026-08-16 Aura held no turn of
+// this shape, which is why hermes-agent's pass was not ported then.
+//
+// Dropped rather than given a placeholder: the turn says nothing, and a placeholder after
+// the question would read as the answer the retry is asking for. The stored turn stays, since
+// the branch tree hangs on it.
+func dropEmptyAssistantTurns(turns []Turn) []Turn {
+	return slices.DeleteFunc(slices.Clone(turns), func(turn Turn) bool {
+		return turn.Role == llm.RoleAssistant && turn.Content == "" &&
+			turn.ContentSidecarPath == "" && len(turn.ToolCalls) == 0
+	})
 }
 
 // isPlainUserTurn excludes the synthetic user-role turns this package injects. They are

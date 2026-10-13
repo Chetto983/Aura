@@ -257,6 +257,8 @@ func applyContextLadder(
 // `/compact` writes describes the same history the next turn will replay: two copies of this
 // sequence is how the two come to disagree about what a turn even is.
 //
+//   - An assistant turn with nothing in it (a retry's branch anchor) is left out first, so it
+//     sits between nothing the passes below compare.
 //   - A message the person sent twice because the first run answered nothing is ONE message.
 //     Collapsed first so every count below — the budget, the summary, the L2.5 drop — works
 //     on the history as it happened rather than on the repetition.
@@ -268,6 +270,7 @@ func applyContextLadder(
 //     like the system turn (Pitfall 3). An empty block is a no-op.
 //   - L1 microcompact: old role='tool' turns become a read_tool_output pointer.
 func prepareTurns(turns []Turn, cfg ContextConfig) []Turn {
+	turns = dropEmptyAssistantTurns(turns)
 	turns = dropRepeatedUserTurns(turns)
 	turns = markUnansweredUserTurns(turns)
 	turns = injectAlwaysBlock(turns, cfg.AlwaysBlock)
