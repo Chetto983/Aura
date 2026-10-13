@@ -9693,6 +9693,18 @@ Run on 2026-10-12, after each planner had built its part RED → GREEN in its ow
 
 4. **vitest** on the landed web tree: `npx vitest run src/chat src/approvals src/settings src/admin src/i18n src/__tests__/readabilityTokens.test.ts` gave 203 files and 1803 tests passed, 0 failed, in 95 s. It ran in WSL on an ext4 copy whose `web/` files equal `master` and whose `node_modules` came from `npm ci` on the same lockfile. The checkout's own `node_modules` carries only the Linux native bindings, so it cannot start vitest on Windows, and on `/mnt/d` it is slowed by 9p.
 
+5. **Independent review** of `f7f3204f7..12cda7ae1`, read-only. Verdict: ready with fixes, no Critical. Each finding was confirmed in the code and fixed RED → GREEN, with the touched packages' vet, race tests, lint, `tsc`, oxlint and prettier green:
+
+   | Finding | Fix |
+   |---|---|
+   | Important: the cockpit read the withheld id with a struct decode, which folds case, so a model-written `"TYPE"` / `"Tool_Call_ID"` slipped past the stamp | `d095804ab` one exact-key reader, `approvaltext.RootString`; the stamp drops case variants |
+   | Minor: the live decline marked every part carrying the id; a reload marks none when it repeats | `1552c5d6a` one carrier or no mark |
+   | Minor: `childActivity` is dead code that B3 extended | `62e2eb914` removed |
+   | Minor: a pause declined before the update carries the model's copy of the id | recorded in the spec's "does not establish" |
+   | Unconfirmed: a channel turn joined first held the web turns uncancelled past the grace | `27e411d83` the drain begins the AG-UI shutdown first; pinned by `TestDrainShutdownCancelsWebTurnsBeforeJoiningChannels` |
+
+   Set aside by the reviewer as outside the spec: forged lines in the free args tail of a relayed question (the accept still binds to the challenge's question), a 16-rune model column id in a `move` target, and the model's original context in the persisted `ask_user` call. Left as it is: the case-insensitive `type` decode in `newGatewayResumeHook`, older than this plan; consent stays bound to the challenge and its question.
+
 Not run here: the coverage gate (`scripts/coverage_docker.sh`) and the lab-VM acceptance, which belong to the closing task. Mutation testing runs only in CI.
 
 ---
@@ -9745,6 +9757,8 @@ bash scripts/coverage_docker.sh
      - the turn's stream ends with its terminal frame;
      - every `start` row of that turn has its `end`;
      - the stop finishes inside the 30 s grace period.
+
+     One of the after-runs also has a Telegram turn in flight (the operator sends it), and the web turn's `end` rows still land: that pins `27e411d83`.
   6. `/api/me` reports `policies_enforced: true` on the VM, and the notice is absent.
 
 - [ ] **Step 4: Ledger.** Write `docs/superpowers/verification/2026-10-12-gateway-clarity.md`. It records:

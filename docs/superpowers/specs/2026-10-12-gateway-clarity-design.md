@@ -65,6 +65,12 @@ the target lives, what shutdown does to a running turn, and whether a rejection 
     so `approvaltext.FromContext` still accepts a presentation only when it equals a fresh
     derivation. The cockpit (`web/src/approvals/approvalQuestion.ts`) and Telegram
     (`RenderItalian`) show it.
+  - *Amended 2026-10-13 after the code review.* Every reader of these fields reads exact keys,
+    through `approvaltext.RootString`, as Postgres's `->>` reads them: the stamp,
+    `deriveGateway`, the cockpit's `withheld_tool_call_id` and the declined-pause query. The
+    cockpit's reader was a struct decode, which folds case, so a context the model wrote as
+    `"TYPE"` or `"Tool_Call_ID"` slipped past the stamp and named a call of the model's choosing.
+    The stamp also drops the model's `target` and `tool_call_id` under any spelling.
   - **The question does not change.** The model copies today's question, built from the tool
     name, the tier and the argument names, so no third-party text reaches the model as Aura's
     words, and the byte-for-byte resume never depends on the model copying operator Unicode.
@@ -156,6 +162,9 @@ the target lives, what shutdown does to a running turn, and whether a rejection 
     name, arguments and position (`internal/agent/llm_agent_call_dedup.go:93-96`), so the same call
     in two turns shares one. It is the rule `matchingEndFacts` already applies to MCP displays. A call left
     undecorated is better than the wrong call painted "Negata" or red.
+  - *Amended 2026-10-13 after the code review.* The live mark follows the same rule: a decline
+    marks the withheld call only when exactly one tool part of the thread carries its id. Before,
+    it marked every carrier, so live and reload disagreed.
 - **A turn is cancelled at shutdown, and its stream waits for it** (operator, 2026-10-12). The
   agui server takes a shutdown signal that `httpSrv.RegisterOnShutdown` closes.
   - The observer streams end on it at once: the browser live view, both swarm event streams and
@@ -171,6 +180,10 @@ the target lives, what shutdown does to a running turn, and whether a rejection 
   - *Amended 2026-10-12 after validation.* The first text ended every stream at once, the turn's
     too. The pool closes after the drain, so a turn cut mid-write lost its end rows and left
     operation claims open.
+  - *Amended 2026-10-13 after the code review.* The drain closes the signal first, before it
+    joins the channel turns (`drainShutdown`). Those run on a context that stays live and can
+    outlast the grace; a web turn cancelled only after them was cut at exit with its end rows
+    unwritten. `RegisterOnShutdown` still closes it, a no-op by then.
 
 ## The approval, before and after
 
@@ -222,7 +235,8 @@ One dated file in `docs/superpowers/verification/`, on the operator's identity, 
 5. `docker stop aura` with a browser live view open and a turn streaming, measured before and
    after. After the fix the live view closes at once, the turn's stream ends with its terminal
    frame, every `start` row of that turn has its `end`, and the stop finishes well inside the
-   30 s grace period.
+   30 s grace period. *Amended 2026-10-13:* one run also has a Telegram turn in flight, and the
+   web turn's `end` rows still land.
 6. The `policies_enforced` notice: the VM is strict, so it must not appear there. The `false`
    case is covered by the unit and vitest suites.
 
@@ -267,8 +281,12 @@ pre-push gates are the only gate until it is lifted, and the closing report says
   (`cmd/aura/paused_states.go:96`) takes its "Negata" with it. A decline of an approval relayed
   from a swarm child names the child's call, which is no part of the parent conversation, so
   nothing there turns "Negata".
+- That a pause declined before this change names the right call. Its `tool_call_id` is the
+  model's copy of the one the gateway handed it, so a reload after the update marks that call
+  "Negata" too, behind the same unique-id guard. Read in the code, not measured.
 - That a turn always finishes inside the drain. A turn that ignores cancellation is cut by
-  `Close`, as today.
+  `Close`, as today. A channel turn is joined on a live context and cancelled only by the
+  backstop once the grace is over, as before.
 - That untrusted tool output stays wrapped after its own turn. Read while planning, not
   measured: each turn reloads history with `LoadManagedHistory`
   (`internal/runner/runner_context.go:33`), whose tool rows are raw previews, so the
