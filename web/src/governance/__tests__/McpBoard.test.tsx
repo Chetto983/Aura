@@ -26,6 +26,14 @@ vi.mock('../governanceApi', async (importOriginal) => {
   };
 });
 
+vi.mock('../mcpAuthApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../mcpAuthApi')>()),
+  fetchMcpAuthorization: vi.fn(),
+  startMcpAuthorization: vi.fn(),
+  pollMcpAuthorizationFlow: vi.fn(),
+}));
+
+const authApi = await import('../mcpAuthApi');
 const { McpBoard } = await import('../McpBoard');
 
 const SECRET_VALUE = 'super-secret-token-VALUE-42';
@@ -71,6 +79,8 @@ describe('McpBoard (GOV-01)', () => {
   beforeEach(() => {
     fetchMcpServers.mockReset();
     probeMcpServer.mockReset();
+    // No authorization endpoint unless a test says otherwise: the panel renders nothing.
+    vi.mocked(authApi.fetchMcpAuthorization).mockRejectedValue(new Error('HTTP 404'));
   });
   afterEach(() => {
     vi.clearAllMocks();
@@ -222,6 +232,59 @@ describe('McpBoard (GOV-01)', () => {
     await waitFor(() => {
       expect(screen.getByText('Select a row to see details')).toBeTruthy();
     });
+  });
+
+  // Measured 2026-10-13 on the lab VM: with ElevenLabs's consent pending, selecting Linear
+  // showed ElevenLabs's consent URL under Linear's name and no Connect button for Linear.
+  it("never shows one server's pending consent on another server's detail", async () => {
+    const consentURL = 'https://github.com/login/oauth/authorize?state=s';
+    fetchMcpServers.mockResolvedValue(SERVERS);
+    probeMcpServer.mockResolvedValue({ name: 'github', ok: true, tool_count: 3, detail: 'ok' });
+    vi.mocked(authApi.fetchMcpAuthorization).mockResolvedValue({
+      supported: true,
+      authorized: false,
+    });
+    const pending = {
+      flowId: 'f1',
+      server: 'github',
+      status: 'authorization_required',
+      authorizationUrl: consentURL,
+    } as const;
+    vi.mocked(authApi.startMcpAuthorization).mockResolvedValue(pending);
+    vi.mocked(authApi.pollMcpAuthorizationFlow).mockResolvedValue(pending);
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    render(<McpBoard />, {
+      wrapper: ({ children }) => <Wrapper qc={client()}>{children}</Wrapper>,
+    });
+
+    fireEvent.click(await screen.findByText('github'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Connect' }));
+    expect(await screen.findByDisplayValue(consentURL)).toBeTruthy();
+    fireEvent.click(screen.getByText('filesystem'));
+
+    expect(await screen.findByRole('button', { name: 'Connect' })).toBeTruthy();
+    expect(screen.queryByDisplayValue(consentURL)).toBeNull();
+  });
+
+  // The env form is seeded from the selected server's keys and saves to the server named in
+  // its props, so carrying it across a selection change would write one server's keys and
+  // preserved-secret placeholders into another.
+  it("closes an open env form when another server is selected, never editing it with the first one's keys", async () => {
+    fetchMcpServers.mockResolvedValue(SERVERS);
+    probeMcpServer.mockResolvedValue({ name: 'github', ok: true, tool_count: 3, detail: 'ok' });
+    render(<McpBoard />, {
+      wrapper: ({ children }) => <Wrapper qc={client()}>{children}</Wrapper>,
+    });
+
+    fireEvent.click(await screen.findByText('github'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit environment' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Edit environment' })).toBeNull();
+    });
+    fireEvent.click(screen.getByText('filesystem'));
+
+    expect(await screen.findByText('No environment keys.')).toBeTruthy();
+    expect(screen.queryByText('GITHUB_TOKEN')).toBeNull();
   });
 
   it('moves focus with ArrowDown and selects the focused row with Enter', async () => {

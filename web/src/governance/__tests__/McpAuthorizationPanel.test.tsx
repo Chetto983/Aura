@@ -95,4 +95,37 @@ describe('McpAuthorizationPanel', () => {
       expect(probeInvalidated(client)).toBe(true);
     });
   });
+
+  // Measured 2026-10-13 on the lab VM: after a completed consent, Disconnect brought back the
+  // consent URL the panel had been handed at Connect — a state already spent — and hid the
+  // Connect button, so the server could not be authorized again without a reload.
+  it('offers Connect after a disconnect, never the consent URL of the flow it already finished', async () => {
+    const consentURL = 'https://linear.app/oauth/authorize?state=spent';
+    let authorized = false;
+    vi.mocked(api.fetchMcpAuthorization).mockImplementation(() =>
+      Promise.resolve({ supported: true, authorized }),
+    );
+    vi.mocked(api.startMcpAuthorization).mockResolvedValue({
+      flowId: 'f1',
+      server: 'linear',
+      status: 'authorization_required',
+      authorizationUrl: consentURL,
+    });
+    vi.mocked(api.pollMcpAuthorizationFlow).mockImplementation(() => {
+      authorized = true;
+      return Promise.resolve({ flowId: 'f1', server: 'linear', status: 'approved' });
+    });
+    vi.mocked(api.revokeMcpAuthorization).mockImplementation(() => {
+      authorized = false;
+      return Promise.resolve({ removed: true });
+    });
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    renderPanel();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Connect' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect' }));
+
+    expect(await screen.findByRole('button', { name: 'Connect' })).toBeTruthy();
+    expect(screen.queryByDisplayValue(consentURL)).toBeNull();
+  });
 });

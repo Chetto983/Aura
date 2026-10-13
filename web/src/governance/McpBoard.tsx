@@ -200,7 +200,10 @@ export function McpBoard() {
   const detail =
     installPanel ??
     (selectedServer !== undefined ? (
+      // Keyed by server: the pane holds per-server state (an authorization flow, an open env
+      // form) that must start over on a new selection, or it acts on the previous server.
       <McpServerDetail
+        key={selectedServer.name}
         server={selectedServer}
         probe={detailProbe.data}
         probeLoading={detailProbe.isLoading}

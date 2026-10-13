@@ -80,7 +80,10 @@ export function McpAuthorizationPanel({ serverName }: McpAuthorizationPanelProps
   const revoke = useMutation({
     mutationFn: () => revokeMcpAuthorization(serverName),
     onSuccess: async () => {
+      // Both halves of the tracked flow go: the start response still carries the consent URL
+      // it was handed, and `live` falls back to it once the poll is gone.
       setFlowId(null);
+      start.reset();
       await refreshAuthorizationViews();
     },
   });
