@@ -42,6 +42,24 @@ the first three behaviours have their own designs and their paragraphs in §5, �
 This records a decision and a static reading of eight repositories, not a measurement of
 any behaviour on the live stack.
 
+**PII model-egress investigation, measured 2026-10-12/13; not shipped.** Synthetic
+cloud probes intercepted 20 known clear occurrences before transmission, then observed
+zero after masking and exact restoration in 4/4 tool-argument/text cases. A separate
+component benchmark reduced Alcatraz detector calls from 730 to 65 across twenty
+growing turns; already-masked block caching reduced the later-turn median from 313.73
+to 19.82 ms. Rizzo still took 6.77–7.76 s for a new tool block despite cached history.
+The source/runtime audit found that direct Excel/PDF opening bypasses ingestion-only
+masking, provider serialization adds media, and non-chat model clients have independent
+connections. The [proposed model-egress spec](docs/superpowers/specs/2026-10-13-pii-model-egress-design.md)
+therefore places enforcement on the final request before HTTPS and keeps original local
+retrieval inputs, with scoped restoration before tool consumers. It contains the target
+components, proposed configuration and release gates; these are not an implemented
+contract. [Transport evidence](docs/superpowers/verification/2026-10-12-pii-alcatraz-rizzo-lab-vm.md),
+[cache evidence](docs/superpowers/verification/2026-10-12-pii-cache-lab-vm.md) and the
+[egress audit](docs/superpowers/verification/2026-10-13-pii-egress-audit.md) do not establish
+real-corpus recall, durable-vault isolation, full-agent acceptance, second-provider
+parity, complete media coverage or production latency. Spike 109 remains pending.
+
 ## 2. Architecture and ownership
 
 | Layer            | Responsibility                                                    | Source                                                                         |

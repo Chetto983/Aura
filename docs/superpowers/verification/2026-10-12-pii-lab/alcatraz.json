@@ -1,0 +1,99 @@
+{
+  "benchmark_bytes": 2248,
+  "benchmark_iterations": 100,
+  "benchmark_scope": "synthetic mixed Italian prose, pattern-only, warmed engine",
+  "fixtures": [
+    {
+      "default_sanitized": "Scrivi a \u003cEMAIL_ADDRESS\u003e.",
+      "detected_types": [
+        "EMAIL_ADDRESS"
+      ],
+      "exact_match": true,
+      "expected_type": "EMAIL_ADDRESS",
+      "id": "email"
+    },
+    {
+      "default_sanitized": "Telefono: \u003cPHONE_NUMBER\u003e\u003cUK_NHS\u003e.",
+      "detected_types": [
+        "PHONE_NUMBER",
+        "UK_NHS"
+      ],
+      "exact_match": true,
+      "expected_type": "PHONE_NUMBER",
+      "id": "phone"
+    },
+    {
+      "default_sanitized": "IBAN: \u003cIBAN_CODE\u003e.",
+      "detected_types": [
+        "IBAN_CODE"
+      ],
+      "exact_match": true,
+      "expected_type": "IBAN_CODE",
+      "id": "iban"
+    },
+    {
+      "default_sanitized": "Partita IVA: \u003cIT_VAT_CODE\u003e.",
+      "detected_types": [
+        "IT_VAT_CODE",
+        "US_BANK_NUMBER"
+      ],
+      "exact_match": true,
+      "expected_type": "IT_VAT_CODE",
+      "id": "vat"
+    },
+    {
+      "default_sanitized": "Codice fiscale: RSSMRA80A01H501U.",
+      "detected_types": null,
+      "exact_match": false,
+      "expected_type": "IT_FISCAL_CODE",
+      "id": "cf_official_example"
+    },
+    {
+      "default_sanitized": "Codice fiscale: \u003cIT_FISCAL_CODE\u003e.",
+      "detected_types": [
+        "IT_FISCAL_CODE"
+      ],
+      "exact_match": true,
+      "expected_type": "IT_FISCAL_CODE",
+      "id": "cf_upstream_fixture"
+    },
+    {
+      "default_sanitized": "Mi chiamo Mario Rossi.",
+      "detected_types": null,
+      "exact_match": false,
+      "expected_type": "PERSON",
+      "id": "person"
+    },
+    {
+      "default_sanitized": "Abito in Via delle Rose 12, Roma.",
+      "detected_types": null,
+      "exact_match": false,
+      "expected_type": "LOCATION",
+      "id": "address"
+    },
+    {
+      "default_sanitized": "Lavoro per Officina Esempio Srl.",
+      "detected_types": null,
+      "exact_match": false,
+      "expected_type": "ORGANIZATION",
+      "id": "organisation"
+    }
+  ],
+  "independent_cf_check": [
+    {
+      "checksum_valid": true,
+      "expected_check": "U",
+      "input": "RSSMRA80A01H501U"
+    },
+    {
+      "checksum_valid": false,
+      "expected_check": "S",
+      "input": "RSSMRA85T10A562C"
+    }
+  ],
+  "operator_distinct_values": 2,
+  "operator_roundtrip": true,
+  "p50_us": 12357,
+  "p95_us": 14963,
+  "revision": "9a49e558c80fc54d7936fcedf2cf39cbce795eba"
+}

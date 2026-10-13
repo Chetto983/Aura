@@ -1,0 +1,226 @@
+{
+  "uncached": {
+    "first_turn_ms": [
+      68.997739,
+      65.946524,
+      52.445713
+    ],
+    "last_turn_ms": [
+      347.772578,
+      315.8233,
+      334.589592
+    ],
+    "later_turn_median_ms": 216.28496,
+    "repeated_request_median_ms": 358.9393175,
+    "detector_calls": 730,
+    "last_request_bytes": 53952,
+    "last_request_blocks": 65,
+    "cache_entries": 0,
+    "cache_accounted_bytes": 0
+  },
+  "whole_request_cache": {
+    "first_turn_ms": [
+      89.657851,
+      57.092314,
+      60.892446
+    ],
+    "last_turn_ms": [
+      362.278974,
+      340.280087,
+      304.987254
+    ],
+    "later_turn_median_ms": 211.281628,
+    "repeated_request_median_ms": 0.41452900000000004,
+    "detector_calls": 730,
+    "last_request_bytes": 53952,
+    "last_request_blocks": 65,
+    "cache_entries": 0,
+    "cache_accounted_bytes": 0
+  },
+  "message_cache": {
+    "first_turn_ms": [
+      46.99856,
+      66.172548,
+      57.972015
+    ],
+    "last_turn_ms": [
+      26.05485,
+      39.609084,
+      24.22866
+    ],
+    "later_turn_median_ms": 21.330415,
+    "repeated_request_median_ms": 15.020973000000001,
+    "detector_calls": 65,
+    "last_request_bytes": 53952,
+    "last_request_blocks": 65,
+    "cache_entries": 65,
+    "cache_accounted_bytes": 167003
+  },
+  "large_new_document": [
+    {
+      "bytes": 112400,
+      "cold_and_warm_ms": [
+        2022.820737,
+        1071.797841
+      ]
+    },
+    {
+      "bytes": 112400,
+      "cold_and_warm_ms": [
+        2060.888454,
+        1010.654598
+      ]
+    },
+    {
+      "bytes": 112400,
+      "cold_and_warm_ms": [
+        1871.437133,
+        987.026853
+      ]
+    }
+  ],
+  "material_followup": {
+    "uncached": {
+      "first_turn_ms": [
+        116.018981,
+        100.62288,
+        93.09603
+      ],
+      "last_turn_ms": [
+        614.065305,
+        608.082965,
+        592.412687
+      ],
+      "later_turn_median_ms": 313.733913,
+      "repeated_request_median_ms": 507.7169345,
+      "detector_calls": 730,
+      "last_request_bytes": 53952,
+      "last_request_blocks": 65,
+      "cache_entries": 0,
+      "cache_accounted_bytes": 0
+    },
+    "whole_request_cache": {
+      "first_turn_ms": [
+        49.133547,
+        46.186904,
+        84.291226
+      ],
+      "last_turn_ms": [
+        571.555382,
+        568.518296,
+        413.016481
+      ],
+      "later_turn_median_ms": 281.125938,
+      "repeated_request_median_ms": 0.7887204999999999,
+      "detector_calls": 730,
+      "last_request_bytes": 53952,
+      "last_request_blocks": 65,
+      "cache_entries": 0,
+      "cache_accounted_bytes": 0
+    },
+    "message_cache": {
+      "first_turn_ms": [
+        103.163193,
+        94.885601,
+        72.510725
+      ],
+      "last_turn_ms": [
+        42.535621,
+        20.68588,
+        30.004844
+      ],
+      "later_turn_median_ms": 35.654636,
+      "repeated_request_median_ms": 20.930721499999997,
+      "detector_calls": 65,
+      "last_request_bytes": 53952,
+      "last_request_blocks": 65,
+      "cache_entries": 65,
+      "cache_accounted_bytes": 167003
+    },
+    "materialized_message_cache": {
+      "first_turn_ms": [
+        95.512904,
+        52.739234,
+        65.203653
+      ],
+      "last_turn_ms": [
+        28.508621,
+        44.755089,
+        19.323792
+      ],
+      "later_turn_median_ms": 19.820297,
+      "repeated_request_median_ms": 0.797372,
+      "detector_calls": 65,
+      "last_request_bytes": 53952,
+      "last_request_blocks": 65,
+      "cache_entries": 65,
+      "cache_accounted_bytes": 84654
+    },
+    "large_new_document": [
+      {
+        "bytes": 112400,
+        "cold_ms": 2574.718326,
+        "warm_ms": [
+          0.126984,
+          0.120681,
+          0.107381,
+          0.108538,
+          0.108119
+        ]
+      },
+      {
+        "bytes": 112400,
+        "cold_ms": 3109.609482,
+        "warm_ms": [
+          0.972845,
+          0.635231,
+          0.435326,
+          0.522854,
+          0.507177
+        ]
+      },
+      {
+        "bytes": 112400,
+        "cold_ms": 3373.315688,
+        "warm_ms": [
+          1.148182,
+          0.341188,
+          0.671398,
+          0.351747,
+          0.306803
+        ]
+      }
+    ]
+  },
+  "rizzo": {
+    "uncached": {
+      "request_1_ms": [
+        9149.936506999893,
+        7477.811860999736
+      ],
+      "request_2_ms": [
+        6884.99234999972,
+        7557.339396999851
+      ],
+      "request_3_ms": [
+        15492.221481000342,
+        15030.794607000189
+      ]
+    },
+    "model_message_cache": {
+      "request_1_ms": [
+        7922.161428999971,
+        8242.380527000023
+      ],
+      "request_2_ms": [
+        277.58816400000796,
+        292.8466649996153
+      ],
+      "request_3_ms": [
+        6774.86251900018,
+        7764.066700000058
+      ]
+    },
+    "warm_request_median_ms": 21.481661000052554
+  }
+}

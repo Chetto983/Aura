@@ -1,0 +1,17 @@
+{
+  "scope": "Final material-message follow-up sources and binary; the first Go series predates this extra strategy",
+  "sha256": {
+    ".planning/tmp/pii-spike-20261012/probe-tools/cache_probe/cache.go": "5af00d32cb1544c39e624a2308c315b35e5182f7bf5b513d26eed7038c980c90",
+    ".planning/tmp/pii-spike-20261012/probe-tools/cache_probe/cache_test.go": "300f26ffe61112296f90d0d9905bc979ed938b4708cc7d065e4230e941ca378f",
+    ".planning/tmp/pii-spike-20261012/probe-tools/cache_probe/material_cache.go": "94a865321b450f161802abed0dfed03e9a56732891994b52e3ecde05f578c2b3",
+    ".planning/tmp/pii-spike-20261012/probe-tools/cache_probe/material_cache_test.go": "35010e62cc4b709f3058d8df304d5a66ae55ab1ca96c851dfe5a2ae515b28d30",
+    ".planning/tmp/pii-spike-20261012/probe-tools/cache_probe/workload_test.go": "18a07f9b7b1fdc04c57645ba696636099c902a7749a674d331a7b866eabfb1b0",
+    ".planning/tmp/pii-spike-20261012/probe-tools/prepare_cache_probe.py": "c1ebe089a3c630bbbce9e7e9c7f8d34b11a25ec22a84b9a061d637e17e0d57e4",
+    ".planning/tmp/pii-spike-20261012/probe-tools/run_cache_vm.py": "049e86128721cfba7207a786f4654c26aceb713cf6decdbea75ab975fadd8d57",
+    ".planning/tmp/pii-spike-20261012/probe-tools/rizzo_cache_probe.py": "77f4a136f0e2667fed2675f1d0b5e46c5e6276b6f5050d937fc44a4ce091b073",
+    ".planning/tmp/pii-spike-20261012/probe-tools/run_rizzo_cache_vm.py": "4f671f2dea914aaa78fd3c485a870b26435b6c146adf028edb7a8d230c9bda79",
+    ".planning/tmp/pii-spike-20261012/probe-tools/collect_cache_evidence.py": "f99b12538349a3cf37ca6b830cb77e43e7625bed108100bb68e398f50094f18e",
+    ".planning/tmp/pii-spike-20261012/probe-tools/finish_cache_evidence.py": "ea51ef31595b041a4bcbfcecaf262b46ddf58c34f1d6619b8158e0d73a2d3fea",
+    "/home/davide/src/aura-pii-cache-probe-20261012.test": "05483d6c8d869e0b112db15b4c27b1f9b730baf2531ad6804c908b880da482a5"
+  }
+}

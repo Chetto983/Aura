@@ -1,0 +1,11 @@
+{
+  "health": {
+    "bind_address": "0.0.0.0:9080",
+    "build_commit": "6a3290e2f84dfcbc85b7dd5d4eb71f4b86e1a8cc",
+    "build_version": "dev",
+    "ok": true,
+    "scheduler_last_tick": "2026-10-12T10:51:25Z"
+  },
+  "temporary_containers": "",
+  "active_route": "AURA_LLM_BASE_URL|https://api.openai.com/v1\nAURA_LLM_MODEL|gpt-6.1-sol\nAURA_LLM_PROVIDER|chatgpt"
+}

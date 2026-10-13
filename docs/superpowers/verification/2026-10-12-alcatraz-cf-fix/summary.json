@@ -1,0 +1,98 @@
+[
+  {
+    "revision": "fixed",
+    "mode": "all_defaults",
+    "bytes": 2248,
+    "median_of_run_medians_ms": 14.641673,
+    "min_run_median_ms": 12.976406,
+    "max_run_median_ms": 19.10882
+  },
+  {
+    "revision": "fixed",
+    "mode": "all_defaults",
+    "bytes": 22480,
+    "median_of_run_medians_ms": 210.663527,
+    "min_run_median_ms": 193.422763,
+    "max_run_median_ms": 229.551151
+  },
+  {
+    "revision": "fixed",
+    "mode": "all_defaults",
+    "bytes": 112400,
+    "median_of_run_medians_ms": 1163.45286,
+    "min_run_median_ms": 1037.67595,
+    "max_run_median_ms": 1382.886677
+  },
+  {
+    "revision": "fixed",
+    "mode": "italian_and_generic_only",
+    "bytes": 2248,
+    "median_of_run_medians_ms": 4.834537,
+    "min_run_median_ms": 2.76844,
+    "max_run_median_ms": 5.445739
+  },
+  {
+    "revision": "fixed",
+    "mode": "italian_and_generic_only",
+    "bytes": 22480,
+    "median_of_run_medians_ms": 61.49821,
+    "min_run_median_ms": 51.056886,
+    "max_run_median_ms": 71.593668
+  },
+  {
+    "revision": "fixed",
+    "mode": "italian_and_generic_only",
+    "bytes": 112400,
+    "median_of_run_medians_ms": 436.749849,
+    "min_run_median_ms": 436.212271,
+    "max_run_median_ms": 445.952336
+  },
+  {
+    "revision": "upstream",
+    "mode": "all_defaults",
+    "bytes": 2248,
+    "median_of_run_medians_ms": 18.978555,
+    "min_run_median_ms": 17.385527,
+    "max_run_median_ms": 20.993276
+  },
+  {
+    "revision": "upstream",
+    "mode": "all_defaults",
+    "bytes": 22480,
+    "median_of_run_medians_ms": 216.50654,
+    "min_run_median_ms": 212.622672,
+    "max_run_median_ms": 224.948952
+  },
+  {
+    "revision": "upstream",
+    "mode": "all_defaults",
+    "bytes": 112400,
+    "median_of_run_medians_ms": 1252.464904,
+    "min_run_median_ms": 1232.826382,
+    "max_run_median_ms": 1343.906419
+  },
+  {
+    "revision": "upstream",
+    "mode": "italian_and_generic_only",
+    "bytes": 2248,
+    "median_of_run_medians_ms": 4.832832,
+    "min_run_median_ms": 3.678878,
+    "max_run_median_ms": 4.988375
+  },
+  {
+    "revision": "upstream",
+    "mode": "italian_and_generic_only",
+    "bytes": 22480,
+    "median_of_run_medians_ms": 60.840373,
+    "min_run_median_ms": 54.649655,
+    "max_run_median_ms": 70.170834
+  },
+  {
+    "revision": "upstream",
+    "mode": "italian_and_generic_only",
+    "bytes": 112400,
+    "median_of_run_medians_ms": 513.551643,
+    "min_run_median_ms": 431.081653,
+    "max_run_median_ms": 547.881778
+  }
+]

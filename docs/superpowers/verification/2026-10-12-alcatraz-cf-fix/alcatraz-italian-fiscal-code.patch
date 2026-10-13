@@ -1,0 +1,282 @@
+From 666d46451e154fdef4b13e56f99e3d7cd75366c4 Mon Sep 17 00:00:00 2001
+From: davide marchetto <dvdmarchetto@gmail.com>
+Date: Mon, 12 Oct 2026 17:31:21 +0200
+Subject: [PATCH] fix(recognizers): validate Italian fiscal codes correctly
+
+---
+ recognizers/italy.go           |  46 ++++-----
+ recognizers/italy_test.go      | 166 +++++++++++++++++++++++++++++++++
+ recognizers/validators_test.go |   4 +-
+ 3 files changed, 191 insertions(+), 25 deletions(-)
+ create mode 100644 recognizers/italy_test.go
+
+diff --git a/recognizers/italy.go b/recognizers/italy.go
+index 9331622..9a81759 100644
+--- a/recognizers/italy.go
++++ b/recognizers/italy.go
+@@ -1,19 +1,17 @@
+ package recognizers
+ 
+ import (
+-	"strings"
+-
+ 	"github.com/hoophq/alcatraz/analyzer"
+ 	"github.com/hoophq/alcatraz/entities"
+ )
+ 
+ // ITFiscalCode detects Italian fiscal codes (Codice Fiscale) and validates the
+-// check character.
++// check character, including lowercase and omocodic forms.
+ func ITFiscalCode() analyzer.Recognizer {
+ 	return analyzer.NewPatternRecognizer(
+ 		"ItFiscalCodeRecognizer", entities.ITFiscalCode, "it",
+ 		[]*analyzer.Pattern{analyzer.MustPattern("IT Fiscal Code",
+-			`\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b`, 0.85)},
++			`(?i)\b[A-Z]{6}[0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]\b`, 0.85)},
+ 	).WithContext("codice fiscale", "fiscal").WithValidator(validateITFiscalCode)
+ }
+ 
+@@ -21,32 +19,34 @@ func validateITFiscalCode(s string) bool {
+ 	if len(s) != 16 {
+ 		return false
+ 	}
+-	const (
+-		evenChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+-		oddChars  = "BAKPLCQDREVOSFTGUHMINJWZYX"
+-		oddDigits = "1021222423252627282924"
+-	)
++	// Article 7, D.M. 23 December 1976: odd-position values for A..Z.
++	// Digits 0..9 use the same values as A..J. Even positions use the index.
++	odd := [...]int{1, 0, 5, 7, 9, 13, 15, 17, 19, 21, 2, 4, 18,
++		20, 11, 3, 6, 8, 12, 14, 16, 10, 22, 25, 24, 23}
+ 	sum := 0
+ 	for i := 0; i < 15; i++ {
+ 		c := s[i]
+ 		var value int
+-		if i%2 == 0 { // odd position (1-indexed): even 0-based index
+-			if c >= '0' && c <= '9' {
+-				d := int(c - '0')
+-				value = int(oddDigits[d*2]-'0') + int(oddDigits[d*2+1]-'0')
+-			} else if idx := strings.IndexByte(oddChars, c); idx >= 0 {
+-				value = idx
+-			}
+-		} else { // even position
+-			if c >= '0' && c <= '9' {
+-				value = int(c - '0')
+-			} else if idx := strings.IndexByte(evenChars, c); idx >= 0 {
+-				value = idx
+-			}
++		switch {
++		case c >= '0' && c <= '9':
++			value = int(c - '0')
++		case c >= 'A' && c <= 'Z':
++			value = int(c - 'A')
++		case c >= 'a' && c <= 'z':
++			value = int(c - 'a')
++		default:
++			return false
++		}
++		if i%2 == 0 { // odd position (1-indexed)
++			value = odd[value]
+ 		}
+ 		sum += value
+ 	}
+-	return evenChars[sum%26] == s[15]
++	check := s[15]
++	if check >= 'a' && check <= 'z' {
++		check -= 'a' - 'A'
++	}
++	return check == byte('A'+sum%26)
+ }
+ 
+ // ITVAT detects Italian VAT codes (Partita IVA) and validates the Luhn-style
+diff --git a/recognizers/italy_test.go b/recognizers/italy_test.go
+new file mode 100644
+index 0000000..118969d
+--- /dev/null
++++ b/recognizers/italy_test.go
+@@ -0,0 +1,166 @@
++package recognizers
++
++import (
++	"fmt"
++	"strings"
++	"testing"
++
++	"github.com/hoophq/alcatraz/analyzer"
++	"github.com/hoophq/alcatraz/entities"
++)
++
++// Synthetic fixtures; no taxpayer records. The check characters follow Article 7
++// of the Italian Ministry of Finance decree dated 23 December 1976.
++const itFiscalExample = "RSSMRA80A01H501U"
++
++// Invert Article 7's odd-position correspondence instead of reusing the
++// production lookup table. A..J and 0..9 have the same conversion values.
++func fiscalTestCode(body string) string {
++	total := 0
++	for i, c := range body {
++		if c >= '0' && c <= '9' {
++			c = 'A' + c - '0'
++		}
++		if i%2 == 0 {
++			total += strings.IndexRune("BAKPLCQDREVOSFTGUHMINJWZYX", c)
++		} else {
++			total += int(c - 'A')
++		}
++	}
++	return body + string(rune('A'+total%26))
++}
++
++func TestITFiscalCode(t *testing.T) {
++	t.Parallel()
++	cases := []struct{ name, text, want string }{
++		{"valid checksum", itFiscalExample, itFiscalExample},
++		{"corrected upstream fixture", "RSSMRA85T10A562S", "RSSMRA85T10A562S"},
++		{"lowercase", "rssmra80a01h501u", "rssmra80a01h501u"},
++		{"mixed case", "RssMra80a01H501u", "RssMra80a01H501u"},
++		{"prose", "Codice fiscale: " + itFiscalExample + ".", itFiscalExample},
++		{"JSON", `{"cf":"` + itFiscalExample + `"}`, itFiscalExample},
++		{"UTF-8 prefix", "È il codice: " + itFiscalExample, itFiscalExample},
++		{"wrong upstream checksum", "RSSMRA85T10A562C", ""},
++		{"wrong checksum", "RSSMRA80A01H501V", ""},
++		{"short", itFiscalExample[:15], ""},
++		{"leading digit", "1" + itFiscalExample, ""},
++		{"trailing letter", itFiscalExample + "X", ""},
++		{"embedded ASCII token", "record_" + itFiscalExample, ""},
++		{"split lines", "RSSMRA80A01\nH501U", ""},
++		{"ordinary text", "The checksum must not hide ordinary words.", ""},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			t.Parallel()
++			got := ITFiscalCode().Analyze(tc.text, nil)
++			if tc.want == "" {
++				if len(got) != 0 {
++					t.Fatalf("unexpected findings: %+v", got)
++				}
++				return
++			}
++			if len(got) != 1 || got[0].EntityType != entities.ITFiscalCode ||
++				tc.text[got[0].Start:got[0].End] != tc.want || got[0].Score != analyzer.MaxScore {
++				t.Fatalf("expected exact span for %q, got %+v", tc.want, got)
++			}
++		})
++	}
++}
++
++func TestITFiscalCodeOmocodia(t *testing.T) {
++	t.Parallel()
++	// Article 6 replaces any subset of these seven digits with L M N P Q R S T U V.
++	positions := []int{6, 7, 9, 10, 12, 13, 14}
++	const replacements = "LMNPQRSTUV"
++	for mask := 0; mask < 1<<len(positions); mask++ {
++		t.Run(fmt.Sprintf("mask_%03d", mask), func(t *testing.T) {
++			body := []byte(itFiscalExample[:15])
++			for bit, pos := range positions {
++				if mask&(1<<bit) != 0 {
++					body[pos] = replacements[body[pos]-'0']
++				}
++			}
++			code := fiscalTestCode(string(body))
++			for _, input := range []string{code, strings.ToLower(code)} {
++				got := ITFiscalCode().Analyze(input, nil)
++				if len(got) != 1 || input[got[0].Start:got[0].End] != input {
++					t.Fatalf("omocodic form not detected: %q", input)
++				}
++			}
++			bad := code[:15] + string('A'+(code[15]-'A'+1)%26)
++			if got := ITFiscalCode().Analyze(bad, nil); len(got) != 0 {
++				t.Fatalf("wrong check character accepted: %q", bad)
++			}
++		})
++	}
++}
++
++func TestITFiscalCodeConversionTable(t *testing.T) {
++	t.Parallel()
++	// Exercise every letter and digit in odd and even positions, using public
++	// recognition. No production checksum constants are used by the oracle.
++	rec := ITFiscalCode()
++	for _, pos := range []int{0, 1, 6, 7} {
++		alphabet := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
++		if pos >= 6 {
++			alphabet = "0123456789"
++		}
++		for _, c := range alphabet {
++			t.Run(fmt.Sprintf("position_%d_%c", pos+1, c), func(t *testing.T) {
++				body := []byte(itFiscalExample[:15])
++				body[pos] = byte(c)
++				code := fiscalTestCode(string(body))
++				if got := rec.Analyze(code, nil); len(got) != 1 {
++					t.Fatalf("checksum conversion failed for %q", code)
++				}
++			})
++		}
++	}
++}
++
++func TestITFiscalCodeRejectsInvalidBytes(t *testing.T) {
++	t.Parallel()
++	for i := 0; i < 16; i++ {
++		bad := []byte(itFiscalExample)
++		bad[i] = '!'
++		if validateITFiscalCode(string(bad)) {
++			t.Fatalf("non-alphanumeric byte accepted at position %d", i)
++		}
++	}
++	// Previously unsupported bytes could contribute zero and pass the checksum.
++	if validateITFiscalCode(strings.Repeat("!", 15) + "A") {
++		t.Fatal("unsupported bytes must not contribute an implicit zero")
++	}
++}
++
++func TestITFiscalCodeRegistrationAndFiltering(t *testing.T) {
++	t.Parallel()
++	for _, language := range []string{"it", "en"} {
++		t.Run(language, func(t *testing.T) {
++			registry := analyzer.NewRegistry(language)
++			LoadDefaults(registry, language)
++			engine := analyzer.NewEngine(registry, []string{language})
++			got := engine.Analyze(itFiscalExample, analyzer.Options{
++				Language: language, Entities: []string{entities.ITFiscalCode},
++			})
++			if len(got) != 1 || got[0].Text != itFiscalExample {
++				t.Fatalf("default engine missed valid CF: %+v", got)
++			}
++			if got := engine.Analyze(itFiscalExample, analyzer.Options{
++				Language: language, Entities: []string{entities.EmailAddress},
++			}); len(got) != 0 {
++				t.Fatal("entity filter was ignored")
++			}
++		})
++	}
++}
++
++func BenchmarkITFiscalCode(b *testing.B) {
++	rec := ITFiscalCode()
++	text := "Codice fiscale: " + itFiscalExample + "."
++	b.ReportAllocs()
++	b.SetBytes(int64(len(text)))
++	for b.Loop() {
++		rec.Analyze(text, nil)
++	}
++}
+diff --git a/recognizers/validators_test.go b/recognizers/validators_test.go
+index 6c21d9f..bfbd2d3 100644
+--- a/recognizers/validators_test.go
++++ b/recognizers/validators_test.go
+@@ -87,8 +87,8 @@ func TestValidators(t *testing.T) {
+ 		},
+ 		{
+ 			"it_fiscal_code", validateITFiscalCode,
+-			[]string{"RSSMRA85T10A562C"},
+-			[]string{"RSSMRA85T10A562X", "RSSMRA85T10A562", "TOOSHORT"},
++			[]string{"RSSMRA80A01H501U", "RSSMRA85T10A562S"},
++			[]string{"RSSMRA85T10A562C", "RSSMRA85T10A562X", "RSSMRA85T10A562", "TOOSHORT"},
+ 		},
+ 		{
+ 			"it_vat", validateITVAT,
+-- 
+2.53.0
+

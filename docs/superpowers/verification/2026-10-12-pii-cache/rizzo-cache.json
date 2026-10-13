@@ -1,0 +1,153 @@
+{
+  "model_revision": "a1c3c83827eca22e9675e30c1111c4641caf5901",
+  "load_s": 27.24906391400009,
+  "packages": {
+    "torch": "2.8.0+cpu",
+    "transformers": "5.14.1"
+  },
+  "scope": "Model-result cache per exact complete text; regex and merge still run; synthetic component probe",
+  "trials": [
+    {
+      "trial": 1,
+      "uncached": {
+        "rows": [
+          {
+            "request": 1,
+            "bytes": 2321,
+            "ms": 9149.936506999893,
+            "model_calls": 2,
+            "hits": 0
+          },
+          {
+            "request": 2,
+            "bytes": 2389,
+            "ms": 6884.99234999972,
+            "model_calls": 3,
+            "hits": 0
+          },
+          {
+            "request": 3,
+            "bytes": 4663,
+            "ms": 15492.221481000342,
+            "model_calls": 4,
+            "hits": 0
+          }
+        ],
+        "repeated_request_ms": [],
+        "model_calls": 9,
+        "hits": 0
+      },
+      "model_message_cache": {
+        "rows": [
+          {
+            "request": 1,
+            "bytes": 2321,
+            "ms": 7922.161428999971,
+            "model_calls": 2,
+            "hits": 0
+          },
+          {
+            "request": 2,
+            "bytes": 2389,
+            "ms": 277.58816400000796,
+            "model_calls": 1,
+            "hits": 2
+          },
+          {
+            "request": 3,
+            "bytes": 4663,
+            "ms": 6774.86251900018,
+            "model_calls": 1,
+            "hits": 3
+          }
+        ],
+        "repeated_request_ms": [
+          26.43259299975398,
+          26.158288000260654,
+          27.70959600002243,
+          20.224755000072037,
+          21.18701300014436,
+          22.929005000150937,
+          16.333780999957526,
+          19.18686199996955,
+          17.21400199994605,
+          21.842773000116722
+        ],
+        "model_calls": 4,
+        "hits": 45
+      }
+    },
+    {
+      "trial": 2,
+      "uncached": {
+        "rows": [
+          {
+            "request": 1,
+            "bytes": 2321,
+            "ms": 7477.811860999736,
+            "model_calls": 2,
+            "hits": 0
+          },
+          {
+            "request": 2,
+            "bytes": 2389,
+            "ms": 7557.339396999851,
+            "model_calls": 3,
+            "hits": 0
+          },
+          {
+            "request": 3,
+            "bytes": 4663,
+            "ms": 15030.794607000189,
+            "model_calls": 4,
+            "hits": 0
+          }
+        ],
+        "repeated_request_ms": [],
+        "model_calls": 9,
+        "hits": 0
+      },
+      "model_message_cache": {
+        "rows": [
+          {
+            "request": 1,
+            "bytes": 2321,
+            "ms": 8242.380527000023,
+            "model_calls": 2,
+            "hits": 0
+          },
+          {
+            "request": 2,
+            "bytes": 2389,
+            "ms": 292.8466649996153,
+            "model_calls": 1,
+            "hits": 2
+          },
+          {
+            "request": 3,
+            "bytes": 4663,
+            "ms": 7764.066700000058,
+            "model_calls": 1,
+            "hits": 3
+          }
+        ],
+        "repeated_request_ms": [
+          23.632496000118408,
+          26.56237900009728,
+          20.19535099998393,
+          19.828807000067172,
+          24.252837999938492,
+          17.46025299962639,
+          19.88102599989361,
+          13.657359999797336,
+          21.776308999960747,
+          22.97025500001837
+        ],
+        "model_calls": 4,
+        "hits": 45
+      }
+    }
+  ],
+  "all_outputs_equal": true,
+  "time_utc": "2026-10-12T15:50:18Z"
+}

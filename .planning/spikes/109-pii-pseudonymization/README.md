@@ -11,7 +11,51 @@ tags: [pii, gdpr, pseudonymization, llm, embeddings, ingestion, cocoindex, multi
 
 # Spike 109: Personal data before every cloud model
 
+## Design handoff — 2026-10-13
+
+The operator requested a spec without a branch. The
+[model-egress design](../../../docs/superpowers/specs/2026-10-13-pii-model-egress-design.md)
+records the measured findings and the remaining acceptance gates. It is proposed,
+not an implementation or a completed spike. Its final-payload boundary and restoration
+before tool-call consumers supersede the exploratory wrapper/`execTool` seams below.
+The historical prototype-branch instructions below do not apply to this handoff.
+
+## Partial measurement — 2026-10-12
+
+[VM evidence and candidate comparison](../../../docs/superpowers/verification/2026-10-12-pii-alcatraz-rizzo-lab-vm.md).
+Synthetic transport/restoration on the deployed Aura client and active `gpt-6.1-sol`
+route passed: 20 clear baseline occurrences intercepted before network, zero after
+masking, 4/4 tool argument and text roundtrips; all 24 output placeholders crossed
+stream deltas and required buffering. Alcatraz's pattern-only VM probe found a CF
+checksum defect and confirmed its native custom replacement operator is reusable.
+Rizzo's model plus existing patterns covered all nine synthetic examples, including
+names/addresses/organizations missed by patterns alone; all nine restored exactly.
+On two VM CPUs, 2,248 bytes took 4.76 s median with a 1,310.7 MiB peak process RSS.
+The operator rejected that Rizzo latency for synchronous chat. A
+[follow-up local Alcatraz correction](../../../docs/superpowers/verification/2026-10-12-alcatraz-cf-fix-lab-vm.md)
+fixes CF validation, adds lowercase/omocodia coverage, and passes root/submodule race
+tests. Pattern-only VM medians are 14.64 ms for 2,248 bytes with all defaults and
+1.16 s for 112,400 bytes; full-history rescanning remains a concern. Publishing the
+requested GitHub fork is deferred while the operator's account is restricted.
+The [cache follow-up](../../../docs/superpowers/verification/2026-10-12-pii-cache-lab-vm.md)
+measured 730 → 65 detector calls across twenty growing turns. Alcatraz's already
+pseudonymized message cache reduced the later-turn median from 314 to 20 ms, with
+0.80 ms for an entirely repeated request. Rizzo processed a new short question with
+cached history in 278–293 ms; a new document still required 6.77–7.76 s. Output
+equivalence passed; this is local processing reuse, not the cloud KV-cache gate.
+These measurements do **not** close the real-corpus, second-model, full-agent,
+durable-vault, failure-mode, cache/retrieval or non-text-exit gates below. Verdict
+remains **PENDING**; normal Aura traffic has not been switched to a PII gateway.
+
 ## What this validates
+
+Operator clarification, 2026-10-13: opening original Excel/PDF files bypasses
+ingestion-only masking. The [egress audit](../../../docs/superpowers/verification/2026-10-13-pii-egress-audit.md)
+therefore retains the final outgoing model request, before TLS/network transmission,
+as the enforcement boundary. Keep original local retrieval representations and resolve
+model-returned PII tokens before tool dispatch. Ingestion can prepare cached masked
+blocks alongside local embeddings; that parallelism is not yet measured and cannot
+replace the final check. Media projection and non-chat model clients must be covered.
 
 Consolidation item 7 (`docs/superpowers/specs/2026-10-09-consolidation-best-of-design.md`),
 widened by the operator on 2026-10-10 from "the chat route" to **every cloud model Aura calls,
