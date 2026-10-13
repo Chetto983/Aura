@@ -1291,6 +1291,10 @@ services:
       - "test -s /app/data/appsettings.json || printf '{\"CalendarMcp\":{\"Accounts\":[]}}' > /app/data/appsettings.json; exec dotnet CalendarMcp.HttpServer.dll"
     environment:
       ASPNETCORE_URLS: http://0.0.0.0:8080
+      # Google returns through the shared aura-connect relay, and this sidecar builds the consent
+      # URL and the code exchange with this address. The admin panel shows the same one
+      # (agui.PIMGoogleRelayRedirectURI); TestPIMSidecarIsToldTheGoogleRelay keeps them equal.
+      CALENDAR_MCP_CalendarMcp__GoogleOAuthRelayUrl: https://chetto1983-aura-connect.pages.dev/google/callback/
       CALENDAR_MCP_OAuth__Issuer: http://127.0.0.1:9080
       CALENDAR_MCP_OAuth__MetadataAddress: http://aura:9080/.well-known/oauth-authorization-server
       # The same widening as the other two sidecars, in this server's config vocabulary:

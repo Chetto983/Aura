@@ -30,15 +30,15 @@ import (
 
 const (
 	// auraClientMetadataURL is Aura's metadata document, and so its client_id. One document
-	// serves every install. Published from github.com/chetto1983/aura-connect.
-	auraClientMetadataURL = "https://chetto1983.github.io/aura-connect/mcp/client-metadata.json"
+	// serves every install. Built by Cloudflare Pages from gitlab.com/Chetto1983/aura-connect.
+	auraClientMetadataURL = "https://chetto1983-aura-connect.pages.dev/mcp/client-metadata.json"
 
 	// auraOAuthRelayURL is the document's only redirect URI. An authorization server must
 	// match a redirect exactly, and an install's own callback is neither known in advance
 	// nor https on a LAN, so the server redirects to this fixed page, which forwards the
 	// browser to the callback named in `state` (relayedFetcher). It accepts only the
 	// cockpit's callback path and the CLI's loopback one, https or loopback http.
-	auraOAuthRelayURL = "https://chetto1983.github.io/aura-connect/mcp/callback/"
+	auraOAuthRelayURL = "https://chetto1983-aura-connect.pages.dev/mcp/callback/"
 )
 
 func useAuraClientMetadata(cfg *auth.AuthorizationCodeHandlerConfig) {

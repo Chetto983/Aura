@@ -12,10 +12,11 @@ import (
 )
 
 // PIMGoogleRelayRedirectURI is the one redirect URI every install registers in its Google Web
-// client. It must equal the sidecar's GoogleOAuthRelayUrl default (chetto1983/aura-pim-mcp,
-// src/CalendarMcp.Core/Configuration/CalendarMcpConfiguration.cs); the relay's address is fixed
-// by design, which is why a constant is enough for the admin panel.
-const PIMGoogleRelayRedirectURI = "https://chetto1983.github.io/aura-connect/google/callback/"
+// client. The sidecar builds the consent URL and the code exchange with its own copy, which
+// compose.yaml sets to this value (CALENDAR_MCP_CalendarMcp__GoogleOAuthRelayUrl), and
+// TestPIMSidecarIsToldTheGoogleRelay keeps the two equal. The relay's address is fixed by
+// design, which is why a constant is enough for the admin panel.
+const PIMGoogleRelayRedirectURI = "https://chetto1983-aura-connect.pages.dev/google/callback/"
 
 type pimProviderApps interface {
 	List(ctx context.Context) ([]pimprovider.App, error)

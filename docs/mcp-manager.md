@@ -247,7 +247,7 @@ Accounts linked before a change keep the client they were linked with.
 
 1. In Google Cloud Console create an OAuth client of type **Web application** and add exactly
    this **Authorized redirect URI** (trailing slash included):
-   `https://chetto1983.github.io/aura-connect/google/callback/`. It never changes and does not
+   `https://chetto1983-aura-connect.pages.dev/google/callback/`. It never changes and does not
    depend on the address Aura is reached by, so the same line works for a LAN IP, a tunnel
    or a public hostname. The admin enters that client's ID and secret once in **Provider
    OAuth apps**, which also shows this URI.
@@ -256,7 +256,8 @@ Accounts linked before a change keep the client they were linked with.
    request arrived on) and forwards it to the sidecar, which answers `{authUrl, redirectUri}`
    with the relay URI as `redirectUri` and `state` = `<nonce>.<base64url(callback)>`.
 3. After consent Google sends the browser to the relay page
-   ([chetto1983/aura-connect](https://github.com/chetto1983/aura-connect)), which forwards it to
+   ([Chetto1983/aura-connect](https://gitlab.com/Chetto1983/aura-connect), served by
+   Cloudflare Pages), which forwards it to
    `<cockpit origin>/admin/auth/google/callback`. Aura serves that path on every origin as a
    public route and forwards it to the sidecar without a token; the sidecar accepts only a
    `state` it issued, then exchanges the code with the client secret and a PKCE verifier.
@@ -275,9 +276,9 @@ A remote MCP server authorizes through the cockpit's **Connect** control. Aura p
 client in `MCP_OAUTH_CLIENT_ID` when one is configured, else registers itself dynamically
 (Linear, Atlassian, Notion). When the authorization server offers neither, Aura signs in
 with its own Client ID Metadata Document instead:
-`https://chetto1983.github.io/aura-connect/mcp/client-metadata.json`. No configuration is
+`https://chetto1983-aura-connect.pages.dev/mcp/client-metadata.json`. No configuration is
 needed. The consent screen shows "Aura" as a self-declared app, and after consent the browser
-returns through the relay `https://chetto1983.github.io/aura-connect/mcp/callback/`, which
+returns through the relay `https://chetto1983-aura-connect.pages.dev/mcp/callback/`, which
 forwards it to `<cockpit origin>/api/governance/mcp/authorization/callback`. Like the Google
 relay, it forwards only to an `https` origin or to loopback, so the cockpit must be reached
 over HTTPS or on `localhost`.

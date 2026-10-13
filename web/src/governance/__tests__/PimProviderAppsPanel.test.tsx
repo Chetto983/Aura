@@ -19,7 +19,7 @@ vi.mock('../pimApi', async () => {
 
 const { PimProviderAppsPanel } = await import('../PimProviderAppsPanel');
 
-const RELAY = 'https://chetto1983.github.io/aura-connect/google/callback/';
+const RELAY = 'https://chetto1983-aura-connect.pages.dev/google/callback/';
 
 function renderPanel() {
   const qc = new QueryClient({
