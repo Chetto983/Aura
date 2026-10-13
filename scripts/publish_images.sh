@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+#
+# Publishes every appliance image to the image home from the operator's machine, while GitHub
+# runs no workflow (docs/superpowers/specs/2026-10-13-gitlab-image-bridge-design.md). It builds
+# what .github/workflows/publish-aura-edge.yml and publish-arcadedb-mcp.yml build, the same way,
+# plus the two forks; nothing is pushed until every build and image contract passed, and the
+# moving tags move only once every per-commit tag is in the registry, aura:edge last.
+#
+#   scripts/publish_images.sh [<aura commit>]        (default HEAD)
+#
+# Docker must already reach the registry (`glab auth configure-docker`).
+#   AURA_PUBLISH_REGISTRY     default: IMAGE_HOME in deploy/aura-image-update.sh
+#   AURA_PUBLISH_PIM_GIT      default: https://gitlab.com/Chetto1983/aura-pim-mcp.git
+#   AURA_PUBLISH_WHATSAPP_GIT default: https://gitlab.com/Chetto1983/whatsapp-mcp.git
+#   AURA_PUBLISH_FORK_REF     default: main
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
+AURA_SOURCE=https://gitlab.com/Chetto1983/aura
+
+# name:dockerfile, in the order publish-aura-edge.yml moves the edge tags: aura last.
+EDGE_IMAGES=(
+  aura-caddy:docker/caddy/Dockerfile
+  aura-cloudflared:docker/cloudflared/Dockerfile
+  aura-ingest:docker/aura-ingest/Dockerfile
+  aura-sandbox:docker/aura-sandbox/Dockerfile
+  aura-egress:docker/aura-egress/Dockerfile
+  aura:docker/aura/Dockerfile
+)
+ARCADEDB_MCP=aura-arcadedb-mcp:docker/arcadedb-mcp/Dockerfile
+# Each fork builds its root Dockerfile and carries both moving tags appliances follow.
+FORK_NAMES=(aura-pim-mcp whatsapp-mcp)
+FORK_MOVING_TAGS=(sidecar latest)
+# image, the variable its contract test reads the image from, the test.
+CONTRACTS=(
+  "aura-cloudflared AURA_CLOUDFLARED_TEST_IMAGE scripts/cloudflared_image_contract_test.sh"
+  "aura-ingest AURA_INGEST_IMAGE scripts/ingest_image_contract_test.sh"
+  "aura-sandbox AURA_SANDBOX_IMAGE scripts/sandbox_image_contract_test.sh"
+)
+
+fork_git() {
+  case "$1" in
+    aura-pim-mcp) echo "${AURA_PUBLISH_PIM_GIT:-https://gitlab.com/Chetto1983/aura-pim-mcp.git}" ;;
+    whatsapp-mcp) echo "${AURA_PUBLISH_WHATSAPP_GIT:-https://gitlab.com/Chetto1983/whatsapp-mcp.git}" ;;
+  esac
+}
+
+# <tag> <context dir> <dockerfile relative to it> <revision> <source url> [docker build args]
+build_image() {
+  local tag="$1" ctx="$2" file="$3" rev="$4" src="$5"
+  shift 5
+  docker build --platform linux/amd64 -f "${ctx}/${file}" \
+    --label "org.opencontainers.image.source=${src}" \
+    --label "org.opencontainers.image.revision=${rev}" "$@" -t "${tag}" "${ctx}"
+}
+
+# Every step that can fail returns explicitly: errexit is suspended for a function called as a
+# condition (`if main …`, `main || …`), and a build that failed there must still push nothing.
+main() {
+  local registry sha work entry name file fork_sha tag image var test
+  local -a pushes=() moves=()
+  registry="${AURA_PUBLISH_REGISTRY:-$(sed -n 's/^IMAGE_HOME=//p' "${repo_root}/deploy/aura-image-update.sh")}"
+  [[ -n "${registry}" ]] || { echo "publish: no registry (set AURA_PUBLISH_REGISTRY)" >&2; return 1; }
+  sha="$(git -C "${repo_root}" rev-parse "${1:-HEAD}^{commit}")" || return 1
+  work="$(mktemp -d)"
+  trap 'rm -rf "${work}"' RETURN
+  mkdir -p "${work}/aura"
+  git -C "${repo_root}" archive "${sha}" | tar -x -C "${work}/aura" || return 1
+
+  for entry in "${EDGE_IMAGES[@]}"; do
+    name="${entry%%:*}" file="${entry#*:}" tag="${registry}/${name}:master-${sha}"
+    if [[ "${name}" == aura ]]; then
+      build_image "${tag}" "${work}/aura" "${file}" "${sha}" "${AURA_SOURCE}" --build-arg "VCS_REF=${sha}" || return 1
+    else
+      build_image "${tag}" "${work}/aura" "${file}" "${sha}" "${AURA_SOURCE}" || return 1
+    fi
+    pushes+=("${tag}")
+  done
+  name="${ARCADEDB_MCP%%:*}" file="${ARCADEDB_MCP#*:}" tag="${registry}/${name}:${sha}"
+  build_image "${tag}" "${work}/aura" "${file}" "${sha}" "${AURA_SOURCE}" || return 1
+  pushes+=("${tag}")
+  moves+=("${registry}/${name}:edge ${tag}")
+
+  for name in "${FORK_NAMES[@]}"; do
+    git clone --quiet "$(fork_git "${name}")" "${work}/${name}" || return 1
+    git -C "${work}/${name}" checkout --quiet "${AURA_PUBLISH_FORK_REF:-main}" || return 1
+    fork_sha="$(git -C "${work}/${name}" rev-parse HEAD)" || return 1
+    tag="${registry}/${name}:${fork_sha}"
+    build_image "${tag}" "${work}/${name}" Dockerfile "${fork_sha}" "$(fork_git "${name}" | sed 's/\.git$//')" || return 1
+    pushes+=("${tag}")
+    for image in "${FORK_MOVING_TAGS[@]}"; do moves+=("${registry}/${name}:${image} ${tag}"); done
+  done
+
+  for entry in "${CONTRACTS[@]}"; do
+    read -r name var test <<<"${entry}"
+    (export "${var}=${registry}/${name}:master-${sha}" && bash "${work}/aura/${test}") || return 1
+  done
+
+  for tag in "${pushes[@]}"; do
+    docker push "${tag}" || return 1
+    echo "published ${tag}"
+  done
+  # The edge set moves last and together, aura:edge the very last, as publish-aura-edge.yml does.
+  for entry in "${EDGE_IMAGES[@]}"; do
+    name="${entry%%:*}"
+    moves+=("${registry}/${name}:edge ${registry}/${name}:master-${sha}")
+  done
+  for entry in "${moves[@]}"; do
+    read -r tag image <<<"${entry}"
+    docker buildx imagetools create --prefer-index=false --tag "${tag}" "${image}" || return 1
+    echo "moved ${tag}"
+  done
+}
+
+[[ "${BASH_SOURCE[0]:-$0}" != "$0" ]] || main "$@"
