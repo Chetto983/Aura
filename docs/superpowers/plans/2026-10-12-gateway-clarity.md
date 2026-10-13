@@ -9780,6 +9780,14 @@ bash scripts/coverage_docker.sh
   `-20261012` image of Step 2, and the closing gates ran on `7b6cdc630`. The ledger has the
   per-item read-backs, the gates, and the findings left open.
 
-- [ ] **Step 5: Push**, from WSL:
+- [x] **Step 5: Push**, from WSL:
   `LEFTHOOK_BIN=$HOME/go/bin/lefthook git -c core.hooksPath=.git/hooks push origin master`.
   The pre-push gates must pass, and `--no-verify` is never used. Without CI, the closing report says the local gates were the only gate.
+
+  *As run, 2026-10-13.* `origin` went `30c1dd9c8..46ea774be`, with every pre-push gate green:
+  pushed-tree, payload-manifest, sqlc-sync, build, web-deadcode, deadcode, tagged-tier-compile
+  and web. CI did not run, because the GitHub account is still flagged.
+
+  The same `master` and the 28 release tags went to a new public mirror,
+  `gitlab.com/Chetto1983/aura`. Its pre-push gates were skipped: lefthook has no base to diff
+  against on a remote with no `master`, and the commit had just passed them for `origin`.
