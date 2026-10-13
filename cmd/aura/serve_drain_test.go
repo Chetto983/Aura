@@ -10,7 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chetto1983/aura/internal/agent"
+	"github.com/chetto1983/aura/internal/agui"
 	"github.com/chetto1983/aura/internal/channels"
+	"github.com/chetto1983/aura/internal/identityctx"
+	"github.com/google/uuid"
 )
 
 // TestDrainWithGrace_FinishesBeforeGrace proves an in-flight turn that completes
@@ -137,5 +141,44 @@ func TestDrainShutdownCancelsWebTurnsBeforeJoiningChannels(t *testing.T) {
 
 	if !slices.Equal(order, []string{"web", "channels"}) {
 		t.Fatalf("drain order = %v, want the web turns cancelled before the channels are joined", order)
+	}
+}
+
+// MEASURED on the lab VM, 2026-10-13 (gateway-clarity acceptance item 5, run with a Telegram
+// turn in flight). The cockpit's turn is a detached run, which BeginShutdown does not reach; only
+// RunRegistry.Close cancels it, and the drain called that after joining the channels. The
+// cockpit turn kept running for the 12 s the Telegram turn took to answer, and the stop took
+// 20.65 s. A channel turn that outlasted the grace would have left the cockpit turn to be cut at
+// exit with its end rows unwritten, which is the failure the web-first order exists to prevent.
+func TestDrainShutdownCancelsDetachedRunsBeforeJoiningChannels(t *testing.T) {
+	var order []string
+	reg := channels.NewRegistry()
+	reg.SetEnabledOverride(func(string) (bool, bool) { return true, true })
+	reg.Register(orderedChannel{stopped: func() { order = append(order, "channels") }})
+	if err := reg.StartAll(context.Background()); err != nil {
+		t.Fatalf("start channels: %v", err)
+	}
+	runs := agui.NewRunRegistry(agui.ServerConfig{})
+	owner := identityctx.WithIdentityID(context.Background(), uuid.NewString())
+	if _, err := runs.StartWorker(owner, agent.WorkerControlParams{
+		ConversationID: uuid.NewString(),
+		ChildID:        "detached-turn",
+		Cancel:         func() { order = append(order, "detached runs") },
+		Stop:           func(context.Context) error { return nil },
+	}); err != nil {
+		t.Fatalf("start a detached run: %v", err)
+	}
+	env := &serveEnv{
+		chatEnv:          &chatEnv{},
+		httpSrv:          &http.Server{},
+		channels:         reg,
+		beginWebShutdown: func() { order = append(order, "web") },
+		runRegistry:      runs,
+	}
+
+	drainShutdown(context.Background(), env)
+
+	if !slices.Equal(order, []string{"web", "detached runs", "channels"}) {
+		t.Fatalf("drain order = %v, want every web turn, detached ones included, cancelled before the channels are joined", order)
 	}
 }

@@ -66,11 +66,13 @@ func drainWithGrace(drain func(), grace time.Duration) drainResult {
 }
 
 // drainShutdown is the teardown body the bounded drain runs (O-06/AP-17): it stops
-// accepting NEW work and JOINS the in-flight turns. It first begins the AG-UI shutdown:
-// agui.Server.BeginShutdown ends the observer streams and cancels each request-scoped web
-// turn, whose stream keeps draining to its terminal frame. That comes before the channel
-// join, which can run past the grace: a web turn cancelled after it would be cut by the
-// process exit with its records unwritten. stopChannelSubsystems then stops the poller (no
+// accepting NEW work and JOINS the in-flight turns. It first cancels every web turn:
+// agui.Server.BeginShutdown ends the observer streams and cancels each request-scoped turn,
+// and RunRegistry.Close cancels each detached one (the cockpit's run) and joins the reaper.
+// Their streams keep draining to their terminal frames. That comes before the channel join,
+// which can run past the grace: a web turn cancelled after it would be cut by the process
+// exit with its records unwritten (measured on the lab VM 2026-10-13, when a Telegram turn
+// held a detached cockpit turn for 12 s). stopChannelSubsystems then stops the poller (no
 // new channel turns) and StopAll joins each channel's in-flight turn WaitGroup. The HTTP
 // drain at the end waits up to aguiShutdownTimeout for the web streams, and
 // shutdownHTTPServer closes whatever is still open after that. workCtx parents the
@@ -80,6 +82,13 @@ func drainWithGrace(drain func(), grace time.Duration) drainResult {
 func drainShutdown(workCtx context.Context, env *serveEnv) {
 	if env.beginWebShutdown != nil {
 		env.beginWebShutdown()
+	}
+	// Fix-plan 1.3 Tier B (amendment #90 §1.1 bound 3c): detached producers ride
+	// context.WithoutCancel, so nothing else in this teardown reaches them; without this
+	// walk a detached turn would run to its wallclock cap past process intent. Nil when
+	// the flag is off (registry never constructed).
+	if env.runRegistry != nil {
+		env.runRegistry.Close()
 	}
 	stopChannelSubsystems(workCtx, env.channels, env.setupSrv)
 
@@ -114,18 +123,6 @@ func drainShutdown(workCtx context.Context, env *serveEnv) {
 	// a hung one cannot wedge shutdown. Nil-safe when the deployment never wired one.
 	env.firstPartyGrants.Stop()
 	env.hostUpdates.Stop()
-
-	// Fix-plan 1.3 Tier B (amendment #90 §1.1 bound 3c): cancel every detached run
-	// and join the reaper BEFORE the HTTP drain below. Detached producers ride
-	// context.WithoutCancel, so NOTHING else in this teardown reaches them — without
-	// this walk a detached turn would run to its wallclock cap past process intent.
-	// The cancelled producers flush their terminal RUN_ERROR into the ring and
-	// finish, so any still-attached SSE viewer's stream closes promptly and the
-	// http.Server.Shutdown drain never waits on a detached turn. Nil when the flag
-	// is off (registry never constructed).
-	if env.runRegistry != nil {
-		env.runRegistry.Close()
-	}
 
 	shutdownHTTPServer("agui", env.httpSrv, aguiShutdownTimeout)
 }

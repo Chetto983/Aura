@@ -99,8 +99,9 @@ type serveEnv struct {
 
 	// runRegistry is the detached-run session registry (fix-plan 1.3 Tier B); nil
 	// unless AURA_AGUI_RUN_DETACH=true. drainShutdown Closes it (cancel-walk every
-	// detached run + reaper join) BEFORE the HTTP drain so cancelled producers flush
-	// their terminal frames and attached SSE viewers close promptly.
+	// detached run + reaper join) right after beginWebShutdown, before it joins the
+	// channel turns, so cancelled producers flush their terminal frames and attached SSE
+	// viewers close promptly however long a channel turn runs.
 	runRegistry *agui.RunRegistry
 }
 
