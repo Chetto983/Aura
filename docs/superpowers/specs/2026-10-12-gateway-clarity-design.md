@@ -184,6 +184,17 @@ the target lives, what shutdown does to a running turn, and whether a rejection 
     joins the channel turns (`drainShutdown`). Those run on a context that stays live and can
     outlast the grace; a web turn cancelled only after them was cut at exit with its end rows
     unwritten. `RegisterOnShutdown` still closes it, a no-op by then.
+  - *Amended 2026-10-13 after the lab-VM acceptance*
+    (`docs/superpowers/verification/2026-10-12-gateway-clarity.md`, item 5). Three gaps showed
+    on the VM, each fixed and measured again:
+    - The rule above covers the detached runs too, which are the cockpit's default path.
+      `RunRegistry.Close` now runs right after the signal (`7b6cdc630`). Before, a Telegram turn
+      held a cockpit turn for 12 s.
+    - A tool whose turn was cancelled writes its `end` row and its tool turn on a context
+      without that cancellation (`fcf52a184`).
+    - A detached run delivers its terminal frame, the translator's own included, on the bounded
+      context the fallback already used (`05f9a3c6b`). With the cancelled run context, the
+      viewer lost it about half the time.
 
 ## The approval, before and after
 

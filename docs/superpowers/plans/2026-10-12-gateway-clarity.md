@@ -9715,7 +9715,7 @@ Not run here: the coverage gate (`scripts/coverage_docker.sh`) and the lab-VM ac
 
 Mutation testing runs only in CI, never locally (operator rule: neither `go-mutesting` nor hand edits that break code to watch a test fail). It waits for the account to be reinstated, and the ledger names it as open.
 
-- [ ] **Step 1: Closing gates on the whole tree**, in WSL, from the repo root:
+- [x] **Step 1: Closing gates on the whole tree**, in WSL, from the repo root:
 
 ```bash
 export PATH="$HOME/.local/bin:$HOME/go/bin:/usr/local/go/bin:$PATH"
@@ -9739,7 +9739,7 @@ bash scripts/coverage_docker.sh
   - the coverage gate's aggregate at or above 85 %, and no package below its pinned floor;
   - vitest all green.
 
-- [ ] **Step 2: Manual update of the lab VM.**
+- [x] **Step 2: Manual update of the lab VM.**
   1. Build a child image `aura:lab-gateway-clarity-20261012` that replaces only `/usr/local/bin/aura`. Build the binary from a clean `git archive HEAD` export with the SPA rebuilt; the committed `internal/webui/dist` lags `web/src`.
   2. Write a new overlay directory `/opt/aura/lab-gateway-clarity-20261012/compose.lab.yaml`. Keep the running overlay's environment, and add `stop_grace_period: 30s` to the `aura` service: the VM's `/opt/aura/compose.yaml` comes from the release payload and does not have it yet.
   3. Run `docker compose -p aura -f compose.yaml -f compose.cpu.yaml -f <overlay> up -d --no-deps --pull never aura`.
@@ -9747,7 +9747,7 @@ bash scripts/coverage_docker.sh
 
   Before writing the overlay, read the running one (`docker inspect -f '{{index .Config.Labels "com.docker.compose.project.config_files"}}' aura`) and the sudo lines in `/var/log/auth.log`. Another session may have deployed its own overlay: build on its image, or agree with the operator. Never overwrite it silently.
 
-- [ ] **Step 3: Acceptance, spec items 1-6.** Run them on the operator's identity under `single_user_hardened`. The operator drives the cockpit and Telegram; Claude reads each item back with a script or a query, never from a reply.
+- [x] **Step 3: Acceptance, spec items 1-6.** Run them on the operator's identity under `single_user_hardened`. The operator drives the cockpit and Telegram; Claude reads each item back with a script or a query, never from a reply.
   1. A `board` `delete` approval shows the card's label and column in the cockpit's approval card, and as "oggetto:" in the Telegram message. The `ask_user` question the model relayed carries neither. Accepting deletes that card. Read back with `/api/approvals` (the presentation's `target`), the pause row's `resume_context`, and `aura.board_cards`.
   2. Run `docker restart aura`, then ask for a delete of a card id listed before the restart. It is refused with "run board list or board search first". `aura.tool_invocations` and `/api/approvals` show no approval. After a search, exactly one prompt.
   3. In the live turn of a withheld call, the `ask_user` question the model relays equals the challenge's question byte for byte, and the accept resumes on the first try.
@@ -9761,12 +9761,24 @@ bash scripts/coverage_docker.sh
      One of the after-runs also has a Telegram turn in flight (the operator sends it), and the web turn's `end` rows still land: that pins `27e411d83`.
   6. `/api/me` reports `policies_enforced: true` on the VM, and the notice is absent.
 
-- [ ] **Step 4: Ledger.** Write `docs/superpowers/verification/2026-10-12-gateway-clarity.md`. It records:
+- [x] **Step 4: Ledger.** Write `docs/superpowers/verification/2026-10-12-gateway-clarity.md`. It records:
   - what each item measured, with its read-back;
   - the commit and the image;
   - what it does not establish: the spec's list, plus mutation and CI, which wait for the account.
 
   In the same commit, tick this plan's boxes.
+
+  *As run, 2026-10-13.* The acceptance found five bugs. Each was fixed test-first, redeployed and
+  measured again:
+  - `ecb4f5c00`: empty assistant anchors from the cockpit's retry;
+  - `fcf52a184`: a cancelled turn lost its tool `end` rows;
+  - `db3d5e89d`: Telegram commands ran with no identity;
+  - `05f9a3c6b`: a cancelled detached run's terminal frame could miss its viewer;
+  - `7b6cdc630`: the drain cancelled detached runs after the channel join.
+
+  The VM therefore went through images `aura:lab-gateway-clarity-20261013` to `-6`, not the single
+  `-20261012` image of Step 2, and the closing gates ran on `7b6cdc630`. The ledger has the
+  per-item read-backs, the gates, and the findings left open.
 
 - [ ] **Step 5: Push**, from WSL:
   `LEFTHOOK_BIN=$HOME/go/bin/lefthook git -c core.hooksPath=.git/hooks push origin master`.
