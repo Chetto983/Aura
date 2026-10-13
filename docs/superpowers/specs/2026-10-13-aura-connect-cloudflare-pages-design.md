@@ -46,6 +46,17 @@ go back when GitHub returns.
   - The operator docs in `docs/mcp-manager.md:250-280` and the record in PRD §13 name it too.
 
   The Go tests compare against the constants, never against a literal.
+- **The PIM sidecar names the Google relay itself.** This was found while writing the plan, the
+  same day. The sidecar builds the consent URL and exchanges the code with its own
+  `GoogleOAuthRelayUrl`.
+  - Its default is the old address:
+    `chetto1983/aura-pim-mcp@main:src/CalendarMcp.Core/Configuration/CalendarMcpConfiguration.cs:36`.
+  - `PIMGoogleRelayRedirectURI` only shows that address in the admin panel. Its comment says
+    it "must equal the sidecar's GoogleOAuthRelayUrl default", and nothing checks it.
+  - The sidecar loads its configuration with `AddEnvironmentVariables("CALENDAR_MCP_")`. Its
+    own docs give `CALENDAR_MCP_CalendarMcp__ExternalBaseUrl` as the environment form of the
+    sibling setting, so `CALENDAR_MCP_CalendarMcp__GoogleOAuthRelayUrl` sets this one.
+    `compose.yaml` sets neither today.
 
 This does not show whether Google accepts a `pages.dev` redirect URI in the operator's client,
 or how long an authorization server caches a CIMD it fetched. The acceptance measures the first.
@@ -98,6 +109,13 @@ The second is listed below.
   - It changes the two web tests.
   - It changes the comments that name GitHub Pages or the old host.
   - It changes the operator guide `docs/mcp-manager.md`.
+- **The sidecar is told the address.** `compose.yaml` sets
+  `CALENDAR_MCP_CalendarMcp__GoogleOAuthRelayUrl` on `aura-pim-mcp` to the new Google relay.
+  - This works with the pim image appliances already run, so no rebuild is needed.
+  - A Go test beside the existing compose artifact tests asserts the value equals
+    `PIMGoogleRelayRedirectURI`. The "must equal" in the comment becomes a check.
+  - The fork's own default moves to the new address too, in one commit on its `main`, so a
+    standalone run of the fork names no dead page. The bridge's fork build picks it up.
 - **Nothing else changes.** The relay shape stays: `state` as `<nonce>.<base64url(target)>`.
   So do the callback paths and the PKCE.
 - **PRD §13 records the new address after the acceptance,** citing the ledger. The plans in
@@ -134,7 +152,10 @@ new address as soon as the new image runs.
    - `/mcp/client-metadata.json` answers 200 with `Content-Type: application/json`, and its
      `client_id` equals its own URL;
    - both relay pages answer 200, and their CSP and referrer `<meta>` tags are intact.
-2. **Google, end to end on the lab VM,** on an image carrying the new constants:
+2. **Google, end to end on the lab VM,** on an image carrying the new constants and a compose
+   that sets the sidecar's relay. Until the image bridge lands, both reach the VM through the
+   lab overlay, as on 2026-10-13. Before any login, the start endpoint's consent URL must carry
+   the new `redirect_uri`.
    1. The operator adds the redirect URI.
    2. The operator connects a Google calendar account from the cockpit, driving the login
       themselves.
