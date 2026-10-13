@@ -6,9 +6,11 @@ Spec: `docs/superpowers/specs/2026-10-13-aura-connect-cloudflare-pages-design.md
 **Verdict:** the three shared OAuth addresses answer from
 `https://chetto1983-aura-connect.pages.dev/`. On the lab VM (`192.168.101.158`) a Google account
 linked through the new relay, and ElevenLabs signed in through the new CIMD. The run found two
-defects, both fixed the same day with tests and re-measured on the VM:
+defects, both fixed the same day with tests that fail without the fix:
 - `108603dc2`: the cockpit carried one MCP server's authorization onto another;
 - `e6222a6c1`: an authorization could not replace a grant the provider refuses.
+
+What the VM re-measured for each is narrower, and the last section says where.
 
 ## The site (Task 2)
 
@@ -114,6 +116,12 @@ defects, both fixed the same day with tests and re-measured on the VM:
   with the relay set by the overlay. The fork's new default (`32d0c43`) is not in any published
   image yet.
 - **The panel's change of selection.** The case where a consent is still pending when another
-  server is selected was not driven on the VM. The vitest test covers it.
+  server is selected was not driven on the VM. Disconnect followed by Connect was not driven
+  either: Linear was connected after a page reload. The vitest tests cover both.
+- **Re-authorize completing on `-2`.** The VM showed that an authorization on `-2` asks for a
+  fresh consent with the current document. Nobody completed that consent. The new grant
+  replacing the refused one is shown by `TestAuthorizationReplacesAGrantTheProviderNoLongerHonours`,
+  and by the `-1` consent after Disconnect. That consent ran the same exchange, but it inserted
+  the row instead of overwriting it.
 - **CI.** No CI ran: the GitHub account is flagged and Actions does not run. The gates are the
   local ones named above, plus the pre-commit hooks.

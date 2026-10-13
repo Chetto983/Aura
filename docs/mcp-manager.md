@@ -247,10 +247,12 @@ Accounts linked before a change keep the client they were linked with.
 
 1. In Google Cloud Console create an OAuth client of type **Web application** and add exactly
    this **Authorized redirect URI** (trailing slash included):
-   `https://chetto1983-aura-connect.pages.dev/google/callback/`. It never changes and does not
-   depend on the address Aura is reached by, so the same line works for a LAN IP, a tunnel
-   or a public hostname. The admin enters that client's ID and secret once in **Provider
-   OAuth apps**, which also shows this URI.
+   `https://chetto1983-aura-connect.pages.dev/google/callback/`. It does not depend on the
+   address Aura is reached by, so the same line works for a LAN IP, a tunnel or a public
+   hostname. The admin enters that client's ID and secret once in **Provider OAuth apps**,
+   which also shows this URI. A client set up before 2026-10-13 names the old GitHub Pages
+   address, which answers 404 since then: add the new URI to it once, or Google refuses the
+   consent with `redirect_uri_mismatch`.
 2. Connect: a member adds a Google account; the cockpit calls `GET /api/connect/pim/accounts/{id}/google/start`; Aura adds
    `returnBase` = the cockpit origin (`AURA_WEB_PUBLIC_URL` when set, otherwise the origin the
    request arrived on) and forwards it to the sidecar, which answers `{authUrl, redirectUri}`
@@ -282,6 +284,12 @@ returns through the relay `https://chetto1983-aura-connect.pages.dev/mcp/callbac
 forwards it to `<cockpit origin>/api/governance/mcp/authorization/callback`. Like the Google
 relay, it forwards only to an `https` origin or to loopback, so the cockpit must be reached
 over HTTPS or on `localhost`.
+
+A grant made before 2026-10-13 names the old document, and the provider refuses every refresh
+of it with `invalid_client: Client metadata document returned HTTP 404`. The server card then
+still reads authorized while the server cannot mount. Press **Re-authorize** once: an
+authorization never reuses the stored grant, so it asks for a fresh consent and replaces it.
+Builds older than `e6222a6c1` need **Disconnect** first, then **Connect**.
 
 For **ElevenLabs** add a custom HTTP server with the URL
 `https://api.us.elevenlabs.io/v1/mcp`, not the `https://api.elevenlabs.io/v1/mcp` in its

@@ -126,10 +126,10 @@ func mcpLogout(ctx context.Context, pool *pgxpool.Pool, args []string, out io.Wr
 	return writef(out, "removed the stored authorization for %s\n", name)
 }
 
-// mcpAuthorizations lists what this identity has authorized. It is also the escape hatch
-// for a stale dynamic client registration: a provider that starts answering invalid_client
-// is fixed by `aura mcp logout` followed by `aura mcp login`, and knowing what is stored is
-// the first step.
+// mcpAuthorizations lists what this identity has authorized. It is also the first step when
+// a provider starts answering invalid_client to a stored grant (a stale dynamic registration,
+// a moved metadata document): `aura mcp login` replaces that grant, because a login never
+// restores the one it is there to replace.
 func mcpAuthorizations(ctx context.Context, pool *pgxpool.Pool, args []string, out io.Writer) error {
 	if len(args) != 0 {
 		return errors.New("usage: aura mcp authorizations")
