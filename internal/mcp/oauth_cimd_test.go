@@ -12,10 +12,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/oauth2"
+
+	"github.com/chetto1983/aura/internal/mcpoauth"
 )
 
 // cockpitCallback is where a cockpit-started flow must end up after the relay.
@@ -219,6 +222,43 @@ func TestCIMDFallbackSignsInWhereTheServerOffersNoRegistration(t *testing.T) {
 	rc, err := decodeResolvedClient(grant.ClientInfo)
 	if err != nil || rc.ClientID != auraClientMetadataURL {
 		t.Fatalf("stored client = %+v, %v; a refresh must present the same client_id", rc, err)
+	}
+}
+
+// Measured 2026-10-13 on the lab VM: once Aura's metadata document moved, ElevenLabs
+// refused every refresh of the grant issued to the old URL with invalid_client, and Connect
+// died on that refresh instead of asking for consent. Only Disconnect first got it back. A
+// session that brings a human exists to obtain a NEW grant, so the stored one, which may
+// be exactly the dead thing being replaced, must not stand in front of the consent.
+func TestAuthorizationReplacesAGrantTheProviderNoLongerHonours(t *testing.T) {
+	t.Parallel()
+	f := startOAuthMCPFixture(t, asShape{cimd: true})
+	movedDocument, err := resolvedClient{
+		ClientID:      "https://chetto1983.github.io/aura-connect/mcp/client-metadata.json",
+		TokenEndpoint: f.base + "/token",
+		AuthStyle:     int(oauth2.AuthStyleInParams),
+	}.encode()
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	store := &rotatingGrantStore{grant: mcpoauth.Grant{
+		ServerName: "remote", AccessToken: "expired", RefreshToken: "refused", TokenType: "Bearer",
+		ClientInfo: movedDocument, ExpiresAt: time.Now().Add(-time.Hour),
+	}}
+	var consentURL url.Values
+
+	if _, err := openWithConsent(t, f, f.server(), store, f.consent(&consentURL)); err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if got := consentURL.Get("client_id"); got != auraClientMetadataURL {
+		t.Fatalf("consent client_id = %q, want a fresh consent for the current document", got)
+	}
+	grant, err := store.Load(t.Context(), "remote")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if rc, err := decodeResolvedClient(grant.ClientInfo); err != nil || rc.ClientID != auraClientMetadataURL {
+		t.Fatalf("stored client = %+v, %v; the new grant must replace the refused one", rc, err)
 	}
 }
 

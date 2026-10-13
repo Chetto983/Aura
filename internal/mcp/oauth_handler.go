@@ -89,7 +89,8 @@ type OAuthOptions struct {
 
 	// Fetcher drives the human half of the flow. Nil means unattended: no browser can
 	// be opened, so an authorization that is genuinely needed fails fast and says how
-	// to fix it.
+	// to fix it. Non-nil means the session is an authorization, so the stored grant is
+	// not restored: the session exists to replace it.
 	Fetcher auth.AuthorizationCodeFetcher
 
 	// RedirectURL is the redirect the Fetcher owns. It takes precedence over
@@ -134,7 +135,11 @@ func oauthHandlerFor(ctx context.Context, name string, server ManagedServer, set
 		store:       o.Store,
 		log:         resolveLogger(logger),
 	}
-	if o.Store != nil {
+	// A session with a Fetcher is an authorization: it exists to obtain a NEW grant. Restoring
+	// the stored one would put it in front of the consent, and a grant the provider no longer
+	// honours (a moved metadata document, a revoked refresh token) would then fail the very
+	// session meant to replace it.
+	if o.Store != nil && o.Fetcher == nil {
 		initial, err := restoreTokenSource(ctx, name, o.Store, build.client, build.log)
 		if err != nil {
 			return nil, err
