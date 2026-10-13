@@ -2,9 +2,10 @@ package agui
 
 import "context"
 
-// BeginShutdown is what this server does when the daemon starts to stop. The daemon
-// registers it with http.Server.RegisterOnShutdown, because Shutdown cancels no request
-// context: it only waits for handlers to return.
+// BeginShutdown is what this server does when the daemon starts to stop. The daemon calls
+// it first in its drain, before it joins the channel turns, and also registers it with
+// http.Server.RegisterOnShutdown, because Shutdown cancels no request context: it only
+// waits for handlers to return. A second call is a no-op.
 //
 // The streams that only observe (the browser live view, both swarm event streams) end at
 // once. A turn's stream (a request-scoped run, a branch rerun) does not: its turn is

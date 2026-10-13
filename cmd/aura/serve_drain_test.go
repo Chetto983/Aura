@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/chetto1983/aura/internal/channels"
 )
 
 // TestDrainWithGrace_FinishesBeforeGrace proves an in-flight turn that completes
@@ -99,5 +103,39 @@ func TestShutdownHTTPServerClosesWhatOutlivesTheTimeout(t *testing.T) {
 	}
 	if !strings.Contains(log.String(), "level=ERROR") {
 		t.Fatalf("the drain timeout was not logged as an error:\n%s", log.String())
+	}
+}
+
+// orderedChannel is a started channel whose Stop reports when the drain joined it.
+type orderedChannel struct{ stopped func() }
+
+func (orderedChannel) Name() string                 { return "ordered" }
+func (orderedChannel) Start(context.Context) error  { return nil }
+func (c orderedChannel) Stop(context.Context) error { c.stopped(); return nil }
+func (orderedChannel) IsHealthy() bool              { return true }
+
+// TestDrainShutdownCancelsWebTurnsBeforeJoiningChannels: the drain joins channel turns on a
+// live context, and one can run past the grace. Web turns used to be cancelled only after that
+// join, so such a channel turn held them until the process exited, their end rows unwritten.
+// They are now cancelled first and persist while the join waits.
+func TestDrainShutdownCancelsWebTurnsBeforeJoiningChannels(t *testing.T) {
+	var order []string
+	reg := channels.NewRegistry()
+	reg.SetEnabledOverride(func(string) (bool, bool) { return true, true })
+	reg.Register(orderedChannel{stopped: func() { order = append(order, "channels") }})
+	if err := reg.StartAll(context.Background()); err != nil {
+		t.Fatalf("start channels: %v", err)
+	}
+	env := &serveEnv{
+		chatEnv:          &chatEnv{},
+		httpSrv:          &http.Server{},
+		channels:         reg,
+		beginWebShutdown: func() { order = append(order, "web") },
+	}
+
+	drainShutdown(context.Background(), env)
+
+	if !slices.Equal(order, []string{"web", "channels"}) {
+		t.Fatalf("drain order = %v, want the web turns cancelled before the channels are joined", order)
 	}
 }

@@ -28,7 +28,11 @@ type serveEnv struct {
 	store     *cron.Store
 	scheduler *cron.Scheduler
 	httpSrv   *http.Server // the AG-UI gateway (Slice 8b), mounted alongside the tick loop
-	readiness *readiness.Snapshot
+	// beginWebShutdown is the AG-UI server's BeginShutdown: observer streams end and web turns
+	// are cancelled. drainShutdown calls it before it joins the channel turns, which may run
+	// past the grace; httpSrv's Shutdown calls it again, a no-op by then.
+	beginWebShutdown func()
+	readiness        *readiness.Snapshot
 	// backgroundCompletions owns the wake goroutines of finished background shells and
 	// detached video jobs. It exists only when the shared steer rail is live and stops
 	// before shell shutdown, so daemon termination never manufactures a fresh agent turn.

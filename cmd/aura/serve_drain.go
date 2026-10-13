@@ -6,12 +6,12 @@
 // the instant the signal fires, or an in-flight turn is hard-killed mid-stream
 // instead of persisting its records and reaching its terminal Event/frame (the
 // channels path derives its per-turn ctx from the daemon ctx; on the HTTP/SSE path
-// http.Server.Shutdown cancels a web turn through agui.Server.BeginShutdown, then
-// waits for its stream to end). drainWithGrace runs the teardown that joins
-// in-flight turns under a BOUNDED grace window: if the turns finish in time it
-// reports Drained, otherwise it reports TimedOut so the caller proceeds to the
-// hard-cancel backstop. It never blocks past the grace on an overrunning turn —
-// bounded shutdown, never a wedge.
+// agui.Server.BeginShutdown, the drain's first step, cancels a web turn, and
+// http.Server.Shutdown waits for its stream to end). drainWithGrace runs the
+// teardown that joins in-flight turns under a BOUNDED grace window: if the turns
+// finish in time it reports Drained, otherwise it reports TimedOut so the caller
+// proceeds to the hard-cancel backstop. It never blocks past the grace on an
+// overrunning turn — bounded shutdown, never a wedge.
 package main
 
 import (
@@ -66,16 +66,21 @@ func drainWithGrace(drain func(), grace time.Duration) drainResult {
 }
 
 // drainShutdown is the teardown body the bounded drain runs (O-06/AP-17): it stops
-// accepting NEW work and JOINS the in-flight turns. stopChannelSubsystems stops the
-// poller (no new channel turns) and StopAll joins each channel's in-flight turn
-// WaitGroup. When the HTTP drain below starts, agui.Server.BeginShutdown ends the
-// observer streams and cancels each request-scoped web turn; the drain then waits up
-// to aguiShutdownTimeout for the turn's stream to carry its terminal frame, and
+// accepting NEW work and JOINS the in-flight turns. It first begins the AG-UI shutdown:
+// agui.Server.BeginShutdown ends the observer streams and cancels each request-scoped web
+// turn, whose stream keeps draining to its terminal frame. That comes before the channel
+// join, which can run past the grace: a web turn cancelled after it would be cut by the
+// process exit with its records unwritten. stopChannelSubsystems then stops the poller (no
+// new channel turns) and StopAll joins each channel's in-flight turn WaitGroup. The HTTP
+// drain at the end waits up to aguiShutdownTimeout for the web streams, and
 // shutdownHTTPServer closes whatever is still open after that. workCtx parents the
 // channel turns and is STILL LIVE here (it is not signal-derived), so a turn
 // mid-stream can finalize while this joins it. The caller wraps this in
 // drainWithGrace and fires workCancel as the backstop only after the grace elapses.
 func drainShutdown(workCtx context.Context, env *serveEnv) {
+	if env.beginWebShutdown != nil {
+		env.beginWebShutdown()
+	}
 	stopChannelSubsystems(workCtx, env.channels, env.setupSrv)
 
 	// Stop the periodic sidecar sweep (M-06 part 2) under its own bounded join: an
