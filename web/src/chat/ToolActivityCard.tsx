@@ -35,15 +35,6 @@ const DOT_CLASS: Record<ToolStatus, string> = {
   interrupted: 'bg-text-faint',
 };
 
-/** A nested subagent / child tool entry (swarm fan-out). One level of nesting only. */
-export interface ToolActivityChild {
-  readonly toolName: string;
-  readonly argsText?: string;
-  readonly result?: string;
-  readonly isError?: boolean;
-  readonly refused?: boolean;
-}
-
 export interface ToolActivityCardProps {
   readonly toolName: string;
   /** Raw streamed argument text (partial JSON during streaming). */
@@ -59,8 +50,6 @@ export interface ToolActivityCardProps {
   readonly startedAt?: number;
   /** Epoch-ms when the tool call ended (AG-UI TOOL_CALL_END). Optional. */
   readonly finishedAt?: number;
-  /** Nested subagent/child tool entries (swarm). Absent/empty → single-row shape. */
-  readonly childActivity?: readonly ToolActivityChild[];
   /** Typed display payload — the expanded body renders the DisplayRouter card. */
   readonly display?: DisplayPayload;
   readonly mcpView?: McpViewDescriptor;
@@ -78,7 +67,6 @@ export function ToolActivityCard({
   partStatus,
   startedAt,
   finishedAt,
-  childActivity,
   display,
   mcpView,
   onOpenSource,
@@ -97,7 +85,6 @@ export function ToolActivityCard({
   const summary = summarizeArgs(toolName, argsText ?? '');
   // Result meta appears only once settled (§3.1 — absent while running).
   const meta = running ? null : resultMeta(display, result);
-  const hasChildren = childActivity !== undefined && childActivity.length > 0;
 
   const toggle = useCallback(() => {
     setExpanded((prev) => {
@@ -213,22 +200,6 @@ export function ToolActivityCard({
         {mcpView !== undefined && display?.type !== 'mcp_view' ? (
           <div className="p-2">
             <McpViewFrame descriptor={mcpView} />
-          </div>
-        ) : null}
-        {hasChildren ? (
-          <div data-testid="tool-children" className="ms-3 mb-1 border-l border-border ps-4">
-            {childActivity.map((child, i) => (
-              <ToolActivityCard
-                // Swarm child entries arrive in stream order and have no stable id; the
-                // index is a stable key within a single parent card's children list.
-                key={`${child.toolName}-${String(i)}`}
-                toolName={child.toolName}
-                {...(child.argsText !== undefined ? { argsText: child.argsText } : {})}
-                {...(child.result !== undefined ? { result: child.result } : {})}
-                {...(child.isError !== undefined ? { isError: child.isError } : {})}
-                {...(child.refused === true ? { refused: true } : {})}
-              />
-            ))}
           </div>
         ) : null}
       </div>
