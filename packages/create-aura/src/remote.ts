@@ -21,7 +21,7 @@ const REMOTE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 // the exact same install.sh runs on this target, whether reached over SSH or run in place.
 // See local.ts for the per-command justification (sudo/curl/openssl unconditional; apt-get,
 // systemctl, and docker itself deliberately excluded).
-// R3: the same REQUIRED_HOSTS -- ghcr.io and get.docker.com kept, raw.githubusercontent.com
+// R3: the same REQUIRED_HOSTS -- the image home and get.docker.com kept, raw.githubusercontent.com
 // removed (the npm package carries the payload), huggingface.co added (install.sh's
 // unconditional embedding-model probe).
 // R2 (this file's own gap, closed): the reference's own REMOTE_PROBE measured disk alone.
@@ -68,7 +68,7 @@ DISK_AVAILABLE_KB="$(df -Pk "$DISK_PROBE" | awk 'NR == 2 { print $4 }')"
 case "$DISK_AVAILABLE_KB" in
   ''|*[!0-9]*) echo 'unable to determine disk availability' >&2; exit 1 ;;
 esac
-for URL in https://ghcr.io https://get.docker.com https://huggingface.co; do
+for URL in https://registry.gitlab.com https://get.docker.com https://huggingface.co; do
   curl -fsS -o /dev/null -m 10 "$URL"
 done
 printf 'architecture=%s\\n' "$ARCHITECTURE"
