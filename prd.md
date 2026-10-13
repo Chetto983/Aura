@@ -2416,8 +2416,14 @@ sidecars. A JWKS outage is infrastructure failure, not an invalid token. Log the
 without flooding each turn with the same error.
 
 Google account linking in the PIM sidecar uses a Web OAuth client that the operator
-creates, and one shared relay page (github.com/chetto1983/aura-connect) as its only
-redirect URI, identical for every install — Home Assistant's my.home-assistant.io shape.
+creates, and one shared relay page
+(`https://chetto1983-aura-connect.pages.dev/google/callback/`) as its only redirect URI,
+identical for every install — Home Assistant's my.home-assistant.io shape. The site is built by
+Cloudflare Pages from gitlab.com/Chetto1983/aura-connect. It moved there from GitHub Pages on
+2026-10-13, after the flagged GitHub account turned every address into a 404, and the move is
+permanent ([ledger](docs/superpowers/verification/2026-10-13-aura-connect-cloudflare-pages.md)).
+The PIM sidecar builds the consent URL from its own `GoogleOAuthRelayUrl`, which `compose.yaml`
+sets as `CALENDAR_MCP_CalendarMcp__GoogleOAuthRelayUrl`.
 The install names its own callback in `state`, the relay forwards the browser there, and
 the install exchanges the code itself with PKCE; the relay holds no secret and forwards
 only to `/admin/auth/google/callback`. Aura ships no shared Google client: its secret
@@ -2458,7 +2464,9 @@ Cloudflare tunnel.
 
 A remote MCP server whose authorization server offers no registration endpoint is reached
 with Aura's Client ID Metadata Document, published beside the Google relay at
-`https://chetto1983.github.io/aura-connect/mcp/client-metadata.json`. The document's only
+`https://chetto1983-aura-connect.pages.dev/mcp/client-metadata.json` (until 2026-10-13 at
+`chetto1983.github.io/aura-connect/…`, the address the 2026-09-23 measurements below used). The
+document's only
 redirect URI is a relay page next to it (`.../mcp/callback/`). The relay works like the
 Google one and forwards only to the cockpit's `/api/governance/mcp/authorization/callback` and
 to the loopback listener of `aura mcp login`. The document is a fallback: a mount presents the
@@ -2495,8 +2503,18 @@ cockpit reached over HTTPS and the server configured at the `api.us` URL:
   remounted from the stored grant with 120 tools and no consent. Linear remounted the same
   way, through its dynamic registration (68 tools).
 
-Not measured yet: the refresh leg (the first access token expired at 11:33:52 UTC). Not
-observable from Aura's logs: which token-endpoint auth style ElevenLabs accepted. The SDK
+Measured 2026-10-13 on the lab VM, after the document moved
+([ledger](docs/superpowers/verification/2026-10-13-aura-connect-cloudflare-pages.md)):
+- ElevenLabs re-fetches the document named by the grant's `client_id` on refresh. It refused
+  every refresh of the grant issued to the old address with `invalid_client: Client metadata
+  document returned HTTP 404`.
+- Re-authorize then failed on that same refresh, because the flow restored the stored grant.
+  Since `e6222a6c1`, a session that runs an authorization (the cockpit flow, `aura mcp login`)
+  does not restore the stored grant. It obtains a new one; unattended mounts still restore.
+- After a fresh consent for the new document, the server mounted 160 tools.
+
+Still not measured: a successful refresh. Not observable from Aura's logs: which
+token-endpoint auth style ElevenLabs accepted. The SDK
 leaves a document client on x/oauth2's auto-detection, which tries HTTP Basic first and
 the body on refusal; the exchange succeeded, but the retry is proven only in-process.
 

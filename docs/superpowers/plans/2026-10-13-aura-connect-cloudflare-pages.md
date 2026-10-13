@@ -135,7 +135,7 @@ Both were cloned from GitHub with the owner's `gh` credentials. Below they are `
 
   Task 2 connects Cloudflare Pages to it.
 
-- [ ] **Step 1: Create the GitLab project from a directory that is not a git repo**
+- [x] **Step 1: Create the GitLab project from a directory that is not a git repo**
 
 ```bash
 export PATH="$HOME/go/bin:$PATH"
@@ -147,7 +147,7 @@ glab repo create Chetto1983/aura-connect --public --defaultBranch main \
 Expected: the project URL `https://gitlab.com/Chetto1983/aura-connect` is printed. Run from a
 neutral directory, glab adds no remote anywhere.
 
-- [ ] **Step 2: Push the full history of `main` to it**
+- [x] **Step 2: Push the full history of `main` to it**
 
 ```bash
 cd "$AC"
@@ -158,7 +158,7 @@ git ls-remote gitlab main
 
 Expected: `4fa7f65…  refs/heads/main`.
 
-- [ ] **Step 3: Write the failing test.** In `$AC/test/client-metadata.test.mjs`, lines 8-9
+- [x] **Step 3: Write the failing test.** In `$AC/test/client-metadata.test.mjs`, lines 8-9
   become:
 
 ```js
@@ -166,14 +166,14 @@ const PUBLISHED_AT = "https://chetto1983-aura-connect.pages.dev/mcp/client-metad
 const RELAY = "https://chetto1983-aura-connect.pages.dev/mcp/callback/";
 ```
 
-- [ ] **Step 4: Run it and watch it fail**
+- [x] **Step 4: Run it and watch it fail**
 
 Run: `cd "$AC" && node --test`
 Expected: FAIL in `client_id is the exact URL the document is published at` and in
 `the relay is the only redirect, on the client_id's own host`, because the document still names
 github.io.
 
-- [ ] **Step 5: Move the document.** `$AC/mcp/client-metadata.json` becomes:
+- [x] **Step 5: Move the document.** `$AC/mcp/client-metadata.json` becomes:
 
 ```json
 {
@@ -187,12 +187,12 @@ github.io.
 }
 ```
 
-- [ ] **Step 6: Run the suites**
+- [x] **Step 6: Run the suites**
 
 Run: `cd "$AC" && node --test`
 Expected: PASS, all three files (`client-metadata`, `mcp-relay`, `relay`), 0 failures.
 
-- [ ] **Step 7: Move the README.** Exact replacements in `$AC/README.md`:
+- [x] **Step 7: Move the README.** Exact replacements in `$AC/README.md`:
   - line 3: `[Aura](https://github.com/chetto1983/Aura)` → `[Aura](https://gitlab.com/Chetto1983/aura)`;
   - line 15: `https://chetto1983.github.io/aura-connect/google/callback/` →
     `https://chetto1983-aura-connect.pages.dev/google/callback/`;
@@ -216,7 +216,7 @@ grep -rn "github.io\|github.com/chetto1983" . --exclude-dir=.git
 
 Expected: no output.
 
-- [ ] **Step 8: Commit and push**
+- [x] **Step 8: Commit and push**
 
 ```bash
 cd "$AC"
@@ -251,7 +251,7 @@ Expected: the push names one new commit on `main`.
 - Produces: the live base `https://chetto1983-aura-connect.pages.dev/`, which Tasks 3 and 4
   name.
 
-- [ ] **Step 1: The operator creates the Pages project.** In the Cloudflare dashboard:
+- [x] **Step 1: The operator creates the Pages project.** In the Cloudflare dashboard:
   1. Workers & Pages → Create → Pages → Connect to Git.
   2. Choose GitLab and authorize Cloudflare on the GitLab account.
   3. Pick `Chetto1983/aura-connect`.
@@ -267,7 +267,7 @@ Expected: the push names one new commit on `main`.
   and the production URL is `https://chetto1983-aura-connect.pages.dev`. If the dashboard
   offers only another name, stop: the base is a Global Constraint.
 
-- [ ] **Step 2: Read the three addresses anonymously**
+- [x] **Step 2: Read the three addresses anonymously**
 
 ```bash
 B=https://chetto1983-aura-connect.pages.dev
@@ -287,7 +287,7 @@ Expected:
 - six lines start with `200`;
 - the last loop prints `2` twice.
 
-- [ ] **Step 3: No commit.** Keep the output for the ledger.
+- [x] **Step 3: No commit.** Keep the output for the ledger.
 
 ---
 
@@ -311,7 +311,7 @@ Expected:
 
   The closing task deploys both.
 
-- [ ] **Step 1: Write the failing test.** Create `cmd/aura/pim_relay_artifacts_test.go`:
+- [x] **Step 1: Write the failing test.** Create `cmd/aura/pim_relay_artifacts_test.go`:
 
 ```go
 package main
@@ -336,13 +336,13 @@ func TestPIMSidecarIsToldTheGoogleRelay(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run, in WSL from `/mnt/d/Aura`:
 `go test -run TestPIMSidecarIsToldTheGoogleRelay ./cmd/aura/`
 Expected: FAIL with `aura-pim-mcp is not told the Google relay the panel shows`.
 
-- [ ] **Step 3: Move the Google constant.** `internal/agui/connect_pim_providers_api.go:14-18`
+- [x] **Step 3: Move the Google constant.** `internal/agui/connect_pim_providers_api.go:14-18`
   becomes:
 
 ```go
@@ -354,7 +354,7 @@ Expected: FAIL with `aura-pim-mcp is not told the Google relay the panel shows`.
 const PIMGoogleRelayRedirectURI = "https://chetto1983-aura-connect.pages.dev/google/callback/"
 ```
 
-- [ ] **Step 4: Tell the sidecar.** In `compose.yaml`, in the `aura-pim-mcp` service's
+- [x] **Step 4: Tell the sidecar.** In `compose.yaml`, in the `aura-pim-mcp` service's
   `environment:` block, insert right after the line
   `      ASPNETCORE_URLS: http://0.0.0.0:8080`, with six spaces before each key:
 
@@ -365,12 +365,12 @@ const PIMGoogleRelayRedirectURI = "https://chetto1983-aura-connect.pages.dev/goo
       CALENDAR_MCP_CalendarMcp__GoogleOAuthRelayUrl: https://chetto1983-aura-connect.pages.dev/google/callback/
 ```
 
-- [ ] **Step 5: Run the test**
+- [x] **Step 5: Run the test**
 
 Run: `go test -run TestPIMSidecarIsToldTheGoogleRelay ./cmd/aura/`
 Expected: PASS.
 
-- [ ] **Step 6: Move the CIMD constants.** `internal/mcp/oauth_cimd.go:32-41` becomes:
+- [x] **Step 6: Move the CIMD constants.** `internal/mcp/oauth_cimd.go:32-41` becomes:
 
 ```go
 	// auraClientMetadataURL is Aura's metadata document, and so its client_id. One document
@@ -385,20 +385,20 @@ Expected: PASS.
 	auraOAuthRelayURL = "https://chetto1983-aura-connect.pages.dev/mcp/callback/"
 ```
 
-- [ ] **Step 7: Move the web fixtures.** In both
+- [x] **Step 7: Move the web fixtures.** In both
   `web/src/governance/__tests__/CalendarConnect.test.tsx:74` and
   `web/src/governance/__tests__/PimProviderAppsPanel.test.tsx:22`, replace
   `https://chetto1983.github.io/aura-connect/google/callback/` with
   `https://chetto1983-aura-connect.pages.dev/google/callback/`.
 
-- [ ] **Step 8: Move the operator guide.** In `docs/mcp-manager.md`:
+- [x] **Step 8: Move the operator guide.** In `docs/mcp-manager.md`:
   - lines 250, 278 and 280: replace `https://chetto1983.github.io/aura-connect/` with
     `https://chetto1983-aura-connect.pages.dev/`, so each address keeps its path;
   - line 259: replace `([chetto1983/aura-connect](https://github.com/chetto1983/aura-connect))`
     with `([Chetto1983/aura-connect](https://gitlab.com/Chetto1983/aura-connect), served by
     Cloudflare Pages)`.
 
-- [ ] **Step 9: Gate 2 on the touched packages, in WSL**
+- [x] **Step 9: Gate 2 on the touched packages, in WSL**
 
 ```bash
 export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
@@ -410,7 +410,7 @@ CGO_ENABLED=1 go test -race -run 'TestPIMSidecarIsToldTheGoogleRelay|TestCloudfl
 
 Expected: no vet output, and `ok` for each package.
 
-- [ ] **Step 10: Web checks on the two touched files, from `web/` on Windows**
+- [x] **Step 10: Web checks on the two touched files, from `web/` on Windows**
 
 ```bash
 node node_modules/vitest/vitest.mjs run src/governance/__tests__/CalendarConnect.test.tsx src/governance/__tests__/PimProviderAppsPanel.test.tsx
@@ -419,7 +419,7 @@ node node_modules/prettier/bin/prettier.cjs --check src/governance/__tests__/Cal
 
 Expected: both files pass, and prettier reports nothing to fix.
 
-- [ ] **Step 11: The old host and the squatter are gone**
+- [x] **Step 11: The old host and the squatter are gone**
 
 ```bash
 cd /mnt/d/Aura
@@ -429,7 +429,7 @@ git grep -n -E "(^|[^-])aura-connect\.pages\.dev" -- ':!docs/superpowers/specs/2
 
 Expected: no output from either grep. `prd.md` §13 is edited in the closing task.
 
-- [ ] **Step 12: Commit the change**
+- [x] **Step 12: Commit the change**
 
 ```bash
 LEFTHOOK_BIN=$HOME/go/bin/lefthook git -c core.hooksPath=.git/hooks commit -F <msg> -- \
@@ -456,7 +456,7 @@ the two equal.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ```
 
-- [ ] **Step 13: Regenerate the payload manifest and commit it**
+- [x] **Step 13: Regenerate the payload manifest and commit it**
 
 ```bash
 make payload-manifest
@@ -483,7 +483,7 @@ Expected: the diff changes exactly one line, `compose.yaml`'s hash.
 - Consumes: the base from Task 2.
 - Produces: a `main` commit on the fork, which the bridge plan's fork build packages.
 
-- [ ] **Step 1: Move the default and its mentions**
+- [x] **Step 1: Move the default and its mentions**
   - `CalendarMcpConfiguration.cs:36`: the default becomes
     `"https://chetto1983-aura-connect.pages.dev/google/callback/"`.
   - `GoogleOAuthRelayTests.cs:13`: `Relay` becomes the same string.
@@ -501,7 +501,7 @@ cd "$PIM" && grep -rn "chetto1983.github.io\|github.com/chetto1983/aura-connect"
 
 Expected: no output.
 
-- [ ] **Step 2: Run the fork's tests in the SDK container**
+- [x] **Step 2: Run the fork's tests in the SDK container**
 
 ```bash
 cd "$PIM"
@@ -511,7 +511,7 @@ docker run --rm -v "$PWD":/src -w /src mcr.microsoft.com/dotnet/sdk:10.0 \
 
 Expected: `Passed!`, with 0 failed.
 
-- [ ] **Step 3: Commit on `main` and push to GitHub**
+- [x] **Step 3: Commit on `main` and push to GitHub**
 
 ```bash
 cd "$PIM"
@@ -540,7 +540,7 @@ Expected: the push names one new commit on `main`.
 - Modify: `prd.md` §13 (the CIMD paragraph around line 2461, and the relay sentence around line
   2419)
 
-- [ ] **Step 1: Deploy to the lab VM through the overlay.** Do this first:
+- [x] **Step 1: Deploy to the lab VM through the overlay.** Do this first:
   - Check `auth.log` and the running overlay first, as every VM deploy does.
   - Build the `aura-linux` binary in WSL from a clean export of the Task 3 commit.
   - Build a child image `FROM` the running `aura:lab-gateway-clarity-20261013-6` with
@@ -561,19 +561,19 @@ Expected: the push names one new commit on `main`.
     the new address;
   - the binary's sha256 inside the container equals the one built.
 
-- [ ] **Step 2: Read the Google consent URL before any login.** With the operator's cockpit
+- [x] **Step 2: Read the Google consent URL before any login.** With the operator's cockpit
   session, call `GET /api/connect/pim/accounts/{id}/google/start` for a test account.
 
   Expected: `redirectUri` is `https://chetto1983-aura-connect.pages.dev/google/callback/`, and
   `authUrl` carries `redirect_uri=https%3A%2F%2Fchetto1983-aura-connect.pages.dev%2Fgoogle%2Fcallback%2F`.
 
-- [ ] **Step 3: Google, end to end (the operator drives).**
+- [x] **Step 3: Google, end to end (the operator drives).**
   1. The operator adds the redirect URI to the Google Cloud Web client.
   2. The operator connects the account from the cockpit.
 
   Read back through the integrations proxy: `/admin/accounts` lists the account as linked.
 
-- [ ] **Step 4: CIMD, end to end (the operator drives).**
+- [x] **Step 4: CIMD, end to end (the operator drives).**
   1. Find ElevenLabs' registry name with `GET /api/governance/mcp`. The built-in catalogue has
      no entry for it, so it is whatever name it was installed under. If it is not installed,
      the operator installs it from its URL, and the ledger says so.
@@ -588,16 +588,16 @@ Expected: the push names one new commit on `main`.
      `select server_name, updated_at from aura.identity_mcp_oauth where server_name = '<name>'`
      shows an `updated_at` after the start of step 4.
 
-- [ ] **Step 5: Write the ledger.**
+- [x] **Step 5: Write the ledger.**
   `docs/superpowers/verification/2026-10-13-aura-connect-cloudflare-pages.md` records:
   - what was measured: Task 2's output, the VM image and binary, steps 2-4;
   - what this does not establish: the spec's list, and that no CI ran.
 
-- [ ] **Step 6: Amend PRD §13.** The sentence naming the relay page and the CIMD paragraph name
+- [x] **Step 6: Amend PRD §13.** The sentence naming the relay page and the CIMD paragraph name
   `https://chetto1983-aura-connect.pages.dev/…`. They cite the ledger and the date, and say
   that the move is permanent.
 
-- [ ] **Step 7: Commit the ledger and the PRD; push Aura to both remotes.** The message:
+- [x] **Step 7: Commit the ledger and the PRD; push Aura to both remotes.** The message:
 
 ```
 docs(verification): record aura-connect on Cloudflare Pages
