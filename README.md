@@ -9,8 +9,7 @@
 An agent for ongoing work: tools, document retrieval, temporal memory, scheduled
 jobs, and a web cockpit on infrastructure you control.
 
-[![CI](https://github.com/chetto1983/Aura/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/chetto1983/Aura/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/chetto1983/Aura/actions/workflows/codeql.yml/badge.svg?branch=master)](https://github.com/chetto1983/Aura/actions/workflows/codeql.yml)
+[![pipeline](https://gitlab.com/Chetto1983/aura/badges/master/pipeline.svg)](https://gitlab.com/Chetto1983/aura/-/pipelines)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go)](go.mod)
 
@@ -151,8 +150,8 @@ and WhatsApp pairing: [docs/INSTALL.md](docs/INSTALL.md).
 Go from [`go.mod`](go.mod), Docker and a POSIX shell (Linux, or WSL on Windows):
 
 ```bash
-git clone https://github.com/chetto1983/Aura.git
-cd Aura
+git clone https://gitlab.com/Chetto1983/aura.git
+cd aura
 cp .env.example .env
 make tools && lefthook install
 make quality                    # vet + lint + deadcode + race + vuln + build, no containers
