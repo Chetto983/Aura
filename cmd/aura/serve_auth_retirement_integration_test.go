@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/chetto1983/aura/internal/db"
 )
 
 func TestLocalIdentityRetirementRequiresBrowserCredentialPurge(t *testing.T) {
@@ -17,6 +20,21 @@ func TestLocalIdentityRetirementRequiresBrowserCredentialPurge(t *testing.T) {
 	if err := pool.QueryRow(ctx, `INSERT INTO aura.identities (id,name,kind) VALUES ('00000000-0000-0000-0000-000000000001','local','system') ON CONFLICT (name) DO UPDATE SET kind='system' RETURNING id::text`).Scan(&localID); err != nil {
 		t.Fatal(err)
 	}
+	// The successful retirement below deletes the local identity, and later tests of this
+	// package seed rows under it: put it back as migration 0004 seeds it.
+	t.Cleanup(func() {
+		ctx := context.Background()
+		if _, err := pool.Exec(ctx, `INSERT INTO aura.identities (id,name,kind) VALUES ($1,'local','system') ON CONFLICT DO NOTHING`, localID); err != nil {
+			t.Errorf("restore the local identity: %v", err)
+			return
+		}
+		if err := db.WithIdentityTxRaw(ctx, pool, localID, func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, `INSERT INTO aura.capability_grants (identity_id,capability) VALUES ($1::uuid,'*') ON CONFLICT DO NOTHING`, localID)
+			return err
+		}); err != nil {
+			t.Errorf("restore the local identity's grant: %v", err)
+		}
+	})
 	target := uuid.NewString()
 	if _, err := pool.Exec(ctx, `INSERT INTO aura.identities (id,name,kind) VALUES ($1,$2,'user')`, target, "retire-"+target); err != nil {
 		t.Fatal(err)
