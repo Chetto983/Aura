@@ -74,7 +74,8 @@ Neither trip needs a person on the machine, except Andrea's one-time patch.
 
   Both build from a root `Dockerfile`, for amd64 only.
 - **Build sources on the operator's PC.** WSL's Docker has a working `default` builder, no Aura
-  image, and no registry login.
+  image, and no registry login. WSL has Go 1.27.2 and glab v1.122.0, installed with `go install`
+  into `~/go/bin`.
 - **The lab overlay the VM runs on.** It sets `stop_grace_period: 30s`, which `compose.yaml`
   already has, and a lab-built sandbox image. Leaving it for `edge` loses nothing master lacks.
   The VM has 12 GB free.
@@ -100,9 +101,9 @@ whisper image is present. The patch checks what it depends on.
   patch. A standalone switch script run on every host (approach B) was rejected because Andrea
   would have to run it twice.
 - **The forks are rebuilt from source,** not copied from the VM's images. Each fork also gets a
-  public GitLab mirror, so its source stays reachable without GitHub. The operator creates the
-  two GitLab projects, as for `aura`. Once the mirrors exist, the publisher clones from them,
-  with no credentials.
+  public GitLab mirror, so its source stays reachable without GitHub. The two projects are
+  created with glab, which the operator authorized for autonomous use on 2026-10-13. Once the
+  mirrors exist, the publisher clones from them, with no credentials.
 
 ## Design
 
@@ -145,8 +146,12 @@ GitLab path.
    `publish-aura-edge.yml`. A run that dies half way never leaves `aura:edge` ahead of the
    images it needs. That is the 2026-09-27 failure the workflow's comment records.
 
-The operator runs `docker login registry.gitlab.com` once, with a token scoped to
-`write_registry`. The script never reads or prints credentials.
+Docker authenticates to the registry through glab, so no second registry token exists. The
+operator logged in with `glab auth login` on 2026-10-13. `glab auth configure-docker`
+registers `docker-credential-glab`, a credential helper that answers Docker from that login.
+The script never reads or prints credentials. The project's registry was measured through the
+API with that login: the prefix is `registry.gitlab.com/chetto1983/aura`, lowercase, and the
+access level is `enabled`.
 
 ### Updater: `deploy/aura-image-update.sh`
 
