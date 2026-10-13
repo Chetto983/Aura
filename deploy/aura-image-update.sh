@@ -251,10 +251,15 @@ move_image_registry() {
 # [registry/]path[:tag][@digest] -> path. The registry host (a first component with a
 # dot, a port or "localhost") and Docker Hub's implicit library/ are dropped, so a pin
 # that moved registry -- searxng/searxng to ghcr.io/searxng/searxng on 2026-10-07 --
-# still supersedes the image it replaced.
+# still supersedes the image it replaced. The image homes are folded into the first one
+# first, for the same reason: a key move_image_registry moved still supersedes the image
+# it replaced, although the GitLab home has one path component more than ghcr.
 image_repository() {
-  local ref="${1%%@*}" first
+  local ref="${1%%@*}" first home
   [[ "${ref##*/}" != *:* ]] || ref="${ref%:*}"
+  for home in "${IMAGE_HOMES[@]}"; do
+    [[ "${ref}" != "${home}/"* ]] || ref="${IMAGE_HOMES[0]}/${ref#"${home}"/}"
+  done
   first="${ref%%/*}"
   if [[ "${ref}" == */* && ( "${first}" == *.* || "${first}" == *:* || "${first}" == localhost ) ]]; then
     ref="${ref#*/}"
@@ -270,7 +275,8 @@ image_repository() {
 # `docker rmi repo:<none>` is an invalid reference, so an untagged image goes by its ID.
 # Measured on the lab VM (2026-10-11): 8 superseded pins, about 6 GB, the disk at 99%, every
 # removal refused in silence.
-# Images outside compose (the per-user sandbox boxes) are never considered, and docker itself
+# The box images are not compose services; their pins come from .env, and refresh_sandbox_images
+# has already removed every box on a superseded image when this runs. Docker itself
 # refuses to remove one a container still uses; the refusal is logged with docker's reason.
 remove_superseded_images() {
   local ref repo tag id target label err
@@ -279,7 +285,7 @@ remove_superseded_images() {
     [[ -n "${ref}" ]] || continue
     pinned_repos["$(image_repository "${ref}")"]=1
     id="$(docker image inspect --format '{{.Id}}' "${ref}" 2>/dev/null)" && pinned_ids["${id}"]=1
-  done < <(docker compose config --images)
+  done < <(docker compose config --images; env_value AURA_SANDBOX_IMAGE; env_value AURA_SANDBOX_EGRESS_IMAGE)
   while read -r repo tag id; do
     [[ -n "${pinned_repos[$(image_repository "${repo}:${tag}")]:-}" && -z "${pinned_ids[${id}]:-}" ]] || continue
     target="${repo}:${tag}" label="${repo}:${tag}"

@@ -412,6 +412,42 @@ grep -q 'server-cuda-b10884 kept: .*being used by running container' "$fixture/i
   fail "an image docker refused was not reported with docker's reason: $(cat "$fixture/images.out")"
 echo "ok: images no pin names any more are removed, untagged ones by ID, and a refusal is reported"
 
+# After the bridge moved a host, the ghcr copy of every image is superseded by its GitLab pin:
+# the two homes are one repository to the cleanup. The box images live in .env, not compose,
+# and are pinned the same way. A ghcr name on the same image ID as its pin (whisper keeps its
+# digest) is skipped like any pinned image.
+[[ "$(image_repository registry.gitlab.com/chetto1983/aura/aura-caddy:edge)" == "$(image_repository ghcr.io/chetto1983/aura-caddy:edge)" ]] ||
+  fail "the two homes are two repositories: $(image_repository registry.gitlab.com/chetto1983/aura/aura-caddy:edge)"
+[[ "$(image_repository registry.gitlab.com/chetto1983/aura/aura:edge)" == chetto1983/aura ]] ||
+  fail "the GitLab aura is $(image_repository registry.gitlab.com/chetto1983/aura/aura:edge)"
+(
+  INSTALL_DIR="$fixture/bridge-images"
+  mkdir -p "$INSTALL_DIR"
+  printf '%s\n' AURA_SANDBOX_IMAGE=registry.gitlab.com/chetto1983/aura/aura-sandbox:edge \
+    AURA_SANDBOX_EGRESS_IMAGE=registry.gitlab.com/chetto1983/aura/aura-egress:edge >"$INSTALL_DIR/.env"
+  local_images=(
+    "registry.gitlab.com/chetto1983/aura/aura-caddy edge sha256:caddy-new"
+    "ghcr.io/chetto1983/aura-caddy edge sha256:caddy-old"
+    "registry.gitlab.com/chetto1983/aura/aura-sandbox edge sha256:box-new"
+    "ghcr.io/chetto1983/aura-sandbox edge sha256:box-old"
+    "registry.gitlab.com/chetto1983/aura/aura-egress edge sha256:egress-new"
+    "ghcr.io/chetto1983/aura-egress edge sha256:egress-old"
+    "registry.gitlab.com/chetto1983/aura/aura-whisper-server <none> sha256:c6c6"
+    "ghcr.io/chetto1983/aura-whisper-server <none> sha256:c6c6"
+    "aura-sandbox lab-browser-sidecar-20261011-03 sha256:lab-box"
+  )
+  compose_images=(
+    registry.gitlab.com/chetto1983/aura/aura-caddy:edge
+    registry.gitlab.com/chetto1983/aura/aura-whisper-server:2026.10.08.1056@sha256:c6c6
+  )
+  : >"$calls"
+  remove_superseded_images >"$fixture/bridge-images.out"
+  removed="$(sed -n 's/^docker rmi //p' "$calls" | LC_ALL=C sort | tr '\n' ' ')"
+  [[ "$removed" == "ghcr.io/chetto1983/aura-caddy:edge ghcr.io/chetto1983/aura-egress:edge ghcr.io/chetto1983/aura-sandbox:edge " ]] ||
+    fail "after the bridge, removal attempts were: $removed"
+)
+echo "ok: after a move the ghcr copies are superseded by their GitLab pins, the box images too"
+
 # A service reads a bind-mounted payload file only when it starts, and `compose up` does not
 # recreate it for a changed file: the services mounting a changed path are restarted, a
 # directory mount covers the files under it, and nothing else is touched.
