@@ -1,0 +1,37 @@
+# Stopgap while GitHub Actions is disabled on the account (support ticket #4846097,
+# 2026-10-11). It runs `make quality` only; releases and GHCR images stay on GitHub.
+# Delete this file once Actions is back.
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+    # The free tier has 400 compute minutes a month, so doc-only pushes do not run.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - "**/*.go"
+        - go.mod
+        - go.sum
+        - Makefile
+        - .golangci.yml
+        - scripts/**/*
+        - .gitlab-ci.yml
+
+quality:
+  image: golang:1.27.2-bookworm
+  timeout: 60m
+  variables:
+    GOPATH: $CI_PROJECT_DIR/.go
+    GOCACHE: $CI_PROJECT_DIR/.cache/go-build
+    GOLANGCI_LINT_CACHE: $CI_PROJECT_DIR/.cache/golangci-lint
+  cache:
+    key:
+      files: [go.sum]
+    paths: [.go/pkg/mod, .go/bin, .cache]
+  before_script:
+    # internal/documents/filecard shells out to pdftotext, as in ci.yml's unit-test job.
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends poppler-utils
+    - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+    - go install golang.org/x/tools/cmd/deadcode@v0.48.0
+    - go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+  script:
+    - make quality
