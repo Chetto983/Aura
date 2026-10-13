@@ -111,3 +111,47 @@ func TestErroredRunKeepsItsOwnError(t *testing.T) {
 		t.Fatalf("an errored run must not be given a second ending, got %v", got)
 	}
 }
+
+// MEASURED on the lab VM, 2026-10-13 (gateway-clarity acceptance item 5): docker stop while
+// the browser tools ran. The turn was cancelled and produced its RUN_ERROR, yet the viewer
+// attached from the start saw the stream end on CUSTOM. The producer delivered that frame with
+// the cancelled run context. When both the send and ctx.Done are ready, pumpDeliver's select
+// picks one at random, so the ending was lost about half the time. The fallback above did not
+// fire either, because the stream had produced its own terminal frame. The ring kept the frame,
+// but a replay needs a process to replay from, and this one was stopping.
+func TestCancelledRunDeliversItsEndingToAnAttachedViewer(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		stream iter.Seq2[events.Event, error]
+	}{
+		{"the translator's RUN_ERROR", streamOf(
+			events.NewToolCallResultEvent("m1", "c1", "context canceled"),
+			events.NewRunErrorEvent("context canceled"),
+		)},
+		{"a source error", func(yield func(events.Event, error) bool) {
+			if yield(events.NewToolCallResultEvent("m1", "c1", "context canceled"), nil) {
+				yield(nil, context.Canceled)
+			}
+		}},
+	} {
+		for attempt := range 200 {
+			sess := newRunSession("run-s", "thread-s", "id-s", 16, 8, nil)
+			ch, cancelSub, ok := sess.subscribeFrom(0)
+			if !ok {
+				t.Fatal("subscribeFrom(0) on a fresh session must succeed")
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel() // the daemon's drain cancelled the run before its last frames
+
+			(&Server{}).runProducer(ctx, func() {}, sess, tc.stream)
+			var last events.EventType
+			for sev := range ch {
+				last = sev.Ev.Type()
+			}
+			cancelSub()
+			if last != events.EventTypeRunError {
+				t.Fatalf("%s, attempt %d: the attached viewer's stream ended on %q, want RUN_ERROR", tc.name, attempt, last)
+			}
+		}
+	}
+}

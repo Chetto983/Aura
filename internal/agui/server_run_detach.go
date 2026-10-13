@@ -142,18 +142,18 @@ func (s *Server) handleRunDetached(w http.ResponseWriter, r *http.Request, ctx c
 // and fires the cleanup chain (byThread removal + thread unlock).
 //
 // append's false return (fan aborted on a done ctx) deliberately does NOT stop this
-// loop: the ring write precedes the fan, and a CANCELLED run's remaining frames —
-// above all the translator's terminal RUN_ERROR — must still reach the ring so a
-// resume replays them (§4.4). This cannot wedge: once ctx is done every lifecycle
-// send is immediately abortable, so each append is non-blocking, and the stream
-// itself ends because the turn ctx (a child of ours) is what unwound the agent.
+// loop: the ring write precedes the fan, and a CANCELLED run's remaining frames must
+// still reach the ring so a resume replays them (§4.4). This cannot wedge: once ctx is
+// done every lifecycle send is immediately abortable, so each append is non-blocking,
+// and the stream itself ends because the turn ctx (a child of ours) is what unwound the
+// agent. The ending is the exception: appendEnding delivers it past the cancellation.
 func (s *Server) runProducer(ctx context.Context, cancel context.CancelFunc, sess *RunSession, stream iter.Seq2[events.Event, error]) {
 	defer cancel() // releases the wallclock timer once the turn is done
 	defer sess.finish()
 	terminal := false
 	for ev, err := range stream {
 		if err != nil {
-			sess.append(ctx, redactEvent(events.NewRunErrorEvent(sanitizeErr(err))))
+			appendEnding(ctx, sess, events.NewRunErrorEvent(sanitizeErr(err)))
 			return
 		}
 		if ev == nil {
@@ -161,6 +161,8 @@ func (s *Server) runProducer(ctx context.Context, cancel context.CancelFunc, ses
 		}
 		if isTerminalRunEvent(ev) {
 			terminal = true
+			appendEnding(ctx, sess, ev)
+			continue
 		}
 		sess.append(ctx, redactEvent(ev))
 	}
@@ -181,13 +183,23 @@ func (s *Server) runProducer(ctx context.Context, cancel context.CancelFunc, ses
 	if err := ctx.Err(); err != nil && !errors.Is(err, context.Canceled) {
 		reason = sanitizeErr(err)
 	}
-	// Outlive cancellation long enough to notify a reading viewer, but release
-	// sess.mu if a connected viewer stalls. Question resolution and finish also
-	// need that lock. append records the frame before fan-out, so even when the
-	// grace expires, replay retains the ending and every question can close.
-	terminalCtx, stopTerminal := context.WithTimeout(context.WithoutCancel(ctx), terminalDeliveryTimeout)
-	defer stopTerminal()
-	sess.append(terminalCtx, redactEvent(events.NewRunErrorEvent(reason)))
+	appendEnding(ctx, sess, events.NewRunErrorEvent(reason))
+}
+
+// appendEnding appends a run's terminal frame. It outlives the run's cancellation long
+// enough to notify a reading viewer, but releases sess.mu if a connected viewer stalls:
+// question resolution and finish also need that lock. append records the frame before
+// fan-out, so even when the grace expires, replay retains the ending and every question
+// can close.
+//
+// Every ending goes through here, the translator's own included. With the cancelled run
+// context, pumpDeliver's select chose between the send and ctx.Done at random, and an
+// attached viewer lost the ending about half the time. Measured on the lab VM 2026-10-13: a
+// docker stop during a browser tool left the cockpit's stream ending on CUSTOM.
+func appendEnding(ctx context.Context, sess *RunSession, ev events.Event) {
+	endCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), terminalDeliveryTimeout)
+	defer stop()
+	sess.append(endCtx, redactEvent(ev))
 }
 
 // isTerminalRunEvent reports whether ev is the frame a client ends a run on. Both types count:
