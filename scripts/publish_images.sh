@@ -58,6 +58,15 @@ build_image() {
     --label "org.opencontainers.image.revision=${rev}" "$@" -t "${tag}" "${ctx}"
 }
 
+# A push the registry drops gets one more try, and the second push skips every layer the first
+# stored. On 2026-10-14 three of five publishes lost one upload: twice a broken pipe through
+# Docker Desktop's proxy, once a response-header timeout.
+push_retrying() {
+  docker push "$1" && return 0
+  sleep 10
+  docker push "$1"
+}
+
 # A run's images are the registry's once pushed, and a rebuild comes from the build cache, so the
 # local copies go when main returns, whatever it returns. Kept, five publishes left 38 tags and
 # 14.35 GB on the operator's Docker (2026-10-14). The build cache stays.
@@ -121,7 +130,7 @@ main() {
   done
 
   for tag in "${pushes[@]}"; do
-    docker push "${tag}" || return 1
+    push_retrying "${tag}" || return 1
     echo "published ${tag}"
   done
   # The edge set moves last and together, aura:edge the very last, as publish-aura-edge.yml does.

@@ -44,7 +44,9 @@ printf 'IMAGE_HOME=registry.fromcommit/aura\n' >"$src/deploy/aura-image-update.s
 failing_build=""
 failing_contract=""
 failing_push=""
+flaky_push=""
 on_master=1
+sleep() { :; }
 git() {
   echo "git $*" >>"$calls"
   case "$*" in
@@ -61,6 +63,10 @@ docker() {
   echo "docker $*" >>"$calls"
   if [[ "$1" == build && -n "$failing_build" && "$*" == *"/$failing_build:"* ]]; then return 1; fi
   if [[ "$1" == push && -n "$failing_push" && "$2" == *"/$failing_push:"* ]]; then return 1; fi
+  if [[ "$1" == push && -n "$flaky_push" && "$2" == *"/$flaky_push:"* && ! -e "$fixture/flaked" ]]; then
+    touch "$fixture/flaked"
+    return 1
+  fi
   case "$1 ${2:-}" in
     'build '* | 'push '* | 'buildx imagetools' | 'image rm') ;;
     *) fail "unexpected docker $*" ;;
@@ -125,6 +131,17 @@ if main HEAD >"$fixture/out" 2>&1; then fail "a failed push still published"; fi
 [[ "$(built_tags)" == "$(removed_tags)" ]] || fail "a failed push left its images behind"
 failing_push=""
 echo "ok: a failed push moves no tag and leaves no image behind"
+
+# Measured 2026-10-14: three of five publishes lost one upload, twice to a broken pipe through
+# Docker Desktop's proxy and once to a response-header timeout.
+: >"$calls"
+flaky_push=aura-ingest
+main HEAD >"$fixture/out" 2>&1 || fail "a push the registry dropped once failed the publish: $(tail -3 "$fixture/out")"
+[[ "$(grep -c '^docker push .*/aura-ingest:' "$calls")" == 2 ]] || fail "the dropped push was not retried: $(grep '^docker push' "$calls")"
+grep '^docker buildx imagetools create' "$calls" | tail -1 | grep -q -- '--tag registry.example/aura/aura:edge ' ||
+  fail "the tags did not move after the retried push"
+flaky_push=""
+echo "ok: a push the registry drops gets one more try"
 
 # Appliances update to whatever aura:edge names, and master-<sha> claims the commit is there.
 : >"$calls"
