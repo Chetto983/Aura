@@ -12,7 +12,7 @@
 # and its master-<sha> tag says the commit is there for anyone to read.
 # Docker must already reach the registry (`glab auth configure-docker`).
 #   AURA_PUBLISH_REMOTE       default: gitlab
-#   AURA_PUBLISH_REGISTRY     default: IMAGE_HOME in deploy/aura-image-update.sh
+#   AURA_PUBLISH_REGISTRY     default: IMAGE_HOME in the published commit's deploy/aura-image-update.sh
 #   AURA_PUBLISH_PIM_GIT      default: https://gitlab.com/Chetto1983/aura-pim-mcp.git
 #   AURA_PUBLISH_WHATSAPP_GIT default: https://gitlab.com/Chetto1983/whatsapp-mcp.git
 #   AURA_PUBLISH_FORK_REF     default: main
@@ -77,8 +77,6 @@ remove_built_images() {
 main() {
   local registry remote sha work entry name file fork_sha tag image var test
   local -a pushes=() moves=()
-  registry="${AURA_PUBLISH_REGISTRY:-$(sed -n 's/^IMAGE_HOME=//p' "${repo_root}/deploy/aura-image-update.sh")}"
-  [[ -n "${registry}" ]] || { echo "publish: no registry (set AURA_PUBLISH_REGISTRY)" >&2; return 1; }
   remote="${AURA_PUBLISH_REMOTE:-gitlab}"
   sha="$(git -C "${repo_root}" rev-parse "${1:-HEAD}^{commit}")" || return 1
   git -C "${repo_root}" fetch --quiet "${remote}" master || return 1
@@ -88,6 +86,10 @@ main() {
   trap 'rm -rf "${work}"; remove_built_images "${pushes[@]}"' RETURN
   mkdir -p "${work}/aura"
   git -C "${repo_root}" archive "${sha}" | tar -x -C "${work}/aura" || return 1
+  # The home the published commit's updater follows, not the working tree's: on the return trip
+  # the two differ.
+  registry="${AURA_PUBLISH_REGISTRY:-$(sed -n 's/^IMAGE_HOME=//p' "${work}/aura/deploy/aura-image-update.sh")}"
+  [[ -n "${registry}" ]] || { echo "publish: no registry (set AURA_PUBLISH_REGISTRY)" >&2; return 1; }
 
   for entry in "${EDGE_IMAGES[@]}"; do
     name="${entry%%:*}" file="${entry#*:}" tag="${registry}/${name}:master-${sha}"

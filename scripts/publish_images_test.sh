@@ -38,8 +38,12 @@ for s in cloudflared_image_contract_test.sh ingest_image_contract_test.sh sandbo
   printf '#!/usr/bin/env bash\n' >"$src/scripts/$s"
 done
 touch "$src/fork/Dockerfile"
+# The commit being published names its own home, unlike the working tree's.
+mkdir -p "$src/deploy"
+printf 'IMAGE_HOME=registry.fromcommit/aura\n' >"$src/deploy/aura-image-update.sh"
 failing_build=""
 failing_contract=""
+failing_push=""
 on_master=1
 git() {
   echo "git $*" >>"$calls"
@@ -56,13 +60,15 @@ git() {
 docker() {
   echo "docker $*" >>"$calls"
   if [[ "$1" == build && -n "$failing_build" && "$*" == *"/$failing_build:"* ]]; then return 1; fi
+  if [[ "$1" == push && -n "$failing_push" && "$2" == *"/$failing_push:"* ]]; then return 1; fi
   case "$1 ${2:-}" in
     'build '* | 'push '* | 'buildx imagetools' | 'image rm') ;;
     *) fail "unexpected docker $*" ;;
   esac
 }
 bash() {
-  echo "contract $*" >>"$calls"
+  # Each contract reads its image from a variable of its own; only that one is set for it.
+  echo "contract $* image=${AURA_CLOUDFLARED_TEST_IMAGE:-}${AURA_INGEST_IMAGE:-}${AURA_SANDBOX_IMAGE:-}" >>"$calls"
   [[ -z "$failing_contract" || "$1" != *"$failing_contract"* ]]
 }
 export AURA_PUBLISH_REGISTRY=registry.example/aura
@@ -86,6 +92,13 @@ grep -q -- '--tag registry.example/aura/aura-pim-mcp:sidecar ' "$calls" || fail 
 grep -q -- '--tag registry.example/aura/whatsapp-mcp:latest ' "$calls" || fail "the whatsapp fork's latest tag did not move"
 echo "ok: every per-commit tag is pushed before any moving tag moves, and aura:edge moves last"
 
+# A misspelt variable would leave a contract testing its default image instead of this commit's.
+for name in cloudflared ingest sandbox; do
+  grep -qx "contract .*/scripts/${name}_image_contract_test.sh image=registry.example/aura/aura-${name}:master-0123456789abcdef0123456789abcdef01234567" "$calls" ||
+    fail "the ${name} contract did not test this commit's aura-${name}: $(grep "${name}_image_contract" "$calls")"
+done
+echo "ok: each image contract tests this commit's image"
+
 # Measured 2026-10-14: five publishes left 38 tags, 14.35 GB, on the operator's Docker.
 [[ -n "$(built_tags)" && "$(built_tags)" == "$(removed_tags)" ]] ||
   fail "the images this publish built are still on the machine: built [$(built_tags | tr '\n' ' ')] removed [$(removed_tags | tr '\n' ' ')]"
@@ -105,6 +118,14 @@ for case in build contract; do
 done
 echo "ok: a failed build or image contract pushes nothing and leaves no image behind"
 
+: >"$calls"
+failing_push=aura-ingest
+if main HEAD >"$fixture/out" 2>&1; then fail "a failed push still published"; fi
+! grep -q '^docker buildx imagetools create' "$calls" || fail "a failed push moved a tag: $(grep '^docker buildx' "$calls" | head -1)"
+[[ "$(built_tags)" == "$(removed_tags)" ]] || fail "a failed push left its images behind"
+failing_push=""
+echo "ok: a failed push moves no tag and leaves no image behind"
+
 # Appliances update to whatever aura:edge names, and master-<sha> claims the commit is there.
 : >"$calls"
 on_master=0
@@ -113,3 +134,12 @@ grep -q 'not on gitlab/master' "$fixture/out" || fail "refused for another reaso
 ! grep -q '^docker ' "$calls" || fail "a commit that is not on master was built: $(grep '^docker ' "$calls" | head -1)"
 on_master=1
 echo "ok: only a commit already on the remote's master is built and published"
+
+# The registry is the published commit's IMAGE_HOME. On the return trip the working tree may name
+# one home while the commit being published names the other.
+: >"$calls"
+(unset AURA_PUBLISH_REGISTRY && main HEAD >"$fixture/out" 2>&1) || fail "a publish with no AURA_PUBLISH_REGISTRY failed: $(tail -3 "$fixture/out")"
+grep -q -- ' -t registry.fromcommit/aura/aura:master-' "$calls" ||
+  fail "the publish did not use the commit's IMAGE_HOME: $(grep '^docker build' "$calls" | head -1)"
+! grep -q 'registry.gitlab.com' "$calls" || fail "the working tree's IMAGE_HOME reached the publish"
+echo "ok: the registry is the published commit's IMAGE_HOME"

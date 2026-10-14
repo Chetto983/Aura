@@ -280,7 +280,9 @@ When GitHub reinstates the account:
    `deploy/aura-registry-bridge.sh`. The anti-drift test fails until no GitLab reference is
    left in a shipped file.
 2. CI publishes that commit to ghcr, and the operator publishes create-aura to npm.
-3. `scripts/publish_images.sh` publishes the commit once more to GitLab.
+3. `AURA_PUBLISH_REGISTRY=registry.gitlab.com/chetto1983/aura scripts/publish_images.sh`
+   publishes the commit once more to GitLab. The variable is required: by default the publisher
+   follows the published commit's `IMAGE_HOME`, which by then names ghcr (amended 2026-10-14).
 4. Every bridged host pulls that GitLab `aura:edge` and installs its updater. The updater then
    moves each key back once the ghcr image pulls.
 5. When no bridged host is left, the publisher script is deleted.
