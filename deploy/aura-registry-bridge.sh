@@ -35,6 +35,28 @@ start_updater() {
   say "the cockpit will offer the update; 'Update now' applies it, or Aura applies it after 15 idle minutes."
 }
 
+# Prints the free KiB of the tightest filesystem holding images, and its directory; fails when
+# Docker does not answer. With the containerd image store, images live under containerd's own
+# root, "a separate storage path from the Docker data directory" that `docker info` does not
+# report (docs.docker.com/engine/storage/containerd); containerd's config names it. The same
+# measure is image_store_free in deploy/aura-image-home.sh, which this one-time script, piped
+# from curl, cannot source.
+image_store_free() {
+  local info dir free least='' where=''
+  local -a dirs
+  info="$(docker info --format '{{.DockerRootDir}} {{json .DriverStatus}}' 2>/dev/null)" && [[ -n "${info}" ]] || return 1
+  dirs=("${info%% *}")
+  if [[ "${info}" == *io.containerd.snapshotter* ]]; then
+    dir="$(containerd config dump 2>/dev/null | sed -n "s/^root = [\"']\(.*\)[\"']$/\1/p")"
+    dirs+=("${dir:-/var/lib/containerd}")
+  fi
+  for dir in "${dirs[@]}"; do
+    free="$(df -P -k "${dir}" | awk 'NR == 2 { print $4 }' | tr -dc 0-9)" && [[ -n "${free}" ]] || return 1
+    if [[ -z "${least}" ]] || ((free < least)); then least="${free}" where="${dir}"; fi
+  done
+  echo "${least} ${where}"
+}
+
 # Prints the bridge copy of every image .env names under ghcr, AURA_IMAGE's first.
 bridge_images() {
   local value
@@ -45,7 +67,7 @@ bridge_images() {
 }
 
 main() {
-  local env_file updater current target free image defaults="${AURA_DEFAULTS_FILE:-/etc/default/aura}"
+  local env_file updater current target store free where need image defaults="${AURA_DEFAULTS_FILE:-/etc/default/aura}"
   [[ "$(id -u)" == 0 ]] || die "run it as root (sudo)"
   # shellcheck source=/dev/null
   [[ ! -f "${defaults}" ]] || source "${defaults}"
@@ -64,9 +86,11 @@ main() {
   esac
   grep -q '^sync_payload()' "${updater}" 2>/dev/null ||
     die "${updater} predates the payload sync and could never install its successor"
-  free="$(df -P -k "$(docker info --format '{{.DockerRootDir}}')" | awk 'NR == 2 { print $4 }' | tr -dc 0-9)"
-  ((${free:-0} >= MIN_FREE_GB * 1048576)) ||
-    die "Docker has $((${free:-0} / 1048576)) GiB free, ${MIN_FREE_GB} GiB are needed"
+  store="$(image_store_free)" || die "Docker does not answer: start it (systemctl start docker) and run this again"
+  read -r free where <<<"${store}"
+  need=$((MIN_FREE_GB * 1048576))
+  ((free >= need)) ||
+    die "${where} has $((free / 1048576)) GiB free, ${MIN_FREE_GB} GiB are needed: free $(((need - free + 1048575) / 1048576)) GiB there and run this again"
   while read -r image; do
     say "pulling ${image}"
     docker pull -q "${image}" >/dev/null || die "${image} does not pull"

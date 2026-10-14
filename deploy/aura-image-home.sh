@@ -25,19 +25,40 @@ image_keys_elsewhere() {
   done < <(grep -E '^AURA_([A-Z0-9_]+_)?IMAGE=' "${env_file}" || true)
 }
 
-docker_free_kib() {
-  df -P -k "$(docker info --format '{{.DockerRootDir}}')" | awk 'NR == 2 { print $4 }'
+# Prints the free KiB of the tightest filesystem holding images, and its directory; fails when
+# Docker does not answer. With the containerd image store, images live under containerd's own
+# root, "a separate storage path from the Docker data directory" that `docker info` does not
+# report (docs.docker.com/engine/storage/containerd); containerd's config names it. The bridge
+# patch carries the same measure, since it runs piped from curl and cannot source this file.
+image_store_free() {
+  local info dir free least='' where=''
+  local -a dirs
+  info="$(docker info --format '{{.DockerRootDir}} {{json .DriverStatus}}' 2>/dev/null)" && [[ -n "${info}" ]] || return 1
+  dirs=("${info%% *}")
+  if [[ "${info}" == *io.containerd.snapshotter* ]]; then
+    dir="$(containerd config dump 2>/dev/null | sed -n "s/^root = [\"']\(.*\)[\"']$/\1/p")"
+    dirs+=("${dir:-/var/lib/containerd}")
+  fi
+  for dir in "${dirs[@]}"; do
+    free="$(df -P -k "${dir}" | awk 'NR == 2 { print $4 }' | tr -dc 0-9)" && [[ -n "${free}" ]] || return 1
+    if [[ -z "${least}" ]] || ((free < least)); then least="${free}" where="${dir}"; fi
+  done
+  echo "${least} ${where}"
 }
 
 # Downloads the home copy of every key still elsewhere. It changes nothing that runs, so a tick
 # killed halfway loses only time, and a pull that fails is simply tried again next tick.
 fetch_image_homes() {
-  local keys key target free
+  local keys key target store free where
   keys="$(image_keys_elsewhere)"
   [[ -n "${keys}" ]] || return 0
-  free="$(docker_free_kib)"
-  if ((${free:-0} < MOVE_MIN_FREE_KIB)); then
-    echo "images: $((${free:-0} / 1048576)) GiB free, $((MOVE_MIN_FREE_KIB / 1048576)) GiB needed; nothing fetched from ${IMAGE_HOME}."
+  if ! store="$(image_store_free)"; then
+    echo "images: Docker does not answer; nothing fetched from ${IMAGE_HOME}."
+    return 0
+  fi
+  read -r free where <<<"${store}"
+  if ((free < MOVE_MIN_FREE_KIB)); then
+    echo "images: ${where} has $((free / 1048576)) GiB free, $((MOVE_MIN_FREE_KIB / 1048576)) GiB needed; nothing fetched from ${IMAGE_HOME}."
     return 0
   fi
   while read -r key target; do

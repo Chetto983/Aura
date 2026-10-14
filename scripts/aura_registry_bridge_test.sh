@@ -24,23 +24,31 @@ export INSTALL_DIR="$fixture/aura" AURA_IMAGE_UPDATE_BIN="$fixture/updater.sh"
 # root there, a stubbed pull would move the real .env. The test reads its own file instead.
 export AURA_DEFAULTS_FILE="$fixture/defaults"
 : >"$AURA_DEFAULTS_FILE"
-uid=0 free_kib=$((40 * 1048576)) broken_pull=''
+containerd_store='[["driver-type","io.containerd.snapshotter.v1"]]'
+defaults() {
+  uid=0 free_kib=$((40 * 1048576)) containerd_free_kib=$((40 * 1048576)) broken_pull='' docker_down=''
+  driver_status="$containerd_store"
+}
+defaults
 id() { echo "$uid"; }
 # What `df -P` prints in the unit asked for: the free space is the fourth field of the second
-# line, and -BG rounds it up to a whole GiB.
+# line, and -BG rounds it up to a whole GiB. containerd's root sits on a filesystem of its own.
 df() {
-  local free="${free_kib}K"
-  [[ "$1 $2" != '-P -BG' ]] || free="$(((free_kib + 1048575) / 1048576))G"
+  local kib="$free_kib" free
+  [[ "${*: -1}" != /srv/containerd ]] || kib="$containerd_free_kib"
+  free="${kib}K"
+  [[ "$1 $2" != '-P -BG' ]] || free="$(((kib + 1048575) / 1048576))G"
   printf 'Filesystem Blocks Used Available Capacity Mounted on\n/dev/sda2 57G 17G %s 30%% /\n' "$free"
 }
 docker() {
   echo "docker $*" >>"$calls"
   case "$1" in
-    info) echo /var/lib/docker ;;
+    info) [[ -z "$docker_down" ]] && echo "/var/lib/docker $driver_status" ;;
     pull) [[ "$3" != "${broken_pull}" ]] ;;
     *) fail "unexpected docker $*" ;;
   esac
 }
+containerd() { [[ "$*" == 'config dump' ]] && echo "root = '/srv/containerd'"; }
 systemctl() { echo "systemctl $*" >>"$calls"; }
 
 reset() {
@@ -51,7 +59,7 @@ reset() {
   printf 'sync_payload() {\n  :\n}\n' >"$AURA_IMAGE_UPDATE_BIN"
   cp "$INSTALL_DIR/.env" "$fixture/env.before"
   : >"$calls"
-  uid=0 free_kib=$((40 * 1048576)) broken_pull=''
+  defaults
 }
 
 refuses() { # <why> <its message> : main must fail for that reason and leave .env byte-identical
@@ -65,7 +73,11 @@ refuses() { # <why> <its message> : main must fail for that reason and leave .en
 reset; uid=1000; refuses "not root" "as root"
 reset; printf 'AURA_IMAGE=example.invalid/aura:edge\n' >"$INSTALL_DIR/.env"; cp "$INSTALL_DIR/.env" "$fixture/env.before"; refuses "AURA_IMAGE under neither home" "names neither"
 reset; printf 'echo too old\n' >"$AURA_IMAGE_UPDATE_BIN"; refuses "an updater with no payload sync" "predates the payload sync"
-reset; free_kib=$((3 * 1048576)); refuses "too little free space" "3 GiB free"
+reset; free_kib=$((3 * 1048576)); refuses "too little free space" "3 GiB free, 12 GiB are needed: free 9 GiB there and run this again"
+# With Docker down `docker info` printed nothing and df failed on '' with a raw error.
+reset; docker_down=1; refuses "Docker does not answer" "Docker does not answer"
+# With the containerd image store, images live under containerd's own root, not Docker's.
+reset; containerd_free_kib=$((5 * 1048576)); refuses "containerd's filesystem is short" "/srv/containerd has 5 GiB free"
 # The lab VM had 11 GiB free; a move adds up to 10 GiB, which would leave its databases no room.
 reset; free_kib=$((11 * 1048576)); refuses "free space without a margin over the measured set" "11 GiB free"
 # df -BG rounds up: 11.9 GiB free printed as 12G once let a host through.
@@ -106,3 +118,9 @@ grep -qx 'AURA_IMAGE=registry.gitlab.com/chetto1983/aura/aura:edge' "$fixture/fr
 cmp -s "$INSTALL_DIR/.env" "$fixture/env.before" || fail "the patch moved a .env its defaults do not name"
 : >"$AURA_DEFAULTS_FILE"
 echo "ok: the patch reads its defaults from AURA_DEFAULTS_FILE"
+
+# Without the containerd image store, containerd's root holds no image, so its space does not count.
+reset
+driver_status='[["Backing Filesystem","extfs"]]' containerd_free_kib=$((5 * 1048576))
+(main) >"$fixture/out" 2>&1 || fail "a classic image store was refused for containerd's space: $(cat "$fixture/out")"
+echo "ok: the free space is measured where the image store keeps its images"

@@ -25,15 +25,21 @@ set +e # the updater enables errexit when sourced; the cases below test return c
 
 calls="$fixture/calls.log"
 H=registry.gitlab.com/chetto1983/aura
-free_kib=$((40 * 1024 * 1024)) local_images="" pull_fails=""
+free_kib=$((40 * 1024 * 1024)) containerd_free_kib=$((40 * 1024 * 1024)) docker_down="" local_images="" pull_fails=""
 # pull_retrying waits 10 s between tries; the test does not.
 sleep() { :; }
 # The shape `df -P -k` prints: the free space is the fourth field of the second line, in KiB.
-df() { printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda2 59768832 17825792 %s 30%% /\n' "$free_kib"; }
+# containerd's root sits on a filesystem of its own.
+df() {
+  local kib="$free_kib"
+  [[ "${*: -1}" != /srv/containerd ]] || kib="$containerd_free_kib"
+  printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/sda2 59768832 17825792 %s 30%% /\n' "$kib"
+}
+containerd() { [[ "$*" == 'config dump' ]] && echo "root = '/srv/containerd'"; }
 docker() {
   echo "docker $*" >>"$calls"
   case "$1 $2" in
-    'info --format') echo /var/lib/docker ;;
+    'info --format') [[ -z "$docker_down" ]] && echo '/var/lib/docker [["driver-type","io.containerd.snapshotter.v1"]]' ;;
     'pull -q') [[ " ${pull_fails} " != *" $3 "* ]] && local_images+=" $3" ;;
     'image inspect') [[ " ${local_images} " == *" ${!#} "* ]] && echo "sha256:${!#}" ;;
     *) fail "unexpected docker $*" ;;
@@ -54,7 +60,7 @@ AURA_STT_IMAGE=hwdsl2/whisper-server:latest
 ENV
   chmod 600 "$INSTALL_DIR/.env"
   cp "$INSTALL_DIR/.env" "$fixture/env.before"
-  IMAGE_HOME=$H free_kib=$((40 * 1024 * 1024)) local_images="" pull_fails=""
+  IMAGE_HOME=$H free_kib=$((40 * 1024 * 1024)) containerd_free_kib=$((40 * 1024 * 1024)) docker_down="" local_images="" pull_fails=""
   : >"$calls"
 }
 
@@ -72,7 +78,18 @@ free_kib=$((12 * 1024 * 1024 - 1))
 fetch_image_homes >"$fixture/fetch.out"
 ! grep -q '^docker pull' "$calls" || fail "fetched with $free_kib KiB free"
 grep -q 'nothing fetched' "$fixture/fetch.out" || fail "the refusal was not logged: $(cat "$fixture/fetch.out")"
-echo "ok: a host under 12 GiB free fetches nothing"
+# With the containerd image store, images live under containerd's own root, not Docker's.
+reset
+containerd_free_kib=$((5 * 1024 * 1024))
+fetch_image_homes >"$fixture/fetch.out"
+! grep -q '^docker pull' "$calls" || fail "fetched with containerd's filesystem at 5 GiB"
+grep -q '/srv/containerd has 5 GiB free' "$fixture/fetch.out" || fail "the refusal did not name containerd's root: $(cat "$fixture/fetch.out")"
+reset
+docker_down=1
+fetch_image_homes >"$fixture/fetch.out" || fail "a tick with Docker down failed the fetch"
+! grep -q '^docker pull' "$calls" || fail "fetched with Docker down"
+grep -q 'Docker does not answer' "$fixture/fetch.out" || fail "Docker down was not logged: $(cat "$fixture/fetch.out")"
+echo "ok: a host under 12 GiB free where its images live fetches nothing"
 
 # 3. The apply repoints only keys whose home copy is here, and never downloads.
 reset
