@@ -275,6 +275,16 @@ fix was red first, and each test gap was proved by a mutant that had survived an
 - **GitLab CI.** Pipeline `2947867283` on `a8541174d` was green: `appliance-shell` 44 s,
   `quality` 519 s.
 
+**npm.** The operator published `create-aura-appliance@0.2.14`. Read back from the registry:
+- version 0.2.14 and a 63-file tarball, with `repository.url` on gitlab.com;
+- an installer byte-identical to the local build, which unpacks to 37 files;
+- `DEFAULT_IMAGE` on the GitLab home, and `record_applied_update` in its `install.sh`;
+- `ExecStart=/usr/bin/docker compose up -d --pull missing` in its `aura.service`;
+- `https://ghcr.io` in both `dist/local.js` and `dist/remote.js`.
+
+It was packed before `70e4398b8`, so its updater lacks the stopped-stack branch. A fresh install
+gets that branch from the `aura:edge` payload on its first apply.
+
 **The VM, frozen again.** It was frozen as before, and this time the timer was disabled
 (`disabled inactive`).
 - **Docker stopped.** `docker.service` and `docker.socket` were stopped, and the patch was piped
@@ -301,7 +311,9 @@ fix was red first, and each test gap was proved by a mutant that had survived an
   - `70e4398b8`: when `arcadedb-mcp` is not running, the apply brings the whole stack up.
 - **Recovery.** `systemctl restart` on the failed oneshot unit does not run its ExecStop, so the
   unhealthy aura stayed in place and the unit failed again. After `docker compose down`,
-  `systemctl start aura.service` returned 0 in 113 s.
+  `systemctl start aura.service` returned 0 in 113 s. At 179 s, 19 containers ran: 16 healthy,
+  0 unhealthy, none starting. aura was healthy on `a8541174d`, and the cockpit answered 401 (the
+  Authula sign-in).
 
 **Not established here:**
 - the patch's space refusal on a containerd root that sits on its own filesystem;
