@@ -113,6 +113,9 @@ jobs:
           bash scripts/install_preflight_test.sh
           bash scripts/aura_image_update_test.sh
           bash scripts/aura_update_consent_test.sh
+          bash scripts/aura_image_home_test.sh
+          bash scripts/aura_registry_bridge_test.sh
+          bash scripts/publish_images_test.sh
           bash scripts/cloudflare_update_test.sh
           bash scripts/cloudflare_tunnel_live_e2e_test.sh
           bash scripts/payload_manifest_gate.sh
