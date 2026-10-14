@@ -3582,7 +3582,7 @@ whether 15 minutes suits real usage.
   - **The update check.** A key whose copy has arrived counts as a pending update.
   - **The reclaim.** The images the move superseded are reclaimed afterwards.
   - **Fresh installs.** They start at the home: `scripts/install.sh`, compose's fallbacks and
-    create-aura 0.2.12.
+    create-aura 0.2.12 and later.
 - **A host whose updater predates this.** Its updater cannot fetch its successor, so it needs
   `deploy/aura-registry-bridge.sh` once.
   - **The pull.** The patch pulls the GitLab copy of every key that still names ghcr, measuring
@@ -3623,6 +3623,8 @@ Measured 2026-10-14 on the lab VM (`docs/superpowers/verification/2026-10-14-git
   manifest (`9c10e3da7`).
   - Run on the VM's real image and payload, it recorded what the updater records itself.
   - The next tick found the box current.
+  - create-aura-appliance 0.2.13 ships it. Read back from npm, its installer's `install.sh`
+    carries the function.
 
 The way back is the same move in reverse: one commit sets `IMAGE_HOME` back and deletes the
 patch.

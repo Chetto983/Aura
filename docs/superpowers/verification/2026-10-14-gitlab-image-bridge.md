@@ -302,6 +302,12 @@ happens once, but on a new host it lands while the operator may be in the setup 
   `record_applied_update`, taken from `install.sh` on GitLab raw master, then ran against the
   real `aura` image and payload. It wrote the same image ID and the same manifest the updater had
   recorded itself. The 16:24:11 tick ended in 33 s with `state=current` and no decision.
+- **The npm release.** The operator published `create-aura-appliance@0.2.13` (`6be995daf`) from
+  WSL, completing npm's web 2FA. Read back from the registry:
+  - version 0.2.13 and a 63-file tarball, with `repository.url` on gitlab.com;
+  - an installer byte-identical to the local build, which unpacks to 37 files;
+  - `DEFAULT_IMAGE` on the GitLab home;
+  - `record_applied_update` defined and called in its `install.sh`.
 
 **A republish looked like an update forever.** This is pre-existing, and today's republish
 surfaced it. Fixed in `4144693ec`.
@@ -340,8 +346,8 @@ under "A scheduled goal closes its ledger rows".
     it. The aliases were untagged by hand afterwards.
   - **The refusal.** The space refusal was not hit: 20.12 GiB were free.
 - **The install fix on a clean install.** `record_applied_update` ran on the lab VM's real image
-  and payload, not inside a fresh install. A clean install from npm needs a release that carries
-  `9c10e3da7`.
+  and payload, not inside a fresh install. create-aura 0.2.13 carries it, but no clean install
+  has run 0.2.13.
 - **Andrea's box.** Its disk, its layers already shared with GitLab and its network are its own.
   The 12 GiB floor is the lab VM's worst case plus 2 GiB.
 - **The quiet spell, from the updater's side.** At 13:00:55 the operator had been idle since
