@@ -110,7 +110,7 @@ type Verdict struct {
 // ReservationKey is the ledger triple the decision-fact is keyed on. It is ALWAYS
 // the ORIGINATING conversation UUID (runner convID / swarm RunConfig.ConvID / cron
 // OriginConversationID) + request_id + tool_call_id — a headless flat session
-// (`<conv>-swarm-w<i>`, `agent_job:<runID>`) never keys the ledger (Open Q1 full
+// (`<conv>-swarm-w<i>`, `agent_job-<runID>`) never keys the ledger (Open Q1 full
 // enforcement).
 type ReservationKey struct {
 	ConversationID string

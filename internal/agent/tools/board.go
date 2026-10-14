@@ -120,7 +120,7 @@ func boardIdentity(ctx context.Context) string {
 }
 
 // boardOrigin reads where a call comes from off its session. A conversation's own session is
-// its UUID; a scheduled job (agent_job:<run>) or a swarm worker (<conv>-swarm-w<i>) is not,
+// its UUID; a scheduled job (agent_job-<run>) or a swarm worker (<conv>-swarm-w<i>) is not,
 // and adds its cards as background work with no conversation link.
 func boardOrigin(ctx context.Context) (conversationID string, source board.Source) {
 	session := SessionIDFromContext(ctx)

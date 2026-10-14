@@ -60,7 +60,7 @@ type Job struct {
 	// OriginConversationID is the conversation UUID the task was scheduled from (may be
 	// empty for a task with no origin). It is the gateway ledger key for a headless
 	// agent_job so a mutating denial is durably recorded on a real conversation UUID
-	// (Open Q1) — the flat "agent_job:<runID>" session never keys the ledger.
+	// (Open Q1) — the flat "agent_job-<runID>" session never keys the ledger.
 	OriginConversationID string
 }
 
@@ -126,7 +126,9 @@ func childRegistry(parent *tools.Registry) *tools.Registry {
 
 // newAgentWorker constructs the ephemeral LlmAgent for one agent_job turn, mirroring
 // swarm.runChild's NewLlmAgent construction VERBATIM except for the FLAT ephemeral
-// SessionID (amendment #23: agent_job:<runID>, no DB-backed history). prior carries
+// SessionID (amendment #23: agent_job-<runID>, no DB-backed history). The id names the
+// sidecar directory of a long tool result, whose grammar is [A-Za-z0-9_-]: as
+// "agent_job:<runID>" every scheduled web_fetch failed on the lab VM, 2026-10-14. prior carries
 // any resume turns (the ask_user auto-reject inject-and-continue, D-25); on the first
 // turn it is just the goal user turn. client/cfg are ALREADY resolved by the caller's
 // resolveLLM (AgentJobHandler.resolveLLM, agentjob.go) — this function no longer
@@ -149,9 +151,9 @@ func newAgentWorker(deps AgentDeps, client llm.Client, cfg llm.Config, runID, le
 		Registry:   childRegistry(deps.Registry),
 		PreviewCap: deps.PreviewCap,
 		RunDir:     deps.RunDir,
-		SessionID:  "agent_job:" + runID,
+		SessionID:  "agent_job-" + runID,
 		// The gateway ledger key is the ORIGINATING conversation UUID, NOT the flat
-		// "agent_job:<runID>" SessionID above (uuid.Parse fails on it) (Open Q1).
+		// "agent_job-<runID>" SessionID above (uuid.Parse fails on it) (Open Q1).
 		LedgerConversationID: ledgerConvID,
 		OriginConversationID: ledgerConvID,
 		Gateway:              deps.Gateway,

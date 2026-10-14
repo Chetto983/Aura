@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 
@@ -96,6 +97,44 @@ func (p *actorProbe) Execute(ctx context.Context, _ json.RawMessage) (tools.Tool
 	p.worker = tools.IsDelegatedDispatch(ctx)
 	p.unobserved = tools.IsUnobservedDispatch(ctx)
 	return tools.ToolResult{Preview: "ok"}, nil
+}
+
+// spillProbe answers with more than the preview holds, so its result goes to a sidecar file
+// under the job's session.
+type spillProbe struct{ err error }
+
+func (*spillProbe) Spec() tools.Spec {
+	return tools.Spec{Name: "loop", Summary: "probe", Parameters: json.RawMessage(`{"type":"object"}`)}
+}
+
+func (p *spillProbe) Execute(ctx context.Context, _ json.RawMessage) (tools.ToolResult, error) {
+	res, err := tools.NewResult(ctx, strings.Repeat("news ", 200))
+	p.err = err
+	return res, err
+}
+
+// TestAgentJobToolOutputCanSpillToASidecar reproduces the lab VM on 2026-10-14: every
+// web_fetch of a scheduled goal failed with `session_id "agent_job:<run>" contains invalid
+// character ':'`, because a result too long for its preview is written under the session's
+// id and the sidecar grammar is [A-Za-z0-9_-].
+func TestAgentJobToolOutputCanSpillToASidecar(t *testing.T) {
+	t.Parallel()
+
+	probe := &spillProbe{}
+	registry := tools.NewRegistry()
+	registry.Register(probe)
+	h := AgentJobHandler{Deps: AgentDeps{
+		Client:     agenttest.NewFakeClient(loopTurns(1)...),
+		Registry:   registry,
+		PreviewCap: 64,
+		RunDir:     t.TempDir(),
+	}}
+	if _, err := h.Run(context.Background(), Job{Payload: []byte(`{"goal":"fetch a page"}`), RunID: "01a139ef-aac1-772e-824e-702fb618c986"}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if probe.err != nil {
+		t.Fatalf("a long tool result could not spill to its sidecar: %v", probe.err)
+	}
 }
 
 // A scheduled job closes its own ledger rows, but it is not a swarm worker: a worker dispatch

@@ -126,7 +126,7 @@ func TestBoardAddRecordsOriginFromTheSession(t *testing.T) {
 	if store.sources[0] != board.SourceChat || store.added[0].ConversationID != boardConv {
 		t.Errorf("a conversation's session must add a chat card linked to it: %+v %v", store.added[0], store.sources[0])
 	}
-	if _, err := runBoard(t, tool, boardCtx("agent_job:run-1"), `{"action":"add","label":"nightly check"}`); err != nil {
+	if _, err := runBoard(t, tool, boardCtx("agent_job-run-1"), `{"action":"add","label":"nightly check"}`); err != nil {
 		t.Fatal(err)
 	}
 	if store.sources[1] != board.SourceBackground || store.added[1].ConversationID != "" {
