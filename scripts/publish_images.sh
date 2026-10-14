@@ -58,6 +58,20 @@ build_image() {
     --label "org.opencontainers.image.revision=${rev}" "$@" -t "${tag}" "${ctx}"
 }
 
+# A run's images are the registry's once pushed, and a rebuild comes from the build cache, so the
+# local copies go when main returns, whatever it returns. Kept, five publishes left 38 tags and
+# 14.35 GB on the operator's Docker (2026-10-14). The build cache stays.
+remove_built_images() {
+  local tag
+  for tag in "$@"; do
+    if docker image rm "${tag}" >/dev/null; then
+      echo "removed ${tag}"
+    else
+      echo "publish: ${tag} stays on this machine" >&2
+    fi
+  done
+}
+
 # Every step that can fail returns explicitly: errexit is suspended for a function called as a
 # condition (`if main …`, `main || …`), and a build that failed there must still push nothing.
 main() {
@@ -71,7 +85,7 @@ main() {
   git -C "${repo_root}" merge-base --is-ancestor "${sha}" "${remote}/master" ||
     { echo "publish: ${sha} is not on ${remote}/master; push it first" >&2; return 1; }
   work="$(mktemp -d)"
-  trap 'rm -rf "${work}"' RETURN
+  trap 'rm -rf "${work}"; remove_built_images "${pushes[@]}"' RETURN
   mkdir -p "${work}/aura"
   git -C "${repo_root}" archive "${sha}" | tar -x -C "${work}/aura" || return 1
 

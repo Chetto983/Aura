@@ -57,7 +57,7 @@ docker() {
   echo "docker $*" >>"$calls"
   if [[ "$1" == build && -n "$failing_build" && "$*" == *"/$failing_build:"* ]]; then return 1; fi
   case "$1 ${2:-}" in
-    'build '* | 'push '* | 'buildx imagetools') ;;
+    'build '* | 'push '* | 'buildx imagetools' | 'image rm') ;;
     *) fail "unexpected docker $*" ;;
   esac
 }
@@ -66,6 +66,10 @@ bash() {
   [[ -z "$failing_contract" || "$1" != *"$failing_contract"* ]]
 }
 export AURA_PUBLISH_REGISTRY=registry.example/aura
+
+# The tags a run built, and the tags it removed from this machine, one per line, sorted.
+built_tags() { sed -n 's/^docker build .* -t \([^ ]*\) [^ ]*$/\1/p' "$calls" | grep -v "/${1:-none}:" | sort; }
+removed_tags() { sed -n 's/^docker image rm \([^ ]*\)$/\1/p' "$calls" | sort; }
 
 : >"$calls"
 main HEAD >"$fixture/out" || fail "a clean publish failed: $(tail -5 "$calls")"
@@ -82,14 +86,24 @@ grep -q -- '--tag registry.example/aura/aura-pim-mcp:sidecar ' "$calls" || fail 
 grep -q -- '--tag registry.example/aura/whatsapp-mcp:latest ' "$calls" || fail "the whatsapp fork's latest tag did not move"
 echo "ok: every per-commit tag is pushed before any moving tag moves, and aura:edge moves last"
 
+# Measured 2026-10-14: five publishes left 38 tags, 14.35 GB, on the operator's Docker.
+[[ -n "$(built_tags)" && "$(built_tags)" == "$(removed_tags)" ]] ||
+  fail "the images this publish built are still on the machine: built [$(built_tags | tr '\n' ' ')] removed [$(removed_tags | tr '\n' ' ')]"
+last_move="$(grep -n '^docker buildx imagetools create' "$calls" | tail -1 | cut -d: -f1)"
+first_remove="$(grep -n '^docker image rm ' "$calls" | head -1 | cut -d: -f1)"
+((last_move < first_remove)) || fail "an image was removed before every moving tag had moved"
+echo "ok: a publish removes the images it built, once every tag has moved"
+
 for case in build contract; do
   : >"$calls"
   if [[ "$case" == build ]]; then failing_build=aura-ingest; else failing_contract=sandbox_image_contract_test.sh; fi
   if main HEAD >"$fixture/out" 2>&1; then fail "a failed $case still published"; fi
   ! grep -q '^docker push ' "$calls" || fail "a failed $case pushed: $(grep '^docker push ' "$calls")"
+  [[ "$(built_tags "$failing_build")" == "$(removed_tags)" ]] ||
+    fail "a failed $case left its images behind: built [$(built_tags "$failing_build" | tr '\n' ' ')] removed [$(removed_tags | tr '\n' ' ')]"
   failing_build="" failing_contract=""
 done
-echo "ok: a failed build or image contract pushes nothing"
+echo "ok: a failed build or image contract pushes nothing and leaves no image behind"
 
 # Appliances update to whatever aura:edge names, and master-<sha> claims the commit is there.
 : >"$calls"
