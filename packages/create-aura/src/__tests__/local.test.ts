@@ -36,7 +36,8 @@ describe('local installer', () => {
         .mockResolvedValueOnce({ ...success, stdout: '41943040\n' })
         // existing-install probe
         .mockResolvedValueOnce({ ...success, stdout: 'true\n' })
-        // REQUIRED_HOSTS: registry.gitlab.com, get.docker.com, huggingface.co
+        // REQUIRED_HOSTS: registry.gitlab.com, ghcr.io, get.docker.com, huggingface.co
+        .mockResolvedValueOnce(success)
         .mockResolvedValueOnce(success)
         .mockResolvedValueOnce(success)
         .mockResolvedValueOnce(success),
@@ -47,7 +48,7 @@ describe('local installer', () => {
       existingInstall: true,
     });
 
-    expect(runner.run).toHaveBeenCalledTimes(11);
+    expect(runner.run).toHaveBeenCalledTimes(12);
     for (const command of ['sudo', 'curl', 'openssl']) {
       expect(runner.run).toHaveBeenCalledWith(
         'sh',
@@ -60,7 +61,8 @@ describe('local installer', () => {
       'sh',
       ['-c', expect.stringContaining('test -f "$1/compose.yaml"'), 'create-aura', '/opt/aura'],
     );
-    for (const host of ['https://registry.gitlab.com', 'https://get.docker.com', 'https://huggingface.co']) {
+    // ghcr.io stays after Aura's own images left it: llama.cpp, searxng and kokoro still pull from there.
+    for (const host of ['https://registry.gitlab.com', 'https://ghcr.io', 'https://get.docker.com', 'https://huggingface.co']) {
       expect(runner.run).toHaveBeenCalledWith(
         'curl',
         ['-fsS', '-o', '/dev/null', '-m', '10', host],
@@ -85,6 +87,7 @@ describe('local installer', () => {
         .mockResolvedValueOnce({ ...success, stdout: '41943040\n' })
         .mockResolvedValueOnce({ ...success, stdout: '41943040\n' })
         .mockResolvedValueOnce({ ...success, stdout: 'false\n' })
+        .mockResolvedValueOnce(success)
         .mockResolvedValueOnce(success)
         .mockResolvedValueOnce(success)
         .mockResolvedValueOnce(success),
