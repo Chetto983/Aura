@@ -57,6 +57,8 @@ reset; uid=1000; refuses "not root" "as root"
 reset; printf 'AURA_IMAGE=example.invalid/aura:edge\n' >"$INSTALL_DIR/.env"; cp "$INSTALL_DIR/.env" "$fixture/env.before"; refuses "AURA_IMAGE under neither home" "names neither"
 reset; printf 'echo too old\n' >"$AURA_IMAGE_UPDATE_BIN"; refuses "an updater with no payload sync" "predates the payload sync"
 reset; free_gb=3; refuses "too little free space" "3 GB free"
+# The lab VM had 11 GiB free; a move adds up to 10 GiB, which would leave its databases no room.
+reset; free_gb=11; refuses "free space without a margin over the measured set" "11 GB free"
 reset; pull_ok=0; refuses "the image does not pull" "does not pull"
 echo "ok: every refusal leaves .env byte-identical and starts nothing"
 

@@ -15,9 +15,10 @@ set -euo pipefail
 
 GHCR_HOME=ghcr.io/chetto1983
 BRIDGE_HOME=registry.gitlab.com/chetto1983/aura
-# The published set measured about 7.5 GB on the lab VM (2026-10-13); the old images stay on
-# disk until the first apply finishes.
-MIN_FREE_GB=10
+# A move adds up to 10 GiB on a host sharing no layer with the new images (the published set,
+# measured 2026-10-14; the containerd image store keeps each layer compressed and extracted),
+# and the old images stay on disk until the first apply finishes. The rest is the databases'.
+MIN_FREE_GB=12
 
 say() { echo "aura-registry-bridge: $*"; }
 die() {
