@@ -20,6 +20,10 @@ declare -F main >/dev/null || fail "main undefined after sourcing the patch"
 
 calls="$fixture/calls.log"
 export INSTALL_DIR="$fixture/aura" AURA_IMAGE_UPDATE_BIN="$fixture/updater.sh"
+# main sources the appliance's defaults, which on an appliance name the real INSTALL_DIR: run as
+# root there, a stubbed pull would move the real .env. The test reads its own file instead.
+export AURA_DEFAULTS_FILE="$fixture/defaults"
+: >"$AURA_DEFAULTS_FILE"
 uid=0 free_kib=$((40 * 1048576)) broken_pull=''
 id() { echo "$uid"; }
 # What `df -P` prints in the unit asked for: the free space is the fourth field of the second
@@ -91,3 +95,14 @@ cmp -s "$INSTALL_DIR/.env" "$fixture/env.before" || fail "a second run changed .
 ! grep -q '^docker pull' "$calls" || fail "a second run pulled again"
 grep -qx 'systemctl start --no-block aura-image-update.service' "$calls" || fail "a second run did not start the updater"
 echo "ok: a second run only starts the updater"
+
+reset
+mkdir -p "$fixture/from-defaults"
+cp "$fixture/env.before" "$fixture/from-defaults/.env"
+printf 'INSTALL_DIR=%s\n' "$fixture/from-defaults" >"$AURA_DEFAULTS_FILE"
+(main) >"$fixture/out"
+grep -qx 'AURA_IMAGE=registry.gitlab.com/chetto1983/aura/aura:edge' "$fixture/from-defaults/.env" ||
+  fail "the patch did not take INSTALL_DIR from AURA_DEFAULTS_FILE"
+cmp -s "$INSTALL_DIR/.env" "$fixture/env.before" || fail "the patch moved a .env its defaults do not name"
+: >"$AURA_DEFAULTS_FILE"
+echo "ok: the patch reads its defaults from AURA_DEFAULTS_FILE"

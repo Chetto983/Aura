@@ -45,10 +45,10 @@ bridge_images() {
 }
 
 main() {
-  local env_file updater current target free image
+  local env_file updater current target free image defaults="${AURA_DEFAULTS_FILE:-/etc/default/aura}"
   [[ "$(id -u)" == 0 ]] || die "run it as root (sudo)"
   # shellcheck source=/dev/null
-  [[ ! -f /etc/default/aura ]] || source /etc/default/aura
+  [[ ! -f "${defaults}" ]] || source "${defaults}"
   env_file="${INSTALL_DIR:-/opt/aura}/.env"
   updater="${AURA_IMAGE_UPDATE_BIN:-/usr/local/sbin/aura-image-update.sh}"
   [[ -f "${env_file}" ]] || die "no ${env_file}"

@@ -515,8 +515,9 @@ apply_update() {
 }
 
 main() {
+  local defaults="${AURA_DEFAULTS_FILE:-/etc/default/aura}"
   # shellcheck source=/dev/null
-  [[ ! -f /etc/default/aura ]] || source /etc/default/aura
+  [[ ! -f "${defaults}" ]] || source "${defaults}"
   INSTALL_DIR="${INSTALL_DIR:-/opt/aura}"
   LOCK_FILE="${AURA_IMAGE_UPDATE_LOCK:-/run/lock/aura-image-update.lock}"
   HEALTH_TIMEOUT_SECONDS="${AURA_IMAGE_UPDATE_HEALTH_TIMEOUT:-600}"

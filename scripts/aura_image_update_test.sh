@@ -50,6 +50,10 @@ echo "ok: the updater sources without running"
 # Exercise main's sidecar dispatch, not a source-text assertion. No Docker mutation is allowed.
 (
   export INSTALL_DIR="$fixture/update-dispatch" AURA_IMAGE_UPDATE_LOCK="$fixture/update.lock"
+  # main sources the appliance's defaults; on an appliance they name the real INSTALL_DIR, so
+  # the test hands it a file of its own, and this one moves the lock.
+  export AURA_DEFAULTS_FILE="$fixture/dispatch-defaults"
+  printf 'AURA_IMAGE_UPDATE_LOCK=%s\n' "$fixture/lock-from-defaults" >"$AURA_DEFAULTS_FILE"
   mkdir -p "$INSTALL_DIR"
   touch "$INSTALL_DIR/compose.yaml"
   printf 'database state' >"$INSTALL_DIR/postgres-sentinel"
@@ -92,6 +96,7 @@ LIB
     esac
   }
   main
+  [[ -e "$fixture/lock-from-defaults" ]] || fail "the updater did not read its defaults from AURA_DEFAULTS_FILE"
   grep -qx aura-cloudflared "$fixture/updated-services" || fail 'cloudflared excluded from update'
   [[ -f "$INSTALL_DIR/fetched" ]] || fail "the tick did not fetch the image homes before deciding"
   # aura.service stops with `compose down`, which orphans every volume an image declares
