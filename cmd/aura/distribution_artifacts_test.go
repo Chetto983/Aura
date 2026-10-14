@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -87,6 +88,19 @@ func TestDistributionSurfaceArtifactsMatchReleaseContract(t *testing.T) {
 		if !strings.Contains(unit, want) {
 			t.Fatalf("deploy/aura.service missing %q:\n%s", want, unit)
 		}
+	}
+}
+
+// REGRESSION GUARD, measured on the lab VM on 2026-10-14. aura.service's `compose up -d` honoured
+// each service's pull_policy, and .env sets five of them to always. Asked of a registry that
+// refused (ghcr's 403 on a box not yet moved), the pull aborted the whole up: the unit failed and
+// no container started. A reboot does the same, and so would a boot with no network. The updater
+// is what pulls; the unit starts what is on disk. An explicit --pull replaces every service's
+// pull_policy (docker/compose cmd/compose/create.go, createOptions.Apply).
+func TestAuraUnitStartsFromTheImagesOnDisk(t *testing.T) {
+	unit := readProjectFile(t, repoRootForTest(t), "deploy/aura.service")
+	if !regexp.MustCompile(`(?m)^ExecStart=/usr/bin/docker compose up -d --pull missing$`).MatchString(unit) {
+		t.Fatalf("deploy/aura.service must start the stack with --pull missing:\n%s", unit)
 	}
 }
 

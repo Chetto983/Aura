@@ -20,7 +20,9 @@ Requires=docker.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/opt/aura
-ExecStart=/usr/bin/docker compose up -d
+# The updater pulls; the unit starts what is on disk. Honouring pull_policy=always, a registry
+# that refused a pull aborted the whole up and left no container running (lab VM, 2026-10-14).
+ExecStart=/usr/bin/docker compose up -d --pull missing
 ExecStop=/usr/bin/docker compose down
 TimeoutStartSec=0
 TimeoutStopSec=120
