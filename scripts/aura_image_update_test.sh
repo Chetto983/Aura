@@ -68,6 +68,11 @@ on_apply_exit() { :; }
 image_revision() { :; }
 rerun_if_asked_meanwhile() { :; }
 LIB
+  # aura_image_home_test.sh drives the real image-home functions.
+  cat >"$INSTALL_DIR/deploy/aura-image-home.sh" <<'LIB'
+fetch_image_homes() { echo fetched >>"$INSTALL_DIR/fetched"; }
+move_image_registry() { :; }
+LIB
   container_image_id() { echo image-id; }
   image_id() { echo image-id; }
   pull_sidecar() { :; }
@@ -88,6 +93,7 @@ LIB
   }
   main
   grep -qx aura-cloudflared "$fixture/updated-services" || fail 'cloudflared excluded from update'
+  [[ -f "$INSTALL_DIR/fetched" ]] || fail "the tick did not fetch the image homes before deciding"
   # aura.service stops with `compose down`, which orphans every volume an image declares
   # without a compose name. Only anonymous ones may go: the named per-user box workspaces a
   # refresh detaches are recreated by aura and must survive, even on an engine whose bare
@@ -257,68 +263,6 @@ AURA_EMBED_NGL=99" ]] || fail "retiring keys left .env as: $(cat "$INSTALL_DIR/.
 retire_env_keys >"$fixture/retire2.out"
 [[ ! -s "$fixture/retire2.out" ]] || fail "a clean .env still reported retirements: $(cat "$fixture/retire2.out")"
 echo "ok: keys no compose file reads any more are removed from .env, and nothing else is"
-
-# The GitLab bridge (2026-10-13): a key of .env that names a repo-built image under another home
-# moves to IMAGE_HOME, keeping name and tag, but only once that image pulls from there. A key
-# whose image is not published yet stays where it is, an image under any other registry is never
-# touched, the log carries key names only, and flipping IMAGE_HOME brings every key back.
-(
-  INSTALL_DIR="$fixture/move"
-  mkdir -p "$INSTALL_DIR"
-  cat >"$INSTALL_DIR/.env" <<'ENV'
-POSTGRES_PASSWORD=do-not-print-me
-AURA_IMAGE=ghcr.io/chetto1983/aura:edge
-AURA_CADDY_IMAGE="ghcr.io/chetto1983/aura-caddy:edge"
-AURA_INGEST_IMAGE=ghcr.io/chetto1983/aura-ingest:edge
-AURA_SANDBOX_IMAGE=registry.gitlab.com/chetto1983/aura/aura-sandbox:edge
-AURA_STT_IMAGE=hwdsl2/whisper-server:latest
-ENV
-  chmod 600 "$INSTALL_DIR/.env"
-  # pull_retrying waits 10 s between tries; the test does not.
-  sleep() { :; }
-
-  cp "$INSTALL_DIR/.env" "$fixture/env.before"
-  IMAGE_HOME=registry.gitlab.com/chetto1983/aura
-  docker() {
-    echo "docker $*" >>"$calls"
-    return 1
-  }
-  move_image_registry >/dev/null
-  cmp -s "$INSTALL_DIR/.env" "$fixture/env.before" || fail "pulls that all failed still changed .env"
-
-  docker() {
-    echo "docker $*" >>"$calls"
-    [[ "$1 $2" == 'pull -q' ]] || fail "unexpected docker $*"
-    [[ "$3" != *"/aura-ingest:"* ]]
-  }
-  : >"$calls"
-  move_image_registry >"$fixture/move.out"
-  [[ "$(cat "$INSTALL_DIR/.env")" == "POSTGRES_PASSWORD=do-not-print-me
-AURA_IMAGE=registry.gitlab.com/chetto1983/aura/aura:edge
-AURA_CADDY_IMAGE=registry.gitlab.com/chetto1983/aura/aura-caddy:edge
-AURA_INGEST_IMAGE=ghcr.io/chetto1983/aura-ingest:edge
-AURA_SANDBOX_IMAGE=registry.gitlab.com/chetto1983/aura/aura-sandbox:edge
-AURA_STT_IMAGE=hwdsl2/whisper-server:latest" ]] || fail "the move left .env as: $(cat "$INSTALL_DIR/.env")"
-  [[ "$(stat -c %a "$INSTALL_DIR/.env")" == 600 ]] || fail "the move widened .env"
-  pulled="$(sed -n 's/^docker pull -q //p' "$calls" | sort -u | tr '\n' ' ')"
-  [[ "$pulled" == "registry.gitlab.com/chetto1983/aura/aura-caddy:edge registry.gitlab.com/chetto1983/aura/aura-ingest:edge registry.gitlab.com/chetto1983/aura/aura:edge " ]] ||
-    fail "pulled: $pulled"
-  grep -qx 'env: AURA_IMAGE moved to registry.gitlab.com/chetto1983/aura.' "$fixture/move.out" || fail "a move was not logged"
-  grep -q '^env: AURA_INGEST_IMAGE stays put' "$fixture/move.out" || fail "a key left behind was not logged"
-  ! grep -q 'do-not-print-me\|ghcr.io/chetto1983/aura-ingest:edge\|hwdsl2' "$fixture/move.out" ||
-    fail "the move logged .env values: $(cat "$fixture/move.out")"
-
-  IMAGE_HOME=ghcr.io/chetto1983
-  docker() {
-    echo "docker $*" >>"$calls"
-    [[ "$1 $2" == 'pull -q' ]] || fail "unexpected docker $*"
-  }
-  move_image_registry >/dev/null
-  [[ "$(grep -c '=ghcr.io/chetto1983/' "$INSTALL_DIR/.env")" == 4 ]] ||
-    fail "flipping IMAGE_HOME did not bring every key back: $(cat "$INSTALL_DIR/.env")"
-  grep -qx 'AURA_STT_IMAGE=hwdsl2/whisper-server:latest' "$INSTALL_DIR/.env" || fail "the return trip touched another registry"
-)
-echo "ok: an image key moves to its home once its image pulls, and back when the home flips"
 
 (
   INSTALL_DIR="$fixture/cloudflared"

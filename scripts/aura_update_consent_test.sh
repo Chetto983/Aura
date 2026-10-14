@@ -26,6 +26,8 @@ cd "$INSTALL_DIR"
 source "$repo_root/deploy/aura-image-update.sh"
 # shellcheck source=deploy/aura-update-consent.sh
 source "$repo_root/deploy/aura-update-consent.sh"
+# shellcheck source=deploy/aura-image-home.sh
+source "$repo_root/deploy/aura-image-home.sh"
 [[ "$IDLE_SECONDS" == 900 && "$MAX_DEFER_SECONDS" == 86400 && "$ACTIVITY_STALE_SECONDS" == 180 ]] ||
   fail "default policy is $IDLE_SECONDS/$MAX_DEFER_SECONDS/$ACTIVITY_STALE_SECONDS"
 set +e # the updater enables errexit when sourced; the cases below test return codes

@@ -16,12 +16,14 @@ printf '#!/usr/bin/env bash\nexit 33\n' >"$AURA_IMAGE_UPDATE_BIN"
 chmod +x "$AURA_IMAGE_UPDATE_BIN"
 cp "$repo_root/deploy/aura-image-update.sh" "$fixture/payload/deploy/aura-image-update.sh"
 cp "$repo_root/deploy/aura-update-consent.sh" "$fixture/payload/deploy/aura-update-consent.sh"
+cp "$repo_root/deploy/aura-image-home.sh" "$fixture/payload/deploy/aura-image-home.sh"
 cp "$repo_root/scripts/appliance_posture.sh" "$fixture/payload/scripts/appliance_posture.sh"
 cp "$repo_root/compose.yaml" "$fixture/payload/compose.yaml"
 (cd "$fixture/payload" && sha256sum compose.yaml deploy/aura-image-update.sh deploy/aura-update-consent.sh \
-  scripts/appliance_posture.sh >payload_manifest.txt)
-# The updater sources its consent functions from the payload an earlier tick installed.
+  deploy/aura-image-home.sh scripts/appliance_posture.sh >payload_manifest.txt)
+# The updater sources its libraries from the payload an earlier tick installed.
 install -D -m 0755 "$repo_root/deploy/aura-update-consent.sh" "$INSTALL_DIR/deploy/aura-update-consent.sh"
+install -D -m 0755 "$repo_root/deploy/aura-image-home.sh" "$INSTALL_DIR/deploy/aura-image-home.sh"
 printf 'persisted PostgreSQL settings' >"$fixture/postgres-volume"
 printf 'derived runtime projection' >"$fixture/aura-cloudflared-state"
 cat >"$fixture/bin/docker" <<'STUB'
@@ -57,7 +59,7 @@ case "$*" in
       *Labels*) echo 7886200e539046d3b7dc47176facddb74f98ce6b ;;
       *) exit 1 ;;
     esac ;;
-  'compose config --images'|'images --no-trunc --format {{.Repository}}:{{.Tag}} {{.ID}}'|'image prune --force') ;;
+  'compose config --images'|'images --no-trunc --format {{.Repository}} {{.Tag}} {{.ID}}'|'image prune --force') ;;
   'volume prune --force --filter label=com.docker.volume.anonymous') ;;
   *) echo 'Unexpected Docker mutation' >&2; exit 1 ;;
 esac

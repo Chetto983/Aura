@@ -49,13 +49,14 @@ RETIRED_ENV_KEYS=(POSTGRES_IMAGE AURA_EMBED_IMAGE AURA_EMBED_MODEL_PATH AURA_EMB
 # Repo-built services on the edge channel's moving tags, refreshed after aura.
 SIDECARS=(arcadedb-mcp aura-pim-mcp whatsapp caddy aura-ingest aura-cloudflared)
 # Every registry path the repo-built images have been published under, and the one they live
-# under now. move_image_registry moves a host's .env from any other home to IMAGE_HOME, one key
-# at a time, so the constant that sends hosts to the GitLab bridge also brings them back
+# under now. IMAGE_HOME_LIB moves a host's .env from any other home to IMAGE_HOME, one key at a
+# time, so the constant that sends hosts to the GitLab bridge also brings them back
 # (docs/superpowers/specs/2026-10-13-gitlab-image-bridge-design.md).
 IMAGE_HOMES=(ghcr.io/chetto1983 registry.gitlab.com/chetto1983/aura)
 IMAGE_HOME=registry.gitlab.com/chetto1983/aura
-# Sourced by main from INSTALL_DIR; replacing it counts as a new updater (see sync_payload).
+# Sourced by main from INSTALL_DIR; replacing either counts as a new updater (see sync_payload).
 CONSENT_LIB=deploy/aura-update-consent.sh
+IMAGE_HOME_LIB=deploy/aura-image-home.sh
 
 container_image_id() {
   local container_id
@@ -150,8 +151,9 @@ sync_payload() {
   while read -r sum rel; do
     [[ "$(file_sha256 "${INSTALL_DIR}/${rel}")" == "${sum}" ]] || changed+=("${rel}")
   done <"${work}/payload_manifest.txt"
-  # This tick already sourced the old consent functions; only a fresh process reads the new.
-  [[ " ${changed[*]} " != *" ${CONSENT_LIB} "* ]] || UPDATER_CHANGED=1
+  # This tick already sourced the old libraries; only a fresh process reads the new.
+  [[ " ${changed[*]} " != *" ${CONSENT_LIB} "* && " ${changed[*]} " != *" ${IMAGE_HOME_LIB} "* ]] ||
+    UPDATER_CHANGED=1
 
   if ((${#changed[@]} > 0)); then
     stamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -226,34 +228,12 @@ ensure_cloudflared_edge_env() {
   done
 }
 
-# A key of .env that names a repo-built image under another home moves to IMAGE_HOME, keeping
-# its name and tag, but only once that image pulls from there: a host never points at an image
-# the home does not serve yet, and a key whose pull fails is tried again next tick. Like
-# retire_env_keys it logs key names only; GNU sed keeps .env's mode and owner.
-move_image_registry() {
-  local env_file="${INSTALL_DIR}/.env" key value home target
-  [[ -f "${env_file}" ]] || return 0
-  while IFS='=' read -r key value; do
-    value="$(tr -d "\"'" <<<"${value}")"
-    for home in "${IMAGE_HOMES[@]}"; do
-      [[ "${home}" != "${IMAGE_HOME}" && "${value}" == "${home}/"* ]] || continue
-      target="${IMAGE_HOME}/${value#"${home}"/}"
-      if pull_retrying docker pull -q "${target}" >/dev/null; then
-        sed -i "s|^${key}=.*|${key}=${target}|" "${env_file}"
-        echo "env: ${key} moved to ${IMAGE_HOME}."
-      else
-        echo "env: ${key} stays put until its image pulls from ${IMAGE_HOME}."
-      fi
-    done
-  done < <(grep -E '^AURA_([A-Z0-9_]+_)?IMAGE=' "${env_file}" || true)
-}
-
 # [registry/]path[:tag][@digest] -> path. The registry host (a first component with a
 # dot, a port or "localhost") and Docker Hub's implicit library/ are dropped, so a pin
 # that moved registry -- searxng/searxng to ghcr.io/searxng/searxng on 2026-10-07 --
 # still supersedes the image it replaced. The image homes are folded into the first one
-# first, for the same reason: a key move_image_registry moved still supersedes the image
-# it replaced, although the GitLab home has one path component more than ghcr.
+# first, for the same reason: a key moved to IMAGE_HOME still supersedes the image it
+# replaced, although the GitLab home has one path component more than ghcr.
 image_repository() {
   local ref="${1%%@*}" first home
   [[ "${ref##*/}" != *:* ]] || ref="${ref%:*}"
@@ -457,8 +437,10 @@ apply_update() {
   before="$(container_image_id aura)"
 
   # The payload is installed BEFORE aura is replaced, so the new binary starts under the
-  # compose file of its own commit. Re-executing hands the rest of this tick to the updater
-  # that payload shipped; exec releases this process's lock as the new one takes it again.
+  # compose file of its own commit. Keys move first, so the payload comes from the aura image
+  # that will run. Re-executing hands the rest of this tick to the updater that payload
+  # shipped; exec releases this process's lock as the new one takes it again.
+  move_image_registry
   sync_payload "$(env_value AURA_IMAGE)"
   if [[ "${UPDATER_CHANGED}" == 1 && -z "${AURA_IMAGE_UPDATE_REEXEC:-}" ]]; then
     echo "payload: the updater changed; re-executing it."
@@ -466,7 +448,6 @@ apply_update() {
   fi
   retire_env_keys
   ensure_cloudflared_edge_env
-  move_image_registry
 
   # A pre-existing .env used to omit these keys forever, silently retaining dev.
   bash scripts/appliance_posture.sh .env
@@ -537,6 +518,8 @@ main() {
   }
   # shellcheck source=deploy/aura-update-consent.sh
   source "${CONSENT_LIB}"
+  # shellcheck source=deploy/aura-image-home.sh
+  source "${IMAGE_HOME_LIB}"
   ensure_update_channel
 
   # Downloading changes nothing that runs, so it happens on every tick and "update now" only
@@ -548,6 +531,7 @@ main() {
     pull_sidecar "${svc}"
   done
   pull_sandbox_images
+  fetch_image_homes
 
   # An updater that re-executed itself mid-apply carries on: the decision was already made.
   if [[ -n "${AURA_IMAGE_UPDATE_REEXEC:-}" ]]; then

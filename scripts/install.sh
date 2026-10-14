@@ -494,6 +494,7 @@ download_file deploy/aura-image-update.sh deploy/aura-image-update.sh
 download_file deploy/aura-image-update.service deploy/aura-image-update.service
 download_file deploy/aura-image-update.timer deploy/aura-image-update.timer
 download_file deploy/aura-update-consent.sh deploy/aura-update-consent.sh
+download_file deploy/aura-image-home.sh deploy/aura-image-home.sh
 download_file deploy/aura-update-request.path deploy/aura-update-request.path
 download_file searxng/settings.yml searxng/settings.yml
 download_file searxng/limiter.toml searxng/limiter.toml

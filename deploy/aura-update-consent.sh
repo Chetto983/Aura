@@ -117,10 +117,12 @@ image_built() {
 applied_image() { cat "$(update_dir)/applied-image" 2>/dev/null || true; }
 
 # Anything downloaded that the stack does not run yet: an aura image other than the one last
-# applied, a payload installed but never brought up, a sidecar's moving tag, a sandbox box.
+# applied, an image key whose home copy has arrived, a payload installed but never brought up,
+# a sidecar's moving tag, a sandbox box.
 update_pending() {
   local svc
   [[ "$(image_id "$(env_value AURA_IMAGE)")" == "$(applied_image)" ]] || return 0
+  [[ -z "$(movable_image_keys)" ]] || return 0
   if [[ -f payload_manifest.txt ]] && ! cmp -s payload_manifest.txt "${APPLIED_MANIFEST}"; then
     return 0
   fi
