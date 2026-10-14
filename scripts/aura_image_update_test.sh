@@ -90,6 +90,8 @@ LIB
   bash() { [[ "$1" == scripts/appliance_posture.sh ]] || fail 'unexpected bash'; }
   docker() {
     case "$*" in
+      # A running stack: its memory MCP is up, so aura is replaced alone.
+      'compose ps -q arcadedb-mcp') echo memory-id ;;
       'compose pull aura aura-migrate garage-bootstrap'|'compose up -d --pull missing aura'|'compose exec -T aura aura version'|'image prune --force') ;;
       'volume prune --force --filter label=com.docker.volume.anonymous') echo pruned >"$fixture/volume-prune" ;;
       *) fail "unexpected Docker mutation: $*" ;;
@@ -108,6 +110,46 @@ LIB
   [[ "$(cat "$INSTALL_DIR/postgres-sentinel")" == 'database state' ]] || fail 'database state changed'
   [[ "$(cat "$INSTALL_DIR/projection-sentinel")" == 'projection state' ]] || fail 'projection state changed'
 )
+
+# aura reports ready only once its memory MCP is mounted, and that sidecar starts after aura. On
+# a stack that is down, aura alone never turned healthy (lab VM, 2026-10-14: 600 s, then exit 1
+# before the stack came up), so the apply brings the whole stack up with it.
+for memory in running stopped; do
+  (
+    INSTALL_DIR="$fixture/apply-$memory"
+    mkdir -p "$INSTALL_DIR/update"
+    cd "$INSTALL_DIR"
+    record_status() { :; }
+    on_apply_exit() { :; }
+    update_dir() { printf '%s/update' "$INSTALL_DIR"; }
+    image_revision() { :; }
+    move_image_registry() { :; }
+    sync_payload() { UPDATER_CHANGED=0; }
+    retire_env_keys() { :; }
+    ensure_cloudflared_edge_env() { :; }
+    bash() { [[ "$1" == scripts/appliance_posture.sh ]] || fail 'unexpected bash'; }
+    container_image_id() { echo image-id; }
+    image_id() { echo image-id; }
+    update_sidecar() { :; }
+    refresh_sandbox_images() { :; }
+    remove_superseded_images() { :; }
+    remove_orphan_volumes() { :; }
+    wait_healthy() { echo "wait_healthy $1" >>steps; }
+    docker() {
+      case "$*" in
+        'compose ps -q arcadedb-mcp') [[ "$memory" == stopped ]] || echo memory-id ;;
+        'compose up -d --pull missing aura' | 'compose up -d --pull missing') echo "docker $*" >>steps ;;
+        'compose exec -T aura aura version' | 'image prune --force') ;;
+        *) fail "unexpected docker $*" ;;
+      esac
+    }
+    apply_update >/dev/null
+    if [[ "$memory" == running ]]; then want='docker compose up -d --pull missing aura'; else want='docker compose up -d --pull missing'; fi
+    [[ "$(cat steps)" == "$want"$'\n'"wait_healthy aura" ]] ||
+      fail "with the memory MCP $memory, the apply ran: $(tr '\n' ';' <steps)"
+  )
+done
+echo "ok: a stack that is down comes up whole, and a running one has aura replaced alone"
 
 write() {
   mkdir -p "$(dirname "$1")"

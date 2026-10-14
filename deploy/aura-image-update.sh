@@ -473,7 +473,14 @@ apply_update() {
   # The tick already pulled every moving tag. `--pull missing` overrides the services'
   # `pull_policy: always`, so the apply never asks the registry again for an image it holds:
   # on 2026-10-10 a tick died inside `up` on whatsapp-mcp's second pull of the same tag.
-  docker compose up -d --pull missing aura
+  # aura reports ready only once its memory MCP is mounted, and that sidecar starts after aura:
+  # on a stack that is down, aura alone never turned healthy (lab VM, 2026-10-14), so the whole
+  # stack comes up with it, as aura.service brings it up at boot.
+  if [[ -n "$(docker compose ps -q arcadedb-mcp)" ]]; then
+    docker compose up -d --pull missing aura
+  else
+    docker compose up -d --pull missing
+  fi
   wait_healthy aura
 
   after="$(container_image_id aura)"
