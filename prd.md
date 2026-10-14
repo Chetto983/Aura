@@ -3261,6 +3261,55 @@ Measured at `f3a8b9b4f` (2026-10-09), with the same job and cut. The model asked
 
 This does not measure a job that asked for a mutating tool, which the rule reports by design.
 
+**A scheduled goal's ledger and its conversation (2026-10-14).** Measured on the lab VM, while
+the image bridge was being proved (§17).
+
+*The ledger rows were never closed.*
+- **What the VM showed.** A daily goal's 12 tool calls left their gateway `start` rows with no
+  `end`.
+- **Why.** An `agent_job` runs outside a Runner, so nothing wrote the `end` rows. The reconciler
+  stamped them as `indeterminate` errors 30 minutes later, over calls that had succeeded.
+- **What it cost.** Until then the activity report counted them as live runs, and that held the
+  updater's quiet-spell apply back.
+- **Decision.** The cron drain marks its dispatches as unobserved (`tools.WithUnobservedDispatch`),
+  and the gateway closes each row itself, with the real status and `meta.unobserved`.
+  `gateway.FinishCall` closes read-only calls too. The drain does not mark a job as a swarm
+  worker, because a worker takes a per-run MCP session that the pool never releases (open,
+  separate). Landed in `779db66af`.
+
+*Every scheduled `web_fetch` failed.* The job's session was `agent_job:<run id>`, and a long
+result spills to a sidecar file named after that session. The sidecar grammar is
+`[A-Za-z0-9_-]`, so the `:` broke it. The session is now `agent_job-<run id>` (`82a49761c`).
+
+*The task's conversation had been deleted.* The operator bulk-deleted their conversations, and the
+goal's origin was among them. Every ledger row then failed on
+`tool_invocations_conversation_id_fkey`, and the run's outcome was "conversation not found".
+
+Decision (operator, 2026-10-14): **a task outlives the conversation it was scheduled from.**
+- **When the dispatch acts.** When the origin conversation is absent or soft-deleted, the dispatch
+  opens a new one as the task's identity, titled "⏰ <goal>". It records that conversation as the
+  task's origin with `SetTaskOriginRow`, and the run answers there.
+- **When it leaves the task alone.** An archived conversation keeps its task. A failed existence
+  check leaves the task where it was.
+- **Where it lives.** `internal/cron/task_home.go` and `cmd/aura/serve_dispatch.go`, landed in
+  `4c0dbe8e6`. No migration or env var.
+
+Measured at `82a49761c` (13:10:19-13:11:34 UTC). The operator started the task with ▶ on the
+Scheduler board.
+- **The move.** The task moved from the deleted conversation into a new one: same owner, active,
+  titled "⏰ Cerca le notizie principali del giorno…".
+- **The tool calls.** There were 12 tool calls, among them 7 `web_fetch`. Each has its `end`, with
+  `status=ok` and `{"unobserved": true}`.
+- **The answer.** It landed in the new conversation.
+- **`live_runs`.** It read 1 while the job's heartbeat was fresh and 0 right after.
+- **Evidence.** `docs/superpowers/verification/2026-10-14-gitlab-image-bridge.md`.
+
+Not measured:
+- an owner who no longer exists;
+- an archived origin;
+- a goal that calls a mutating tool;
+- the swarm worker's MCP session leak.
+
 A reminder on a channel is scheduled, not sent (2026-10-05). Reported by an operator on his own
 appliance and reproduced on the lab VM at `c57322064` with `gemma4:31b-cloud`. Asked "mandami un
 promemoria su WhatsApp, scrivendomi ricordati di fare un test tra 10 minuti", the agent never
@@ -3495,6 +3544,70 @@ second through the path unit and was recorded 11 s later, after the tick's pulls
 the new build. Not shown by these measurements: what a member sees (the VM has one
 account), behaviour under a slow or failing registry, several appliances at once, and
 whether 15 minutes suits real usage.
+
+**Image home (2026-10-14).** Since 2026-10-11, GitHub has refused every pull from
+`ghcr.io/chetto1983`, while the account is under review. The appliance images therefore live at
+`registry.gitlab.com/chetto1983/aura`.
+- **Where the home is set.** `IMAGE_HOME` in `deploy/aura-image-update.sh` names it.
+  `IMAGE_HOMES` lists every home a host may still name.
+- **Who publishes.** `scripts/publish_images.sh` builds and pushes the nine images from the
+  operator's machine. It publishes only a commit already on `gitlab/master`. It runs the image
+  contracts before any push and moves `aura:edge` last. The whisper pin is mirrored by digest.
+- **How a host moves.** Every tick downloads the home copy of each key that still names another
+  home (`deploy/aura-image-home.sh`). The tick stops below 12 GiB free, and it does this before
+  any consent is asked.
+  - **The move itself.** It runs inside the apply, before the payload sync. It repoints only the
+    keys whose home copy is already on the host, and it never pulls.
+  - **The update check.** A key whose copy has arrived counts as a pending update.
+  - **The reclaim.** The images the move superseded are reclaimed afterwards.
+  - **Fresh installs.** They start at the home: `scripts/install.sh`, compose's fallbacks and
+    create-aura 0.2.12.
+- **A host whose updater predates this.** Its updater cannot fetch its successor, so it needs
+  `deploy/aura-registry-bridge.sh` once.
+  - **The pull.** The patch pulls the GitLab copy of every key that still names ghcr, measuring
+    free space in KiB. If any of those pulls fails, it refuses and changes nothing.
+  - **The move.** Then it moves `AURA_IMAGE` alone and starts the updater.
+- **What "behind" means.** On the containerd image store an image's ID is its index digest, and
+  every attested publish writes a new index. So the updater calls a container behind only when
+  its platform manifest (`ImageManifestDescriptor`) differs from the tag's, which is what compose
+  compares. A container without a descriptor falls back to the image ID (`4144693ec`).
+- **Why the patch wants 12 GiB free.** The published set takes up to 10 GiB on a host that shares
+  no layer with it, because the containerd image store keeps each layer both compressed and
+  extracted. The old images stay on disk until the first apply, and the rest of the 12 GiB is
+  the databases'.
+
+Measured 2026-10-14 on the lab VM (`docs/superpowers/verification/2026-10-14-gitlab-image-bridge.md`):
+- **The patch.** It refused at 10.49 GiB free. With room made, it moved `AURA_IMAGE`.
+- **The update.** After "update now", the updater installed its successor, moved the other
+  eight keys, brought the stack up on `e04aefcad` and removed every ghcr image.
+- **The second tick.** It moved nothing and exited 0.
+- **A clean install.** `npx create-aura-appliance@0.2.12` on the wiped VM pulled only from
+  GitLab.
+- **The review fixes (`1a5c4137c`).** The operator applied them with "update now". The payload
+  brought the image-home library and the new updater, which re-executed itself.
+- **The VM fixes (`82a49761c`).** A tick applied them in a quiet spell at 13:00:55 UTC, with
+  nobody pressing anything. The next tick found the box current.
+- **The re-apply loop.** Before `4144693ec`, a republished, unchanged sidecar had kept the old
+  updater re-applying the same build every ~7 minutes.
+- **The scheduled goal.** It no longer pins `live_runs` (§15, 2026-10-14).
+- **CI.** GitLab pipelines #2 and #3 were green: `make quality`, plus `appliance-shell`, which runs
+  the 11 appliance shell suites.
+
+The way back is the same move in reverse: one commit sets `IMAGE_HOME` back and deletes the
+patch.
+
+Not shown by these measurements:
+- the way back itself, which runs only in the tests;
+- the fixed patch (pull every key, KiB) on a box frozen on ghcr, which runs only in its suite;
+- an appliance other than the lab VM;
+- a hermetic build;
+- GitLab's pull limits;
+- pinned release installs, whose tags only ghcr carries.
+- **A publish racing a tick.** A tick that pulls in the middle of a publish can run a newer
+  sidecar than `aura` until the next tick.
+- **The first tick of a clean install.** `install.sh` writes no `update/applied-image`, so the
+  first tick re-applies the installed build and restarts every service that reads the payload.
+  This is pre-existing, and open.
 
 `aura.service` stops the stack with `compose down`, which removes the containers, so every
 volume an image declares without a compose name is orphaned and the next start creates a new
