@@ -3649,6 +3649,12 @@ Measured 2026-10-14 on the lab VM (`docs/superpowers/verification/2026-10-14-git
     When arcadedb-mcp is not running, the apply now brings the whole stack up (`70e4398b8`).
   - **The open gap.** A frozen box that reboots before the patch stays down. Its unit cannot be
     updated except through the patch.
+  - **Proved on the VM.** With the stack taken down and the `a8541174d` updater installed, one
+    tick applied `3e15e058c` by itself in 5 min 11 s. It installed the new updater and unit,
+    brought aura up healthy in two minutes instead of failing at 600 s, and ended `current`:
+    19 containers, 0 unhealthy, no ghcr image left.
+  - **The publisher.** It retries a dropped push once (`aa5401fcf`): three of five publishes
+    that evening lost one upload.
 
 The way back is the same move in reverse: one commit sets `IMAGE_HOME` back and deletes the
 patch.

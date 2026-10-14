@@ -314,6 +314,31 @@ gets that branch from the `aura:edge` payload on its first apply.
   `systemctl start aura.service` returned 0 in 113 s. At 179 s, 19 containers ran: 16 healthy,
   0 unhealthy, none starting. aura was healthy on `a8541174d`, and the cockpit answered 401 (the
   Authula sign-in).
+- **The fixes, applied on a stopped stack.** Two more publishes lost an upload to a broken pipe,
+  so the publisher gained one retry per push (`aa5401fcf`). `3e15e058c` was then published with
+  rc=0 in 534 s: 9 pushes, 11 moves, no image left. Before the tag moved, the VM's timer was
+  held and its stack taken down with `compose down`, with the `a8541174d` updater installed.
+  One tick then ran by itself in 5 min 11 s, 19:39:19-19:44:30Z.
+  - **The decision.** `applying 3e15e058c: nobody is using Aura`.
+  - **The payload.** It installed the new updater and `/etc/systemd/system/aura.service`. The
+    new updater re-executed itself.
+  - **The cold start.** `aura: missing -> sha256:6abdd32…` was healthy at 19:42:07, two minutes
+    in, where the old updater had waited 600 s. aura cannot turn healthy before `arcadedb-mcp`
+    runs, and the payload's own whole-stack up came only afterwards (19:42:15). So the stack
+    came up through the new stopped-stack branch.
+  - **The sidecars.** They were refreshed and the stale volumes pruned. The tick logged
+    `the appliance is healthy`.
+  - **Read-back.**
+    - `state=current`, with aura healthy on `3e15e058c`.
+    - The installed unit runs `up -d --pull missing`.
+    - 19 containers ran: 16 healthy, 0 unhealthy.
+    - 0 `ghcr.io/chetto1983` images were left; the aliases were reclaimed as superseded.
+    - The cockpit answered 401, and the timer was `enabled active`.
+  - **GitLab CI.** Pipelines on `2429bfdfb`, `8a2a81d04` and `3e15e058c` were green, each
+    with `appliance-shell` (37-48 s) and `quality` (557-579 s).
+  - **The image store.** On the VM, `image_store_free` reports 21835736 KiB at
+    `/var/lib/docker` with the containerd snapshotter. Containerd's root shares that filesystem,
+    so the minimum is the same.
 
 **Not established here:**
 - the patch's space refusal on a containerd root that sits on its own filesystem;
