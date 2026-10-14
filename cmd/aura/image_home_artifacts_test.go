@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -18,11 +20,18 @@ var rawBaseOfHome = map[string]string{
 // declared, and returns the current home and every other one.
 func imageHomes(t *testing.T, root string) (string, []string) {
 	t.Helper()
-	updater := readProjectFile(t, root, "deploy/aura-image-update.sh")
+	home, others, err := parseImageHomes(readProjectFile(t, root, "deploy/aura-image-update.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return home, others
+}
+
+func parseImageHomes(updater string) (string, []string, error) {
 	home := regexp.MustCompile(`(?m)^IMAGE_HOME=(\S+)$`).FindStringSubmatch(updater)
 	homes := regexp.MustCompile(`(?m)^IMAGE_HOMES=\(([^)]*)\)$`).FindStringSubmatch(updater)
 	if home == nil || homes == nil {
-		t.Fatal("deploy/aura-image-update.sh declares no IMAGE_HOME or IMAGE_HOMES")
+		return "", nil, errors.New("deploy/aura-image-update.sh declares no IMAGE_HOME or IMAGE_HOMES")
 	}
 	var others []string
 	declared := false
@@ -32,14 +41,17 @@ func imageHomes(t *testing.T, root string) (string, []string) {
 			continue
 		}
 		if rawBaseOfHome[h] == "" {
-			t.Fatalf("image home %s has no raw base in rawBaseOfHome", h)
+			return "", nil, fmt.Errorf("image home %s has no raw base in rawBaseOfHome", h)
 		}
 		others = append(others, h)
 	}
 	if !declared {
-		t.Fatalf("IMAGE_HOME %s is not one of IMAGE_HOMES", home[1])
+		return "", nil, fmt.Errorf("IMAGE_HOME %s is not one of IMAGE_HOMES", home[1])
 	}
-	return home[1], others
+	if len(others) == 0 {
+		return "", nil, fmt.Errorf("IMAGE_HOMES names only IMAGE_HOME %s: the drift test would look for no other home", home[1])
+	}
+	return home[1], others, nil
 }
 
 // foreignHomeRefs lists every reference text makes to another home: its registry path, or the
@@ -56,6 +68,19 @@ func foreignHomeRefs(text string, others []string) []string {
 	return found
 }
 
+// With no home but IMAGE_HOME the drift test below would look for no foreign reference at all,
+// and pass on any file.
+func TestParseImageHomesRefusesASingleHome(t *testing.T) {
+	single := "IMAGE_HOME=registry.gitlab.com/chetto1983/aura\nIMAGE_HOMES=(registry.gitlab.com/chetto1983/aura)\n"
+	if _, _, err := parseImageHomes(single); err == nil {
+		t.Fatal("an IMAGE_HOMES naming only IMAGE_HOME was accepted")
+	}
+	home, others, err := parseImageHomes("IMAGE_HOME=registry.gitlab.com/chetto1983/aura\nIMAGE_HOMES=(ghcr.io/chetto1983 registry.gitlab.com/chetto1983/aura)\n")
+	if err != nil || home != "registry.gitlab.com/chetto1983/aura" || len(others) != 1 || others[0] != "ghcr.io/chetto1983" {
+		t.Fatalf("two homes parsed as %q %v %v", home, others, err)
+	}
+}
+
 func TestForeignHomeRefsFindsTheOtherHome(t *testing.T) {
 	others := []string{"ghcr.io/chetto1983"}
 	stale := "AURA_IMAGE=ghcr.io/chetto1983/aura:edge\ncurl -fsSL https://raw.githubusercontent.com/chetto1983/Aura/master/scripts/install.sh"
@@ -69,20 +94,32 @@ func TestForeignHomeRefsFindsTheOtherHome(t *testing.T) {
 
 // Every default a host receives names the home the updater moves hosts to, so a fresh install
 // and an updated host pull the same images (docs/superpowers/specs/2026-10-13-gitlab-image-bridge-design.md).
-// The updater declares every home by design, so its IMAGE_HOMES line is not read; the one-time
-// bridge patch names both homes by design and is not shipped.
+// The payload manifest is what every host receives; the installer, the env template and the npm
+// package reach a host the first time. The updater declares every home by design, so its
+// IMAGE_HOMES line is not read; the one-time bridge patch names both homes by design and is not
+// shipped.
 func TestShippedDefaultsNameTheUpdatersImageHome(t *testing.T) {
 	root := repoRootForTest(t)
 	home, others := imageHomes(t, root)
-	shipped := []string{"scripts/install.sh", "scripts/install_env.sh", ".env.example", "packages/create-aura/README.md"}
-	for _, pattern := range []string{"compose*.yaml", "deploy/*", "packages/create-aura/src/*.ts"} {
+	seen := map[string]bool{}
+	var shipped []string
+	add := func(rel string) {
+		if !seen[rel] {
+			seen[rel] = true
+			shipped = append(shipped, rel)
+		}
+	}
+	for _, rel := range append(payloadPaths(t, root), "scripts/install.sh", ".env.example", "packages/create-aura/README.md") {
+		add(rel)
+	}
+	for _, pattern := range []string{"deploy/*", "packages/create-aura/src/*.ts"} {
 		matches, err := filepath.Glob(filepath.Join(root, pattern))
 		if err != nil || len(matches) == 0 {
 			t.Fatalf("glob %s: %v %v", pattern, matches, err)
 		}
 		for _, m := range matches {
 			rel, _ := filepath.Rel(root, m)
-			shipped = append(shipped, filepath.ToSlash(rel))
+			add(filepath.ToSlash(rel))
 		}
 	}
 	declaration := regexp.MustCompile(`(?m)^IMAGE_HOMES=.*$`)

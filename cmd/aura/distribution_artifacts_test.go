@@ -90,6 +90,21 @@ func TestDistributionSurfaceArtifactsMatchReleaseContract(t *testing.T) {
 	}
 }
 
+// payloadPaths lists the files scripts/payload_manifest.txt ships to every host.
+func payloadPaths(t *testing.T, root string) []string {
+	t.Helper()
+	const manifest = "scripts/payload_manifest.txt"
+	var paths []string
+	for line := range strings.SplitSeq(strings.TrimSpace(readProjectFile(t, root, manifest)), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			t.Fatalf("%s line %q is not `<sha256> <path>`", manifest, line)
+		}
+		paths = append(paths, fields[1])
+	}
+	return paths
+}
+
 // The release image is built from a temporary context holding only `extra_files`
 // (goreleaser.com/customization/package/dockers_v2: "the context does not contain the source
 // files"), while publish-aura-edge.yml builds the same Dockerfile from the whole checkout.
@@ -141,13 +156,7 @@ func TestReleaseImageContextHoldsEverythingTheDockerfileReads(t *testing.T) {
 		t.Fatalf("%s no longer reads %s; update this contract", image.Dockerfile, manifest)
 	}
 	needed = append(needed, manifest)
-	for line := range strings.SplitSeq(strings.TrimSpace(readProjectFile(t, root, manifest)), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 2 {
-			t.Fatalf("%s line %q is not `<sha256> <path>`", manifest, line)
-		}
-		needed = append(needed, fields[1])
-	}
+	needed = append(needed, payloadPaths(t, root)...)
 	for _, rel := range needed {
 		if !inContext(rel) {
 			t.Errorf("release image context lacks %s: add it (or its directory) to extra_files", rel)
