@@ -368,12 +368,29 @@ image_id() {
   docker image inspect --format '{{.Id}}' "$1" 2>/dev/null
 }
 
-# A running service whose tag now names another image than the one its container runs.
+# Succeeds when container $1 runs other content than its tag $2 names now. On a multi-platform
+# image store that is the platform manifest, which compose compares too: a republish of the same
+# content moves the tag's index digest and keeps the manifest (compose#13636). Comparing indexes
+# left whatsapp-mcp behind for good on the lab VM, 2026-10-14, and every idle tick re-applied
+# the update for a container compose rightly kept. Elsewhere the image ID is the content digest.
+runs_superseded_image() {
+  local manifest='' platform=''
+  read -r manifest platform < <(docker inspect --format \
+    '{{with .ImageManifestDescriptor}}{{.Digest}}{{with .Platform}} {{.OS}}/{{.Architecture}}{{with .Variant}}/{{.}}{{end}}{{end}}{{end}}' \
+    "$1" 2>/dev/null) || true
+  if [[ -n "${platform}" ]]; then
+    [[ "${manifest}" != "$(docker image inspect --platform "${platform}" --format '{{.Id}}' "$2" 2>/dev/null)" ]]
+  else
+    [[ "$(docker inspect --format '{{.Image}}' "$1" 2>/dev/null)" != "$(image_id "$2")" ]]
+  fi
+}
+
+# A running service whose tag now names other content than its container runs.
 service_behind() {
   local cid
   cid="$(docker compose ps -q "$1")"
   [[ -n "${cid}" ]] || return 1
-  [[ "$(docker inspect --format '{{.Image}}' "${cid}")" != "$(image_id "$(docker inspect --format '{{.Config.Image}}' "${cid}")")" ]]
+  runs_superseded_image "${cid}" "$(docker inspect --format '{{.Config.Image}}' "${cid}")"
 }
 
 # Per-user boxes are aura's own containers, not compose services, and aura pulls a box image
@@ -393,19 +410,20 @@ pull_sandbox_images() {
   fi
 }
 
-# Prints every box whose container, or whose egress sidecar, runs an image its tag no longer
+# Prints every box whose container, or whose egress sidecar, runs content its tag no longer
 # names: known while checking, so the cockpit can say so before anything is removed.
 stale_boxes() {
-  local box_image egress_image box_id egress_id name egress_now
+  local box_image egress_image name egress
   box_image="$(env_value AURA_SANDBOX_IMAGE)"
   egress_image="$(env_value AURA_SANDBOX_EGRESS_IMAGE)"
   [[ -n "${box_image}" && -n "${egress_image}" ]] || return 0
-  box_id="$(image_id "${box_image}")" && egress_id="$(image_id "${egress_image}")" || return 0
+  image_id "${box_image}" >/dev/null && image_id "${egress_image}" >/dev/null || return 0
   while read -r name; do
     [[ "${name}" == aura-box-* ]] || continue
-    egress_now="$(docker inspect --format '{{.Image}}' "aura-egress-${name#aura-box-}" 2>/dev/null || true)"
-    if [[ "$(docker inspect --format '{{.Image}}' "${name}")" != "${box_id}" ||
-      ("${egress_now}" != '' && "${egress_now}" != "${egress_id}") ]]; then
+    egress="aura-egress-${name#aura-box-}"
+    if runs_superseded_image "${name}" "${box_image}" ||
+      { docker inspect --format '{{.Id}}' "${egress}" >/dev/null 2>&1 &&
+        runs_superseded_image "${egress}" "${egress_image}"; }; then
       echo "${name}"
     fi
   done < <(docker ps -a --filter name=aura-box- --format '{{.Names}}')

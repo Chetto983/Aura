@@ -34,13 +34,19 @@ set +e # the updater enables errexit when sourced; the cases below test return c
 
 OLD=sha256:0ld
 NEW=sha256:e3e
-declare -A RUNNING CONTAINER_IMAGE CONTAINER_REF TAG
+# CONTAINER_MANIFEST and PLATFORM_TAG model a multi-platform (containerd) image store: the
+# platform manifest a container was created from, and the one a tag names for linux/amd64.
+declare -A RUNNING CONTAINER_IMAGE CONTAINER_REF CONTAINER_MANIFEST TAG PLATFORM_TAG
 declare -A REV=([sha256:0ld]=4de507676c6b234470d59ce57ce9bfbe61233cfe [sha256:e3e]=7886200e539046d3b7dc47176facddb74f98ce6b)
+BOXES=''
 reset_host() {
   RUNNING=([aura]=aura-id)
   CONTAINER_IMAGE=([aura-id]="$OLD")
   CONTAINER_REF=([aura-id]=ghcr.io/example/aura:edge)
+  CONTAINER_MANIFEST=()
   TAG=([ghcr.io/example/aura:edge]="$OLD")
+  PLATFORM_TAG=()
+  BOXES=''
   rm -f "$INSTALL_DIR"/update/* "$INSTALL_DIR/payload_manifest.txt" "$INSTALL_DIR/$APPLIED_MANIFEST"
   printf '%s' "$OLD" >"$INSTALL_DIR/update/applied-image"
 }
@@ -48,13 +54,20 @@ docker() {
   case "$1 ${2:-}" in
     "compose ps") echo "${RUNNING[$4]:-}" ;;
     "inspect --format")
+      [[ -n "${CONTAINER_IMAGE[$4]:-}" ]] || return 1
       case "$3" in
-        '{{.Image}}') echo "${CONTAINER_IMAGE[$4]}" ;;
+        '{{.Image}}' | '{{.Id}}') echo "${CONTAINER_IMAGE[$4]}" ;;
         '{{.Config.Image}}') echo "${CONTAINER_REF[$4]}" ;;
+        *ImageManifestDescriptor*) [[ -z "${CONTAINER_MANIFEST[$4]:-}" ]] || echo "${CONTAINER_MANIFEST[$4]} linux/amd64" ;;
         *) fail "unexpected docker $*" ;;
       esac
       ;;
     "image inspect")
+      if [[ "$3 $4 $5 ${6:-}" == '--platform linux/amd64 --format {{.Id}}' ]]; then
+        [[ -n "${PLATFORM_TAG[$7]:-}" ]] || return 1
+        echo "${PLATFORM_TAG[$7]}"
+        return 0
+      fi
       case "$4" in
         '{{.Id}}') [[ -n "${TAG[$5]:-}" ]] || return 1; echo "${TAG[$5]}" ;;
         *Labels*) echo "${REV[$5]:-}" ;;
@@ -62,7 +75,7 @@ docker() {
         *) fail "unexpected docker $*" ;;
       esac
       ;;
-    "ps -a") ;;
+    "ps -a") [[ -z "$BOXES" ]] || printf '%s\n' $BOXES ;;
     *) fail "unexpected docker $*" ;;
   esac
 }
@@ -172,6 +185,43 @@ TAG[ghcr.io/example/aura-caddy:edge]=sha256:c0ddy
 decides wait "a payload installed but never applied, someone active"
 [[ "$(status state)" == pending ]] || fail "an unapplied payload was not pending"
 echo "ok: a moved sidecar tag or an unapplied payload is pending too"
+
+# On a multi-platform image store a republish of unchanged content moves the tag's index digest
+# but not its platform manifest, which is what compose compares, so compose keeps the container.
+# Lab VM, 2026-10-14: whatsapp-mcp rebuilt from the same commit, and every idle tick re-applied
+# the update for a container compose would never recreate.
+reset_host
+RUNNING[whatsapp]=wa-id
+CONTAINER_IMAGE[wa-id]=sha256:1ndex1
+CONTAINER_MANIFEST[wa-id]=sha256:m4nifest
+CONTAINER_REF[wa-id]=ghcr.io/example/whatsapp-mcp:latest
+TAG[ghcr.io/example/whatsapp-mcp:latest]=sha256:1ndex2
+PLATFORM_TAG[ghcr.io/example/whatsapp-mcp:latest]=sha256:m4nifest
+activity 30 1200 0
+decides wait "an attested republish of whatsapp's unchanged image, idle"
+[[ "$(status state)" == current ]] || fail "an unchanged republish was pending: $(cat "$INSTALL_DIR/update/status")"
+PLATFORM_TAG[ghcr.io/example/whatsapp-mcp:latest]=sha256:m4nifest2
+decides apply "whatsapp's content changed, idle"
+echo "ok: a sidecar is behind when its content changed, not when only its index did"
+
+reset_host
+cp "$INSTALL_DIR/.env" "$fixture/env.consent"
+printf 'AURA_SANDBOX_IMAGE=box:edge\nAURA_SANDBOX_EGRESS_IMAGE=egress:edge\n' >>"$INSTALL_DIR/.env"
+BOXES='aura-box-u1'
+CONTAINER_IMAGE[aura-box-u1]=sha256:b0x1 CONTAINER_MANIFEST[aura-box-u1]=sha256:bm1
+CONTAINER_IMAGE[aura-egress-u1]=sha256:egr1 CONTAINER_MANIFEST[aura-egress-u1]=sha256:em1
+TAG[box:edge]=sha256:b0x2 PLATFORM_TAG[box:edge]=sha256:bm1
+TAG[egress:edge]=sha256:egr2 PLATFORM_TAG[egress:edge]=sha256:em1
+[[ -z "$(stale_boxes)" ]] || fail "a box on unchanged content was stale: $(stale_boxes)"
+PLATFORM_TAG[egress:edge]=sha256:em2
+[[ "$(stale_boxes)" == aura-box-u1 ]] || fail "a box whose egress content changed was not stale"
+PLATFORM_TAG[egress:edge]=sha256:em1 PLATFORM_TAG[box:edge]=sha256:bm2
+[[ "$(stale_boxes)" == aura-box-u1 ]] || fail "a box whose content changed was not stale"
+unset 'CONTAINER_IMAGE[aura-egress-u1]'
+PLATFORM_TAG[box:edge]=sha256:bm1
+[[ -z "$(stale_boxes)" ]] || fail "a box without its egress sidecar was stale"
+cp "$fixture/env.consent" "$INSTALL_DIR/.env"
+echo "ok: a box is stale when its content or its egress's changed, not when only an index did"
 
 reset_host
 publish_new_build
