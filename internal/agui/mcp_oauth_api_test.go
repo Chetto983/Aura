@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -292,6 +293,23 @@ func TestRevokeReportsWhetherAnythingWasRemoved(t *testing.T) {
 				t.Fatalf("removed = %v, want %v", body["removed"], removed)
 			}
 		})
+	}
+}
+
+// A server with no authorization flow gets no button, so a revoke that reaches it anyway is
+// the caller's mistake: a 400 with the reason, not a 500 that sends someone reading logs.
+func TestRevokeOfAServerWithNoAuthorizationFlowIsABadRequest(t *testing.T) {
+	t.Parallel()
+	refusal := fmt.Errorf("%w: Aura issues this sidecar's credential itself", ErrNoAuthorizationFlow)
+	s := serverWithAuth(&fakeAuthProvider{revokeErr: refusal})
+	recorder := httptest.NewRecorder()
+	s.handleMCPAuthorizationRevoke(recorder, authRequest(http.MethodDelete, "/x", "id-1"))
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("revoke status = %d, want 400", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), "Aura issues") {
+		t.Fatalf("body = %q, want the reason", recorder.Body.String())
 	}
 }
 

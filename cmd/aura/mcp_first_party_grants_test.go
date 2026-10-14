@@ -354,9 +354,9 @@ func TestFirstPartyGrantsReplaceAStaleResourceURL(t *testing.T) {
 	}
 }
 
-// SECURITY: a server Aura did not ship must never be handed a token nobody consented to.
-func TestFirstPartyMCPServersRefusesEverythingButTheShippedRecipes(t *testing.T) {
-	withMemoryMCPRegistry(t)
+// shippedSidecars is a registry holding the three sidecars Aura ships, each enabled.
+func shippedSidecars(t *testing.T) mcp.ManagedConfig {
+	t.Helper()
 	enabled := true
 	doc := mcp.ManagedConfig{
 		Version:    mcp.ManagedConfigVersion,
@@ -372,6 +372,14 @@ func TestFirstPartyMCPServersRefusesEverythingButTheShippedRecipes(t *testing.T)
 		server.Enabled = &enabled
 		doc.MCPServers[name] = server
 	}
+	return doc
+}
+
+// SECURITY: a server Aura did not ship must never be handed a token nobody consented to.
+func TestFirstPartyMCPServersRefusesEverythingButTheShippedRecipes(t *testing.T) {
+	withMemoryMCPRegistry(t)
+	enabled := true
+	doc := shippedSidecars(t)
 	// What `aura mcp add` writes, plus the two shapes an operator could hand-edit into
 	// servers.json to try to look shipped.
 	doc.MCPServers["operator-added"] = mcp.ManagedServer{

@@ -41,6 +41,10 @@ type MCPAuthorization struct {
 	Reason string `json:"reason,omitempty"`
 }
 
+// ErrNoAuthorizationFlow marks a server that takes no authorization flow. The cockpit offers
+// it no button, so a start or revoke that reaches it anyway is the caller's mistake.
+var ErrNoAuthorizationFlow = errors.New("this MCP server takes no authorization flow")
+
 // MCPAuthorizationProvider is the narrow seam the handlers depend on. The concrete
 // implementation — grant store, flow registry, session opener, configured callback URL —
 // is assembled at the composition root, where the pool and the runtime egress policy
@@ -174,7 +178,11 @@ func (s *Server) handleMCPAuthorizationRevoke(w http.ResponseWriter, r *http.Req
 	}
 	removed, err := provider.RevokeAuthorization(r.Context(), r.PathValue("name"))
 	if err != nil {
-		http.Error(w, mcp.RedactSecrets(err.Error()), http.StatusInternalServerError)
+		status := http.StatusInternalServerError
+		if errors.Is(err, ErrNoAuthorizationFlow) {
+			status = http.StatusBadRequest
+		}
+		http.Error(w, mcp.RedactSecrets(err.Error()), status)
 		return
 	}
 	writeJSON(w, map[string]any{"removed": removed})

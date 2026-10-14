@@ -92,10 +92,19 @@ func newFirstPartyGrantKeeper(issuer firstPartyTokenIssuer, store firstPartyGran
 	}
 }
 
-// firstPartyMCPServers is the ONLY place that decides which servers may be self-issued
-// to. Both gates are load-bearing: FirstPartyRecipe refuses anything that is not a
-// shipped recipe at its shipped address, and UsesOAuth skips a server the operator gave a
-// static bearer or disabled OAuth on, where a minted token would be dead weight.
+// selfIssuable is the ONLY place that decides which servers may be self-issued to: the
+// keeper mints for them, and the cockpit offers them no authorization of their own. Both
+// gates are load-bearing: FirstPartyRecipe refuses anything that is not a shipped recipe at
+// its shipped address, and UsesOAuth skips a server the operator gave a static bearer or
+// disabled OAuth on, where a minted token would be dead weight.
+func selfIssuable(server mcp.ManagedServer) bool {
+	if !mcpmanager.FirstPartyRecipe(server) {
+		return false
+	}
+	settings, err := mcp.OAuthSettingsFromEnv(server.Env)
+	return err == nil && mcp.UsesOAuth(server, settings)
+}
+
 func firstPartyMCPServers() (map[string]mcp.ManagedServer, error) {
 	_, policies, err := mcpRuntimeSet()
 	if err != nil {
@@ -103,14 +112,9 @@ func firstPartyMCPServers() (map[string]mcp.ManagedServer, error) {
 	}
 	out := make(map[string]mcp.ManagedServer, len(policies))
 	for name, server := range policies {
-		if !mcpmanager.FirstPartyRecipe(server) {
-			continue
+		if selfIssuable(server) {
+			out[name] = server
 		}
-		settings, err := mcp.OAuthSettingsFromEnv(server.Env)
-		if err != nil || !mcp.UsesOAuth(server, settings) {
-			continue
-		}
-		out[name] = server
 	}
 	return out, nil
 }

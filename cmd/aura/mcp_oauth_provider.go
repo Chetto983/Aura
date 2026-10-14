@@ -27,6 +27,12 @@ import (
 // redirect URI the authorization server sends the human back to.
 const mcpOAuthCallbackAPIPath = "/api/governance/mcp/authorization/callback"
 
+// selfIssuedReason is why the cockpit offers a shipped sidecar no authorization: the token
+// is the keeper's to mint (mcp_first_party_grants.go), never a person's to consent to.
+const selfIssuedReason = "Aura issues this sidecar's credential itself and renews it before it expires"
+
+var errSelfIssued = fmt.Errorf("%w: %s", agui.ErrNoAuthorizationFlow, selfIssuedReason)
+
 type mcpAuthService struct {
 	store *mcpoauth.Store
 	flows *mcp.Flows
@@ -142,6 +148,9 @@ func (m *mcpAuthService) AuthorizationState(ctx context.Context, name string) (a
 	if !mcp.UsesOAuth(server, settings) {
 		return agui.MCPAuthorization{Supported: false, Reason: noOAuthReason(server, settings)}, nil
 	}
+	if selfIssuable(server) {
+		return agui.MCPAuthorization{Supported: false, Reason: selfIssuedReason}, nil
+	}
 	grant, err := m.store.Load(ctx, name)
 	if errors.Is(err, mcpoauth.ErrNoGrant) {
 		return agui.MCPAuthorization{Supported: true}, nil
@@ -164,6 +173,9 @@ func (m *mcpAuthService) StartAuthorization(ctx context.Context, owner, name, or
 	if !ok {
 		return mcp.Flow{}, fmt.Errorf("MCP server %q is not configured or is disabled", name)
 	}
+	if selfIssuable(server) {
+		return mcp.Flow{}, errSelfIssued
+	}
 	return m.flows.Start(ctx, owner, name, server, callback)
 }
 
@@ -180,6 +192,14 @@ func (m *mcpAuthService) FailAuthorization(state string, reason error) (mcp.Flow
 }
 
 func (m *mcpAuthService) RevokeAuthorization(ctx context.Context, name string) (bool, error) {
+	server, ok, err := effectiveManagedMCPServer(name)
+	if err != nil {
+		return false, err
+	}
+	// A server that is gone from the registry still leaves its grant for the operator to drop.
+	if ok && selfIssuable(server) {
+		return false, errSelfIssued
+	}
 	return m.store.Delete(ctx, name)
 }
 
