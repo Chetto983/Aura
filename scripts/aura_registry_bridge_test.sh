@@ -26,7 +26,7 @@ export AURA_DEFAULTS_FILE="$fixture/defaults"
 : >"$AURA_DEFAULTS_FILE"
 containerd_store='[["driver-type","io.containerd.snapshotter.v1"]]'
 defaults() {
-  uid=0 free_kib=$((40 * 1048576)) containerd_free_kib=$((40 * 1048576)) broken_pull='' docker_down=''
+  uid=0 free_kib=$((40 * 1048576)) containerd_free_kib=$((40 * 1048576)) broken_pull='' docker_down='' timer_fails=''
   driver_status="$containerd_store"
 }
 defaults
@@ -49,7 +49,10 @@ docker() {
   esac
 }
 containerd() { [[ "$*" == 'config dump' ]] && echo "root = '/srv/containerd'"; }
-systemctl() { echo "systemctl $*" >>"$calls"; }
+systemctl() {
+  echo "systemctl $*" >>"$calls"
+  [[ "$1" != enable || -z "$timer_fails" ]]
+}
 
 reset() {
   rm -rf "$INSTALL_DIR"
@@ -67,7 +70,7 @@ refuses() { # <why> <its message> : main must fail for that reason and leave .en
   if (main) >"$fixture/out" 2>&1; then fail "$1: the patch went on"; fi
   grep -q "$2" "$fixture/out" || fail "$1: refused for another reason: $(cat "$fixture/out")"
   cmp -s "$INSTALL_DIR/.env" "$fixture/env.before" || fail "$1: .env changed"
-  ! grep -q '^systemctl' "$calls" || fail "$1: the updater was started"
+  ! grep -q 'start --no-block' "$calls" || fail "$1: the updater was started"
 }
 
 reset; uid=1000; refuses "not root" "as root"
@@ -86,6 +89,9 @@ reset; broken_pull=registry.gitlab.com/chetto1983/aura/aura:edge; refuses "the a
 # The updater moves every other key without pulling, inside a 15-minute start; the patch is the
 # one place with no deadline, so it fetches the whole set before it moves anything.
 reset; broken_pull=registry.gitlab.com/chetto1983/aura/aura-caddy:edge; refuses "a sidecar image does not pull" "aura-caddy:edge does not pull"
+# "Aura applies it after 15 idle minutes" needs the timer's ticks; the lab VM's was found
+# inactive on 2026-10-13.
+reset; timer_fails=1; refuses "the updater's timer does not start" "aura-image-update.timer does not start"
 echo "ok: every refusal leaves .env byte-identical and starts nothing"
 
 reset
@@ -97,6 +103,7 @@ AURA_CADDY_IMAGE=ghcr.io/chetto1983/aura-caddy:edge" ]] || fail "the patch left 
 grep -qx 'docker pull -q registry.gitlab.com/chetto1983/aura/aura:edge' "$calls" || fail "the patch did not pull first"
 grep -qx 'docker pull -q registry.gitlab.com/chetto1983/aura/aura-caddy:edge' "$calls" || fail "the patch left a sidecar image to the updater's deadline"
 grep -qx 'systemctl start --no-block aura-image-update.service' "$calls" || fail "the updater was not started"
+grep -qx 'systemctl enable --now aura-image-update.timer' "$calls" || fail "the patch left the updater's timer as it found it"
 ! grep -q 'do-not-print-me' "$fixture/out" || fail "the patch printed .env values"
 echo "ok: the patch moves AURA_IMAGE alone and starts the updater"
 
@@ -106,6 +113,7 @@ main >"$fixture/out"
 cmp -s "$INSTALL_DIR/.env" "$fixture/env.before" || fail "a second run changed .env"
 ! grep -q '^docker pull' "$calls" || fail "a second run pulled again"
 grep -qx 'systemctl start --no-block aura-image-update.service' "$calls" || fail "a second run did not start the updater"
+grep -qx 'systemctl enable --now aura-image-update.timer' "$calls" || fail "a second run left the updater's timer as it found it"
 echo "ok: a second run only starts the updater"
 
 reset

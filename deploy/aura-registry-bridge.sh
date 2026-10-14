@@ -29,6 +29,13 @@ die() {
   exit 1
 }
 
+# "Aura applies it after 15 idle minutes" needs the timer's ticks, and the lab VM's timer was found
+# inactive on 2026-10-13. It is started before .env changes, so a timer that cannot start
+# refuses the move.
+enable_timer() {
+  systemctl enable --now aura-image-update.timer >/dev/null 2>&1 || die "aura-image-update.timer does not start"
+}
+
 start_updater() {
   systemctl start --no-block aura-image-update.service
   say "the updater is running: journalctl -fu aura-image-update.service"
@@ -78,6 +85,7 @@ main() {
   case "${current}" in
     "${BRIDGE_HOME}/"*)
       say "AURA_IMAGE already names the GitLab bridge."
+      enable_timer
       start_updater
       return 0
       ;;
@@ -95,6 +103,7 @@ main() {
     say "pulling ${image}"
     docker pull -q "${image}" >/dev/null || die "${image} does not pull"
   done < <(bridge_images "${env_file}")
+  enable_timer
   target="${BRIDGE_HOME}/${current#"${GHCR_HOME}"/}"
   sed -i "s|^AURA_IMAGE=.*|AURA_IMAGE=${target}|" "${env_file}"
   say "AURA_IMAGE now names the GitLab bridge."
