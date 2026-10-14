@@ -9,7 +9,9 @@
 #
 # It refuses, and changes nothing, unless it runs as root on an appliance whose updater syncs
 # its payload, whose AURA_IMAGE is under a known home, with room for the new images, and once
-# the new aura image has pulled. Removed from the repo on the return trip to ghcr.
+# every image .env names under ghcr has pulled from the bridge. The updater moves the other
+# keys only to images already on the host, so the whole set is fetched here, where no service
+# timeout runs. Removed from the repo on the return trip to ghcr.
 
 set -euo pipefail
 
@@ -18,6 +20,7 @@ BRIDGE_HOME=registry.gitlab.com/chetto1983/aura
 # A move adds up to 10 GiB on a host sharing no layer with the new images (the published set,
 # measured 2026-10-14; the containerd image store keeps each layer compressed and extracted),
 # and the old images stay on disk until the first apply finishes. The rest is the databases'.
+# Compared in KiB: df -BG rounds up, so 11.9 GiB would pass as 12.
 MIN_FREE_GB=12
 
 say() { echo "aura-registry-bridge: $*"; }
@@ -32,8 +35,17 @@ start_updater() {
   say "the cockpit will offer the update; 'Update now' applies it, or Aura applies it after 15 idle minutes."
 }
 
+# Prints the bridge copy of every image .env names under ghcr, AURA_IMAGE's first.
+bridge_images() {
+  local value
+  while IFS='=' read -r _ value; do
+    value="$(tr -d "\"'" <<<"${value}")"
+    [[ "${value}" != "${GHCR_HOME}/"* ]] || echo "${BRIDGE_HOME}/${value#"${GHCR_HOME}"/}"
+  done < <(grep -E '^AURA_IMAGE=' "$1"; grep -E '^AURA_[A-Z0-9_]+_IMAGE=' "$1" || true)
+}
+
 main() {
-  local env_file updater current target free
+  local env_file updater current target free image
   [[ "$(id -u)" == 0 ]] || die "run it as root (sudo)"
   # shellcheck source=/dev/null
   [[ ! -f /etc/default/aura ]] || source /etc/default/aura
@@ -52,11 +64,14 @@ main() {
   esac
   grep -q '^sync_payload()' "${updater}" 2>/dev/null ||
     die "${updater} predates the payload sync and could never install its successor"
-  free="$(df -P -BG "$(docker info --format '{{.DockerRootDir}}')" | awk 'NR == 2 { print $4 }' | tr -dc 0-9)"
-  ((${free:-0} >= MIN_FREE_GB)) || die "Docker has ${free:-0} GB free, ${MIN_FREE_GB} GB are needed"
+  free="$(df -P -k "$(docker info --format '{{.DockerRootDir}}')" | awk 'NR == 2 { print $4 }' | tr -dc 0-9)"
+  ((${free:-0} >= MIN_FREE_GB * 1048576)) ||
+    die "Docker has $((${free:-0} / 1048576)) GiB free, ${MIN_FREE_GB} GiB are needed"
+  while read -r image; do
+    say "pulling ${image}"
+    docker pull -q "${image}" >/dev/null || die "${image} does not pull"
+  done < <(bridge_images "${env_file}")
   target="${BRIDGE_HOME}/${current#"${GHCR_HOME}"/}"
-  say "pulling ${target}"
-  docker pull -q "${target}" >/dev/null || die "${target} does not pull"
   sed -i "s|^AURA_IMAGE=.*|AURA_IMAGE=${target}|" "${env_file}"
   say "AURA_IMAGE now names the GitLab bridge."
   start_updater
