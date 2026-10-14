@@ -3625,6 +3625,30 @@ Measured 2026-10-14 on the lab VM (`docs/superpowers/verification/2026-10-14-git
   - The next tick found the box current.
   - create-aura-appliance 0.2.13 ships it. Read back from npm, its installer's `install.sh`
     carries the function.
+- **The review's minors, closed (evening).** The VM was frozen again, with the update timer
+  disabled.
+  - **Docker stopped.** The patch, piped from GitLab raw master, refused with "Docker does not
+    answer". `.env` was unchanged, the timer stayed disabled, and Docker stayed down.
+  - **Docker back.** The patch, run on a frozen box whose stack was down, pulled all nine
+    copies in 60 s and moved `AURA_IMAGE`. It left the timer `enabled active`.
+  - **The publisher.** It published `a8541174d` to the home that commit's own `IMAGE_HOME`
+    names, and left no image on the operator's Docker. That held on the run whose push timed
+    out too, which also moved no tag.
+  - **create-aura's preflight.** It probes ghcr.io again, for llama.cpp, searxng and kokoro.
+    Its remote probe, run on the VM, reached all four hosts.
+- **A stack that is down did not come back up (evening, fixed).**
+  - **How it went down.** Stopping Docker stopped `aura.service` first
+    (`Requires=docker.service`), and its `compose down` removed every container. Starting Docker
+    does not start the unit again.
+  - **The unit's own start.** The unit's `compose up -d` honoured `pull_policy: always`. Once
+    ghcr refused a pull, compose interrupted the rest, and no container started. A reboot takes
+    the same path. The unit now runs `up -d --pull missing` (`f9b4d2268`); an explicit `--pull`
+    replaces every service's policy.
+  - **The updater on that stack.** It replaced aura alone, and aura reports ready only once its
+    memory MCP is mounted, while arcadedb-mcp starts after aura. It waited 600 s and exited 1.
+    When arcadedb-mcp is not running, the apply now brings the whole stack up (`70e4398b8`).
+  - **The open gap.** A frozen box that reboots before the patch stays down. Its unit cannot be
+    updated except through the patch.
 
 The way back is the same move in reverse: one commit sets `IMAGE_HOME` back and deletes the
 patch.
@@ -3632,8 +3656,11 @@ patch.
 Not shown by these measurements:
 - the way back itself, which runs only in the tests;
 - the fixed patch's space refusal on a frozen box, and its reclaim of ghcr images that differ
-  from GitLab's. In the re-run 20 GiB were free and the ghcr names were tags on the GitLab
+  from GitLab's. In the re-runs 20 GiB were free and the ghcr names were tags on the GitLab
   images; the first run did reclaim distinct ones;
+- a containerd root on its own filesystem: the lab VM keeps it on Docker's;
+- the stack coming back by itself after `systemctl stop docker` and `start docker`: it does not,
+  and nothing here changes that;
 - an appliance other than the lab VM;
 - a hermetic build;
 - GitLab's pull limits;

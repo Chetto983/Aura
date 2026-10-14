@@ -109,7 +109,10 @@ GitHub Actions has been disabled on the account since 2026-10-11.
 - The journal has 8 `moved` lines, one per key the patch did not move. The service reports
   `Result=success` and `ExecMainStatus=0`.
 - No `ghcr.io/chetto1983` image is left. The whisper pin survives only under its GitLab name, with
-  the same ID `c6c6311af66c`.
+  the same ID `c6c6311af66c`. No log line says which step dropped the ghcr copy of whisper: the
+  tick's journal has 8 ghcr removals and none for whisper. That copy was a digest reference with
+  no tag, so the likely step is the updater's `docker image prune --force`, whose output goes to
+  `/dev/null`.
 - The operator's cockpit MCP board lists every server as healthy: browser (29 tools), calendar
   (1, its single nested tool), elevenlabs (160), linear (68), memory (13) and whatsapp (15).
 - Free space is 5.40 GiB. The gap to the 10.49 GiB before is the two lab images the update left
@@ -242,6 +245,70 @@ twice, at 17:45:18. The updater tolerated it, and that container already ran the
   `state=current`.
 - The timer and `aura-update-request.path` are active.
 - 20.88 GiB are free.
+
+## The review's minors, closed
+
+All twelve minors the final review deferred were closed on the evening of 2026-10-14. Each code
+fix was red first, and each test gap was proved by a mutant that had survived and now fails.
+
+| # | Minor | Fix | Proof |
+|---|---|---|---|
+| 1 | create-aura's preflight no longer probed ghcr.io, while llama.cpp, searxng and kokoro pull from it | `1e845617a` | vitest red, then green, 114/114; the probe from `dist/remote.js` run on the VM reached all four hosts |
+| 2 | The patch does not check the re-exec hand-off | none: `1b97c4ea9` brought the payload sync and the re-exec together | — |
+| 3 | The patch measured Docker's root, not the containerd store's | `7e5d84faa` | patch and image-home suites; five mutants |
+| 4 | With Docker down, the patch died on a raw `df` error | `7e5d84faa` | same suites; on the VM, see below |
+| 5 | The patch neither checked nor enabled the update timer | `daf660828` | bridge suite; on the VM, see below |
+| 6 | The bridge suite read the machine's own `/etc/default/aura` | `053746ddb` (`AURA_DEFAULTS_FILE`) | bridge and updater suites |
+| 7 | Test gaps | `aa4843630`, `39f5d70de`, `932ae11fe` | a single image home is refused; the drift test reads the payload manifest's files (a ghcr reference planted in `caddy/Caddyfile` used to pass); the cloudflared default is checked against a home no file names |
+| 8 | The publisher read `IMAGE_HOME` from the working tree | `aa4843630` | publisher suite; the live publish below |
+| 9 | Each publish left up to ~10.7 GB of images in WSL | `a240475e5` | publisher suite; the live publish below |
+| 10 | Stale ghcr wording | `0a1466143` | — |
+| 11 | INSTALL.md did not point a frozen host to the patch | `0a1466143` | — |
+| 12 | Which step removed whisper's ghcr copy | documented under "The lab VM takes Andrea's path" | — |
+
+**The live publish of `a8541174d`**, run with no `AURA_PUBLISH_REGISTRY`:
+- **First run.** It built for `registry.gitlab.com/chetto1983/aura`, the commit's own
+  `IMAGE_HOME`. The push of `aura-pim-mcp` timed out at the registry ("timeout awaiting response
+  headers"), so no tag moved, and all nine built images were removed.
+- **Second run.** rc=0 in 409 s. It made 9 pushes and moved 11 tags, `aura:edge` last. All 9
+  images were removed, so this run left 0 tags on the operator's Docker.
+- **GitLab CI.** Pipeline `2947867283` on `a8541174d` was green: `appliance-shell` 44 s,
+  `quality` 519 s.
+
+**The VM, frozen again.** It was frozen as before, and this time the timer was disabled
+(`disabled inactive`).
+- **Docker stopped.** `docker.service` and `docker.socket` were stopped, and the patch was piped
+  from GitLab raw master. It refused with
+  `Docker does not answer: start it (systemctl start docker) and run this again -- nothing was changed.`
+  `.env` kept its hash, the timer stayed disabled, and Docker stayed down.
+- **Docker started, the stack did not.** `systemctl start docker` brought back 0 of the 19
+  containers. Stopping Docker had stopped `aura.service` first (`Requires=docker.service`), and
+  its `compose down` removed every container. Starting Docker does not start the unit again.
+- **The unit failed in 3 s.** `systemctl start aura.service` honoured `pull_policy: always`, which
+  `.env` sets for five services. ghcr answered `denied`, compose interrupted the other pulls, and
+  no container started. A reboot takes the same path.
+- **The patch on that stopped, frozen box.** It ran at 18:58:37Z, pulled all nine GitLab copies,
+  and moved `AURA_IMAGE` at 18:59:37Z. The timer was then `enabled active`.
+- **The tick it started.**
+  - It applied `a8541174d` ("nobody is using Aura") and synced the payload. The new updater
+    re-executed itself and moved the other eight keys.
+  - It ran `compose up -d --pull missing aura`. aura stayed unhealthy: its readiness waits for
+    the memory MCP, and `arcadedb-mcp` starts after aura.
+  - At 19:12:53 it logged `aura did not become healthy within 600s` and exited 1.
+- **Two fixes, red first.**
+  - `f9b4d2268`: the unit runs `up -d --pull missing`. An explicit `--pull` replaces every
+    service's policy (docker/compose `cmd/compose/create.go`).
+  - `70e4398b8`: when `arcadedb-mcp` is not running, the apply brings the whole stack up.
+- **Recovery.** `systemctl restart` on the failed oneshot unit does not run its ExecStop, so the
+  unhealthy aura stayed in place and the unit failed again. After `docker compose down`,
+  `systemctl start aura.service` returned 0 in 113 s.
+
+**Not established here:**
+- the patch's space refusal on a containerd root that sits on its own filesystem;
+- a stack coming back by itself after Docker is stopped and started;
+- the wizard's "existing installation" notice. `/opt/aura` is 0700 root after an npx install, so
+  the probe, which runs as the login user, cannot see `compose.yaml`. The notice never shows.
+  That is open.
 
 ## A scheduled goal closes its ledger rows
 
