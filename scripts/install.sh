@@ -366,6 +366,26 @@ install_systemd_unit() {
   esac
 }
 
+# Records, under the names the updater reads (deploy/aura-image-update.sh), the aura image the
+# stack runs and the payload it was brought up with -- but only when that payload is the one
+# the image carries. Without the record the first tick took the installed build for a new one
+# and restarted every service that mounts a payload file (lab VM, 2026-10-14); with a payload
+# the image does not carry, an apply is exactly what the tick owes, so any record goes.
+record_applied_update() {
+  rm -f update/applied-image payload_manifest.applied
+  image_manifest="$(mktemp)"
+  if container="$(docker create "$1" 2>/dev/null)"; then
+    if docker cp "$container:/usr/share/aura/payload/payload_manifest.txt" "$image_manifest" >/dev/null 2>&1 \
+      && sha256sum --check --quiet --strict "$image_manifest" >/dev/null 2>&1; then
+      install -m 0644 "$image_manifest" payload_manifest.txt
+      install -m 0644 "$image_manifest" payload_manifest.applied
+      docker image inspect --format '{{.Id}}' "$1" > update/applied-image
+    fi
+    docker rm -f "$container" >/dev/null 2>&1 || true
+  fi
+  rm -f "$image_manifest"
+}
+
 trust_caddy_local_ca() {
   cert_dir="$(mktemp -d)"
   cert_path="$cert_dir/aura-caddy-root.crt"
@@ -539,6 +559,7 @@ ensure_embed_model
 step "Starting the stack (this waits for every service to report healthy)"
 docker compose pull aura-cloudflared
 docker compose up -d --wait --wait-timeout 300
+record_applied_update "$aura_image"
 if [ "$TRUST_LOCAL_CA" -eq 1 ]; then
   trust_caddy_local_ca
 fi

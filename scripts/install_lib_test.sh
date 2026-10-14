@@ -303,6 +303,83 @@ else
   echo "skip: docker compose unavailable; the embed overlay merge is checked in CI"
 fi
 
+# The updater takes a host with no record of what its stack runs for one with an update
+# pending: on the lab VM's clean install (2026-10-14) the first tick re-applied the installed
+# build and restarted every service that mounts a payload file, although none had changed. The
+# installer records what it brought up, under the names the updater reads, and only when the
+# host's payload is the one the image carries: anything else is an update the tick must apply.
+updater="$repo_root/deploy/aura-image-update.sh"
+applied_manifest="$(sed -n 's/^APPLIED_MANIFEST=//p' "$updater")"
+payload_dir="$(sed -n 's/^PAYLOAD_IMAGE_DIR=//p' "$updater")"
+applied_image="$(sed -n 's|^applied_image() { cat "$(update_dir)/\([a-z-]*\)".*|\1|p' "$repo_root/deploy/aura-update-consent.sh")"
+[ -n "$applied_manifest" ] && [ -n "$payload_dir" ] && [ -n "$applied_image" ] \
+  || { echo "FAIL: the updater's record names were not found" >&2; exit 1; }
+image_root="$fixture_root/image"
+mkdir -p "$image_root$payload_dir/deploy"
+printf 'services: {}\n' > "$image_root$payload_dir/compose.yaml"
+printf '[Unit]\n' > "$image_root$payload_dir/deploy/aura.service"
+(cd "$image_root$payload_dir" && sha256sum compose.yaml deploy/aura.service > payload_manifest.txt)
+docker() {
+  case "$1" in
+    create) [ "$2" = registry.example/aura:edge ] && [ -d "$image_root" ] || return 1; echo cid-1 ;;
+    cp) cp "$image_root${2#cid-1:}" "$3" ;;
+    rm) [ "$*" = "rm -f cid-1" ] || { echo "FAIL: unexpected docker $*" >&2; exit 1; } ;;
+    image) [ "$*" = "image inspect --format {{.Id}} registry.example/aura:edge" ] \
+      || { echo "FAIL: unexpected docker $*" >&2; exit 1; }
+      echo sha256:installed ;;
+    *) echo "FAIL: unexpected docker $*" >&2; exit 1 ;;
+  esac
+}
+new_host() {
+  rm -rf "$fixture_root/host"
+  mkdir -p "$fixture_root/host/update" "$fixture_root/host/deploy"
+  cp "$image_root$payload_dir/compose.yaml" "$fixture_root/host/compose.yaml"
+  cp "$image_root$payload_dir/deploy/aura.service" "$fixture_root/host/deploy/aura.service"
+}
+(
+  new_host
+  cd "$fixture_root/host"
+  record_applied_update registry.example/aura:edge
+  [ "$(cat "update/$applied_image")" = sha256:installed ] \
+    || { echo "FAIL: the installer did not record the aura image its stack runs" >&2; exit 1; }
+  for record in payload_manifest.txt "$applied_manifest"; do
+    cmp -s "$record" "$image_root$payload_dir/payload_manifest.txt" \
+      || { echo "FAIL: the installer did not record the image's payload manifest as $record" >&2; exit 1; }
+  done
+)
+# A payload the image does not carry -- a re-run from a newer ref, a file edited by hand --
+# leaves no record, and drops the one an earlier run or tick wrote.
+(
+  new_host
+  cd "$fixture_root/host"
+  printf 'old\n' > "update/$applied_image"
+  printf 'old\n' > "$applied_manifest"
+  printf 'services: {edited: {}}\n' > compose.yaml
+  record_applied_update registry.example/aura:edge
+  [ ! -e "update/$applied_image" ] && [ ! -e "$applied_manifest" ] \
+    || { echo "FAIL: the installer recorded a payload the image does not carry as applied" >&2; exit 1; }
+)
+# An image with no payload, or none at all, records nothing and does not stop the install.
+(
+  new_host
+  cd "$fixture_root/host"
+  record_applied_update registry.example/other:edge \
+    || { echo "FAIL: an image without a payload stopped the install" >&2; exit 1; }
+  [ ! -e "update/$applied_image" ] && [ ! -e "$applied_manifest" ] \
+    || { echo "FAIL: the installer recorded an image it could not read" >&2; exit 1; }
+)
+unset -f docker
+# Recorded once the stack runs that image, and before the updater's timer is enabled: an
+# OnBootSec already past elapses the moment the timer starts (systemd.timer(5)).
+up_line="$(grep -n '^docker compose up -d --wait' "$repo_root/scripts/install.sh" | cut -d: -f1)"
+record_line="$(grep -n '^record_applied_update ' "$repo_root/scripts/install.sh" | cut -d: -f1)"
+timer_line="$(grep -n '^install_systemd_unit$' "$repo_root/scripts/install.sh" | cut -d: -f1)"
+[ -n "$up_line" ] && [ -n "$record_line" ] && [ -n "$timer_line" ] \
+  && [ "$up_line" -lt "$record_line" ] && [ "$record_line" -lt "$timer_line" ] \
+  || { echo "FAIL: the installer records its stack at line '$record_line', want after 'up' ($up_line) and before the timer ($timer_line)" >&2; exit 1; }
+
+echo "ok: the installer records the image and payload its stack runs, and only those"
+
 # The phase counter is hand-maintained, and the first version of it shipped as [10/9]
 # because a phase was added without moving the total. An operator reading "10 of 9" learns
 # that the number lying to them is the one thing they were given to trust.
