@@ -269,12 +269,14 @@ retire_env_keys >"$fixture/retire2.out"
 [[ ! -s "$fixture/retire2.out" ]] || fail "a clean .env still reported retirements: $(cat "$fixture/retire2.out")"
 echo "ok: keys no compose file reads any more are removed from .env, and nothing else is"
 
+# A home no file names, so a default written out by hand cannot pass.
 (
   INSTALL_DIR="$fixture/cloudflared"
+  IMAGE_HOME=registry.elsewhere/home
   mkdir -p "$INSTALL_DIR"
-  printf 'AURA_IMAGE=registry.gitlab.com/chetto1983/aura/aura:edge\n' >"$INSTALL_DIR/.env"
+  printf 'AURA_IMAGE=registry.elsewhere/home/aura:edge\n' >"$INSTALL_DIR/.env"
   ensure_cloudflared_edge_env >/dev/null
-  grep -qx "AURA_CLOUDFLARED_IMAGE=${IMAGE_HOME}/aura-cloudflared:edge" "$INSTALL_DIR/.env" ||
+  grep -qx "AURA_CLOUDFLARED_IMAGE=registry.elsewhere/home/aura-cloudflared:edge" "$INSTALL_DIR/.env" ||
     fail "the cloudflared default does not follow IMAGE_HOME: $(cat "$INSTALL_DIR/.env")"
 )
 echo "ok: the cloudflared default names IMAGE_HOME"
