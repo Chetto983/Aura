@@ -125,7 +125,9 @@ GitLab path.
 
 1. **Export.** Each source is exported at its commit into a fresh directory: `git archive` for
    Aura, a clone checked out at the commit for a fork. Dirty or untracked files never reach an
-   image.
+   image. The Aura commit must already be on `master` of the remote (`gitlab` by default,
+   `AURA_PUBLISH_REMOTE`), or nothing is built: appliances run whatever `aura:edge` names, and
+   its `master-<sha>` tag says anyone can read that commit (amended 2026-10-14).
 2. **Build.** Every image is amd64, with the Dockerfile, the build args (`VCS_REF` for aura) and
    the `org.opencontainers.image.source` / `.revision` labels that its CI workflow uses today.
    - Aura's seven images follow `publish-aura-edge.yml` and `publish-arcadedb-mcp.yml`.
@@ -158,14 +160,20 @@ access level is `enabled`.
 - **Two constants.**
   - `IMAGE_HOMES`: `ghcr.io/chetto1983` and `registry.gitlab.com/chetto1983/aura`.
   - `IMAGE_HOME`: where images live now. During the bridge it is the GitLab path.
-- **`move_image_registry`.** It runs in `apply_update` after `ensure_cloudflared_edge_env`, with
-  the other `.env` edits, so it runs only once an update has been decided. It looks at every
-  `AURA_*_IMAGE` line whose value starts with a home other than `IMAGE_HOME`:
-  1. It pulls the same `<name>:<tag>` under `IMAGE_HOME`, through `pull_retrying`.
-  2. On success, it rewrites that one line in place and logs the key name. GNU `sed -i` keeps
-     the file's 0600 mode and owner.
-  3. On failure, the key stays as it is and the tick goes on. A pull that fails today is
-     retried on the next tick.
+- **The move: `deploy/aura-image-home.sh`.** A library the updater sources from the payload,
+  like the consent library; replacing either re-executes the updater. It looks at every
+  `AURA_*_IMAGE` line whose value starts with a home other than `IMAGE_HOME`, and splits the
+  move in two (amended 2026-10-14 after the final review: pulling the set inside the apply took
+  10 of the service's 15 minutes on the lab VM, which a slower link would not finish):
+  1. `fetch_image_homes` runs on every tick, before any consent, with the other downloads. It
+     pulls the same `<name>:<tag>` under `IMAGE_HOME` through `pull_retrying`, and changes
+     nothing that runs. Below 12 GiB free under Docker's root, measured in KiB, it fetches
+     nothing and says so. A pull that fails is tried again on the next tick.
+  2. `move_image_registry` runs in `apply_update`, before the payload sync, so the payload comes
+     from the aura image that will run. It never pulls: it rewrites a key's line only when the
+     image under `IMAGE_HOME` is already on the host, and logs the key name. GNU `sed -i` keeps
+     the file's 0600 mode and owner. A key whose image has not arrived stays as it is.
+  3. A key whose home copy has arrived counts as a pending update, so the cockpit offers it.
 
   Values are never logged, as with `retire_env_keys`. A value under any other registry is left
   alone, such as an operator's own `AURA_STT_IMAGE`.
@@ -191,7 +199,8 @@ access level is `enabled`.
 
 The move needs nothing from the old updater beyond what it already does. The old updater pulls
 the new aura and installs its payload. The new updater then re-executes and moves the other
-keys before the stack is brought up.
+keys before the stack is brought up. On a bridged host their images are already there: the
+patch fetched them.
 
 ### Andrea's patch: `deploy/aura-registry-bridge.sh`
 
@@ -205,9 +214,11 @@ download it.
    - the installed updater predates the payload sync, because it has no `sync_payload` and so
      could never install its successor;
    - the free space under Docker's root is below the floor;
-   - the pull of `registry.gitlab.com/chetto1983/aura/aura:<same tag>` fails.
+   - the pull of the GitLab copy of any image `.env` names under ghcr fails, `aura` first.
 
-   The floor is the measured size of the published set plus a margin, fixed in the plan.
+   The floor is the measured size of the published set plus a margin, fixed in the plan, and
+   is compared in KiB: `df -BG` rounds up, so 11.9 GiB would pass as 12. The patch fetches the
+   whole set because it is the one step with no service timeout (amended 2026-10-14).
 2. **It rewrites `AURA_IMAGE` only.** The old ghcr `aura:edge` leaves the disk at the end of
    the first apply, through `remove_superseded_images`.
 3. **It starts `aura-image-update.service`** and says what comes next:
@@ -284,20 +295,24 @@ When GitHub reinstates the account:
 ## Tests
 
 - **`scripts/aura_image_update_test.sh`** keeps its strict-stub harness and adds these cases:
-  - a key moves only after its pull succeeded;
-  - a failed pull leaves `.env` byte-identical;
-  - a quoted value moves;
-  - a key already at home, and a value under another registry, are untouched;
-  - with `IMAGE_HOME` flipped, the move runs in the return direction;
-  - the log carries key names, never values;
-  - `.env` keeps its mode;
   - `image_repository` folds both homes to one name;
   - a ghcr image whose GitLab pin moved is removed, the box images included;
-  - the cloudflared default follows `IMAGE_HOME`.
+  - the cloudflared default follows `IMAGE_HOME`;
+  - a tick fetches the image homes before it decides.
+- **`scripts/aura_image_home_test.sh`** (new, 2026-10-14) drives the move library:
+  - a tick fetches every key's home copy and leaves `.env` alone;
+  - below 12 GiB free a tick fetches nothing;
+  - the apply moves only the keys whose home copy is on the host, and never pulls;
+  - a quoted value moves, a key already at home and a value under another registry are
+    untouched, the log carries key names, never values, and `.env` keeps its mode;
+  - with `IMAGE_HOME` flipped, the move runs in the return direction;
+  - a key whose home copy arrives later is pending on the next tick;
+  - the apply moves `AURA_IMAGE` before it syncs the payload.
 - **`scripts/aura_registry_bridge_test.sh`** (new) stubs `docker`, `systemctl` and `df`, and
   covers these cases:
-  - each refusal leaves `.env` byte-identical;
-  - only `AURA_IMAGE` changes;
+  - each refusal leaves `.env` byte-identical, a sidecar image that does not pull and free
+    space just under the floor included;
+  - every image under ghcr is pulled from the bridge, and only `AURA_IMAGE` changes;
   - a second run is a no-op that only starts the updater.
 - **The anti-drift test** (new, Go, beside `image_pin_artifacts_test.go`) has three jobs:
   - it fails on a reference to the other home in any shipped file;
@@ -312,7 +327,11 @@ When GitHub reinstates the account:
     the YAML, so the two cannot drift;
   - with a stubbed `docker`, no moving tag moves before every per-commit push succeeded;
   - `aura:edge` moves last;
-  - a failed build or contract pushes nothing.
+  - a failed build or contract pushes nothing;
+  - a commit that is not on the remote's `master` is not built.
+- **CI.** While GitHub Actions is disabled, `.gitlab-ci.yml` runs these suites with the
+  installer's and the updater's in an `appliance-shell` job, on any change to a payload
+  directory; `ci.yml` lists them too (amended 2026-10-14).
 
 ## Acceptance on the lab VM
 
