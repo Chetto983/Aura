@@ -350,8 +350,8 @@ install_systemd_unit() {
   fi
 
   as_root cp deploy/aura.service /etc/systemd/system/aura.service
-  # Edge appliances also get the self-update timer, so the machine keeps tracking
-  # GHCR without an operator; a version-pinned install deliberately does not.
+  # Edge appliances also get the self-update timer, so the machine keeps tracking the image
+  # home without an operator; a version-pinned install deliberately does not.
   case "$(env_value AURA_IMAGE)" in
     *:edge)
       as_root install -m 0755 deploy/aura-image-update.sh /usr/local/sbin/aura-image-update.sh

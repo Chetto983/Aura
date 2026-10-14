@@ -48,8 +48,9 @@ exposing `/dev/dri`, otherwise CPU. See the
 prerequisites. The npm installer carries its own payload.
 
 The source-hosted installer remains available. Install Docker, then run the script from
-the GitLab mirror. Use `master` to track the edge channel, or a release tag `vX.Y.Z` to
-pin:
+the GitLab mirror's `master`, which tracks the edge channel. A release tag `vX.Y.Z` would
+pin the install, but its images are on ghcr only (see above), so it is not available while
+GitHub blocks the account:
 
 ```bash
 curl -fsSL https://gitlab.com/Chetto1983/aura/-/raw/master/scripts/install.sh | sudo bash -s -- --appliance
@@ -60,8 +61,9 @@ three `ARCADEDB_*` secrets, and `AURA_ACCESS_TOKEN`, downloads the Compose/Caddy
 assets, and starts the stack. Re-running it keeps an existing `.env` intact. A
 master/edge install points `.env` at the `:edge` moving tags, and `--appliance` also
 enables the `aura-image-update` systemd timer: from then on the machine re-pulls aura
-and its MCP sidecars from GHCR on its own, migrations and Compose payload included,
-with no operator involved. Without `--appliance` (no systemd units, no timer), the
+and its MCP sidecars from the image home (`IMAGE_HOME` in `deploy/aura-image-update.sh`,
+`registry.gitlab.com/chetto1983/aura` today) on its own, migrations and Compose payload
+included, with no operator involved. Without `--appliance` (no systemd units, no timer), the
 stack still starts; updates stay manual.
 
 The default stack also starts the Cloudflare supervisor healthy-idle. Enable it after
@@ -155,6 +157,23 @@ what it replaces under `backups/payload-*`) and brings the whole stack up on it.
 version pin changed in `compose.yaml` therefore reaches every appliance on its own.
 `sha256sum -c payload_manifest.txt` inside `/opt/aura` shows whether a host matches
 its payload. Watch it with `journalctl -u aura-image-update.service -f`.
+
+### An appliance frozen on ghcr
+
+An appliance whose `.env` names `ghcr.io/chetto1983` images stopped updating on
+2026-10-11, when GitHub began answering 403: its updater cannot pull the successor that
+knows the new home. Re-running the installer does not help, because it keeps the existing
+`.env`. One command moves it, once, as root on the appliance:
+
+```bash
+curl -fsSL https://gitlab.com/Chetto1983/aura/-/raw/master/deploy/aura-registry-bridge.sh | sudo bash
+```
+
+It refuses and changes nothing unless Docker answers, there are 12 GiB free where the
+images are stored, and every image `.env` names pulls from the new home. It then points
+`AURA_IMAGE` there, enables the update timer, and starts the updater. The updater moves
+the remaining image keys and applies the new build after 15 idle minutes, like any update.
+Run it again after a refusal, once the cause it names is fixed.
 
 Manual update (pinned installs, or no systemd). Volumes persist, and the
 `aura-migrate` one-shot runs the Postgres migrations before the Aura service starts

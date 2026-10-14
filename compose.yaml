@@ -1260,14 +1260,6 @@ services:
   # CI-built + published to GHCR (public) by the fork's aura-publish-image workflow, and to
   # the GitLab image home by scripts/publish_images.sh while GitHub blocks the account.
   # Aura's catalog points at the loopback publish; Aura boot never depends on this service.
-  #
-  # PINNED BY COMMIT. 5909c808f75bb1c612256666dd0f1aacf6921dd4 adds the exhaustive
-  # 29-action CalendarActionTool route/validation contract over the generic OAuth
-  # resource server: the standard `sub` scopes MCP and admin requests to one tenant. A floating
-  # `:sidecar` tag is forbidden because pull_policy=missing can otherwise retain old
-  # bytes under an unchanged name. Published index digest:
-  # sha256:1d0e9c3f62aba446eb123ea39d5abb9d97e6be7784d2dac403ea1e1e5e4a6986.
-  # Bump by reading the 40-hex tag the workflow minted for the target commit.
   aura-pim-mcp:
     # A MOVING tag, deliberately, and `always` so it actually moves. Both sidecars were
     # pinned by digest and both went stale: their own publish workflow header records
