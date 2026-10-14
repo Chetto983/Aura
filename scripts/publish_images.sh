@@ -8,7 +8,10 @@
 #
 #   scripts/publish_images.sh [<aura commit>]        (default HEAD)
 #
+# The commit must already be on the remote's master: appliances run whatever aura:edge names,
+# and its master-<sha> tag says the commit is there for anyone to read.
 # Docker must already reach the registry (`glab auth configure-docker`).
+#   AURA_PUBLISH_REMOTE       default: gitlab
 #   AURA_PUBLISH_REGISTRY     default: IMAGE_HOME in deploy/aura-image-update.sh
 #   AURA_PUBLISH_PIM_GIT      default: https://gitlab.com/Chetto1983/aura-pim-mcp.git
 #   AURA_PUBLISH_WHATSAPP_GIT default: https://gitlab.com/Chetto1983/whatsapp-mcp.git
@@ -58,11 +61,15 @@ build_image() {
 # Every step that can fail returns explicitly: errexit is suspended for a function called as a
 # condition (`if main …`, `main || …`), and a build that failed there must still push nothing.
 main() {
-  local registry sha work entry name file fork_sha tag image var test
+  local registry remote sha work entry name file fork_sha tag image var test
   local -a pushes=() moves=()
   registry="${AURA_PUBLISH_REGISTRY:-$(sed -n 's/^IMAGE_HOME=//p' "${repo_root}/deploy/aura-image-update.sh")}"
   [[ -n "${registry}" ]] || { echo "publish: no registry (set AURA_PUBLISH_REGISTRY)" >&2; return 1; }
+  remote="${AURA_PUBLISH_REMOTE:-gitlab}"
   sha="$(git -C "${repo_root}" rev-parse "${1:-HEAD}^{commit}")" || return 1
+  git -C "${repo_root}" fetch --quiet "${remote}" master || return 1
+  git -C "${repo_root}" merge-base --is-ancestor "${sha}" "${remote}/master" ||
+    { echo "publish: ${sha} is not on ${remote}/master; push it first" >&2; return 1; }
   work="$(mktemp -d)"
   trap 'rm -rf "${work}"' RETURN
   mkdir -p "${work}/aura"

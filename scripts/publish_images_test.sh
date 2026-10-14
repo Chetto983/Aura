@@ -40,9 +40,12 @@ done
 touch "$src/fork/Dockerfile"
 failing_build=""
 failing_contract=""
+on_master=1
 git() {
   echo "git $*" >>"$calls"
   case "$*" in
+    *' fetch --quiet gitlab master') ;;
+    *' merge-base --is-ancestor 0123456789abcdef0123456789abcdef01234567 gitlab/master') ((on_master)) ;;
     *' rev-parse '*) echo 0123456789abcdef0123456789abcdef01234567 ;;
     *' archive '*) tar -c -C "$src" . ;;
     'clone --quiet '*) mkdir -p "${*: -1}" && cp -R "$src/fork/." "${*: -1}" ;;
@@ -87,3 +90,12 @@ for case in build contract; do
   failing_build="" failing_contract=""
 done
 echo "ok: a failed build or image contract pushes nothing"
+
+# Appliances update to whatever aura:edge names, and master-<sha> claims the commit is there.
+: >"$calls"
+on_master=0
+if main HEAD >"$fixture/out" 2>&1; then fail "a commit that is not on master was published"; fi
+grep -q 'not on gitlab/master' "$fixture/out" || fail "refused for another reason: $(cat "$fixture/out")"
+! grep -q '^docker ' "$calls" || fail "a commit that is not on master was built: $(grep '^docker ' "$calls" | head -1)"
+on_master=1
+echo "ok: only a commit already on the remote's master is built and published"
