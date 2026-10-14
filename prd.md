@@ -2389,6 +2389,27 @@ This does not establish:
 - an agent turn that calls calendar after the repair;
 - whatsapp or browser: no run toggled them, though they are default-on the same way.
 
+The cockpit offers no authorization for a sidecar Aura signs itself (2026-10-14). Measured on
+the lab VM, the panel had treated memory, calendar and whatsapp as somebody else's OAuth server:
+- "Riautorizza" ran the browser flow's discovery against `http://whatsapp:8080` and failed:
+  `metadataURL … does not use HTTPS or is not a loopback address`.
+- "Disconnetti" deleted a grant the keeper mints again within five minutes.
+- The time beside "Autorizzato" was the expiry of the 15-minute token.
+
+What changed (`379f41c06`):
+- **The state.** A sidecar the keeper's own predicate (`selfIssuable`) covers now reports its
+  authorization as unsupported, with the reason.
+- **The API.** A start or revoke that reaches such a sidecar answers 400
+  (`agui.ErrNoAuthorizationFlow`).
+
+On the VM running `379f41c06`, the operator's memory panel shows only "Aura issues this
+sidecar's credential itself and renews it before it expires".
+
+This does not establish:
+- a re-mint on demand: after a host suspend the sidecars still wait for the keeper's next tick,
+  up to five minutes;
+- the expiry shown for other OAuth servers, which is still the access token's.
+
 Session termination is observed through the SDK lifecycle rather than a duplicate
 liveness poller. Mount, call, elicitation and shutdown have finite configured bounds;
 negative call timeouts cannot request unlimited execution. The production elicitation
@@ -3592,22 +3613,33 @@ Measured 2026-10-14 on the lab VM (`docs/superpowers/verification/2026-10-14-git
 - **The scheduled goal.** It no longer pins `live_runs` (§15, 2026-10-14).
 - **CI.** GitLab pipelines #2 and #3 were green: `make quality`, plus `appliance-shell`, which runs
   the 11 appliance shell suites.
+- **The fixed patch on a frozen box.** The VM was put back to ghcr keys, the pre-bridge updater and
+  an older build. The patch then ran again from GitLab raw master at 17:40 UTC: it pulled all nine
+  copies and moved `AURA_IMAGE`.
+  - The old updater applied `379f41c06` in a quiet spell and installed its successor.
+  - The successor moved the other eight keys.
+  - The box was healthy and `current` 5 min 20 s after the patch, with nobody pressing anything.
+- **The first tick of a clean install.** `install.sh` now records the applied image and payload
+  manifest (`9c10e3da7`).
+  - Run on the VM's real image and payload, it recorded what the updater records itself.
+  - The next tick found the box current.
 
 The way back is the same move in reverse: one commit sets `IMAGE_HOME` back and deletes the
 patch.
 
 Not shown by these measurements:
 - the way back itself, which runs only in the tests;
-- the fixed patch (pull every key, KiB) on a box frozen on ghcr, which runs only in its suite;
+- the fixed patch's space refusal on a frozen box, and its reclaim of ghcr images that differ
+  from GitLab's. In the re-run 20 GiB were free and the ghcr names were tags on the GitLab
+  images; the first run did reclaim distinct ones;
 - an appliance other than the lab VM;
 - a hermetic build;
 - GitLab's pull limits;
 - pinned release installs, whose tags only ghcr carries.
 - **A publish racing a tick.** A tick that pulls in the middle of a publish can run a newer
   sidecar than `aura` until the next tick.
-- **The first tick of a clean install.** `install.sh` writes no `update/applied-image`, so the
-  first tick re-applies the installed build and restarts every service that reads the payload.
-  This is pre-existing, and open.
+- **The install fix inside a clean install.** `record_applied_update` ran on the lab VM's real
+  image and payload, not at the end of a fresh install.
 
 `aura.service` stops the stack with `compose down`, which removes the containers, so every
 volume an image declares without a compose name is orphaned and the next start creates a new
