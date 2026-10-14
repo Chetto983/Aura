@@ -112,7 +112,8 @@ func (a *LlmAgent) execTool(ctx context.Context, tool tools.Tool, mutating bool,
 		}
 	}
 	operationAcquired := false
-	if spec.Name != askUserToolName {
+	consulted := spec.Name != askUserToolName
+	if consulted {
 		key := gateway.ReservationKey{
 			ConversationID: a.ledgerConvID,
 			RequestID:      tools.RequestIDFromContext(ctx),
@@ -121,8 +122,8 @@ func (a *LlmAgent) execTool(ctx context.Context, tool tools.Tool, mutating bool,
 		// This is the one place that holds BOTH the key the gateway reserves under and
 		// the spec it reserves for, so it is where the gateway's terminal hooks get what
 		// they need to close the row they opened. Inert unless the dispatch is also
-		// marked delegated (a swarm worker): a Runner-observed call keeps the Runner's
-		// richer end.
+		// marked delegated (a swarm worker, a scheduled job): a Runner-observed call keeps
+		// the Runner's richer end.
 		ctx = gateway.WithReservationKey(ctx, key, spec.Name)
 		describer, _ := tool.(tools.ApprovalDescriber)
 		ctx = gateway.WithApprovalDescriber(ctx, describer)
@@ -195,6 +196,9 @@ func (a *LlmAgent) execTool(ctx context.Context, tool tools.Tool, mutating bool,
 		res, err = a.executeTool(ctx, tool, args)
 		if err == nil || mutating || attempt >= maxToolRetries || ctx.Err() != nil || !isTransientToolErr(err) {
 			if !operationAcquired {
+				if consulted {
+					a.gateway.FinishCall(ctx, res, err)
+				}
 				return res, err
 			}
 			// Detached from ctx on purpose: the most common way to get here is the caller's

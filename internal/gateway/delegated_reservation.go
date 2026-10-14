@@ -65,30 +65,40 @@ func WithDelegatedDispatch(ctx context.Context) context.Context {
 	return tools.WithDelegatedDispatch(ctx)
 }
 
-// isDelegatedDispatch reports whether this dispatch has no Runner observing it.
-func isDelegatedDispatch(ctx context.Context) bool {
-	return tools.IsDelegatedDispatch(ctx)
+// FinishCall is the terminal hook of a call that ran without an operation claim: a read-only
+// call, whose `start` Decide records as a decision fact, or a reservation under a gateway with
+// no operation registry. Only a strict profile opened such a row, and only an unobserved
+// dispatch (a swarm worker, a scheduled job) has nobody else to close it.
+func (g *Gateway) FinishCall(ctx context.Context, result tools.ToolResult, callErr error) {
+	if g == nil || !g.profile.Strict() {
+		return
+	}
+	if callErr != nil {
+		g.closeUnobservedReservation(ctx, "error", callErr.Error(), result)
+		return
+	}
+	g.closeUnobservedReservation(ctx, "ok", "", result)
 }
 
-// closeDelegatedReservation appends the terminal `end` row for a dispatch the
-// gateway reserved and no Runner will close. It is a no-op for every other
-// dispatch, so it can be called unconditionally from both terminal hooks.
+// closeUnobservedReservation appends the terminal `end` row for a dispatch the gateway
+// reserved and no Runner will close (tools.IsUnobservedDispatch). It is a no-op for every
+// other dispatch, so it can be called unconditionally from every terminal hook.
 //
 // Best-effort by design, matching the ledger's own contract (migration 0011: the
 // ledger is operational observability, not a permission system). The mutating
 // effect has already happened by the time we get here; failing the call because the
 // audit row would not write would turn a successful mutation into a reported error.
 // A failure is a WARN and the reconciler remains the backstop it always was.
-func (g *Gateway) closeDelegatedReservation(ctx context.Context, status, errText string, result tools.ToolResult) {
-	if g == nil || g.store == nil || !isDelegatedDispatch(ctx) {
+func (g *Gateway) closeUnobservedReservation(ctx context.Context, status, errText string, result tools.ToolResult) {
+	if g == nil || g.store == nil || !tools.IsUnobservedDispatch(ctx) {
 		return
 	}
 	dispatch, ok := reservedDispatchFromContext(ctx)
 	if !ok {
-		// Reaching a terminal hook on a delegated dispatch with no recorded key means
+		// Reaching a terminal hook on an unobserved dispatch with no recorded key means
 		// the row cannot be addressed, which is worth saying out loud: the reservation
 		// is about to be orphaned exactly as it was before this existed.
-		slog.Warn("gateway: delegated dispatch has no reservation key; end row not written",
+		slog.Warn("gateway: unobserved dispatch has no reservation key; end row not written",
 			"status", status)
 		return
 	}
@@ -106,7 +116,7 @@ func (g *Gateway) closeDelegatedReservation(ctx context.Context, status, errText
 		ResultBytes:       result.Bytes,
 		ResultTruncated:   result.Truncated,
 		ResultSidecarPath: result.FullPath,
-		Meta:              map[string]any{"delegated": true},
+		Meta:              map[string]any{"unobserved": true},
 	}
 	// Detached for the same reason the Runner detaches its own end: this row closes a
 	// reservation, and the most common way to reach it is a context that has just
@@ -115,7 +125,7 @@ func (g *Gateway) closeDelegatedReservation(ctx context.Context, status, errText
 	insertCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), delegatedEndInsertTimeout)
 	defer cancel()
 	if err := g.store.Insert(insertCtx, end); err != nil {
-		slog.Warn("gateway: delegated end row insert failed; reservation left for the reconciler",
+		slog.Warn("gateway: unobserved end row insert failed; reservation left for the reconciler",
 			"tool", dispatch.tool, "conversation_id", dispatch.key.ConversationID, "err", err)
 	}
 }

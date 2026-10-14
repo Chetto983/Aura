@@ -183,6 +183,23 @@ func IsDelegatedDispatch(ctx context.Context) bool {
 	return marked
 }
 
+// unobservedDispatchCtxKey marks a dispatch no Runner observes, so the gateway closes the
+// ledger rows it opens. A scheduled job is unobserved without being a worker: a worker's
+// dispatch also takes a per-run MCP session, which the job must not.
+type unobservedDispatchCtxKey struct{}
+
+// WithUnobservedDispatch marks ctx as a dispatch no Runner observes.
+func WithUnobservedDispatch(ctx context.Context) context.Context {
+	return context.WithValue(ctx, unobservedDispatchCtxKey{}, true)
+}
+
+// IsUnobservedDispatch reports whether no Runner observes ctx's dispatch; a delegated one is
+// unobserved too.
+func IsUnobservedDispatch(ctx context.Context) bool {
+	marked, _ := ctx.Value(unobservedDispatchCtxKey{}).(bool)
+	return marked || IsDelegatedDispatch(ctx)
+}
+
 // ToolCallIDFromContext returns the tool_call_id set by WithToolCallContext, or "".
 func ToolCallIDFromContext(ctx context.Context) string {
 	tc, ok := toolCallCtx(ctx)

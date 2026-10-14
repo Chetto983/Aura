@@ -180,3 +180,86 @@ func TestDelegatedCloseSurvivesALedgerFailure(t *testing.T) {
 		t.Fatalf("a failed audit row must not fail the completed mutation: %v", err)
 	}
 }
+
+// readOnlyCallContext is the ctx a read-only call runs under after Decide recorded its
+// decision fact: the reservation key, no operation claim, and the delegated marker when no
+// Runner observes the stream.
+func readOnlyCallContext(delegated bool) context.Context {
+	ctx := WithReservationKey(context.Background(), testKey(), "web_search")
+	if delegated {
+		ctx = WithDelegatedDispatch(ctx)
+	}
+	return ctx
+}
+
+// TestFinishCallClosesADelegatedDecisionFact is the read-only half of spike 099's rule. Under
+// a strict profile Decide opens a `start` decision fact for every read-only call and leaves
+// its `end` to the Runner, so a call no Runner observes (a swarm worker, a scheduled goal)
+// stayed open: measured on the lab VM on 2026-10-14, 12 of one goal's calls read as live runs
+// until the reconciler stamped them indeterminate.
+func TestFinishCallClosesADelegatedDecisionFact(t *testing.T) {
+	t.Parallel()
+
+	ledger := &fakeStore{}
+	g := New(config.ProfileSingleUserHardened, ledger)
+	g.FinishCall(readOnlyCallContext(true), tools.ToolResult{Preview: "3 results", Bytes: 9}, nil)
+
+	ends := endRows(ledger.calls())
+	if len(ends) != 1 {
+		t.Fatalf("a delegated read-only call wrote %d end row(s), want 1", len(ends))
+	}
+	if ends[0].Status != "ok" || ends[0].ResultPreview != "3 results" || ends[0].ToolName != "web_search" {
+		t.Errorf("end = status %q preview %q tool %q, want ok / 3 results / web_search",
+			ends[0].Status, ends[0].ResultPreview, ends[0].ToolName)
+	}
+	if ends[0].ToolCallID != testKey().ToolCallID {
+		t.Errorf("end tool_call_id = %q, want the decision fact's %q", ends[0].ToolCallID, testKey().ToolCallID)
+	}
+}
+
+func TestFinishCallRecordsAFailedDelegatedCall(t *testing.T) {
+	t.Parallel()
+
+	ledger := &fakeStore{}
+	g := New(config.ProfileSingleUserHardened, ledger)
+	g.FinishCall(readOnlyCallContext(true), tools.ToolResult{}, errors.New("upstream timed out"))
+
+	ends := endRows(ledger.calls())
+	if len(ends) != 1 || ends[0].Status != "error" || ends[0].Error != "upstream timed out" {
+		t.Fatalf("ends = %+v, want one error row carrying the tool's error", ends)
+	}
+}
+
+// TestFinishCallLeavesWhatItDidNotOpen covers the two calls the hook must not touch: a
+// parent's, whose richer end the Runner writes, and any call under a profile where Decide
+// wrote no start at all.
+func TestFinishCallLeavesWhatItDidNotOpen(t *testing.T) {
+	t.Parallel()
+
+	observed := &fakeStore{}
+	New(config.ProfileSingleUserHardened, observed).FinishCall(readOnlyCallContext(false), tools.ToolResult{Preview: "x"}, nil)
+	if got := len(observed.calls()); got != 0 {
+		t.Errorf("a Runner-observed call got %d row(s) from the gateway, want 0", got)
+	}
+
+	dev := &fakeStore{}
+	New(config.ProfileDev, dev).FinishCall(readOnlyCallContext(true), tools.ToolResult{Preview: "x"}, nil)
+	if got := len(dev.calls()); got != 0 {
+		t.Errorf("a dev-profile call got %d row(s), want 0: the gateway opened none", got)
+	}
+}
+
+// A scheduled job's dispatch is unobserved without being a worker's, and it is the
+// unobserved half that obliges the gateway to close the row.
+func TestFinishCallClosesAnUnobservedDecisionFact(t *testing.T) {
+	t.Parallel()
+
+	ledger := &fakeStore{}
+	ctx := tools.WithUnobservedDispatch(WithReservationKey(context.Background(), testKey(), "web_search"))
+	New(config.ProfileSingleUserHardened, ledger).FinishCall(ctx, tools.ToolResult{Preview: "x"}, nil)
+
+	ends := endRows(ledger.calls())
+	if len(ends) != 1 || ends[0].Status != "ok" {
+		t.Fatalf("ends = %+v, want one ok row for an unobserved dispatch", ends)
+	}
+}

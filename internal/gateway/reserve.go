@@ -147,7 +147,7 @@ func (g *Gateway) CompleteOperation(ctx context.Context, result tools.ToolResult
 	}); err != nil {
 		return err
 	}
-	g.closeDelegatedReservation(ctx, "ok", "", result)
+	g.closeUnobservedReservation(ctx, "ok", "", result)
 	return nil
 }
 
@@ -168,7 +168,7 @@ func (g *Gateway) MarkOperationIndeterminate(ctx context.Context) error {
 	}
 	// The ledger's CHECK is status IN ('ok','error'), so an indeterminate outcome rides
 	// the error text rather than a third status value — the same shape syntheticEnd uses.
-	g.closeDelegatedReservation(ctx, "error",
+	g.closeUnobservedReservation(ctx, "error",
 		"delegated dispatch ended with an indeterminate outcome", tools.ToolResult{})
 	return nil
 }

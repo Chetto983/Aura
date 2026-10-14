@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/chetto1983/aura/internal/agent"
+	"github.com/chetto1983/aura/internal/agent/tools"
 	"github.com/chetto1983/aura/internal/identityctx"
 	"github.com/chetto1983/aura/internal/llm"
 	"github.com/google/uuid"
@@ -171,9 +172,14 @@ func (h AgentJobHandler) resolveLLM(ctx context.Context) (llm.Client, llm.Config
 // pause stops the drain so the caller can inject-and-continue; the agent's own loop
 // terminates the run on a pause (llm_agent.go emitPauses returns), so there is nothing left
 // to drain after it.
+//
+// The dispatch is unobserved: no Runner sees these events, so the gateway closes every ledger
+// row it opens. Unmarked, a job's calls stayed open and read as live runs, holding off the
+// updater's quiet-spell apply (lab VM, 2026-10-14). It is not a worker's dispatch, which would
+// also take a per-run MCP session.
 func drain(ctx context.Context, worker *agent.LlmAgent, budget *agent.Budget, mutating func(tool string) bool) (content string, pause *agent.AwaitingInput, askedMutating bool, err error) {
 	ic := agent.InvocationContext{
-		Ctx:       ctx,
+		Ctx:       tools.WithUnobservedDispatch(ctx),
 		RequestID: uuid.Must(uuid.NewV7()),
 		Budget:    budget,
 	}
