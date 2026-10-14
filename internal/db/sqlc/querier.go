@@ -761,6 +761,9 @@ type Querier interface {
 	SetBoardCardPosition(ctx context.Context, arg SetBoardCardPositionParams) error
 	SetConversationTitleIfNull(ctx context.Context, arg SetConversationTitleIfNullParams) error
 	SetGatewayToolPolicy(ctx context.Context, arg SetGatewayToolPolicyParams) error
+	// Move a task into the conversation it answers in from now on, when the one it was
+	// scheduled from was deleted (internal/cron/task_home.go). Returns rows affected.
+	SetTaskOriginRow(ctx context.Context, arg SetTaskOriginRowParams) (int64, error)
 	// D-09 (CHAT-05): set a turn's branch/parent pointers. The branch-write seam plan 25-07
 	// uses when an edit/regenerate forks a new sibling branch off an existing parent turn.
 	SetTurnBranchPointers(ctx context.Context, arg SetTurnBranchPointersParams) error

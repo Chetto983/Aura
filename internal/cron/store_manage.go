@@ -87,6 +87,27 @@ func (s *Store) RunTaskNow(ctx context.Context, id string) error {
 	return nil
 }
 
+// SetTaskOrigin records the conversation a task answers in from now on (task_home.go). An
+// absent task is ErrTaskNotFound.
+func (s *Store) SetTaskOrigin(ctx context.Context, id, conversationID string) error {
+	u, err := db.ParseUUID("uuid", id)
+	if err != nil {
+		return fmt.Errorf("set task origin: %w", err)
+	}
+	conv, err := db.ParseUUID("origin_conversation_id", conversationID)
+	if err != nil {
+		return fmt.Errorf("set task origin: %w", err)
+	}
+	n, err := s.q.SetTaskOriginRow(ctx, sqlc.SetTaskOriginRowParams{ID: u, OriginConversationID: conv})
+	if err != nil {
+		return fmt.Errorf("set task origin %q: %w", id, err)
+	}
+	if n == 0 {
+		return fmt.Errorf("set task origin %q: %w", id, ErrTaskNotFound)
+	}
+	return nil
+}
+
 // UpdateTaskParams carries a reschedule edit: the new grammar (validated by the caller
 // via ParseSchedule + FirstFire), the recomputed first fire, and the payload/notify.
 type UpdateTaskParams struct {

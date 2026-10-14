@@ -85,6 +85,31 @@ func TestApproveTask_FlipsPendingToActive(t *testing.T) {
 	}
 }
 
+// TestSetTaskOrigin_MovesTheTaskIntoItsNewConversation: the conversation a task answers in
+// is durable, so a task moved out of a deleted conversation (task_home.go) stays moved.
+func TestSetTaskOrigin_MovesTheTaskIntoItsNewConversation(t *testing.T) {
+	pool := migratedPool(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	s := New(pool)
+
+	id := makeTask(t, s, ctx, KindAgentJob, "active")
+	const own = "01a139ef-0000-7000-8000-000000000001"
+	if err := s.SetTaskOrigin(ctx, id, own); err != nil {
+		t.Fatalf("SetTaskOrigin: %v", err)
+	}
+	got, err := s.GetTask(ctx, id)
+	if err != nil {
+		t.Fatalf("GetTask: %v", err)
+	}
+	if got.OriginConversationID != own {
+		t.Fatalf("origin after the move = %q, want %q", got.OriginConversationID, own)
+	}
+	if err := s.SetTaskOrigin(ctx, "01a139ef-0000-7000-8000-00000000dead", own); !errors.Is(err, ErrTaskNotFound) {
+		t.Fatalf("moving an absent task err = %v, want ErrTaskNotFound", err)
+	}
+}
+
 func TestRunTaskNow_AdvancesActiveOnly(t *testing.T) {
 	pool := migratedPool(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -126,6 +126,11 @@ type DispatchDeps struct {
 	// on the task all along (origin_conversation_id) and only the approval-pause path
 	// read it. LibreChat's rule (D-00): the conversation IS the channel.
 	ConversationRecorder ConversationRecorder
+	// TaskConversations and TaskOrigins move a task whose conversation was deleted into
+	// one of its own (task_home.go). TaskOrigins defaults from Store; either nil → the task
+	// keeps its origin, deleted or not.
+	TaskConversations TaskConversations
+	TaskOrigins       TaskOriginSetter
 	// OutcomeRecorder counts failed runs and pauses a task after
 	// AURA_SCHEDULER_PAUSE_AFTER_FAILURES of them. Nil → defaulted from Store in NewDispatch
 	// when the concrete *Store is supplied; still nil means no counting and no auto-pause.
@@ -197,6 +202,11 @@ func NewDispatch(handlers map[TaskKind]Handler, deps DispatchDeps) *Dispatch {
 			deps.RetryScheduler = store
 		}
 	}
+	if deps.TaskOrigins == nil {
+		if store, ok := deps.Store.(TaskOriginSetter); ok {
+			deps.TaskOrigins = store
+		}
+	}
 	return &Dispatch{deps: deps, handlers: handlers}
 }
 
@@ -233,6 +243,7 @@ func (d *Dispatch) Dispatch(ctx context.Context, task Task, c *Claim) (err error
 	}
 	runCtx, cancel := context.WithTimeout(ctx, maxDuration)
 	defer cancel()
+	task = d.homeTask(ctx, task)
 	job := Job{Payload: task.Payload, StepBudget: task.StepBudget, RunID: c.RunID, MissedSince: c.MissedSince, OriginConversationID: task.OriginConversationID}
 	summary, runErr := h.Run(runCtx, job)
 

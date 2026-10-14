@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -22,7 +23,9 @@ import (
 	"github.com/chetto1983/aura/internal/conversations"
 	"github.com/chetto1983/aura/internal/cron"
 	"github.com/chetto1983/aura/internal/cron/handlers"
+	"github.com/chetto1983/aura/internal/identityctx"
 	"github.com/chetto1983/aura/internal/obs"
+	"github.com/chetto1983/aura/internal/runner"
 	"github.com/chetto1983/aura/internal/sandbox/usersandbox"
 	"github.com/chetto1983/aura/internal/scoring"
 	"github.com/chetto1983/aura/internal/skills"
@@ -129,17 +132,46 @@ func buildDispatch(chat *chatEnv, store *cron.Store, reg *channels.Registry, swe
 		// in the cockpit was delivered to Telegram while the cockpit conversation ended at
 		// "scheduled ✅" and never learned the outcome.
 		ConversationRecorder: conversationRecorder{store: chat.conv},
+		// A task outlives the conversation it was scheduled from: when the operator deletes
+		// that one, the task opens its own and answers there (measured 2026-10-14).
+		TaskConversations: conversationRecorder{store: chat.conv, runner: chat.run},
 	})
 }
 
-// conversationRecorder adapts *conversations.Store onto cron.ConversationRecorder, the
-// same consumer-declared-interface idiom as approvalPauseEnsurer: cron declares the one
-// method it needs and the composition root supplies it, so cron imports no conversation
-// package. Seq 0 lets AppendTurn allocate the next sequence under the conversation's row
-// lock, which is what an out-of-band append needs — the scheduler is not inside the
-// turn loop that would otherwise be numbering these.
+// conversationRecorder adapts the conversation store onto cron's two conversation seams,
+// the same consumer-declared-interface idiom as approvalPauseEnsurer, so cron imports no
+// conversation package: ConversationRecorder writes a run's outcome where it was asked
+// for, TaskConversations lets a task whose conversation was deleted open its own. Seq 0
+// lets AppendTurn allocate the next sequence under the conversation's row lock, which is
+// what an out-of-band append needs — the scheduler is not inside the turn loop that would
+// otherwise be numbering these.
 type conversationRecorder struct {
-	store *conversations.Store
+	store  *conversations.Store
+	runner *runner.Runner
+}
+
+// ConversationExists counts a conversation soft-deleted from the cockpit as gone too: the
+// operator no longer sees it, so an answer written there reaches nobody.
+func (r conversationRecorder) ConversationExists(ctx context.Context, conversationID, identityID string) (bool, error) {
+	conv, err := r.store.GetForIdentity(ctx, conversationID, identityID)
+	if errors.Is(err, conversations.ErrConversationNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return conv.Status != conversations.StatusDeleted, nil
+}
+
+// CreateTaskConversation opens the conversation the way a chat does: owned by the task's
+// identity and on that identity's model.
+func (r conversationRecorder) CreateTaskConversation(ctx context.Context, identityID, title string) (string, error) {
+	owned := identityctx.WithIdentityID(ctx, identityID)
+	id, err := r.runner.NewConversation(owned)
+	if err != nil {
+		return "", err
+	}
+	return id, r.store.SetTitleIfNull(owned, id, title)
 }
 
 func (r conversationRecorder) AppendAssistantTurn(ctx context.Context, conversationID, text string) error {

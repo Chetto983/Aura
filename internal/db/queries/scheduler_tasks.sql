@@ -126,6 +126,13 @@ UPDATE aura.scheduler_tasks
 SET next_run_at = now(), updated_at = now()
 WHERE id = $1 AND status = 'active';
 
+-- name: SetTaskOriginRow :execrows
+-- Move a task into the conversation it answers in from now on, when the one it was
+-- scheduled from was deleted (internal/cron/task_home.go). Returns rows affected.
+UPDATE aura.scheduler_tasks
+SET origin_conversation_id = $2, updated_at = now()
+WHERE id = $1;
+
 -- name: UpdateTaskScheduleRow :execrows
 -- Reschedule + re-payload a user task (the cockpit edit): rewrite the schedule grammar,
 -- payload, notify route, and the recomputed first fire. Guarded to active/pending/paused rows

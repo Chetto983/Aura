@@ -548,6 +548,27 @@ func (q *Queries) ScheduleTransientRetry(ctx context.Context, arg ScheduleTransi
 	return i, err
 }
 
+const setTaskOriginRow = `-- name: SetTaskOriginRow :execrows
+UPDATE aura.scheduler_tasks
+SET origin_conversation_id = $2, updated_at = now()
+WHERE id = $1
+`
+
+type SetTaskOriginRowParams struct {
+	ID                   pgtype.UUID `json:"id"`
+	OriginConversationID pgtype.UUID `json:"origin_conversation_id"`
+}
+
+// Move a task into the conversation it answers in from now on, when the one it was
+// scheduled from was deleted (internal/cron/task_home.go). Returns rows affected.
+func (q *Queries) SetTaskOriginRow(ctx context.Context, arg SetTaskOriginRowParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setTaskOriginRow, arg.ID, arg.OriginConversationID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateNextRunAt = `-- name: UpdateNextRunAt :exec
 UPDATE aura.scheduler_tasks
 SET next_run_at = $2, updated_at = now()
