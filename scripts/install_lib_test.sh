@@ -391,3 +391,21 @@ stated_total="$(sed -n 's/^STEP_TOTAL=\([0-9]\{1,\}\)$/\1/p' "$repo_root/scripts
   || { echo "FAIL: install.sh announces $stated_total phases but calls step() $declared_total times" >&2; exit 1; }
 
 echo "ok: the installer's phase counter counts the phases it actually has"
+
+# The npx path runs the installer under umask 077, which left INSTALL_DIR 0700 root, and the
+# wizard's re-run probe -- `test -f compose.yaml` as the login user -- could never see an existing
+# install (lab VM, 2026-10-14). The directory is configuration; .env carries its own 0600.
+(
+  INSTALL_DIR="$fixture_root/umask-077/opt/aura"
+  need_sudo() { return 1; }
+  umask 077
+  create_install_dirs
+  mode="$(stat -c %a "$INSTALL_DIR")"
+  [ "$mode" = 755 ] || { echo "FAIL: under umask 077 the install directory is $mode, want 755" >&2; exit 1; }
+  chmod 0700 "$INSTALL_DIR"
+  create_install_dirs
+  mode="$(stat -c %a "$INSTALL_DIR")"
+  [ "$mode" = 755 ] || { echo "FAIL: a re-run left an existing 0700 install directory at $mode" >&2; exit 1; }
+)
+
+echo "ok: the install directory stays readable by the wizard's re-run probe under any umask"

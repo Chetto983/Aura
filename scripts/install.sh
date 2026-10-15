@@ -277,6 +277,25 @@ readable_by_sidecars() {
   done
 }
 
+# INSTALL_DIR itself is set too: under the npx umask it was 0700 root, and the wizard's re-run
+# probe, which reads compose.yaml as the login user, never saw an existing install (2026-10-14).
+create_install_dirs() {
+  as_root mkdir -p "$INSTALL_DIR" "$INSTALL_DIR/caddy" "$INSTALL_DIR/deploy" "$INSTALL_DIR/backups" \
+    "$INSTALL_DIR/scripts" "$INSTALL_DIR/searxng" "$INSTALL_DIR/update" \
+    "$INSTALL_DIR/observability/grafana/dashboards" \
+    "$INSTALL_DIR/observability/grafana/provisioning/dashboards" \
+    "$INSTALL_DIR/observability/grafana/provisioning/datasources" \
+    "$INSTALL_DIR/observability/grafana/provisioning/alerting" \
+    "$INSTALL_DIR/observability/grafana/provisioning/plugins" \
+    "$INSTALL_DIR/observability/prometheus/rules" \
+    "$INSTALL_DIR/observability/prometheus/tests" \
+    "$INSTALL_DIR/observability/tempo"
+  as_root chmod 0755 "$INSTALL_DIR"
+  if need_sudo; then
+    as_root chown -R "$(id -u):$(id -g)" "$INSTALL_DIR"
+  fi
+}
+
 # The wizard hands its answers over in a file, never in argv, which is readable in the
 # process table and lands in shell history. Values are base64 so a newline or a shell
 # metacharacter in the install path cannot break the format. Format 2 carries
@@ -469,19 +488,7 @@ step "Installing Docker"
 install_docker
 step "Installing the Compose payload"
 
-as_root mkdir -p "$INSTALL_DIR" "$INSTALL_DIR/caddy" "$INSTALL_DIR/deploy" "$INSTALL_DIR/backups" "$INSTALL_DIR/scripts" "$INSTALL_DIR/searxng" \
-  "$INSTALL_DIR/update" \
-  "$INSTALL_DIR/observability/grafana/dashboards" \
-  "$INSTALL_DIR/observability/grafana/provisioning/dashboards" \
-  "$INSTALL_DIR/observability/grafana/provisioning/datasources" \
-  "$INSTALL_DIR/observability/grafana/provisioning/alerting" \
-  "$INSTALL_DIR/observability/grafana/provisioning/plugins" \
-  "$INSTALL_DIR/observability/prometheus/rules" \
-  "$INSTALL_DIR/observability/prometheus/tests" \
-  "$INSTALL_DIR/observability/tempo"
-if need_sudo; then
-  as_root chown -R "$(id -u):$(id -g)" "$INSTALL_DIR"
-fi
+create_install_dirs
 
 cd "$INSTALL_DIR"
 download_file compose.yaml compose.yaml
