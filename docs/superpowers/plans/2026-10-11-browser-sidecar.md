@@ -1,6 +1,6 @@
 # Browser sidecar implementation plan
 
-**Status (2026-10-15):** PARTIAL. 7f0242a2d, 5c3104b81, f5e5b7b74, 150cf3f65 and 6a3290e2f landed. On the VM the shell no longer holds browser credentials, every docker_integration test passes against the edge images, and the operator confirmed the acceptance predicates (docs/superpowers/verification/2026-10-15-browser-sidecar-check.md). Still open: the usersandbox coverage floor (83.30% at last measure) and the final review.
+**Status (2026-10-15):** PARTIAL. 7f0242a2d, 5c3104b81, f5e5b7b74, 150cf3f65 and 6a3290e2f landed. On the VM the shell no longer holds browser credentials. Every docker_integration test passes against the edge images, usersandbox coverage is 86.58%, and the operator confirmed the acceptance predicates. The final review returned "with fixes": an upgraded appliance keeps its legacy profile in the shell volume (Critical), and there are four Important findings (docs/superpowers/verification/2026-10-15-browser-sidecar-check.md).
 
 > **For agentic workers:** Use superpowers:executing-plans, with test-driven-development. The operator selected the complete spec (A) and explicitly requires execution in D:/Aura without a worktree. GPT-6.1 assists with E2E preparation and verification.
 

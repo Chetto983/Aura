@@ -64,10 +64,91 @@ refusal, a slow 8 MiB download and a real-site live view. The operator ran them,
 ledger had recorded they would, and confirmed them. This file holds no measurement of them
 beyond that confirmation.
 
+## The delegated Docker coverage floor
+
+`internal/sandbox/usersandbox` delegates its package floor to `scripts/docker_coverage_gate.sh`.
+
+**Setup.** It ran in WSL at HEAD `0df23b427`, the way CI's job runs it:
+- the egress and sandbox images were named `aura-egress:latest` and `aura-sandbox:latest`, which
+  CI builds. Here those names were given to the edge images published from `37e9e9a61`, whose
+  source differs from HEAD only in docs, and removed after the run;
+- `busybox:stable` and `python:3-slim` were pre-pulled;
+- `scripts/sandbox_image_contract_test.sh` passed first.
+
+**Results.** The gate exited 0 in 158 s, with 0 skipped tests and no test container left.
+
+| Scope | Statements covered | Floor |
+|---|---|---|
+| docker_owned_internal, the gate's aggregate | 4400/4938 = 89.10% | 85% |
+| `internal/sandbox/usersandbox`, package-local | **832/961 = 86.58%** | 85% |
+| `internal/agent/tools` | 3568/3977 = 89.72% | (aggregate only) |
+
+The package figure comes from the gate's own profile, summed per package. The two packages add up
+to the aggregate.
+
+On 2026-10-11 the plan's ledger measured the package at 928/1114 = 83.30%. The denominator fell
+because `150cf3f65` removed the legacy migration, which was 510 deleted lines.
+
+The owned-surface `db_integration` gate (`scripts/coverage_docker.sh`) was not re-run here. It
+needs the local stack up.
+
+## The final independent review
+
+**Setup.** A read-only Claude Opus session (`claude -p --tools Read Grep Glob`) reviewed the five
+commits:
+- the diffs: `7f0242a2d`, `5c3104b81`, `f5e5b7b74`, `150cf3f65` and `6a3290e2f`;
+- the code on master at `0df23b427`;
+- the plan's Review Focus, line by line.
+
+**Verdict: ship with fixes.** The new layout's isolation is sound and tested:
+- the box kind decides the mounts;
+- the key reaches only the browser box;
+- the download crossing is no-follow;
+- the browser arguments are allowlisted twice.
+
+### Critical
+
+**1. An upgraded appliance keeps its old logged-in profile on the shell volume.** No code path
+removes `/workspace/.agent-browser-home` any more, and the spec's amendment says "A profile left in
+a shell volume stays there". The shell box still ships Chromium and the raw agent-browser binary.
+One shell command can therefore drive the old logged-in profile without the browser box's guards.
+- The lab VM's legacy home is gone. Today's measurement does not say who removed it.
+- Every other appliance that ran the earlier layout still has its legacy home.
+
+Checked against the code before recording.
+
+### Important
+
+**2. Always-on boxes make admission slots permanent.** On a host with `max_active=3`, the fourth
+identity to use the browser is refused until another is deprovisioned. The refusal reads like
+momentary load.
+
+**3. Two global lifecycle locks serialize every identity's tool calls.**
+- Each warm call now also runs the egress floor exec under them.
+- `SuspendIdle` holds them through the slow stops, about 2.2 s each.
+
+**4. A failed or cancelled `Resolve` stops a box that was already running and secured.** Download
+collection routes with the tool's near-deadline context after the call, so this can stop Chrome.
+
+**5. Downloads are never removed from the browser volume.** After 1,000 files in its lifetime, the
+listing fails on every call.
+
+### Minor
+
+There are eight: 6-13 in the review. In brief:
+- the egress probe checks the sidecar's network namespace, not the box's;
+- dead `WithBoxFiles` and `Resume` admission code;
+- the volume is created before admission;
+- `headed` is still allowed;
+- the shell's reply is unbounded;
+- tests encode suspension, which production no longer does;
+- the `AURA_SANDBOX_BROWSER_*` variables are missing from the PRD's env catalog;
+- the boot start does not check that the identity exists.
+
+The full review is kept in the session scratchpad, not in the repo.
+
 ## Still open in the plan's Task 5
 
-- **The coverage floors.** The last measurement, in the plan's ledger on 2026-10-11, put
-  `internal/sandbox/usersandbox` package-local at 928/1114 = 83.30%, under its 85% floor. It has
-  not been re-measured since.
-- **The final independent review.**
+- **Rulings and a fix pass** for Critical 1 and Important 2-5. Critical 1 and Important 2 reverse
+  parts of the operator's 2026-10-12 amendments, so they need the operator's ruling first.
 - **CI.** None has run since GitHub blocked the account.
