@@ -34,7 +34,18 @@ os.close(d)
 os.close(root)
 `
 
+// The inventory also removes what the checkpoint records as delivered, so a download leaves the
+// browser volume on the call after its delivery, or after a crash between delivery and removal.
+// It removes a file only while it is still the same inode, size and mtime the scan saw, through
+// the directory's fd. A file marked "" is an oversized one already announced; it stays. At most
+// 1,000 files are listed per call, and the rest are listed as those leave.
 const browserDownloadListScript = `import os,json,stat
+try:
+    with open('/workspace/.aura-downloads.json','rb') as f:
+        data=f.read((1<<20)+1)
+        if len(data)>1<<20: raise RuntimeError('download checkpoint too large')
+        delivered=json.loads(data)
+except FileNotFoundError: delivered={}
 root='/workspace/downloads'
 files=[]
 if os.path.lexists(root):
@@ -42,16 +53,14 @@ if os.path.lexists(root):
     with os.scandir(d) as entries:
         for entry in entries:
             s=entry.stat(follow_symlinks=False)
-            if stat.S_ISREG(s.st_mode) and s.st_nlink==1:
-                files.append(dict(name=entry.name,size=s.st_size,mtime=s.st_mtime_ns))
-                if len(files)>1000: raise RuntimeError('too many downloads')
+            if not stat.S_ISREG(s.st_mode) or s.st_nlink!=1: continue
+            seen=(s.st_ino,s.st_size,s.st_mtime_ns)
+            if delivered.get('%s/%d/%d'%(entry.name,s.st_size,s.st_mtime_ns)):
+                now=os.stat(entry.name,dir_fd=d,follow_symlinks=False)
+                if (now.st_ino,now.st_size,now.st_mtime_ns)==seen: os.unlink(entry.name,dir_fd=d)
+                continue
+            if len(files)<1000: files.append(dict(name=entry.name,size=s.st_size,mtime=s.st_mtime_ns))
     os.close(d)
-try:
-    with open('/workspace/.aura-downloads.json','rb') as f:
-        data=f.read((1<<20)+1)
-        if len(data)>1<<20: raise RuntimeError('download checkpoint too large')
-        delivered=json.loads(data)
-except FileNotFoundError: delivered={}
 print(json.dumps(dict(files=files,delivered=delivered)))
 `
 

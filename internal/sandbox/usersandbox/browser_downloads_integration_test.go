@@ -138,3 +138,36 @@ func TestBrowserDownloadsFiveMiBFileCrossesWithMatchingDigest(t *testing.T) {
 		t.Fatalf("5 MiB transfer changed the synthetic fixture: %q", digest)
 	}
 }
+
+// TestBrowserDownloadsLeaveTheBrowserVolumeOnceDelivered: a delivered download leaves the browser
+// volume on the next browser call, an inventory past 1,000 files still answers, and an oversized
+// file is announced once and stays where it is (final review of the browser sidecar, Important 5,
+// 2026-10-15).
+func TestBrowserDownloadsLeaveTheBrowserVolumeOnceDelivered(t *testing.T) {
+	t.Setenv("AURA_SANDBOX_TEST_IMAGE", "python:3.13-alpine")
+	cli, _, router, ctx, _ := browserSidecarFixture(t, 32)
+	browser, err := router.RouteBrowser(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireSidecarCommand(t, cli, browser, "mkdir -p /workspace/downloads; printf safe > /workspace/downloads/file.txt; truncate -s 52428801 /workspace/downloads/video.mp4")
+	footer, err := router.CollectBrowserDownloads(ctx)
+	if err != nil || !strings.Contains(footer, "Download ready: /workspace/downloads/file.txt") || !strings.Contains(footer, "video.mp4 exceeds") {
+		t.Fatalf("first collection = %q, %v", footer, err)
+	}
+	footer, err = router.CollectBrowserDownloads(ctx)
+	if err != nil || strings.Contains(footer, "video.mp4") {
+		t.Fatalf("second collection = %q, %v; want the oversized file announced only once", footer, err)
+	}
+	requireSidecarCommand(t, cli, browser, "test ! -e /workspace/downloads/file.txt; test -e /workspace/downloads/video.mp4")
+	shell, err := router.Route(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireSidecarCommand(t, cli, shell, `test "$(cat /workspace/downloads/file.txt)" = safe`)
+
+	requireSidecarCommand(t, cli, browser, `python3 -c "[open('/workspace/downloads/f%04d' % i, 'w').close() for i in range(1001)]"`)
+	if _, err := router.CollectBrowserDownloads(ctx); err != nil {
+		t.Fatalf("an inventory past 1,000 files: %v", err)
+	}
+}

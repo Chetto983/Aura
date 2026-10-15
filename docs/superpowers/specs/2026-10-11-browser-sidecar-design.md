@@ -137,6 +137,16 @@ Non-goals:
      suffix. Symlinks and non-regular files are refused. The size is bounded, and the plan
      picks the bound. The nearest existing ones are `send_file`'s 50 MiB
      (`internal/agent/tools/send_file.go:46`) and `AURA_ASSET_MAX_DOCUMENT_BYTES`.
+   - *Amended 2026-10-15 (final review, Important 5):* nothing removed a copied file from the
+     browser volume. Past 1,000 files the listing failed on every call, and a file over the
+     limit was announced on every call. Now:
+     - A copied file leaves the browser volume on the next browser call, through the directory's
+       fd, and only while it is the same inode, size and mtime that was copied.
+     - A file over the limit is announced once, and stays where it is.
+     - The listing takes 1,000 files per call and no longer fails past them.
+
+     Measured by the docker_integration tests on 2026-10-15. What this does not show: the lab
+     VM, where it was not deployed.
 
    Upload exists only as the CLI's `upload`, and no MCP tool exposes it. Its crossing stays an open
    question.

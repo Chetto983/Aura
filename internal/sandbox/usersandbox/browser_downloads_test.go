@@ -27,7 +27,7 @@ func TestBrowserDownloadPlanBoundsWorkAndNotices(t *testing.T) {
 	inv.Files = append(inv.Files, browserDownload{Name: "one", Size: 49 << 20, MTime: 1},
 		browserDownload{Name: "two", Size: 49 << 20, MTime: 1}, browserDownload{Name: "three", Size: 3 << 20, MTime: 1},
 		browserDownload{Name: "too-big", Size: 50<<20 + 1, MTime: 1}, browserDownload{Name: "tiny", Size: 1, MTime: 1})
-	plan, delivered, footer := planBrowserDownloads(inv)
+	plan, delivered, footer, _ := planBrowserDownloads(inv)
 	if len(plan) != 3 || plan[0].Name != "one" || plan[1].Name != "two" || plan[2].Name != "tiny" {
 		t.Fatalf("100 MiB batch limit or progress starvation: %+v", plan)
 	}
@@ -42,7 +42,7 @@ func TestBrowserDownloadPlanDeduplicatesAndRejectsNames(t *testing.T) {
 		{Name: "../key", Size: 1}, {Name: "bad\nname", Size: 1}, {Name: "negative", Size: -1},
 		{Name: "boundary", Size: 50 << 20},
 	}, Delivered: map[string]string{"done.pdf/3/1": "/workspace/downloads/done.pdf", "deleted/1/1": "old"}}
-	plan, delivered, _ := planBrowserDownloads(inv)
+	plan, delivered, _, _ := planBrowserDownloads(inv)
 	if len(plan) != 2 || plan[0].MTime != 2 || plan[1].Name != "boundary" || len(delivered) != 1 {
 		t.Fatalf("invalid plan: %+v / %v", plan, delivered)
 	}
@@ -50,9 +50,27 @@ func TestBrowserDownloadPlanDeduplicatesAndRejectsNames(t *testing.T) {
 	for i := range 20 {
 		inv.Files = append(inv.Files, browserDownload{Name: fmt.Sprintf("small-%d", i), Size: 1})
 	}
-	plan, _, _ = planBrowserDownloads(inv)
+	plan, _, _, _ = planBrowserDownloads(inv)
 	if len(plan) != 16 {
 		t.Fatalf("batch copied %d files, want at most 16", len(plan))
+	}
+}
+
+// TestBrowserDownloadPlanAnnouncesAnOversizedFileOnce: a download over the limit is never
+// copied, and the model is told so once, not on every browser call after it (final review of the
+// browser sidecar, Important 5, 2026-10-15). The checkpoint remembers it with no destination.
+func TestBrowserDownloadPlanAnnouncesAnOversizedFileOnce(t *testing.T) {
+	big := browserDownload{Name: "video.mp4", Size: maxBrowserDownloadBytes + 1, MTime: 1}
+	_, delivered, footer, remember := planBrowserDownloads(browserDownloadInventory{Files: []browserDownload{big}})
+	if !strings.Contains(footer, "video.mp4 exceeds the 50 MiB limit") || !remember {
+		t.Fatalf("first sight: footer %q, remember %v; want the notice, remembered", footer, remember)
+	}
+	if destination, ok := delivered[downloadKey(big)]; !ok || destination != "" {
+		t.Fatalf("delivered = %v, want the oversized file kept with no destination", delivered)
+	}
+	_, delivered, footer, remember = planBrowserDownloads(browserDownloadInventory{Files: []browserDownload{big}, Delivered: delivered})
+	if footer != "" || remember || len(delivered) != 1 {
+		t.Fatalf("second sight: footer %q, remember %v, delivered %v; want silence and the mark kept", footer, remember, delivered)
 	}
 }
 

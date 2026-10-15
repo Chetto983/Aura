@@ -58,9 +58,14 @@ func (b *DockerBackend) collectBrowserDownloads(ctx context.Context, r *SandboxR
 	if err := json.Unmarshal(res.Stdout, &inventory); err != nil {
 		return "", err
 	}
-	files, delivered, notices := planBrowserDownloads(inventory)
+	files, delivered, notices, remember := planBrowserDownloads(inventory)
 	var footer strings.Builder
 	footer.WriteString(notices)
+	if remember && len(files) == 0 {
+		if err := b.checkpointDelivered(ctx, h, delivered); err != nil {
+			return footer.String(), err
+		}
+	}
 	for _, file := range files {
 		staged, err := b.stageBrowserDownload(ctx, h, file)
 		if err != nil {
@@ -93,16 +98,20 @@ func (b *DockerBackend) collectBrowserDownloads(ctx context.Context, r *SandboxR
 			return footer.String(), errors.New("browser download publication did not confirm its path")
 		}
 		delivered[downloadKey(file)] = destination
-		data, err := json.Marshal(delivered)
-		if err != nil {
-			return footer.String(), err
-		}
-		if err := b.checkpointBrowserDownloads(ctx, h, data); err != nil {
+		if err := b.checkpointDelivered(ctx, h, delivered); err != nil {
 			return footer.String(), err
 		}
 		fmt.Fprintf(&footer, "\nDownload ready: %s (%d bytes).", destination, file.Size)
 	}
 	return footer.String(), nil
+}
+
+func (b *DockerBackend) checkpointDelivered(ctx context.Context, h BoxHandle, delivered map[string]string) error {
+	data, err := json.Marshal(delivered)
+	if err != nil {
+		return err
+	}
+	return b.checkpointBrowserDownloads(ctx, h, data)
 }
 
 func (b *DockerBackend) checkpointBrowserDownloads(ctx context.Context, h BoxHandle, data []byte) error {

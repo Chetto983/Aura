@@ -12,27 +12,33 @@ func downloadKey(file browserDownload) string {
 	return fmt.Sprintf("%s/%d/%d", file.Name, file.Size, file.MTime)
 }
 
-func planBrowserDownloads(inventory browserDownloadInventory) ([]browserDownload, map[string]string, string) {
-	var files []browserDownload
-	delivered := make(map[string]string)
+// planBrowserDownloads picks the next batch to copy and the notices for the model. delivered maps
+// each listed file already dealt with to its shell path, or to "" for an oversized file the
+// model has been told about once; remember reports a new such mark, which the checkpoint must
+// keep even when nothing is copied.
+func planBrowserDownloads(inventory browserDownloadInventory) (files []browserDownload, delivered map[string]string, notices string, remember bool) {
+	delivered = make(map[string]string)
 	var footer strings.Builder
-	notices, totalBytes := 0, int64(0)
+	noticed, totalBytes := 0, int64(0)
 	for _, file := range inventory.Files {
 		if !validDownloadName(file.Name) || file.Size < 0 {
 			continue
 		}
-		if destination, done := inventory.Delivered[downloadKey(file)]; done {
-			delivered[downloadKey(file)] = destination
+		key := downloadKey(file)
+		if destination, done := inventory.Delivered[key]; done {
+			delivered[key] = destination
 			continue
 		}
 		if strings.HasSuffix(file.Name, ".crdownload") || file.Size > maxBrowserDownloadBytes {
-			if notices < 8 {
+			if noticed < 8 {
 				if strings.HasSuffix(file.Name, ".crdownload") {
 					fmt.Fprintf(&footer, "\nDownload in progress: %s (%d bytes).", file.Name, file.Size)
 				} else {
 					fmt.Fprintf(&footer, "\nDownload not copied: %s exceeds the 50 MiB limit.", file.Name)
+					delivered[key] = ""
+					remember = true
 				}
-				notices++
+				noticed++
 			}
 			continue
 		}
@@ -42,7 +48,7 @@ func planBrowserDownloads(inventory browserDownloadInventory) ([]browserDownload
 		files = append(files, file)
 		totalBytes += file.Size
 	}
-	return files, delivered, footer.String()
+	return files, delivered, footer.String(), remember
 }
 
 func copyBrowserDownloadArchive(src io.Reader, dst io.Writer, file browserDownload) error {
