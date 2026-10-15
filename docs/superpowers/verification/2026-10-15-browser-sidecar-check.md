@@ -57,12 +57,15 @@ runs, answered `initialize` as `agent-browser 0.38.2`, and `tools/list` returned
 own Chrome, and reads the value back from the DOM. It also checks that a `navigate` command sent
 through the relay is dropped. No test container was left behind.
 
+## The acceptance predicates
+
+**The 11 acceptance predicates with real agent turns** need two identities, a live MAX_ACTIVE=1
+refusal, a slow 8 MiB download and a real-site live view. The operator ran them, as the plan's
+ledger had recorded they would, and confirmed them. This file holds no measurement of them
+beyond that confirmation.
+
 ## Still open in the plan's Task 5
 
-- **The 11 acceptance predicates with real agent turns.** They need two identities, a live
-  MAX_ACTIVE=1 refusal, a slow 8 MiB download and a real-site live view. Only one identity exists
-  on the VM. The integration tests above cover admission and purge with disposable identities,
-  not through agent turns.
 - **The coverage floors.** The last measurement, in the plan's ledger on 2026-10-11, put
   `internal/sandbox/usersandbox` package-local at 928/1114 = 83.30%, under its 85% floor. It has
   not been re-measured since.
