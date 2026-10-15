@@ -1,6 +1,21 @@
 # Browser sidecar implementation plan
 
-**Status (2026-10-15):** PARTIAL. 7f0242a2d, 5c3104b81, f5e5b7b74, 150cf3f65 and 6a3290e2f landed. On the VM the shell no longer holds browser credentials. Every docker_integration test passes against the edge images, usersandbox coverage is 86.58%, and the operator confirmed the acceptance predicates. The final review returned "with fixes": an upgraded appliance keeps its legacy profile in the shell volume (Critical), and there are four Important findings (docs/superpowers/verification/2026-10-15-browser-sidecar-check.md).
+**Status (2026-10-15):** PARTIAL.
+- **Landed:** 7f0242a2d, 5c3104b81, f5e5b7b74, 150cf3f65 and 6a3290e2f.
+- **Measured:** on the VM the shell no longer holds browser credentials, and the operator confirmed
+  the acceptance predicates.
+- **Final review:** "with fixes". Its fix pass landed the same day as 965bb3328, fd11a0004,
+  1738407f9, c2a7fb63a and db5336994:
+  - the legacy home is swept at boot;
+  - admission counts open Chromes;
+  - locks are per identity;
+  - `Resolve` stops only a box it started;
+  - delivered downloads leave the browser volume.
+
+  Every docker_integration test passes, and usersandbox coverage is 910/1058 = 86.01%
+  (docs/superpowers/verification/2026-10-15-browser-sidecar-fix-pass.md).
+- **Open:** the push and the deployment, the operator's re-run of acceptance predicates 6 and 8
+  on the VM, and the db_integration coverage gate.
 
 > **For agentic workers:** Use superpowers:executing-plans, with test-driven-development. The operator selected the complete spec (A) and explicitly requires execution in D:/Aura without a worktree. GPT-6.1 assists with E2E preparation and verification.
 

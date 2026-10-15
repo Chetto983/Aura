@@ -151,4 +151,6 @@ The full review is kept in the session scratchpad, not in the repo.
 
 - **Rulings and a fix pass** for Critical 1 and Important 2-5. Critical 1 and Important 2 reverse
   parts of the operator's 2026-10-12 amendments, so they need the operator's ruling first.
+  *Done the same day:* see
+  [2026-10-15-browser-sidecar-fix-pass.md](2026-10-15-browser-sidecar-fix-pass.md).
 - **CI.** None has run since GitHub blocked the account.
