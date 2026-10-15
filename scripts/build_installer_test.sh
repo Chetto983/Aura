@@ -26,6 +26,14 @@ if [ ! -x "$artifact" ]; then
   exit 1
 fi
 
+# Every run below is on a desktop session and without a tty, as when the wizard spawns the
+# artifact: makeself's default header then execs an X11 terminal emulator, and with none
+# installed it dies "exec: -e: not found" (WSLg, 2026-10-15).
+mkdir -p "$fixture_root/x11"
+printf '#!/bin/sh\nexit 0\n' > "$fixture_root/x11/xset"
+chmod +x "$fixture_root/x11/xset"
+export DISPLAY=:0 PATH="$fixture_root/x11:$PATH"
+
 # --check verifies the embedded payload checksum only -- it does not cover the archive's
 # shell header (the part that runs as root), so a pass here means the payload survived
 # transport intact, not that the archive is authenticated.

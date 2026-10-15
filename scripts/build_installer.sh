@@ -53,7 +53,10 @@ exec bash "$PWD/install.sh" "$@"
 STARTUP
 chmod +x "$staging/startup.sh"
 
-makeself --sha256 --gzip \
+# --nox11: run without a tty on a desktop session -- as the wizard spawns it -- the default
+# header execs an X11 terminal emulator for itself, and with none installed dies on
+# "exec: -e: not found" before install.sh runs (WSLg, 2026-10-15).
+makeself --sha256 --gzip --nox11 \
   "$staging" "$output" \
   "Aura appliance installer" \
   ./startup.sh
