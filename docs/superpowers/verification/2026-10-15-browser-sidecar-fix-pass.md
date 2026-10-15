@@ -83,15 +83,37 @@ The gate exited 0 in 259 s, with 0 skipped tests and no container left.
 The package figures are summed from the gate's own profile, and the two add up to the aggregate.
 In the morning the package was at 832/961 = 86.58%.
 
+## The owned-surface coverage gate
+
+`scripts/coverage_docker.sh` ran later the same day in WSL at HEAD `55d60fdae`, which differs from
+`db5336994` only in docs:
+- the stack was `make memory-up-core` (ArcadeDB and the embed sidecar, no aura daemon);
+- the tier ran against the disposable `aura_cov` database, dropped on exit.
+
+The gate exited 0 in 650 s, with the `db_integration` tier executed and 0 skipped tests.
+
+| Scope | Statements covered | Floor |
+|---|---|---|
+| owned_internal, the gate's aggregate | 46828/52960 = 88.4% | 85% |
+| `internal/keylock`, new `target` entry | 6/6 = 100% | 85% |
+| `internal/agent/mcptools` | 1382/1484 = 93.13% | 85% |
+
+The package-local policy passed:
+- 95 packages were evaluated, 88 of them at target;
+- 5 are below target, on their pinned non-regression baselines;
+- 2 are delegated: `usersandbox` to the Docker report above, and `internal/arcadedb` to its own
+  profile.
+
+The two package figures are summed from the gate's filtered profile. `cmd/aura` contributes
+execution but stays outside the denominator, so this gate gives no number for it.
+
 ## What this does not show
 
 - **The lab VM and the appliances.** None of this is deployed: nothing is pushed yet, and the VM
   stopped answering during the session. Acceptance predicates 6 and 8 touch admission and the
   shell volume, so they need the operator's re-run after deployment.
-- **The owned-surface `db_integration` gate** (`scripts/coverage_docker.sh`). It needs the local
-  stack, which was down, so it was not run. That gate is the only check of the new
-  `internal/keylock` entry in `scripts/coverage_package_policy.json` against the package
-  inventory. It also measures the `mcptools` and `cmd/aura` changes.
+- **The `arcadedb_integration` profile** for `internal/arcadedb`, whose fact lock moved to
+  `internal/keylock`. That package's floor is delegated to it, and it was not re-run.
 - **Many identities calling at once**, beyond the two-identity lock tests.
 - **A browser launched without `--remote-debugging-port`.** It would not count for admission.
 - **Mutation testing.** It is forbidden in this workspace by the operator's ruling of

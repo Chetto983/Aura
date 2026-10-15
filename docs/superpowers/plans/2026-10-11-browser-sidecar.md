@@ -12,10 +12,11 @@
   - `Resolve` stops only a box it started;
   - delivered downloads leave the browser volume.
 
-  Every docker_integration test passes, and usersandbox coverage is 910/1058 = 86.01%
-  (docs/superpowers/verification/2026-10-15-browser-sidecar-fix-pass.md).
-- **Open:** the push and the deployment, the operator's re-run of acceptance predicates 6 and 8
-  on the VM, and the db_integration coverage gate.
+  Every docker_integration test passes, and usersandbox coverage is 910/1058 = 86.01%. The
+  owned-surface db_integration gate passed at 55d60fdae: 46828/52960 = 88.4%, package policy
+  green (docs/superpowers/verification/2026-10-15-browser-sidecar-fix-pass.md).
+- **Open:** the push and the deployment, and the operator's re-run of acceptance predicates 6
+  and 8 on the VM.
 
 > **For agentic workers:** Use superpowers:executing-plans, with test-driven-development. The operator selected the complete spec (A) and explicitly requires execution in D:/Aura without a worktree. GPT-6.1 assists with E2E preparation and verification.
 
