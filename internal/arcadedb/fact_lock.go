@@ -1,17 +1,6 @@
 package arcadedb
 
-import (
-	"hash/fnv"
-	"sync"
-)
-
-// factLockStripes bounds factLocks' memory to a fixed size regardless of how
-// many distinct fact_key values a long-running process ever writes -- an
-// unstriped `map[string]*sync.Mutex` that only ever grows would be a slow
-// leak over the process's lifetime. 256 is generous for this package's
-// actual contention shape (a handful of fact rows hot at once, from one
-// swarm's concurrent workers) while keeping the fixed cost trivial.
-const factLockStripes = 256
+import "github.com/chetto1983/aura/internal/keylock"
 
 // factLocks serializes attachFactSource-then-createFactWithRetry's
 // read-decide-write sequence for the SAME fact_key within THIS process --
@@ -43,14 +32,8 @@ const factLockStripes = 256
 // cross-process conflict (an operator's CLI hitting the same identity at
 // the same instant, a future topology change) still fails closed as a
 // retryable conflict instead of silently losing a write.
-type factLocks struct {
-	stripes [factLockStripes]sync.Mutex
-}
-
-func (l *factLocks) lock(factKey string) func() {
-	h := fnv.New32a()
-	_, _ = h.Write([]byte(factKey))
-	stripe := &l.stripes[h.Sum32()%factLockStripes]
-	stripe.Lock()
-	return stripe.Unlock
-}
+//
+// Striping keeps its memory fixed however many fact_key values a long-running
+// process writes, and 256 stripes are generous for a handful of fact rows hot
+// at once from one swarm's concurrent workers.
+type factLocks = keylock.Striped

@@ -42,8 +42,7 @@ func (r *SandboxRouter) CollectBrowserDownloads(ctx context.Context) (string, er
 }
 
 func (b *DockerBackend) collectBrowserDownloads(ctx context.Context, r *SandboxRouter) (string, error) {
-	b.downloads.Lock()
-	defer b.downloads.Unlock()
+	defer b.downloads.Lock(r.identityID(ctx))()
 	h, err := r.RouteBrowser(ctx)
 	if err != nil {
 		return "", err

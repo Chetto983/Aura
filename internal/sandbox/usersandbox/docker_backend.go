@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/chetto1983/aura/internal/keylock"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 )
@@ -93,8 +94,11 @@ type DockerBackend struct {
 	browserFiles     BoxFileSource
 	browserLimits    Resources
 	browserMaxActive int
-	lifecycle        sync.Mutex
-	downloads        sync.Mutex
+	// identities serializes one identity's lifecycle verbs and leaves other identities free;
+	// admission serializes browser admission across identities.
+	identities keylock.Striped
+	admission  sync.Mutex
+	downloads  keylock.Striped
 	// egressImage is the aura-egress sidecar image ref. Empty (the default) DISABLES the
 	// sidecar entirely — a dev/local backend or the 37-04 lifecycle tests run box-only. The
 	// composition root wires WithEgress under the strict profiles so every networked box

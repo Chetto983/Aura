@@ -43,8 +43,7 @@ func (r *SandboxRouter) resolveAndTrack(ctx context.Context, id string) (BoxHand
 }
 
 func (r *SandboxRouter) resolveKindAndTrack(ctx context.Context, id string, kind BoxKind) (BoxHandle, error) {
-	r.lifecycle.Lock()
-	defer r.lifecycle.Unlock()
+	defer r.identities.Lock(id)()
 	h, err := r.backend.Resolve(ctx, r.specForKind(id, kind))
 	if err != nil {
 		return BoxHandle{}, err // fail-CLOSED (D-09/GATE-01) — the caller denies, never host

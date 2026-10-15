@@ -19,8 +19,7 @@ func (r *SandboxRouter) PurgeBrowserCredentials(ctx context.Context, id string) 
 	if id == "" {
 		return errors.New("browser retirement: identity is required")
 	}
-	r.lifecycle.Lock()
-	defer r.lifecycle.Unlock()
+	defer r.identities.Lock(id)()
 	if err := b.PurgeBrowserCredentials(ctx, id); err != nil {
 		return err
 	}
@@ -32,7 +31,6 @@ func (r *SandboxRouter) PurgeBrowserCredentials(ctx context.Context, id string) 
 
 // PurgeBrowserCredentials destroys the browser box and the volume that holds its logins.
 func (b *DockerBackend) PurgeBrowserCredentials(ctx context.Context, id string) error {
-	b.lifecycle.Lock()
-	defer b.lifecycle.Unlock()
+	defer b.identities.Lock(id)()
 	return b.stop(ctx, BoxHandle{ContainerID: workspaceName(id, Browser), IdentityID: id, Kind: Browser})
 }

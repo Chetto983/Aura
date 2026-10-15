@@ -12,6 +12,7 @@ import (
 
 	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/identityctx"
+	"github.com/chetto1983/aura/internal/keylock"
 )
 
 // localIdentityID is the migration-0004 seeded `local` identity — the CLI / no-principal
@@ -37,10 +38,12 @@ type SandboxRouter struct {
 	backend Backend
 	cfg     config.SandboxConfig
 
-	mu        sync.Mutex
-	lifecycle sync.Mutex
-	lastUsed  map[string]time.Time
-	handles   map[string]BoxHandle
+	// identities serializes one identity's resolve, reap and teardown and leaves the others free;
+	// mu guards only the two maps.
+	identities keylock.Striped
+	mu         sync.Mutex
+	lastUsed   map[string]time.Time
+	handles    map[string]BoxHandle
 
 	// now is the injectable clock for tests; nil → time.Now().UTC() via clock().
 	now func() time.Time
@@ -158,8 +161,7 @@ func (r *SandboxRouter) Destroy(ctx context.Context, identityID string) error {
 	if identityID == "" {
 		return errors.New("sandbox destroy: identity is required")
 	}
-	r.lifecycle.Lock()
-	defer r.lifecycle.Unlock()
+	defer r.identities.Lock(identityID)()
 	var result error
 	for _, kind := range []BoxKind{Browser, Shell} {
 		key := trackingKey(identityID, kind)

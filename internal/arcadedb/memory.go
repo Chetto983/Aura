@@ -319,7 +319,7 @@ func (c *Client) UpsertFact(ctx context.Context, fact Fact, now time.Time) (Fact
 	// process -- see fact_lock.go's doc comment for why this, not just the
 	// transactional write inside attachFactSource, is what actually closes
 	// D-09's concurrent-write race for the topology this package has.
-	defer c.facts.lock(factKey)()
+	defer c.facts.Lock(factKey)()
 	written := FactWrite{Statement: fact.Statement, Classified: classified}
 	if vocabulary != nil {
 		written.Coined = coinedEntities(vocabulary, fact.Subject, fact.Object)
