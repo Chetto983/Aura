@@ -116,3 +116,64 @@ connectors.
   tested.
 - **Concurrency.** There were no concurrent writers or readers.
 - **Platform.** arm64 was not tested.
+
+## Re-run with the scalar jvector provider (afternoon)
+
+**Why.** Roberto Franchini traced the native image's vector latency to jvector's provider choice,
+starting from this file's numbers ([ArcadeDB #10072](https://github.com/ArcadeData/arcadedb/issues/10072)):
+- the native image is built with `jdk.incubator.vector`, so jvector picks
+  `PanamaVectorizationProvider`;
+- GraalVM CE's Substrate VM does not compile the Vector API to SIMD, so every distance runs the
+  incubator's lane-by-lane Java fallback.
+
+He suggested `-Djvector.vectorization_provider=default`, the scalar provider. #10072 was closed
+the same day by [#10077](https://github.com/ArcadeData/arcadedb/pull/10077), in 26.11.1, which
+picks that provider by itself under native.
+
+**Setup.** The same script and corpus as above, on the same VM, with one change. The native
+digest from the morning (`3fb9cf4b…`, built 2026-10-10, before the fix) ran twice: once without
+the flag, and once with it as a trailing argument. The JVM image at Aura's pin ran first as the
+same-session reference.
+
+A first attempt ran across a VM suspend and was discarded: its wall time was 1555 s for about
+250 s of work, and the session that carried its last run dropped.
+
+| | JVM 26.10.1 | native, no flag | native, `-Djvector.vectorization_provider=default` |
+|---|---|---|---|
+| Provider in the server log | Panama, 512-bit species | Panama, 256-bit species | scalar (no Panama line) |
+| **load**, 11,000 rows | 48.35 s, 228 rows/s | 63.33 s, 174 rows/s | 52.54 s, 209 rows/s |
+| update, 1,100 rows | 5.53 s, 199 rows/s | 5.83 s, 189 rows/s | 7.00 s, 157 rows/s |
+| delete, 1,100 rows | 1.88 s, 586 rows/s | 2.23 s, 493 rows/s | 2.01 s, 546 rows/s |
+| `vector.neighbors` k=10, median / p95 | 38.0 / 49.8 ms | **first query timed out at 120 s** | **22.2 / 38.4 ms** |
+| `SEARCH_INDEX` count, median / p95 | 19.2 / 38.8 ms | — | 4.7 / 7.2 ms |
+| Aura fused query, median / p95 | 62.9 / 91.6 ms | — | 160.2 / 296.5 ms |
+| Cypher `MATCH` by key, median / p95 | 1.5 / 2.6 ms | — | 1.5 / 2.9 ms |
+| Top hit of the vector and fused queries | the probe | — | the probe |
+| RAM idle / peak during the bench | 2.102 GiB / 2,436 MiB | 16.43 MiB / 939 MiB | 16.68 MiB / 576 MiB |
+| Bench wall time | 64 s | 194 s | 72 s |
+| Server log lines with SEVERE or exception | 0 | 0 | 0 |
+
+Without the flag, the first `vector.neighbors` waited on a jvector graph build that the server
+log shows starting before the queries; the client gave up after its 120 s timeout. In the
+morning's run the same image answered in 256 ms. When the graph build happens relative to the
+first query is therefore not stable between runs. #10072 measured that build at 178 s, against
+6.5 s with the scalar provider.
+
+**Verdict.** The flag closes the vector gap on this workload:
+- `vector.neighbors` on native is faster than on the JVM: 22.2 against 38.0 ms;
+- writes come within 8% of the JVM;
+- the peak memory is a quarter of the JVM's.
+
+Aura's fused query is still 2.5 times the JVM's. That query also runs `vector.rerank`. #10077
+moves ArcadeDB's own Vector API paths to scalar code too, and the flag does not reach them. That
+they are the remaining cost is a hypothesis, not a measurement.
+
+**Not shown:**
+- the 26.11.1 build that carries #10077: none was published when this ran, since the latest
+  `latest-native` dates from 12:19 UTC and the PR closed at 14:20;
+- why the fused query still lags;
+- repeats: one run per configuration;
+- arm64, real embeddings, other corpus sizes and concurrency, as above.
+
+Aura stays on the JVM image until a native release carries the fix and its fused query is
+measured again.
