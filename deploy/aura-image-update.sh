@@ -48,6 +48,8 @@ PENDING_PAYLOAD=payload_changes.pending
 RETIRED_ENV_KEYS=(POSTGRES_IMAGE AURA_EMBED_IMAGE AURA_EMBED_MODEL_PATH AURA_EMBED_MODEL_URL AURA_EMBED_DIMENSIONS AURA_OTEL_ENDPOINT AURA_PIM_EXTERNAL_BASE_URL)
 # Repo-built services on the edge channel's moving tags, refreshed after aura.
 SIDECARS=(arcadedb-mcp aura-pim-mcp whatsapp caddy aura-ingest aura-cloudflared)
+# The systemd units the payload ships and a host may have installed.
+UNITS=(aura.service aura-image-update.service aura-image-update.timer)
 # Every registry path the repo-built images have been published under, and the one they live
 # under now. IMAGE_HOME_LIB moves a host's .env from any other home to IMAGE_HOME, one key at a
 # time, so the constant that sends hosts to the GitLab bridge also brings them back
@@ -188,21 +190,33 @@ sync_payload() {
     UPDATER_CHANGED=1
   fi
   local units_changed=0
-  local -a reenable=()
-  for unit in aura.service aura-image-update.service aura-image-update.timer; do
+  for unit in "${UNITS[@]}"; do
     [[ -f "${SYSTEMD_DIR}/${unit}" && -f "${work}/deploy/${unit}" ]] || continue
     [[ "$(file_sha256 "${SYSTEMD_DIR}/${unit}")" != "$(file_sha256 "${work}/deploy/${unit}")" ]] || continue
     install -m 0644 "${work}/deploy/${unit}" "${SYSTEMD_DIR}/${unit}"
     echo "payload: ${SYSTEMD_DIR}/${unit} updated."
     units_changed=1
-    # A changed [Install] section takes effect only through enable; a unit the host disabled,
-    # such as a frozen host's timer, stays disabled.
-    [[ "$(systemctl is-enabled "${unit}" 2>/dev/null)" != enabled ]] || reenable+=("${unit}")
   done
   ((units_changed == 0)) || systemctl daemon-reload
-  ((${#reenable[@]} == 0)) || systemctl reenable "${reenable[@]}"
 
   rm -rf "${work}"
+}
+
+# A unit's [Install] section takes effect only through enable, and the updater that copied a new
+# unit may be an older one that never re-enabled it -- the re-executed updater then finds the file
+# already current. So an enabled unit missing a link its WantedBy= names is re-enabled, whoever
+# replaced it; a disabled one, such as a frozen host's timer, stays disabled.
+relink_enabled_units() {
+  local unit target
+  for unit in "${UNITS[@]}"; do
+    [[ -f "${SYSTEMD_DIR}/${unit}" && "$(systemctl is-enabled "${unit}" 2>/dev/null)" == enabled ]] || continue
+    for target in $(sed -n 's/^WantedBy=//p' "${SYSTEMD_DIR}/${unit}"); do
+      [[ -e "${SYSTEMD_DIR}/${target}.wants/${unit}" ]] && continue
+      systemctl reenable "${unit}"
+      echo "units: ${unit} re-enabled for ${target}."
+      break
+    done
+  done
 }
 
 # Left in .env a retired key reads like a setting an operator can change, and changes nothing.
@@ -469,6 +483,7 @@ apply_update() {
     echo "payload: the updater changed; re-executing it."
     AURA_IMAGE_UPDATE_REEXEC=1 exec "${UPDATER_BIN}"
   fi
+  relink_enabled_units
   retire_env_keys
   ensure_cloudflared_edge_env
 

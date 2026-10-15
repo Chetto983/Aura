@@ -86,6 +86,7 @@ LIB
   pull_sidecar() { :; }
   pull_sandbox_images() { :; }
   sync_payload() { UPDATER_CHANGED=0; }
+  relink_enabled_units() { :; }
   retire_env_keys() { :; }
   wait_healthy() { :; }
   refresh_sandbox_images() { :; }
@@ -129,6 +130,7 @@ for memory in running stopped; do
     image_revision() { :; }
     move_image_registry() { :; }
     sync_payload() { UPDATER_CHANGED=0; }
+    relink_enabled_units() { echo relink >>steps; }
     retire_env_keys() { :; }
     ensure_cloudflared_edge_env() { :; }
     bash() { [[ "$1" == scripts/appliance_posture.sh ]] || fail 'unexpected bash'; }
@@ -149,7 +151,7 @@ for memory in running stopped; do
     }
     apply_update >/dev/null
     if [[ "$memory" == running ]]; then want='docker compose up -d --pull missing aura'; else want='docker compose up -d --pull missing'; fi
-    [[ "$(cat steps)" == "$want"$'\n'"wait_healthy aura" ]] ||
+    [[ "$(cat steps)" == "relink"$'\n'"$want"$'\n'"wait_healthy aura" ]] ||
       fail "with the memory MCP $memory, the apply ran: $(tr '\n' ';' <steps)"
   )
 done
@@ -199,7 +201,6 @@ write "$SYSTEMD_DIR/aura.service" "service v1"
 # record so the whole stack is re-applied, even if this tick dies before doing it.
 write "$INSTALL_DIR/$APPLIED_MANIFEST" "manifest of the payload before"
 
-ENABLED_UNITS="aura-image-update.timer"
 sync_payload ghcr.io/example/aura:edge >"$fixture/sync1.out"
 
 [[ "$UPDATER_CHANGED" == 1 ]] || fail "a new updater did not report UPDATER_CHANGED"
@@ -217,8 +218,6 @@ cmp -s "$image_payload/payload_manifest.txt" "$INSTALL_DIR/payload_manifest.txt"
 [[ "$(content "$SYSTEMD_DIR/aura-image-update.timer")" == "timer v2" ]] || fail "a stale installed unit was not replaced"
 [[ ! -e "$SYSTEMD_DIR/aura-image-update.service" ]] || fail "a unit this host never installed was created"
 grep -qx 'systemctl daemon-reload' "$calls" || fail "a replaced unit was not followed by daemon-reload"
-grep -qx 'systemctl reenable aura-image-update.timer' "$calls" ||
-  fail "an enabled unit was replaced without re-enabling it, so a changed [Install] never applied"
 grep -q '^docker rm ' "$calls" || fail "the extraction container was left behind"
 [[ "$(backups)" == 1 ]] || fail "expected one backup directory, found $(backups)"
 backup="$(find "$INSTALL_DIR/backups" -mindepth 1 -maxdepth 1 -type d)"
@@ -294,17 +293,28 @@ sync_payload ghcr.io/example/aura:edge >/dev/null
 INSTALL_DIR="$saved_install_dir"
 echo "ok: a payload that only adds files converges without a backups/ directory"
 
-# A frozen host keeps its timer disabled on purpose, so replacing the unit must not enable it.
+# aura.service gained WantedBy=docker.service (2026-10-15), and on an existing host the unit is
+# copied by the updater it replaces, which never re-enables it. The links are what count: an
+# enabled unit missing one is re-enabled, a linked one is left alone, and a frozen host's
+# disabled timer stays disabled.
 (
+  SYSTEMD_DIR="$fixture/relink"
+  write "$SYSTEMD_DIR/aura.service" $'[Install]\nWantedBy=multi-user.target docker.service\n'
+  write "$SYSTEMD_DIR/aura-image-update.timer" $'[Install]\nWantedBy=timers.target\n'
+  mkdir -p "$SYSTEMD_DIR/multi-user.target.wants"
+  ln -s ../aura.service "$SYSTEMD_DIR/multi-user.target.wants/aura.service"
+  ENABLED_UNITS="aura.service"
   : >"$calls"
-  write "$image_payload/deploy/aura-image-update.timer" "timer v3"
-  seal
-  ENABLED_UNITS=""
-  sync_payload ghcr.io/example/aura:edge >/dev/null
-  [[ "$(content "$SYSTEMD_DIR/aura-image-update.timer")" == "timer v3" ]] || fail "the disabled timer's unit was not replaced"
-  ! grep -q '^systemctl reenable' "$calls" || fail "a unit this host keeps disabled was enabled: $(cat "$calls")"
+  relink_enabled_units >/dev/null
+  [[ "$(grep -c '^systemctl reenable' "$calls")" == 1 ]] && grep -qx 'systemctl reenable aura.service' "$calls" ||
+    fail "an enabled unit missing its docker.service link was not re-enabled alone: $(cat "$calls")"
+  mkdir -p "$SYSTEMD_DIR/docker.service.wants"
+  ln -s ../aura.service "$SYSTEMD_DIR/docker.service.wants/aura.service"
+  : >"$calls"
+  relink_enabled_units >/dev/null
+  ! grep -q '^systemctl reenable' "$calls" || fail "a unit holding every link it names was re-enabled: $(cat "$calls")"
 )
-echo "ok: a replaced unit is re-enabled only where the host had it enabled"
+echo "ok: an enabled unit missing a link its WantedBy= names is re-enabled, and only that one"
 
 # Keys an earlier installer wrote that no compose file reads any more must leave .env on their
 # own: left behind they look like settings an operator can change, and change nothing.
