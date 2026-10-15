@@ -88,6 +88,8 @@ func TestResolveFailureStopsOnlyABoxItStarted(t *testing.T) {
 				}))
 			}
 			backend := NewDockerBackend(cli, "aura-sandbox:test", Resources{}, opts...)
+			// The legacy home sweep has its own tests; this one starts past it.
+			backend.swept.Store(id, true)
 			if _, err := backend.Resolve(ctx, SandboxSpec{IdentityID: id, Kind: Shell}); err == nil {
 				t.Fatal("Resolve succeeded; every case here must fail")
 			}

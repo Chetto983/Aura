@@ -147,7 +147,19 @@ Non-goals:
    operator's box holds 553 MB in 4013 files there, 117 MB of it outside Chrome's caches: 20
    profiles, 19 cookie databases and 19 `Login Data` files, all readable by its shell
    (measured 2026-10-11).
-10. **Destroying an identity destroys its browser box.** `SandboxRouter.Destroy`, called by the
+   - *Amended 2026-10-15 by the operator: the legacy home is deleted, never copied.* The copy was
+     retired on 2026-10-12 (acceptance item 8), and with it every path that removed the home. The
+     final review found that every appliance upgraded from the earlier layout still keeps its
+     logged-in profile on the shell volume, where one shell command drives it past the browser
+     box's guards (Critical 1). At boot, Aura now removes `/workspace/.agent-browser-home` from
+     every shell workspace volume on the host. It uses a short-lived helper container over the
+     volume (`aura-sweep-<id>`), so a volume whose box is gone is reached too. The removal is
+     delete-only and idempotent. A shell box does not start until its identity's home is gone:
+     `Resolve` runs the same sweep once per identity per process and fails closed if it fails.
+     Whoever kept logins only there signs in again once, in the browser box. Measured on
+     2026-10-15 by the docker_integration test: a synthetic profile is removed both from a volume
+     whose box is gone and under a running box, the shell's own files stay, and no helper is left.
+     What this does not show: the lab VM and the appliances, where it was not deployed. `SandboxRouter.Destroy`, called by the
     deprovision saga (`cmd/aura/serve_provisioning.go:322`), also removes `aura-browser-<id>`, its
     egress sidecar and its volume. A login must not outlive its identity. The step stays
     fail-closed and resumable like the rest of the purge.
@@ -301,7 +313,9 @@ translate and admission:
    compared the copy back, and the comparison failed on every call. Every browser call then ended
    after 18 to 42 s with `browser migration verification mismatch`, and the browser box never
    started. Starting a box now touches only that box's own objects
-   (`TestResolveBrowserNeverTouchesTheShellBox`). A profile left in a shell volume stays there.
+   (`TestResolveBrowserNeverTouchesTheShellBox`). ~~A profile left in a shell volume stays
+   there.~~ *Amended 2026-10-15:* it is deleted at boot, and the shell does not start while it is
+   there (decision 9, amended).
 9. Arguments and `extraArgs` outside the allowlist are refused, and `eval` reaches the approval
    gate as `MCPActionDestructive`.
 10. A slow download, the 2026-10-11 fixture of 8 MiB over 8 s, behaves as follows:

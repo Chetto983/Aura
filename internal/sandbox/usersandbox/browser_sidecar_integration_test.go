@@ -234,6 +234,45 @@ func TestBrowserSidecarAdmissionCountsOpenChromes(t *testing.T) {
 	}
 }
 
+// TestBrowserSidecarLegacyHomeLeavesTheShellVolume: the logged-in profile a shell volume kept
+// from before the browser box is removed and the shell's own work stays (Critical 1, 2026-10-15).
+// The per-volume sweep the boot runs reaches a volume whose box is gone, and Resolve sweeps a
+// running box for a backend that has not swept it yet.
+func TestBrowserSidecarLegacyHomeLeavesTheShellVolume(t *testing.T) {
+	cli, backend, router, ctx, id := browserSidecarFixture(t, 32)
+	const seed = "mkdir -p /workspace/.agent-browser-home/profiles/old/Default; printf synthetic-login > /workspace/.agent-browser-home/profiles/old/Default/Cookies; printf ordinary-work > /workspace/work.txt"
+	const swept = `test ! -e /workspace/.agent-browser-home; test "$(cat /workspace/work.txt)" = ordinary-work`
+	shellID, err := backend.createBox(ctx, boxName(id), router.specFor(id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireSidecarCommand(t, cli, BoxHandle{ContainerID: shellID, IdentityID: id}, seed)
+	if _, err := cli.ContainerRemove(ctx, shellID, client.ContainerRemoveOptions{Force: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	unlock := backend.identities.Lock(id)
+	err = backend.sweepLegacyBrowserHome(ctx, id)
+	unlock()
+	if err != nil {
+		t.Fatalf("sweep a volume whose box is gone: %v", err)
+	}
+	requireSidecarAbsent(t, cli, sweepHelperPrefix+id)
+	shell, err := router.Route(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireSidecarCommand(t, cli, shell, swept)
+
+	requireSidecarCommand(t, cli, shell, seed)
+	fresh := NewSandboxRouter(NewDockerBackend(cli, testBoxImage(), testLimits()), router.cfg)
+	if shell, err = fresh.Route(ctx); err != nil {
+		t.Fatal(err)
+	}
+	requireSidecarCommand(t, cli, shell, swept)
+	requireSidecarAbsent(t, cli, sweepHelperPrefix+id)
+}
+
 func TestBrowserSidecarEgressFailureLeavesBoxStopped(t *testing.T) {
 	cli, _, router, ctx, id := browserSidecarFixture(t, 32)
 	backend := NewDockerBackend(cli, testBoxImage(), testLimits(), WithBrowserLimits(testLimits(), 32), WithEgress(testBoxImage()))

@@ -34,10 +34,32 @@ const sandboxImageBootTimeout = 5 * time.Minute
 // few seconds, and a stuck daemon must not hold the listeners closed.
 const browserBoxBootTimeout = 2 * time.Minute
 
+// legacyHomeSweepTimeout bounds the boot sweep of legacy browser homes: one helper per shell
+// volume takes about a second, and a volume left unswept keeps its shell shut until its next call
+// sweeps it.
+const legacyHomeSweepTimeout = 2 * time.Minute
+
 // sandboxBootEnabled is the deployment whose tools run in boxes: a strict profile with isolation
 // on. Boot touches the sandbox only there.
 func sandboxBootEnabled(chat *chatEnv) bool {
 	return chat != nil && chat.cfg != nil && chat.cfg.Profile.Strict() && chat.cfg.MUSRIsolation
+}
+
+// sweepLegacyBrowserHomes removes, at boot, the logged-in profile the shell volumes kept before
+// the browser had a box of its own (operator, 2026-10-15). A volume not swept here keeps its
+// shell shut until its next call sweeps it.
+func sweepLegacyBrowserHomes(ctx context.Context, chat *chatEnv) {
+	if !sandboxBootEnabled(chat) {
+		return
+	}
+	sctx, cancel := context.WithTimeout(ctx, legacyHomeSweepTimeout)
+	defer cancel()
+	swept, err := chat.sandboxRouter.SweepLegacyBrowserHomes(sctx)
+	if err != nil {
+		slog.Warn("aura serve: a shell volume may still hold a legacy browser home; its shell stays shut until its next call removes it", "swept", swept, "err", err)
+		return
+	}
+	slog.Info("aura serve: legacy browser homes removed from the shell volumes", "volumes", swept)
 }
 
 // startBrowserBoxes starts every identity's existing browser box at boot, so the browser MCP

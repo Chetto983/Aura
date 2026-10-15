@@ -101,6 +101,8 @@ type DockerBackend struct {
 	admission    sync.Mutex
 	browserCalls map[string]time.Time
 	downloads    keylock.Striped
+	// swept holds the identities whose legacy browser home is gone from their shell volume.
+	swept sync.Map
 	// egressImage is the aura-egress sidecar image ref. Empty (the default) DISABLES the
 	// sidecar entirely — a dev/local backend or the 37-04 lifecycle tests run box-only. The
 	// composition root wires WithEgress under the strict profiles so every networked box

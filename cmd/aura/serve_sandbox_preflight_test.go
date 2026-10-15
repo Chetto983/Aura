@@ -25,6 +25,12 @@ type fakePreflightBackend struct {
 	ensureImageCalls int
 	browserBoxes     []usersandbox.BoxHandle
 	resolved         []usersandbox.SandboxSpec
+	sweeps           int
+}
+
+func (f *fakePreflightBackend) SweepLegacyBrowserHomes(context.Context) (int, error) {
+	f.sweeps++
+	return 0, nil
 }
 
 func (f *fakePreflightBackend) Resolve(_ context.Context, spec usersandbox.SandboxSpec) (usersandbox.BoxHandle, error) {
@@ -153,6 +159,22 @@ func TestStartBrowserBoxesSkipsWithoutIsolation(t *testing.T) {
 		startBrowserBoxes(context.Background(), preflightChatEnv(tc.profile, tc.isolation, be))
 		if len(be.resolved) != 0 {
 			t.Errorf("profile=%s isolation=%v: resolved %+v, want nothing", tc.profile, tc.isolation, be.resolved)
+		}
+	}
+}
+
+// TestSweepLegacyBrowserHomesAtBoot: boot removes the browser profile the shell volumes kept
+// before the browser had a box of its own, wherever tools run in boxes, and nowhere else.
+func TestSweepLegacyBrowserHomesAtBoot(t *testing.T) {
+	for _, tc := range []struct {
+		profile   config.RuntimeProfile
+		isolation bool
+		want      int
+	}{{config.ProfileSingleUserHardened, true, 1}, {config.ProfileDev, true, 0}, {config.ProfileSingleUserHardened, false, 0}} {
+		be := &fakePreflightBackend{}
+		sweepLegacyBrowserHomes(context.Background(), preflightChatEnv(tc.profile, tc.isolation, be))
+		if be.sweeps != tc.want {
+			t.Errorf("profile=%s isolation=%v: swept %d times, want %d", tc.profile, tc.isolation, be.sweeps, tc.want)
 		}
 	}
 }

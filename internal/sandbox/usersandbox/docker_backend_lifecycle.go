@@ -94,6 +94,11 @@ func (b *DockerBackend) startBox(ctx context.Context, spec SandboxSpec) (BoxHand
 			return BoxHandle{}, false, fmt.Errorf("resolve: ensure cache volume %q: %w", cache.Source, err)
 		}
 	}
+	if spec.Kind == Shell {
+		if err := b.sweepLegacyBrowserHome(ctx, spec.IdentityID); err != nil {
+			return BoxHandle{}, false, fmt.Errorf("resolve: remove the legacy browser home: %w", err)
+		}
+	}
 
 	existing, err := b.findBox(ctx, name)
 	if err != nil {
