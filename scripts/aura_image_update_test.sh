@@ -39,7 +39,11 @@ docker() {
     *) fail "unexpected docker $*" ;;
   esac
 }
-systemctl() { echo "systemctl $*" >>"$calls"; }
+# is-enabled answers "enabled" for the units ENABLED_UNITS names, as systemd would on this host.
+systemctl() {
+  echo "systemctl $*" >>"$calls"
+  [[ "$1" != is-enabled ]] || { [[ " ${ENABLED_UNITS:-} " == *" $2 "* ]] && echo enabled || echo disabled; }
+}
 
 # shellcheck source=/dev/null
 source "$repo_root/deploy/aura-image-update.sh"
@@ -195,6 +199,7 @@ write "$SYSTEMD_DIR/aura.service" "service v1"
 # record so the whole stack is re-applied, even if this tick dies before doing it.
 write "$INSTALL_DIR/$APPLIED_MANIFEST" "manifest of the payload before"
 
+ENABLED_UNITS="aura-image-update.timer"
 sync_payload ghcr.io/example/aura:edge >"$fixture/sync1.out"
 
 [[ "$UPDATER_CHANGED" == 1 ]] || fail "a new updater did not report UPDATER_CHANGED"
@@ -212,6 +217,8 @@ cmp -s "$image_payload/payload_manifest.txt" "$INSTALL_DIR/payload_manifest.txt"
 [[ "$(content "$SYSTEMD_DIR/aura-image-update.timer")" == "timer v2" ]] || fail "a stale installed unit was not replaced"
 [[ ! -e "$SYSTEMD_DIR/aura-image-update.service" ]] || fail "a unit this host never installed was created"
 grep -qx 'systemctl daemon-reload' "$calls" || fail "a replaced unit was not followed by daemon-reload"
+grep -qx 'systemctl reenable aura-image-update.timer' "$calls" ||
+  fail "an enabled unit was replaced without re-enabling it, so a changed [Install] never applied"
 grep -q '^docker rm ' "$calls" || fail "the extraction container was left behind"
 [[ "$(backups)" == 1 ]] || fail "expected one backup directory, found $(backups)"
 backup="$(find "$INSTALL_DIR/backups" -mindepth 1 -maxdepth 1 -type d)"
@@ -286,6 +293,18 @@ sync_payload ghcr.io/example/aura:edge >/dev/null
 [[ ! -d "$INSTALL_DIR/backups" ]] || fail "a payload that replaced nothing wrote a backup"
 INSTALL_DIR="$saved_install_dir"
 echo "ok: a payload that only adds files converges without a backups/ directory"
+
+# A frozen host keeps its timer disabled on purpose, so replacing the unit must not enable it.
+(
+  : >"$calls"
+  write "$image_payload/deploy/aura-image-update.timer" "timer v3"
+  seal
+  ENABLED_UNITS=""
+  sync_payload ghcr.io/example/aura:edge >/dev/null
+  [[ "$(content "$SYSTEMD_DIR/aura-image-update.timer")" == "timer v3" ]] || fail "the disabled timer's unit was not replaced"
+  ! grep -q '^systemctl reenable' "$calls" || fail "a unit this host keeps disabled was enabled: $(cat "$calls")"
+)
+echo "ok: a replaced unit is re-enabled only where the host had it enabled"
 
 # Keys an earlier installer wrote that no compose file reads any more must leave .env on their
 # own: left behind they look like settings an operator can change, and change nothing.

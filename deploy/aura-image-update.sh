@@ -188,14 +188,19 @@ sync_payload() {
     UPDATER_CHANGED=1
   fi
   local units_changed=0
+  local -a reenable=()
   for unit in aura.service aura-image-update.service aura-image-update.timer; do
     [[ -f "${SYSTEMD_DIR}/${unit}" && -f "${work}/deploy/${unit}" ]] || continue
     [[ "$(file_sha256 "${SYSTEMD_DIR}/${unit}")" != "$(file_sha256 "${work}/deploy/${unit}")" ]] || continue
     install -m 0644 "${work}/deploy/${unit}" "${SYSTEMD_DIR}/${unit}"
     echo "payload: ${SYSTEMD_DIR}/${unit} updated."
     units_changed=1
+    # A changed [Install] section takes effect only through enable; a unit the host disabled,
+    # such as a frozen host's timer, stays disabled.
+    [[ "$(systemctl is-enabled "${unit}" 2>/dev/null)" != enabled ]] || reenable+=("${unit}")
   done
   ((units_changed == 0)) || systemctl daemon-reload
+  ((${#reenable[@]} == 0)) || systemctl reenable "${reenable[@]}"
 
   rm -rf "${work}"
 }

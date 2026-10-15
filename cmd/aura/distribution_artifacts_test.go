@@ -104,6 +104,17 @@ func TestAuraUnitStartsFromTheImagesOnDisk(t *testing.T) {
 	}
 }
 
+// REGRESSION GUARD, measured on the lab VM on 2026-10-14. Stopping Docker stops aura.service
+// (Requires=), and its `compose down` removes every container. Nothing started the unit again when
+// Docker came back, so the stack stayed down until the next boot. Wanted by docker.service, the
+// unit runs its ordered `up` whenever Docker starts, a restart included.
+func TestAuraUnitComesBackWithDocker(t *testing.T) {
+	unit := readProjectFile(t, repoRootForTest(t), "deploy/aura.service")
+	if !regexp.MustCompile(`(?m)^WantedBy=multi-user.target docker.service$`).MatchString(unit) {
+		t.Fatalf("deploy/aura.service must be wanted by docker.service as well as at boot:\n%s", unit)
+	}
+}
+
 // payloadPaths lists the files scripts/payload_manifest.txt ships to every host.
 func payloadPaths(t *testing.T, root string) []string {
 	t.Helper()

@@ -28,4 +28,6 @@ TimeoutStartSec=0
 TimeoutStopSec=120
 
 [Install]
-WantedBy=multi-user.target
+# Stopping Docker stops this unit (Requires=), and its `compose down` removes every container, so
+# Docker coming back -- a restart or an upgrade -- has to start the ordered `up` again (2026-10-14).
+WantedBy=multi-user.target docker.service
