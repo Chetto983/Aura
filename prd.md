@@ -3655,6 +3655,19 @@ Measured 2026-10-14 on the lab VM (`docs/superpowers/verification/2026-10-14-git
     19 containers, 0 unhealthy, no ghcr image left.
   - **The publisher.** It retries a dropped push once (`aa5401fcf`): three of five publishes
     that evening lost one upload.
+- **Docker coming back (2026-10-15, fixed).**
+  - **The unit.** `aura.service` is also `WantedBy=docker.service` (`35864cc2f`), so every
+    Docker start runs the ordered `up` again.
+  - **The links.** `apply_update` re-enables each enabled unit that lacks a link its
+    `WantedBy=` names (`fac26edd4`), whoever copied the file. On an existing host the new unit is
+    copied by the old updater, which never re-enables it, so the re-executed updater is the one
+    that has to make the link.
+  - **Measured on the VM** (`docs/superpowers/verification/2026-10-15-docker-restart-and-install-dir.md`).
+    The starting state was the pre-fix unit, no `docker.service.wants` link, and last night's
+    updater. One tick to `37e9e9a61` linked the unit by itself, and `systemctl restart docker`
+    then brought 17/17 containers back healthy in 100 s. With the link in place, a full stop and
+    start came back in 75 s.
+  - **create-aura 0.2.15** ships the unit and the updater to fresh installs.
 
 The way back is the same move in reverse: one commit sets `IMAGE_HOME` back and deletes the
 patch.
@@ -3665,8 +3678,7 @@ Not shown by these measurements:
   from GitLab's. In the re-runs 20 GiB were free and the ghcr names were tags on the GitLab
   images; the first run did reclaim distinct ones;
 - a containerd root on its own filesystem: the lab VM keeps it on Docker's;
-- the stack coming back by itself after `systemctl stop docker` and `start docker`: it does not,
-  and nothing here changes that;
+- a Docker upgrade through apt. `systemctl restart docker` stood in for it (2026-10-15);
 - an appliance other than the lab VM;
 - a hermetic build;
 - GitLab's pull limits;
