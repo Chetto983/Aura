@@ -1,6 +1,6 @@
 # Browser sidecar implementation plan
 
-**Status (2026-10-15):** PARTIAL. 7f0242a2d, 5c3104b81 and f5e5b7b74 landed. Task 5 did not: the 11 acceptance predicates, coverage and final review. The VM's shell volume still holds the legacy .agent-browser-home.
+**Status (2026-10-15):** PARTIAL. 7f0242a2d, 5c3104b81, f5e5b7b74, 150cf3f65 and 6a3290e2f landed. On the VM the shell no longer holds browser credentials, and every docker_integration test passes against the edge images (docs/superpowers/verification/2026-10-15-browser-sidecar-check.md). Task 5 is still open: the 11 acceptance predicates through agent turns (two identities, a live MAX_ACTIVE refusal, an 8 MiB download), the usersandbox coverage floor (83.30% at last measure) and the final review.
 
 > **For agentic workers:** Use superpowers:executing-plans, with test-driven-development. The operator selected the complete spec (A) and explicitly requires execution in D:/Aura without a worktree. GPT-6.1 assists with E2E preparation and verification.
 
