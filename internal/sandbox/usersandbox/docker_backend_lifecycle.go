@@ -78,8 +78,8 @@ func (b *DockerBackend) Resolve(ctx context.Context, spec SandboxSpec) (BoxHandl
 }
 
 // startBox ensures the box's volumes and gets the box running, and reports whether it started
-// it. A browser box is admitted first, and admission spans the start it admits: two identities
-// admitted at once would otherwise both take the same free slot.
+// it. Starting a browser box takes no admission slot: a slot is a Chrome, and AdmitBrowser asks
+// for one before the browser call that can open it.
 func (b *DockerBackend) startBox(ctx context.Context, spec SandboxSpec) (BoxHandle, bool, error) {
 	name := workspaceName(spec.IdentityID, spec.Kind)
 	if err := b.ensureVolume(ctx, name); err != nil {
@@ -87,11 +87,6 @@ func (b *DockerBackend) startBox(ctx context.Context, spec SandboxSpec) (BoxHand
 	}
 	caches := identityCacheMounts(spec.IdentityID)
 	if spec.Kind == Browser {
-		b.admission.Lock()
-		defer b.admission.Unlock()
-		if err := b.admitBrowser(ctx, spec); err != nil {
-			return BoxHandle{}, false, err
-		}
 		caches = nil
 	}
 	for _, cache := range caches {
@@ -143,13 +138,6 @@ func (b *DockerBackend) Suspend(ctx context.Context, h BoxHandle) error {
 // the retained egress sidecar so the box comes back WITH its tenancy floor re-applied.
 func (b *DockerBackend) Resume(ctx context.Context, h BoxHandle) error {
 	defer b.identities.Lock(h.IdentityID)()
-	if h.Kind == Browser {
-		b.admission.Lock()
-		defer b.admission.Unlock()
-		if err := b.admitBrowser(ctx, SandboxSpec{IdentityID: h.IdentityID, Kind: Browser, Limits: b.browserLimits}); err != nil {
-			return err
-		}
-	}
 	if _, err := b.cli.ContainerStart(ctx, h.ContainerID, client.ContainerStartOptions{}); err != nil {
 		return fmt.Errorf("resume box: %w", err)
 	}

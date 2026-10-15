@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/identityctx"
+	"github.com/chetto1983/aura/internal/sandbox/usersandbox"
 )
 
 type loginBrowserHandle struct {
@@ -117,6 +120,27 @@ func TestChatGPTBrowserReadAndWriteRespectCancellation(t *testing.T) {
 		if _, err := (sandboxChatGPTBrowser{}).Open(context.Background(), session); err == nil {
 			t.Fatal("missing sandbox accepted")
 		}
+	}
+}
+
+// fullBrowserHost is a sandbox backend whose host has no browser slot free.
+type fullBrowserHost struct{ fakePreflightBackend }
+
+func (*fullBrowserHost) AdmitBrowser(context.Context, string) error {
+	return errors.New("browser capacity: the 1 browsers this host admits are open for other members")
+}
+
+// TestChatGPTLoginBrowserWaitsForRoomOnTheHost: the sign-in opens a Chrome in the browser box,
+// so it asks the host for a slot first, like every browser call that can open one.
+func TestChatGPTLoginBrowserWaitsForRoomOnTheHost(t *testing.T) {
+	host := &fullBrowserHost{}
+	browser := sandboxChatGPTBrowser{router: usersandbox.NewSandboxRouter(host, config.SandboxConfig{})}
+	_, err := browser.Open(identityctx.WithIdentityID(context.Background(), restartTestIdentity), "chatgpt-0123456789abcdef01234567")
+	if err == nil || !strings.Contains(err.Error(), "browser capacity") {
+		t.Fatalf("Open on a full host = %v, want the capacity refusal", err)
+	}
+	if len(host.resolved) != 0 {
+		t.Fatalf("a refused sign-in reached the box: %+v", host.resolved)
 	}
 }
 

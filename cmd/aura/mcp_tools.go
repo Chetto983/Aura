@@ -279,7 +279,7 @@ func mcpMountOptions(ctx context.Context, strict bool, server mcp.ManagedServer,
 		Box:         handles.MCPBox,
 		Elicitation: handles.Elicitation,
 		Browser:     browserControl(handles.Browser),
-		Downloads:   handles.BrowserDownloads,
+		BrowserBox:  handles.BrowserBox,
 	}
 }
 

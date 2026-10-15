@@ -21,6 +21,16 @@ func TestMCPMountOptionsCarryTheViewsAndTheFileSink(t *testing.T) {
 	}
 }
 
+// The sandbox router reaches every managed mount as the browser recipe's host side: admission
+// before a call, download collection after it.
+func TestMCPMountOptionsCarryTheBrowserBox(t *testing.T) {
+	handles := &runtimeToolHandles{BrowserBox: usersandbox.NewSandboxRouter(nil, config.SandboxConfig{})}
+	opts := mcpMountOptions(context.Background(), true, mcp.ManagedServer{URL: "https://mcp.example/mcp"}, handles)
+	if opts.BrowserBox != handles.BrowserBox {
+		t.Fatalf("mount options browser box = %v, want the handles' router", opts.BrowserBox)
+	}
+}
+
 // The live view's registry reaches every managed mount, and a nil one reaches it as a nil
 // interface: a typed nil would read as wired to the bridge and panic on its first lock.
 func TestMCPMountOptionsCarryTheBrowserControl(t *testing.T) {

@@ -95,6 +95,25 @@ Non-goals:
    saying it should try later. Aura never stops another identity's browser box to make room. One
    user's question must not close another user's logged-in session or live view. Section *RAM*
    below has the default.
+   - *Amended 2026-10-15 by the operator: a slot is a Chrome, not a box.* With the box always
+     running (decision 5, amended), a slot counted per running box was held forever: the fourth
+     identity on a host admitting three was refused until another was deprovisioned (final
+     review, Important 2). Starting a box, at boot or on any call, now takes no slot. A slot is
+     asked for before each browser call that can open a Chrome, and before the ChatGPT sign-in.
+     It counts the identities whose browser was called within agent-browser's 180 s idle close,
+     plus those whose running box holds a process launched with `--remote-debugging-port`, so a
+     Chrome left open across an Aura restart still counts. The identity's own open browser
+     always holds its slot. The refusal says the slots are open for other members and that one
+     closes 3 minutes after its last call. Measured on 2026-10-15 by the docker_integration tests,
+     one with a stand-in process and the relay test with the image's real Chrome: a second
+     identity is refused while a Chrome is open, and admitted once it closes, its box still
+     running.
+     What this does not show:
+     - the lab VM: the change was not deployed there;
+     - many identities calling at once;
+     - a browser launched without that flag, which would not count.
+
+     A Chrome hung past its idle close keeps its slot until its process ends.
 8. **Downloads cross only through Aura, as files the model is told about.** Measured 2026-10-11:
    - a click on an attachment or `download` link through `agent-browser mcp` saves the file under
      the server's name, in `$HOME/Downloads` by default, or in `AGENT_BROWSER_DOWNLOAD_PATH` when
@@ -251,7 +270,7 @@ browser and the shell share a box get updated.
 | `AURA_SANDBOX_BROWSER_PIDS_LIMIT` | 1024 | PID cap of a browser box |
 | `AURA_SANDBOX_BROWSER_CPU_LIMIT` | 2 | CPU cap of a browser box |
 | ~~`AURA_SANDBOX_BROWSER_IDLE_TTL_SEC`~~ | removed 2026-10-12 | The browser box is never stopped for idleness (decision 5) |
-| `AURA_SANDBOX_BROWSER_MAX_ACTIVE` | 0 = derived | Running browser boxes allowed on the host |
+| `AURA_SANDBOX_BROWSER_MAX_ACTIVE` | 0 = derived | Identities with an open Chrome allowed on the host (decision 7, amended 2026-10-15) |
 
 ## Acceptance
 
@@ -318,7 +337,8 @@ Live end-to-end on the lab VM, with its dated file in `docs/superpowers/verifica
    it. A third option is to count running Chromes instead of running boxes in admission. That
    cannot be read from Docker, so it would mean a count kept by the bridge.
    *Closed 2026-10-12 by the operator:* the box keeps its slot and is never stopped for idleness
-   (decision 5, amended).
+   (decision 5, amended). *2026-10-15:* the box is still never stopped, but it no longer keeps a
+   slot; admission counts open Chromes, the third option (decision 7, amended).
 3. **The admission default.** Half of `MemTotal` gave 3 on the lab VM, and three heavy boxes
    fit there with swap starting (RAM above). Should the default keep reading `MemTotal`, or read
    what the running stack leaves free, which this formula does not see?

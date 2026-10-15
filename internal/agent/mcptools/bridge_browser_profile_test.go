@@ -75,9 +75,16 @@ func TestWithBrowserProfileRefusesWhatWouldMoveTheProfile(t *testing.T) {
 // mountBox mounts server as "browser" on boxes.
 func mountBox(t *testing.T, server mcp.ManagedServer, browser BrowserControl, boxes *identityBoxes) *tools.Registry {
 	t.Helper()
+	return mountBoxWith(t, server, MountOptions{Box: boxes, Browser: browser})
+}
+
+// mountBoxWith mounts server for identity-a on opts.Box, which must be an *identityBoxes.
+func mountBoxWith(t *testing.T, server mcp.ManagedServer, opts MountOptions) *tools.Registry {
+	t.Helper()
+	boxes := opts.Box.(*identityBoxes)
 	reg := tools.NewRegistry()
 	handshakeCtx := identityctx.WithIdentityID(t.Context(), "identity-a")
-	closer, _, _, err := MountManagedServerWithOptions(t.Context(), handshakeCtx, reg, "browser", server, MountOptions{Box: boxes, Browser: browser})
+	closer, _, _, err := MountManagedServerWithOptions(t.Context(), handshakeCtx, reg, "browser", server, opts)
 	if err != nil {
 		t.Fatalf("mount: %v", err)
 	}

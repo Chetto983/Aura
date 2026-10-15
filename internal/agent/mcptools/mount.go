@@ -73,8 +73,10 @@ type MountOptions struct {
 	// Browser is the live view's control registry, read by the browser recipe's calls to
 	// refuse a write while the operator drives (bridge_browser_control.go). Nil refuses
 	// nothing, which is right for a host with no live view.
-	Browser   BrowserControl
-	Downloads BrowserDownloads
+	Browser BrowserControl
+	// BrowserBox admits the browser recipe's calls to the host and collects their downloads.
+	// Nil admits every call and collects nothing.
+	BrowserBox BrowserBox
 }
 
 // MountManagedServerWithOptions opens a managed MCP server (stdio or streamable
@@ -194,7 +196,7 @@ func openIdentityScopedMount(processCtx, handshakeCtx context.Context, reg *tool
 	parent.identityPool = pool
 	parent.files = opts.Files
 	parent.browser = opts.Browser
-	parent.downloads = opts.Downloads
+	parent.browserBox = opts.BrowserBox
 
 	var session *sdkmcp.ClientSession
 	if advertised == nil {
@@ -246,7 +248,7 @@ func mountStdioWithPolicyHost(processCtx, handshakeCtx context.Context, reg *too
 func openAttachAndMount(srv *MountedServer, processCtx, handshakeCtx context.Context, open openSessionFunc, reg *tools.Registry, name string, policy bridgePolicy, opts MountOptions) (closer func() error, names []string, host *MountedServer, err error) {
 	srv.files = opts.Files
 	srv.browser = opts.Browser
-	srv.downloads = opts.Downloads
+	srv.browserBox = opts.BrowserBox
 	// Each mount attempt gets its own cancellable slice of the daemon-lifetime process
 	// context, so a mount that gives up reaps the child it spawned. Without this a stdio
 	// server that hangs during discovery outlives the mount that dropped it: the process

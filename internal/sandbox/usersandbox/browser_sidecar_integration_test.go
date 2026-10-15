@@ -189,12 +189,23 @@ func TestBrowserSidecarInventorySeesAStoppedBox(t *testing.T) {
 	}
 }
 
-func TestBrowserSidecarAdmissionSurvivesBackendRestart(t *testing.T) {
-	cli, backend, router, ctx, _ := browserSidecarFixture(t, 1)
+// TestBrowserSidecarAdmissionCountsOpenChromes: a slot is a Chrome, not a box. A backend that
+// starts with no memory of earlier calls, as after an Aura restart, still finds the Chrome open
+// in another identity's box and refuses a second browser on a host that admits one. Both boxes
+// run meanwhile, and the slot frees when that Chrome ends, with its box still running.
+func TestBrowserSidecarAdmissionCountsOpenChromes(t *testing.T) {
+	cli, _, router, ctx, _ := browserSidecarFixture(t, 1)
 	first, err := router.RouteBrowser(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := router.AdmitBrowser(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Chrome's main process is the one launched with --remote-debugging-port (lab VM, 2026-10-11);
+	// the trailing ":" keeps sh from exec-ing sleep in its place, so the flag stays in a cmdline.
+	requireSidecarCommand(t, cli, first, `sh -c 'sleep 600; :' --remote-debugging-port=0 >/dev/null 2>&1 & echo $! >/tmp/fake-chrome.pid`)
+
 	secondID := uuid.NewString()
 	secondCtx := identityctx.WithIdentityID(context.Background(), secondID)
 	secondBackend := NewDockerBackend(cli, testBoxImage(), testLimits(), WithBrowserLimits(testLimits(), 1))
@@ -204,21 +215,22 @@ func TestBrowserSidecarAdmissionSurvivesBackendRestart(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	if _, err := secondRouter.RouteBrowser(secondCtx); err == nil {
-		t.Fatal("fresh backend ignored an existing identity's admission slot")
-	}
-	if !containerRunning(t, cli, first.ContainerID) {
-		t.Fatal("admission evicted the first identity")
-	}
-	if err := backend.Suspend(ctx, first); err != nil {
-		t.Fatal(err)
-	}
 	second, err := secondRouter.RouteBrowser(secondCtx)
 	if err != nil {
-		t.Fatalf("admission slot not released by stop: %v", err)
+		t.Fatalf("starting a second browser box took a slot: %v", err)
 	}
-	if !containerRunning(t, cli, second.ContainerID) {
-		t.Fatal("admitted browser is not running")
+	if err := secondRouter.AdmitBrowser(secondCtx); err == nil || !strings.Contains(err.Error(), "browser capacity") {
+		t.Fatalf("a fresh backend admitted a second Chrome beside an open one: %v", err)
+	}
+	if !containerRunning(t, cli, first.ContainerID) || !containerRunning(t, cli, second.ContainerID) {
+		t.Fatal("both browser boxes must keep running")
+	}
+	requireSidecarCommand(t, cli, first, `kill "$(cat /tmp/fake-chrome.pid)"`)
+	if err := secondRouter.AdmitBrowser(secondCtx); err != nil {
+		t.Fatalf("the slot did not free when the Chrome ended: %v", err)
+	}
+	if !containerRunning(t, cli, first.ContainerID) {
+		t.Fatal("admission stopped the first identity's box")
 	}
 }
 

@@ -33,6 +33,11 @@ func TestBrowserRelayDrivesTheBoxBrowser(t *testing.T) {
 		return string(res.Stdout)
 	}
 	run(`agent-browser --session live open "data:text/html,<input id=u autofocus style='position:absolute;left:0;top:0;width:400px;height:40px'>"`)
+	// Admission finds this real Chrome in the box: with one slot, another identity is refused.
+	other := identityctx.WithIdentityID(ctx, egressITIdentity(t))
+	if err := router.AdmitBrowser(other); err == nil || !strings.Contains(err.Error(), "browser capacity") {
+		t.Fatalf("a second identity was admitted beside an open Chrome: %v", err)
+	}
 
 	view := openLiveView(t, ctx, router, "live")
 	view.click(100, 20)
@@ -61,6 +66,17 @@ func TestBrowserRelayDrivesTheBoxBrowser(t *testing.T) {
 	if n, err := router.SuspendIdle(ctx, time.Now().Add(24*time.Hour)); err != nil || n != 0 {
 		t.Fatalf("the idle sweep stopped the browser box: %d, %v", n, err)
 	}
+
+	// Once the Chrome is closed its slot frees, with the box still running.
+	run(`agent-browser --session live close`)
+	admitted := router.AdmitBrowser(other)
+	for deadline := time.Now().Add(10 * time.Second); admitted != nil && time.Now().Before(deadline); {
+		time.Sleep(200 * time.Millisecond)
+		admitted = router.AdmitBrowser(other)
+	}
+	if admitted != nil {
+		t.Fatalf("the slot did not free when the Chrome closed: %v", admitted)
+	}
 }
 
 // liveBox routes the box of a fresh identity from the real image and stops it after the test.
@@ -74,7 +90,7 @@ func liveBox(t *testing.T) (context.Context, *usersandbox.SandboxRouter, usersan
 	cfg := &config.Config{
 		Profile:       config.ProfileSingleUserHardened,
 		AuthulaSecret: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-		Sandbox:       config.SandboxConfig{Image: image, CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 256, IdleTTLSec: 1},
+		Sandbox:       config.SandboxConfig{Image: image, CPULimit: 1, MemoryLimit: 1 << 30, PidsLimit: 256, IdleTTLSec: 1, BrowserMaxActive: 1},
 	}
 	router := buildSandboxRouter(cfg, nil)
 	ctx := identityctx.WithIdentityID(context.Background(), egressITIdentity(t))

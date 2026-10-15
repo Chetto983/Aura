@@ -47,8 +47,8 @@ type runtimeToolHandles struct {
 	Elicitation mcptools.ElicitationConsent
 	// MCPBox starts box-runtime MCP servers in the calling identity's sandbox. Nil where
 	// there is no sandbox router, which refuses such a server instead of running it here.
-	MCPBox           mcp.BoxLauncher
-	BrowserDownloads mcptools.BrowserDownloads
+	MCPBox     mcp.BoxLauncher
+	BrowserBox mcptools.BrowserBox
 	// Browser is the live view's control registry: the cockpit writes it, the browser
 	// recipe's calls read it (prd.md §12). Nil on the paths with no live view, which then
 	// refuse nothing.

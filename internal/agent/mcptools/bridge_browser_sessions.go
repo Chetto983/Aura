@@ -75,11 +75,17 @@ func (s *browserSessions) forget(identity string, args map[string]any) {
 	}
 }
 
-// makeBrowserRoom admits the call's session to its box, closing the least recently used browser
-// first when the box is full. The returned line tells the model which one was closed.
+// makeBrowserRoom admits the call to the host, then its session to its box, closing the least
+// recently used browser first when the box is full. The returned line tells the model which one
+// was closed.
 func (b *bridgedTool) makeBrowserRoom(ctx context.Context, args map[string]any) (string, error) {
 	if b.name == browserCloseTool || b.name == browserProfilesTool {
 		return "", nil
+	}
+	if b.srv.browserBox != nil {
+		if err := b.srv.browserBox.AdmitBrowser(ctx); err != nil {
+			return "", err
+		}
 	}
 	session, _ := args["session"].(string)
 	evict, err := b.srv.browsers.admit(b.srv.browser, browserIdentity(ctx), session)

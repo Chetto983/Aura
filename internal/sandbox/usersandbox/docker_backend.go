@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/chetto1983/aura/internal/keylock"
 	"github.com/moby/moby/api/types/container"
@@ -95,10 +96,11 @@ type DockerBackend struct {
 	browserLimits    Resources
 	browserMaxActive int
 	// identities serializes one identity's lifecycle verbs and leaves other identities free;
-	// admission serializes browser admission across identities.
-	identities keylock.Striped
-	admission  sync.Mutex
-	downloads  keylock.Striped
+	// admission guards browserCalls, the last admitted browser call of each identity.
+	identities   keylock.Striped
+	admission    sync.Mutex
+	browserCalls map[string]time.Time
+	downloads    keylock.Striped
 	// egressImage is the aura-egress sidecar image ref. Empty (the default) DISABLES the
 	// sidecar entirely — a dev/local backend or the 37-04 lifecycle tests run box-only. The
 	// composition root wires WithEgress under the strict profiles so every networked box
@@ -158,7 +160,7 @@ func WithSpoolDir(dir string) Option {
 // ref (AURA_SANDBOX_IMAGE), and the cgroup caps (D-14). Materialization sources are opt-in
 // via WithMaterializeSources.
 func NewDockerBackend(cli *client.Client, imageRef string, limits Resources, opts ...Option) *DockerBackend {
-	b := &DockerBackend{cli: cli, image: imageRef, limits: limits}
+	b := &DockerBackend{cli: cli, image: imageRef, limits: limits, browserCalls: make(map[string]time.Time)}
 	for _, o := range opts {
 		o(b)
 	}

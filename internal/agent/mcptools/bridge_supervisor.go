@@ -80,8 +80,8 @@ type MountedServer struct {
 	// at mount, before any call; nil on a host with no workspace.
 	files FileSink
 	// browser is the live view's control registry (bridge_browser_control.go); nil refuses nothing.
-	browser   BrowserControl
-	downloads BrowserDownloads
+	browser    BrowserControl
+	browserBox BrowserBox
 	// browsers keeps each box to maxOpenBrowsers (bridge_browser_sessions.go).
 	browsers browserSessions
 

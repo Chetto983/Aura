@@ -30,6 +30,10 @@ func (b sandboxChatGPTBrowser) Open(ctx context.Context, session string) (chatgp
 	if !chatGPTBrowserSessionPattern.MatchString(session) {
 		return nil, errors.New("invalid ChatGPT browser session")
 	}
+	// The sign-in opens a Chrome, so it needs a slot on the host like a browser call.
+	if err := b.router.AdmitBrowser(ctx); err != nil {
+		return nil, err
+	}
 	h, err := b.router.RouteBrowser(ctx)
 	if err != nil {
 		return nil, err

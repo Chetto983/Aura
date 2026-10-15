@@ -83,6 +83,31 @@ func TestBrowserRoutingIsIndependentOfShell(t *testing.T) {
 	}
 }
 
+// TestResolveStartsABrowserBoxWithoutASlot: starting a browser box takes no admission slot, so
+// the boot start brings back every identity's box however many the host admits. A slot is a
+// Chrome, and the browser call that can open one asks for it (operator, 2026-10-15).
+func TestResolveStartsABrowserBoxWithoutASlot(t *testing.T) {
+	const id = "b"
+	cli := newFakeDockerClient(t, func(req *http.Request) (*http.Response, error) {
+		switch {
+		case strings.HasSuffix(req.URL.Path, "/volumes/create"):
+			return dockerJSONResponse(http.StatusCreated, `{}`), nil
+		case strings.HasSuffix(req.URL.Path, "/containers/json") && strings.Contains(req.URL.Query().Get("filters"), workspaceName(id, Browser)):
+			return dockerJSONResponse(http.StatusOK, `[]`), nil
+		case strings.HasSuffix(req.URL.Path, "/containers/json"):
+			return dockerJSONResponse(http.StatusOK, `[{"Id":"other","Names":["/aura-browser-a"]}]`), nil
+		case strings.Contains(req.URL.Path, "/images/"):
+			return dockerJSONResponse(http.StatusOK, `{}`), nil
+		}
+		return nil, fmt.Errorf("stop here: %s %s", req.Method, req.URL.Path)
+	})
+	backend := NewDockerBackend(cli, "aura-sandbox:test", Resources{}, WithBrowserLimits(Resources{}, 1))
+	_, err := backend.Resolve(context.Background(), SandboxSpec{IdentityID: id, Kind: Browser})
+	if !strings.Contains(fmt.Sprint(err), "create box") {
+		t.Fatalf("Resolve = %v; want it to reach the box create, past any admission", err)
+	}
+}
+
 func TestBrowserAdmissionDerivation(t *testing.T) {
 	for _, tc := range []struct {
 		total, limit int64
