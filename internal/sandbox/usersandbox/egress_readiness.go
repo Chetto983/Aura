@@ -9,7 +9,7 @@ import (
 )
 
 func (b *DockerBackend) ensureEgressRunning(ctx context.Context, id string) error {
-	if err := b.ensureRunning(ctx, id); err != nil {
+	if _, err := b.ensureRunning(ctx, id); err != nil {
 		return err
 	}
 	return b.waitEgressFloor(ctx, id)

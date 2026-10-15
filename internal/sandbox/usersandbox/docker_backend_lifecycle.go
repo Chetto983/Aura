@@ -66,9 +66,10 @@ func (b *DockerBackend) Resolve(ctx context.Context, spec SandboxSpec) (BoxHandl
 		}
 	}
 	var h BoxHandle
+	started := true
 	if existing != "" {
 		// Transparent Resume of a Suspended (or otherwise stopped) box — D-08.
-		if err := b.ensureRunning(ctx, existing); err != nil {
+		if started, err = b.ensureRunning(ctx, existing); err != nil {
 			return BoxHandle{}, fmt.Errorf("resolve: resume box %q: %w", name, err)
 		}
 		h = BoxHandle{ContainerID: existing, IdentityID: spec.IdentityID, Kind: spec.Kind}
@@ -80,16 +81,23 @@ func (b *DockerBackend) Resolve(ctx context.Context, spec SandboxSpec) (BoxHandl
 		h = BoxHandle{ContainerID: id, IdentityID: spec.IdentityID, Kind: spec.Kind}
 	}
 
+	// A failed step stops the box only when it may have left the box less secured than this
+	// call found it: when this call started it, or when the egress check failed on its own. A
+	// box found running was secured by the Resolve that started it, and a caller that gives up,
+	// as download collection does on a spent tool deadline, must not stop a working browser
+	// (final review, 2026-10-15).
+	secured := false
+	var egressErr error
+	defer func() {
+		if secured || (!started && (egressErr == nil || ctx.Err() != nil)) {
+			return
+		}
+		_ = b.suspendEgress(context.WithoutCancel(ctx), sidecarIdentity(h.IdentityID, h.Kind))
+		_, _ = b.cli.ContainerStop(context.WithoutCancel(ctx), h.ContainerID, stopOptions())
+	}()
 	// Materialize the resolver's sources into the box (create + resume, D-10). This is
 	// the MaterializeIn call site; it fails Resolve closed so the box never runs a tool
 	// against a stale/missing skill set.
-	secured := false
-	defer func() {
-		if !secured {
-			_ = b.suspendEgress(context.WithoutCancel(ctx), sidecarIdentity(h.IdentityID, h.Kind))
-			_, _ = b.cli.ContainerStop(context.WithoutCancel(ctx), h.ContainerID, stopOptions())
-		}
-	}()
 	if err := b.materializeInputs(ctx, h); err != nil {
 		return BoxHandle{}, fmt.Errorf("resolve: materialize inputs: %w", err)
 	}
@@ -101,8 +109,8 @@ func (b *DockerBackend) Resolve(ctx context.Context, spec SandboxSpec) (BoxHandl
 	// is live so the "container:<box>" netns target exists. It is a no-op when egress is
 	// disabled (no WithEgress). A create/resume that cannot enforce the tenancy floor fails
 	// Resolve CLOSED — a networked box must never run without its egress boundary.
-	if err := b.launchEgress(ctx, spec, h); err != nil {
-		return BoxHandle{}, fmt.Errorf("resolve: launch egress sidecar: %w", err)
+	if egressErr = b.launchEgress(ctx, spec, h); egressErr != nil {
+		return BoxHandle{}, fmt.Errorf("resolve: launch egress sidecar: %w", egressErr)
 	}
 	secured = true
 	return h, nil
@@ -265,19 +273,20 @@ func (b *DockerBackend) findBox(ctx context.Context, name string) (string, error
 }
 
 // ensureRunning starts the container unless it is already running (the transparent-resume
-// leg of Resolve). A running box is a no-op, so a second Resolve is idempotent.
-func (b *DockerBackend) ensureRunning(ctx context.Context, containerID string) error {
+// leg of Resolve) and reports whether it started it. A running box is a no-op, so a second
+// Resolve is idempotent.
+func (b *DockerBackend) ensureRunning(ctx context.Context, containerID string) (bool, error) {
 	ins, err := b.cli.ContainerInspect(ctx, containerID, client.ContainerInspectOptions{})
 	if err != nil {
-		return err
+		return false, err
 	}
 	if ins.Container.State != nil && ins.Container.State.Running {
-		return nil
+		return false, nil
 	}
 	if _, err := b.cli.ContainerStart(ctx, containerID, client.ContainerStartOptions{}); err != nil {
-		return err
+		return false, err
 	}
-	return nil
+	return true, nil
 }
 
 // createBox ensures the image is present, creates the container from toHostConfig (the single
