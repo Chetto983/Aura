@@ -1,5 +1,7 @@
 # Repeat-Source Ingest Implementation Plan
 
+**Status (2026-10-15):** DONE. 7248b5880. The final whole-branch review was skipped as an accepted risk.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Revised 2026-08-05 after the implementer surfaced a false premise.** The original plan assumed `SoftDeleteDocument` sets `deleted_at`. It does not — it sets `status='deleting'` and enqueues a delete job; `documents.deleted_at` is written only by `FinalizeDocumentDelete` (`internal/db/queries/document_control_plane.sql:704`) after the durable worker erases the objects. Steps 2, 3, 6, 7, 9 and 10 below are the corrected versions. The consequence and the operator's ruling on it are in "The delete window" below.

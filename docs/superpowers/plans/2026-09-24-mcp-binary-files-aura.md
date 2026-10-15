@@ -1,5 +1,7 @@
 # MCP binary files: Aura bridge implementation plan
 
+**Status (2026-10-15):** DONE. 76a1ef087..38b96fadb. VM E2E recorded in the PRD (952830310).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A tool call on any mounted MCP server that returns a file puts the file in the agent's `/workspace`, where it can open, convert or compute on it. The file is deleted when the turn ends. The model sees paths, never bytes.

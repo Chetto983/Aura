@@ -1,5 +1,7 @@
 # Industrial Multimodal Asset Pipeline Implementation Plan
 
+**Status (2026-10-15):** DONE. b918f9a78..86871d1e0, merged in 809fc6b7d.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a shared Garage-backed asset pipeline for web and Telegram uploads, reusing Aura's existing document ingestion, OCR, and STT paths while keeping the agent Runner text-only.

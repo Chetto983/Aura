@@ -1,5 +1,7 @@
 # Work board: one Kanban the identity and its agent share
 
+**Status (2026-10-15):** PARTIAL. Tasks 1-6 landed, and acceptance items 2-4 passed on 2026-10-10. Item 1 (on a phone) and item 5 (a week of real use) are the operator's.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A board per identity, worked by the operator in a cockpit mode built on SVAR React Kanban and by the agent through a deferred `board` tool; every card says where it came from, and the operator can save filtered views.

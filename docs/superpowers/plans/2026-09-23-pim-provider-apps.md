@@ -1,5 +1,7 @@
 # PIM Provider Apps Implementation Plan
 
+**Status (2026-10-15):** PARTIAL. Tasks 1-9 landed (a8f3e75e2..835efa363, f0ec19ee4). Task 10's scripted VM E2E and its PRD record never landed.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** An admin sets the Google and Microsoft OAuth client once per provider. The cockpit

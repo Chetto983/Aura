@@ -1,5 +1,7 @@
 # ask_user response repair plan
 
+**Status (2026-10-15):** DONE. 17ebb1f81. Recorded in docs/superpowers/verification/2026-10-12-ask-user-response.md.
+
 **Goal:** After the person's ask_user answer, the agent explains the outcome instead
 of silently ending, including scheduled-task approvals.
 

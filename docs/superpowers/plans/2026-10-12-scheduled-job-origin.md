@@ -1,5 +1,7 @@
 # Scheduled job repair plan and run ledger
 
+**Status (2026-10-15):** DONE. deffcb292. Recorded in docs/superpowers/verification/2026-10-12-scheduled-job-conversation.md.
+
 **Goal:** Execute the noleggio-sociale scheduled check without recursively scheduling
 it or passing a technical session to UUID-backed persistence.
 

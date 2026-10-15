@@ -1,5 +1,7 @@
 # Embedding model change — documents family (plan 4 of 5) Implementation Plan
 
+**Status (2026-10-15):** DONE. 228bd8324..0cf8ff13a.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Document retrieval ranks a query's vector only against a library wholly in that vector's space. When it cannot, it answers from the full-text indexes instead of returning nothing. It reads its key live and names the floors that were never calibrated for its space. A healthy library keeps exactly today's answers.

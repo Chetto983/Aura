@@ -1,5 +1,7 @@
 # Native Tool Rendering Implementation Plan
 
+**Status (2026-10-15):** DONE. 1d7aec8f7..4d9139e68.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make Aura's native checklist, shell, patch, file and search results readable in compact tool rows, with the same trusted display live and after replay.

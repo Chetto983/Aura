@@ -1,5 +1,7 @@
 # MCP binary files: WhatsApp fork implementation plan
 
+**Status (2026-10-15):** DONE in whatsapp-mcp (a112979..1ec0233).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `download_media` returns a `resource_link` to `whatsapp-media://{chat_jid}/{message_id}`. Any MCP client, Aura included, reads the media's bytes back through `resources/read` on its own authenticated session. The fork also moves to current dependencies and a CI that tests what it ships.

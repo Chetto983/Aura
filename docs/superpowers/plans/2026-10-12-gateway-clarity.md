@@ -1,5 +1,7 @@
 # Gateway clarity: what an approval names, what a refusal looks like, how the daemon stops
 
+**Status (2026-10-15):** DONE. 7c9c7287f..fcf52a184, with acceptance fixes up to 7b6cdc630. Recorded in docs/superpowers/verification/2026-10-12-gateway-clarity.md.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:**

@@ -1,5 +1,7 @@
 # Studio Video Studio, cycle 1 — Implementation Plan
 
+**Status (2026-10-15):** DONE. 7521bf227..f73f27b0e. Recorded in docs/superpowers/verification/2026-09-20-video-studio.md.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A multi-track editor in Aura's Studio — several clips in sequence with text and image layers over them, edited through commands, exported to a downloaded MP4, and saved as a project you can reopen.

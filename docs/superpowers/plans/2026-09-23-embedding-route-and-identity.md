@@ -1,5 +1,7 @@
 # Embedding route and space identity — Implementation Plan (1 of 5)
 
+**Status (2026-10-15):** DONE. d712fb099..e67058fe4.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the OpenRouter embedding option reach OpenRouter; give every Go process a way to name the vector space its route produces; resolve the memory sidecar's route from `aura.settings` rows instead of its environment.

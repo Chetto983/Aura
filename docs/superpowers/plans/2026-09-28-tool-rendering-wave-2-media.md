@@ -1,5 +1,7 @@
 # Tool Media Rendering Implementation Plan
 
+**Status (2026-10-15):** DONE. 4d9139e..19d9239, with media E2E 4/4.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Play authorized audio, video and images inline in tool results, and group real multi-image results without losing Aura's artifact actions or safe loading behavior.

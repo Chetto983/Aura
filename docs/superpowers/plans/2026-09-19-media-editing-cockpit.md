@@ -1,5 +1,7 @@
 # Media editing in the cockpit — Implementation Plan
 
+**Status (2026-10-15):** DONE. Recorded in docs/superpowers/verification/2026-09-19-media-editing.md: 5 flows pass after 839e62efd. Video Studio later replaced the video half (680b84aae).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Edit a photo (Filerobot) or a clip (Mediabunny) in the browser from the Studio, chat and attachments, with no AI model: photos go to the Studio library or download, clips download.

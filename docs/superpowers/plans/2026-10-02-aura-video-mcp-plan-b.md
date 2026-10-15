@@ -1,5 +1,7 @@
 # aura-video-mcp Plan B: the render sidecar `services/video-mcp/` — Implementation Plan
 
+**Status (2026-10-15):** NOT STARTED. Parked after the B1 preflight on 2026-10-08. services/video-mcp does not exist.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Aura's video sidecar. It edits a Video Studio project with the Studio's own commands and renders it to an Instagram-ready MP4, over MCP and under the caller's own Aura identity. No render output enters the library before the film passes its check. A failure names its reason and any assets already accepted during the final upload step; those sequential writes are not a transaction.

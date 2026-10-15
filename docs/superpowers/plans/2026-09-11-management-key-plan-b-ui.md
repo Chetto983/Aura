@@ -1,5 +1,7 @@
 # Management Key — Plan B (UI) Implementation Plan
 
+**Status (2026-10-15):** DONE. de009d2ea, 4a9c21de7, 736b33d3e, 0f9dfc4dc.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** An admin connects OpenRouter, or picks a local route, in a first-run step that cannot be dismissed until they do; Aura restarts once when its services key is minted; the Credit panel and the spend overview explain a key that is missing or has no limit.

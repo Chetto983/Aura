@@ -1,5 +1,7 @@
 # Editable Outbound Message Drafts Implementation Plan
 
+**Status (2026-10-15):** PARTIAL. Tasks 1-3 landed (66612038b..4a8413040). Task 4's restart sweep, kill/restart test and cockpit Playwright scenario did not. An interrupted draft is reconciled only on resume.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Before every calendar email or WhatsApp text send, let the owner review/edit the actual destination and message, then dispatch those exact arguments at most once and show the real outcome.

@@ -1,5 +1,7 @@
 # Context Breakdown (Part A) Implementation Plan
 
+**Status (2026-10-15):** NOT STARTED. No task landed. Intermediate LLM calls still record no usage rows.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make Aura report what its context window is actually made of, per LLM call, so the 7k–75k prefix swing measured on 2026-08-09 stops being invisible.

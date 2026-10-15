@@ -1,5 +1,7 @@
 # Video Studio audio — Plan C (waveform, voice, noise reduction, ducking) Implementation Plan
 
+**Status (2026-10-15):** DONE. VM E2E green for each task. CI green on b52c69880.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Finish sub-project 1 of the Video Studio audio work: a sound draws its waveform and a draggable volume envelope, the operator can record a voice or have a text read aloud onto a lane, noise reduction cleans a clip's or a sound's audio, and ducking lowers a sound under the speech the other sources carry — each proven by a measured export on the lab VM.

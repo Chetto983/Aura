@@ -1,5 +1,7 @@
 # MCP and Evidence Tool Rendering Implementation Plan
 
+**Status (2026-10-15):** DONE. 7451e7e..e8e188e.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Show trusted memory, calendar and WhatsApp read results in useful cards while preserving MCP Apps, Source Explorer and the intentional row-only actions.

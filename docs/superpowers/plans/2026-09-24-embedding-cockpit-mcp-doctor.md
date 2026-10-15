@@ -1,5 +1,7 @@
 # Embedding change, plan 5 of 5: cockpit, MCP watcher, doctor — Implementation Plan
 
+**Status (2026-10-15):** DONE. 7098a07e4..4102d552a. VM E2E recorded in the PRD (6aae08fc9).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans (Native, chosen for
 > plans 1-4). Steps use checkbox (`- [ ]`) syntax for tracking.
 

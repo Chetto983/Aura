@@ -1,5 +1,7 @@
 # Tool approval policy: `ask` and `deny` per identity
 
+**Status (2026-10-15):** DONE. Acceptance items 1-4 measured on one model, in docs/superpowers/verification/2026-10-10-lab-vm-wave1-acceptance.md.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** An identity can narrow what its agent may do, tool by tool: `deny` refuses the call at the gateway with a reason the model reads, `ask` routes the call to approval whatever its tier and offers no `always`. Precedence deny > ask > grant > tier. Visible in the cockpit's standing-approvals panel, settable from the CLI, recorded in every reservation it touched.

@@ -1,5 +1,7 @@
 # create-aura Artifact Implementation Plan
 
+**Status (2026-10-15):** DONE. T1-T7 (6ec4a62..9bc57aba2). The final review's I2-I8 went to the operator and have not been traced since.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn Aura's installer into one self-extracting artifact that carries its own

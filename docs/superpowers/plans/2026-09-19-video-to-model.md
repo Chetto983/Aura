@@ -1,5 +1,7 @@
 # Video attachments to the model — Implementation Plan
 
+**Status (2026-10-15):** DONE. Recorded in docs/superpowers/verification/2026-09-19-video-to-model.md.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A video attachment reaches the model as native video when, and only when, the selected LLM declares video input — on OpenRouter and llama.cpp, with the wire shape each one reads — and falls back to its text reference everywhere else.

@@ -1,5 +1,7 @@
 # Management Key — Plan A (Daemon) Implementation Plan
 
+**Status (2026-10-15):** DONE. Live E2E in 266f1a225. Plan D closed the unticked steps (dacc8f9b9, afef8102f).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** The daemon needs only the OpenRouter management key: it mints and caps every other key itself, keeps secret settings encrypted and out of the process environment, and bills web and Telegram turns to the key of the identity that owns them.

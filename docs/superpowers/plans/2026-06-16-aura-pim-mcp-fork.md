@@ -1,5 +1,7 @@
 # aura-pim-mcp Fork Implementation Plan
 
+**Status (2026-10-15):** DONE. Phases 0-3 and the mail cutover shipped on 2026-06-16 (6cb74692, deab7fbd). The deferred Phase 4 UI landed with 2026-09-23-pim-provider-apps.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fork `MarimerLLC/calendar-mcp` into a thin-fork unified mail+calendar+contacts HTTP sidecar (`aura-pim-mcp`) that Aura mounts for the agent and whose connect/management is driven by Aura's own frontend, replacing the standalone mail-mcp.

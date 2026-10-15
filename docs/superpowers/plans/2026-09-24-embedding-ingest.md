@@ -1,5 +1,7 @@
 # Embedding model change — ingest (plan 3 of 5) Implementation Plan
 
+**Status (2026-10-15):** DONE. 1fdb3d6bd..4ae4245d3.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** The ingest pipeline embeds with the route the cockpit chose and stamps every `Passage` and `IndexedDocument` vector with its space. A route change re-embeds every document once without re-extracting any. A document that keeps failing keeps its old, visibly old-stamped rows.

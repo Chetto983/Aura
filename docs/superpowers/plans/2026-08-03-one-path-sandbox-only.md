@@ -1,5 +1,7 @@
 # One path: every tool runs in the box
 
+**Status (2026-10-15):** PARTIAL. Steps 1-2 landed in 0d76f84a8. Two Step 3 items remain: the aura image still installs LibreOffice, Node, uv and python3 (docker/aura/Dockerfile), and compose still declares the dead host-direct cache volumes. Steps 4-5 have no evidence.
+
 **Date:** 2026-08-03 · **Status:** PROPOSED. Operator direction, blast radius measured,
 three consequences that need a decision before code. PRD amendment required.
 

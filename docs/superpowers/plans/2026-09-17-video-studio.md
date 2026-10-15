@@ -1,5 +1,7 @@
 # Studio Implementation Plan
 
+**Status (2026-10-15):** DONE. 98714aed7..7f2496a6a. Live acceptance in docs/testing/studio.md (2026-09-18).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A cockpit `studio` mode where any signed-in identity generates an image or a video

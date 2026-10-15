@@ -1,5 +1,7 @@
 # Management key, plan D: clean reinstall on this PC and the E2E
 
+**Status (2026-10-15):** DONE. 5a3ccbca7, afef8102f.
+
 > **For agentic workers:** execute inline, one task at a time, and tick each box in the same
 > commit as the task's evidence.
 

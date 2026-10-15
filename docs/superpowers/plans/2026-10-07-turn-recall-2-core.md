@@ -1,5 +1,7 @@
 # Turn recall, plan 2 of 3: the decision path and its memory
 
+**Status (2026-10-15):** PARTIAL. Tasks 1-6 and 9 landed, with migration 0137 and the VM E2E (docs/verification/turn-recall-vm-e2e-2026-10-07.md). The frozen final split of the eval never ran: Task 7 Steps 6-7 and Task 8's gate.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Every user turn is read once, before its first request, through one decision path that picks the reasoning effort (composer > compatible remembered label > seeds > teacher) and preloads the deferred tools similar past turns ran; the decision and its provenance are persisted in Postgres and projected onto `ConversationTurn`, where later turns recall them.

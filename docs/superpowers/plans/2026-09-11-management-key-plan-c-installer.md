@@ -1,5 +1,7 @@
 # Management Key — Plan C (Installer, Compose, `.env`) Implementation Plan
 
+**Status (2026-10-15):** DONE. bb7ba7a5c, a8e1a2ed8.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** No OpenRouter credential, route or model travels through `create-aura`, `install.conf`, `.env` or `compose.yaml`; `.env.example` lists the required secrets and the values that differ from compose, and a test keeps it that way.

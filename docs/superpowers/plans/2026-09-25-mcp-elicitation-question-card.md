@@ -1,5 +1,7 @@
 # MCP elicitation and the question card: implementation plan
 
+**Status (2026-10-15):** PARTIAL. Tasks 1-9 landed (895d27248..e235d1daa). Task 10's live E2E never ran, and the PRD still describes decline-and-surface where the cockpit now shows the form.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A mounted MCP server that asks for input during a cockpit turn gets a form in the thread; the call waits, with its clock and the run's stopped, until the operator answers, and the answer goes back to the server. The ask_user card is redrawn in the same visual language.

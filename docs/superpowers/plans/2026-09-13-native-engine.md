@@ -1,5 +1,7 @@
 # Native Docker Engine Implementation Plan
 
+**Status (2026-10-15):** NOT STARTED. Only the spec and the plan landed (fc08527bd, 1e28a452f). Task 1 (runsc) is moot: gVisor was retired on 2026-10-11.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Aura's stack runs on Docker Engine inside the WSL distro, with runsc registered, embeddings on the RTX 3060, its data carried over, reachable on the LAN and up from boot with no one logged on.

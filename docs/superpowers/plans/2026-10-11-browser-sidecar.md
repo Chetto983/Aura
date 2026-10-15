@@ -1,5 +1,7 @@
 # Browser sidecar implementation plan
 
+**Status (2026-10-15):** PARTIAL. 7f0242a2d, 5c3104b81 and f5e5b7b74 landed. Task 5 did not: the 11 acceptance predicates, coverage and final review. The VM's shell volume still holds the legacy .agent-browser-home.
+
 > **For agentic workers:** Use superpowers:executing-plans, with test-driven-development. The operator selected the complete spec (A) and explicitly requires execution in D:/Aura without a worktree. GPT-6.1 assists with E2E preparation and verification.
 
 **Goal:** Keep logged-in browser credentials outside every filesystem, process and network path available to the agent's shell.

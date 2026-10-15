@@ -1,5 +1,7 @@
 # Document Pipeline Rewrite — Implementation Plan
 
+**Status (2026-10-15):** DONE. f106c18c9..bc9a49f26, merged in 61c2db0e5. The T10 gate became scripts/ingest_reconcile_e2e.sh. F6-F8 stayed out of scope.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace Aura's hand-built document ingestion (Docling + 9,023 LOC of stage machine, leases, retry backoff, orphan sweep, durable-delete workers and an unread tombstone scheme) with three specialised engines — iscc-tika extracts, CocoIndex reconciles, ArcadeDB retrieves — keeping PRD amendment #114's contract intact and closing only on amendment #115's production gate driven by the real agent.

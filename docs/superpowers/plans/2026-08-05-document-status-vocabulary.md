@@ -1,5 +1,7 @@
 # Document Status Vocabulary Implementation Plan
 
+**Status (2026-10-15):** DONE. 38d78e403, 6fc0fb384, 9c8dd9d81, 29a263000. They live on the Go control plane that 2026-08-06-document-pipeline-rewrite largely replaced.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the Go and TypeScript document status vocabularies match the CHECK constraints that actually close them, so the production recorder can insert a version at all.

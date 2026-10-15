@@ -1,5 +1,7 @@
 # Video Studio audio — Plan A (spikes + foundation) Implementation Plan
 
+**Status (2026-10-15):** DONE. Spikes in 8643c177f..d5288a6ce. T1 landed in cdfdae5c5 and db29668fc.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Measure the four unknowns the audio design rests on, record them in the PRD, and land the foundation every later audio task builds on: editor sources that are never transcribed, audio filed under `media/`, the audio model in the project file, and a rail and E2E helpers ready to grow.

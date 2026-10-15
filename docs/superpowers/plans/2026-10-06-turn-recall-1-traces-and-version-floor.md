@@ -1,5 +1,7 @@
 # Turn recall, plan 1 of 3: tool-only traces and the ArcadeDB version floor
 
+**Status (2026-10-15):** DONE. 799880d07..7838d194b.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Record the tool calls of turns that exposed no reasoning in the ArcadeDB reasoning graph, and enforce the ArcadeDB 26.10.1 floor that turn recall's vector filters depend on.

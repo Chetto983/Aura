@@ -1,5 +1,7 @@
 # Retire gVisor: every box and the Aura container run on runc
 
+**Status (2026-10-15):** DONE. f80f96f..f94a458. Recorded in docs/superpowers/verification/2026-10-11-retire-gvisor-lab-vm.md.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Nothing in Aura selects, installs, documents or asks about gVisor any more. Boxes and the `aura` container run on Docker's default runtime, and an `install.conf` written by an already published `create-aura-appliance` still installs.

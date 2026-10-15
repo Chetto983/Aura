@@ -1,5 +1,7 @@
 # GitLab image bridge
 
+**Status (2026-10-15):** DONE. Recorded in docs/superpowers/verification/2026-10-14-gitlab-image-bridge.md and 2026-10-15-docker-restart-and-install-dir.md. The milestone closed on 2026-10-15.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** While GitHub blocks `ghcr.io/chetto1983`:

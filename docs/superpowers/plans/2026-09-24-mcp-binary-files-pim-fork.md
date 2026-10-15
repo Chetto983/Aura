@@ -1,5 +1,7 @@
 # MCP binary files: PIM fork implementation plan
 
+**Status (2026-10-15):** DONE in aura-pim-mcp: main 6734385, per the operator's notes. Mail attachments through resource_link are recorded in the PRD (952830310, 3d906a726).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `get_email_attachment` returns a `resource_link` to `attachment://stash/<id>`. Any MCP client, Aura included, reads the attachment's bytes back through `resources/read` on its own session.

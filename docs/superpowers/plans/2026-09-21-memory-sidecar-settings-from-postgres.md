@@ -1,5 +1,7 @@
 # Memory Sidecar Configuration From Postgres — Implementation Plan
 
+**Status (2026-10-15):** DONE. 13baccf36. Embedding plan 1 reshaped it two days later (b6d34b9b9). Task 5's live-run log was never written.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `cmd/arcadedb-mcp` reads its configuration from Postgres `aura.settings` at its own boot instead of from environment variables, so the daemon and the memory sidecar cannot disagree about the embedder.

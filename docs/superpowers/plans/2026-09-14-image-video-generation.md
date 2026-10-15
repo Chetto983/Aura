@@ -1,5 +1,7 @@
 # Image and Video Generation Implementation Plan
 
+**Status (2026-10-15):** PARTIAL. The code for Tasks 1-13 landed (c03cf9bde..9d6f287fd). Task 13's 11-criterion acceptance matrix was never recorded: restart recovery, Telegram, zero credit and discovery are unproven live.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let Aura generate and edit images and generate videos from text or images using the operator's selected OpenRouter models, with identity-owned billing, durable video jobs, and native cockpit and Telegram delivery.

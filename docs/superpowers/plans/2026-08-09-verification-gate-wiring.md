@@ -1,5 +1,7 @@
 # Plan — wire the verification ledger into the turn
 
+**Status (2026-10-15):** DONE. 2440f9b94..ca952454a, merged through PR #43 (a778fccf7).
+
 The ledger landed as a component in commit `ea88ff0` (four Go modules ported from
 NousResearch/hermes-agent, migration 0094, all green, nothing wired). This plan connects
 it: the writes that fill it, and the gate that reads it.

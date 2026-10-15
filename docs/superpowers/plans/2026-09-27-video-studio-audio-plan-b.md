@@ -1,5 +1,7 @@
 # Video Studio audio — Plan B (audio lanes, the mix, Extract audio) Implementation Plan
 
+**Status (2026-10-15):** DONE. c18438619..7f0a1e247.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give the Studio audio lanes that export exactly what the operator hears: sounds hung on clips that ride the ripple, volume and fades that the mixer actually applies, a clip Volume slider that finally works, and Extract audio.

@@ -1,5 +1,7 @@
 # aura-video-mcp Plan A: a trustworthy Studio export and projects kept out of RAG — Implementation Plan
 
+**Status (2026-10-15):** DONE. 69a983f0b..0a2a6a5cf. See its Close-out section.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A Studio export either writes the film the editor shows, or stops and writes nothing:
