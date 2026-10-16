@@ -16,7 +16,7 @@ ArcadeDB: four catch-up passes over one CocoIndex state.
    they were recorded under, so a change back is a change.
 
 In every pass, every row's vector is the one the fake embedder produces for that row's own
-stamp.
+stamp: a passage's from its text, a document's from its card's description.
 """
 
 import os
@@ -26,7 +26,7 @@ import sys
 
 import pytest
 
-from ingest import chunk, embed
+from ingest import app, chunk, embed
 from ingest.arcade import ArcadeSchemaError, _post
 from ingest.tests import fake_embedder
 
@@ -72,19 +72,31 @@ def _pass(state, space, refusing=""):
     return done.stdout.count("[extract] "), requests
 
 
-def _stamps() -> dict[str, set[str]]:
+def _descriptions(tmp_path) -> dict[str, str]:
+    """What filecard says describes each object, which is what its document row embeds."""
+    descriptions = {}
+    for name, text in (arg.split("=", 1) for arg in OBJECTS):
+        path = tmp_path / name
+        path.write_text(text, encoding="utf-8")
+        descriptions[name] = app._card(str(path), name).description
+    return descriptions
+
+
+def _stamps(descriptions: dict[str, str]) -> dict[str, set[str]]:
     """Each file's stamps, after checking that every row's vector is its own stamp's."""
     stamps: dict[str, set[str]] = {}
-    for type_name, field in (("Passage", "text"), ("IndexedDocument", "card")):
+    for type_name, sent_of in (
+        ("Passage", lambda row: row["text"]),
+        ("IndexedDocument", lambda row: descriptions[row["source_key"]]),
+    ):
         body = _post(ARCADE_HTTP, f"/api/v1/query/{DATABASE}", {
-            "language": "sql",
-            "command": f"SELECT source_key, embed_space, {field} AS sent, embedding FROM {type_name}",
+            "language": "sql", "command": f"SELECT FROM {type_name}",
         }, AUTH, 30.0)
         for row in body["result"]:
             stamps.setdefault(row["source_key"], set()).add(row["embed_space"])
-            if not (row["sent"] or "").strip():
-                continue  # an empty card stores a zero vector, out of scope for this design
-            expected = fake_embedder.vector(row["embed_space"], chunk.EMBED_DOC_PREFIX + row["sent"],
+            sent = sent_of(row)
+            assert sent.strip(), f"{type_name} {row['source_key']}: nothing was embedded"
+            expected = fake_embedder.vector(row["embed_space"], chunk.EMBED_DOC_PREFIX + sent,
                                             embed.DIMENSIONS)
             assert row["embedding"] == pytest.approx(expected, abs=1e-6), (
                 f"{type_name} {row['source_key']}: the vector is not its stamp's"
@@ -94,18 +106,19 @@ def _stamps() -> dict[str, set[str]]:
 
 def test_a_route_change_re_embeds_once_re_extracts_nothing_and_never_mislabels(database, tmp_path):
     state = tmp_path / "coco.db"
+    descriptions = _descriptions(tmp_path)
 
     extracted, requests = _pass(state, SPACE_A)
     assert extracted == 2 and requests > 0
-    assert _stamps() == {HEALTHY: {SPACE_A}, REFUSED: {SPACE_A}}
+    assert _stamps(descriptions) == {HEALTHY: {SPACE_A}, REFUSED: {SPACE_A}}
 
     assert _pass(state, SPACE_A) == (0, 0), "an unchanged pass re-ran: the memo does not hold"
 
     extracted, requests = _pass(state, SPACE_B, refusing=SPACE_B)
     assert extracted == 0, "a route change re-extracted: extraction is not memoized apart from embedding"
     assert requests > 0
-    assert _stamps() == {HEALTHY: {SPACE_B}, REFUSED: {SPACE_A}}
+    assert _stamps(descriptions) == {HEALTHY: {SPACE_B}, REFUSED: {SPACE_A}}
 
     extracted, _ = _pass(state, SPACE_A)
     assert extracted == 0
-    assert _stamps() == {HEALTHY: {SPACE_A}, REFUSED: {SPACE_A}}
+    assert _stamps(descriptions) == {HEALTHY: {SPACE_A}, REFUSED: {SPACE_A}}

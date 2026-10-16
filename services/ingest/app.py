@@ -15,6 +15,7 @@ import asyncio
 import dataclasses
 import datetime
 import hashlib
+import json
 import os
 import pathlib
 import re
@@ -87,8 +88,8 @@ class IndexedDocument:
     # What filecard measured about the file. Empty when it could not be described --
     # never an error, because a card is how a document is found, not whether it exists.
     card: str
-    # The card's own vector, so a document found by its description competes with one found
-    # by its text on the same scale instead of by a precedence rule.
+    # The vector of the card's description, so a document found by its description competes
+    # with one found by its text on the same scale instead of by a precedence rule.
     embedding: list[float]
     # The space `embedding` was produced in (spec §2). The documents gate compares it with the
     # reader's, so a vector from another model is never ranked.
@@ -142,7 +143,24 @@ def _card_name(file_name: str, converted_path: str) -> str:
     return pathlib.PurePosixPath(file_name).stem + pathlib.PurePosixPath(converted_path).suffix
 
 
-def _card(path: str, file_name: str) -> str:
+@dataclasses.dataclass(frozen=True, slots=True)
+class Card:
+    """filecard's two renderings of one file: the card a reader opens, and its description.
+
+    The description is the card without its caveats, its cut notice and its trailer, which
+    are true sentences about Aura that every card shares. The card is stored and the
+    description is embedded: measured 2026-10-16, embedding it instead of the card raised
+    r@8 on all five question sets (prd.md §11, "The card's vector").
+    """
+
+    text: str
+    description: str
+
+
+_NO_CARD = Card(text="", description="")
+
+
+def _card(path: str, file_name: str) -> Card:
     """Describe the file, by calling Aura's own filecard rather than reimplementing it.
 
     A card is how a document is FOUND, and for a spreadsheet it is how one is ANSWERED:
@@ -159,15 +177,18 @@ def _card(path: str, file_name: str) -> str:
     """
     try:
         done = subprocess.run(
-            ["aura-filecard", "-name", file_name, path],
+            ["aura-filecard", "-json", "-name", file_name, path],
             check=False, capture_output=True, timeout=120,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         print(f"[card] {file_name}: {exc}", flush=True)
-        return ""
+        return _NO_CARD
     if done.stderr:
         print(f"[card] {file_name}: {done.stderr.decode('utf-8', 'replace').strip()}", flush=True)
-    return done.stdout.decode("utf-8", "replace")
+    if done.returncode != 0:
+        return _NO_CARD
+    rendered = json.loads(done.stdout)
+    return Card(text=rendered["card"], description=rendered["description"])
 
 
 @coco.fn
@@ -211,10 +232,11 @@ def _text_fingerprint(text: str) -> str:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Extracted:
-    """What one file says: its text, its card and where its sections start."""
+    """What one file says: its text, its card, the card's description and where its sections start."""
 
     text: str
     card: str
+    description: str
     anchors: list[outline.Anchor]
 
 
@@ -226,9 +248,10 @@ def _extract(content: bytes, suffix: str, file_name: str, content_type: str | No
     process_file for every document. Before this split that re-ran every vision and
     speech-to-text call with it, the billed ones included (audit F7). This memo is keyed by
     the bytes, the key's suffix -- which names the temporary file the extractors route on --
-    the name and the content type, and none of them moves with the route. Whether a vision or
-    speech-to-text route change re-runs it is not measured: only a scanned PDF's extraction
-    reads media.CONFIG_FINGERPRINT, from inside this memo.
+    the name and the content type, and none of them moves with the route. A change to this
+    body re-runs it for every file, and the billed calls inside it do not run again: they are
+    memoized on the bytes (media.py). A change of media route re-runs it for a scanned PDF
+    only, whose OCR reads media.CONFIG_FINGERPRINT (tests/test_billed_media_memo.py).
 
     The print runs only when this body does: "[extract]" in the log counts real extractions
     (scripts/ingest_reconcile_e2e.sh asserts on the count).
@@ -255,7 +278,7 @@ def _extract(content: bytes, suffix: str, file_name: str, content_type: str | No
             # every chunk keeps the empty heading_path it has today.
             anchors = outline.anchors_in(text, outline.titles_of(ready))
             card = _card(ready, _card_name(file_name, ready))
-    return Extracted(text=text, card=card, anchors=list(anchors))
+    return Extracted(text=text, card=card.text, description=card.description, anchors=list(anchors))
 
 
 @coco.fn(memo=True)
@@ -315,9 +338,9 @@ async def index_object(
         size_bytes=len(content),
         passage_count=len(pieces),
         card=extracted.card,
-        # The card describes the file; embedding it is what makes "which file knows this?"
-        # answerable for a document that has no passages at all.
-        embedding=(await embed.embed_text(extracted.card) if extracted.card.strip()
+        # The card describes the file; embedding its description is what makes "which file
+        # knows this?" answerable for a document that has no passages at all.
+        embedding=(await embed.embed_text(extracted.description) if extracted.description.strip()
                    else [0.0] * embed.DIMENSIONS),
         embed_space=embed.SPACE,
         indexed_at=datetime.datetime.now(datetime.timezone.utc),
