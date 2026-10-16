@@ -1468,6 +1468,34 @@ This does not prove:
 - the right answer when only cards answer. There the place now reaches a passage-less file further
   down, where before it changed nothing.
 
+**Exact identifiers rank first (measured 2026-10-16).** A document whose title, card or returned
+passages carry every identifier of the question ranks ahead of one that does not, before the
+reserved place and the limit. The score decides within each group. An identifier is memory
+recall's: a token with a letter and a digit or an underscore (`arcadedb.QueryIdentifiers`).
+Similarity cannot establish an exact technical identity. The final `vector.rerank` orders by
+cosine alone, so the document holding a complaint number fell behind one that only resembled the
+question.
+
+Measured over the complex corpus's 34 questions and the office fixture's 20, through the real
+ingest:
+
+| Set | r@1 | MRR | Golds moved |
+|---|---|---|---|
+| complex | 0.735 → 0.794 | 0.848 → 0.882 | `RC-2026-040` 3 → 1, `NC-03` 2 → 1, none down |
+| office | 0.500 | 0.692 | none |
+
+The engine has no rerank option for this. `vector.rerank` takes no options in 26.10.1, and
+ordering by the fusion's score was rejected the same day. The record is
+[the verification](docs/superpowers/verification/2026-10-16-complex-documents-retrieval-quality.md).
+
+This does not prove:
+- **anything on the code sets.** The English, Italian and find-by-name questions over Aura's
+  sources were not run: on the measuring host their ingest failed on embedding timeouts. They gate
+  the merge;
+- **a whole-table lookup.** A code that lives only in a workbook's rows, such as a store's part
+  number, is in no card or passage, so this rule cannot find it;
+- anything beyond 54 questions written by the corpus's own generator.
+
 **The card's vector (measured 2026-10-16).** A card's vector is computed from its
 description: the card without what it says about Aura. That means no caveat, no cut notice, and
 no trailer ("Written by Aura at ingest … open it with document_open …").
