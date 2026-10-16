@@ -343,6 +343,67 @@ therefore within noise. The restored corpus is the one the earlier sections meas
 Embedding the card without them is a filecard and ingest change. It waits on approval, together
 with the false caveat on source files.
 
+### Every caveat, and PDFs
+
+The run above dropped two sentences and kept the other caveats: "Only the opening of the file is
+described here.", the sheet-sampling lines, and every PDF line. The change proposed drops them
+all. A second instrument measured exactly that:
+- it rebuilt each card from its file with filecard itself;
+- it checked the rebuild against the stored card, modulo invalid UTF-8;
+- it rendered the card again with no caveat, no cut notice and no trailer.
+
+Every rebuild matched except seven LibreOffice-converted fixtures (`sample.doc`, `.xls`, `.ppt`,
+`.rtf`, `.odt`, `.ods`, `.odp`). The ingest cards the converted file, so those seven kept the
+narrow filter.
+
+**A PDF identity** was added to `cb-arcade`, with 30 files:
+- the office fixture's 18 spreadsheets;
+- its four prose files, converted to PDF by LibreOffice;
+- six real PDFs: SICK, Siemens and AECO datasheets, the 53-page SIMATIC S7-1200 G2 migration
+  overview, `sample.pdf`, and a TIA Selection Tool report;
+- two TIA Selection Tool order lists.
+
+The report and the order lists are the operator's own files, not in the repo. Every PDF was
+extracted offline first, and all ten carry a text layer. The ingest log shows no vision call.
+
+**The questions** are 38. Twenty are the office questions, with the prose gold moved to the PDF.
+The other 18 were written by the same agent from the extracted text: 12 have a PDF gold, 4 an
+order list, and 2 `sample.pdf`.
+
+| Card text | r@1 | r@3 | r@8 | MRR | Golds better | Golds worse |
+|---|---|---|---|---|---|---|
+| as stored | 0.632 | 0.868 | 0.895 | 0.757 | | |
+| without the trailer and "did not read" | 0.632 | 0.868 | 0.947 | 0.760 | q07, q14, p14 | q09, q18, p08 |
+| without the trailer, every caveat and the cut notice | 0.632 | 0.895 | 0.947 | 0.768 | q07, q14, p14 | q09, p08 |
+
+**PDFs gain nothing and lose nothing of their own:**
+- **As stored, 21 of the 22 questions with a PDF gold** rank it first.
+- **The exception is p08**, "connettore M12 PROFINET 4 poli schermato: grado di protezione". It
+  ranks the AECO M12 sensor datasheet above the Siemens connector datasheet. With the change it
+  moves 2 → 3 because `Configurazione.xlsx` now clears the floor and takes the reserved place.
+- **The gains are spreadsheets.** q07 and q14 are the office ones, and p14 asks for an article
+  number in an order list (4 → 2).
+
+**The full variant on the other sets:**
+
+| Set | As stored (r@8 / MRR) | Two sentences dropped | Every caveat dropped |
+|---|---|---|---|
+| English code | 0.792 / 0.552 | 0.833 / 0.559 | 0.833 / 0.557 |
+| Italian code | 0.625 / 0.453 | 0.667 / 0.462 | 0.667 / 0.462 |
+| find-by-name | 1.000 / 0.750 | 1.000 / 1.000 | 1.000 / 1.000 |
+| office | 0.800 / 0.650 | 0.900 / 0.652 | 0.900 / 0.667 |
+
+**The full variant keeps every gain.** Office r@3 stays 0.800, where the narrow one fell to
+0.750, because q18 is no longer lost. English `degradation-log` goes 4 → 6 instead of 4 → 5.
+
+**Restored and re-measured:** after restoring, all five sets matched their baseline exactly.
+
+**Found in the PDF corpus: encrypted metadata.**
+- `scheda_sick.pdf` is RC4-encrypted with an owner password only, so it opens without one.
+  `pdfinfo` reads its title, "W100 WT100-P1432, Data sheet".
+- filecard's metadata reader reads the raw bytes, so the card's Title, Subject and Author lines
+  are ciphertext. That text is embedded.
+
 ## CocoIndex Code, read 2026-10-16
 
 `cocoindex-io/cocoindex-code` (v1 source, pushed 2026-10-06) chunks code with the same
@@ -374,9 +435,10 @@ alternatives. A structural `ccc grep` sits beside the search.
   The live 118-document corpus behind `reserveCardLane`'s original measurement
   (`docs/document-retrieval-order-pilot.json`, on the lab VM) was not re-run. The find-by-name
   questions are six, written by the same agent.
-- **The card rewrite was measured on text and code only.** No PDF and no media file is in either
-  corpus. The PDF lines, the media line, the "could not read" caveat and the cut notice were never
-  dropped from a vector, because only two cards carry any of them.
+- **The card rewrite was measured on text, code and ten PDFs, not on media.** The PDF corpus is 30
+  files of short, distinct documents. It does not show how a PDF card behaves among hundreds of
+  manuals on one topic. The media line and the "could not read" caveat were dropped from no
+  vector.
 - **The vectors were rewritten in place, not produced by the ingest.** The texts went through the
   same embedder, with the same document prefix the ingest uses. "As stored" reproduces the
   ingest's vectors at cosine 1.0000, which shows the two paths agree. It does not exercise an
