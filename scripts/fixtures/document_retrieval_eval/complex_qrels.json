@@ -1,0 +1,312 @@
+{
+ "schema_id": "aura.document-retrieval-eval/v1",
+ "questions": [
+  {
+   "qid": "fx300-alarm-A006",
+   "category": "TABLE_DEEP",
+   "gold_docs": [
+    "manuale_confezionatrice_FX300.pdf"
+   ],
+   "query": "sulla confezionatrice FX300 è comparso l'allarme A006: qual è la causa probabile?",
+   "answer": "encoder non allineato"
+  },
+  {
+   "qid": "fx300-alarm-A023",
+   "category": "TABLE_DEEP",
+   "gold_docs": [
+    "manuale_confezionatrice_FX300.pdf"
+   ],
+   "query": "sulla confezionatrice FX300 è comparso l'allarme A023: qual è la causa probabile?",
+   "answer": "temperatura saldatura fuori soglia"
+  },
+  {
+   "qid": "fx300-alarm-A119",
+   "category": "TABLE_DEEP",
+   "gold_docs": [
+    "manuale_confezionatrice_FX300.pdf"
+   ],
+   "query": "sulla confezionatrice FX300 è comparso l'allarme A119: qual è la causa probabile?",
+   "answer": "riparo aperto"
+  },
+  {
+   "qid": "fx200-alarm-A012",
+   "category": "LOOKALIKE",
+   "gold_docs": [
+    "manuale_confezionatrice_FX200.pdf"
+   ],
+   "query": "allarme A012 sulla FX200, come si risolve?",
+   "answer": "verificare il regolatore di pressione"
+  },
+  {
+   "qid": "fx300-speed",
+   "category": "PROSE",
+   "gold_docs": [
+    "manuale_confezionatrice_FX300.pdf"
+   ],
+   "query": "quanti pezzi al minuto può confezionare la FX300",
+   "answer": "62"
+  },
+  {
+   "qid": "fx300-chains",
+   "category": "TABLE",
+   "gold_docs": [
+    "manuale_confezionatrice_FX300.pdf"
+   ],
+   "query": "ogni quante ore vanno lubrificate le catene della confezionatrice FX300",
+   "answer": "160"
+  },
+  {
+   "qid": "fx300-blade-part",
+   "category": "CROSS_DOC",
+   "gold_docs": [
+    "manuale_confezionatrice_FX300.pdf",
+    "magazzino_ricambi_2026.xlsx"
+   ],
+   "query": "codice ricambio della lama di taglio seghettata della FX300",
+   "answer": "RIC-14956"
+  },
+  {
+   "qid": "fx300-parameter",
+   "category": "TABLE_DEEP",
+   "gold_docs": [
+    "manuale_confezionatrice_FX300.pdf"
+   ],
+   "query": "valore di fabbrica del parametro P067 sul pannello della FX300",
+   "answer": "683"
+  },
+  {
+   "qid": "fx200-torque-m10",
+   "category": "LOOKALIKE",
+   "gold_docs": [
+    "manuale_confezionatrice_FX200.pdf"
+   ],
+   "query": "coppia di serraggio delle viti M10 sulla FX200",
+   "answer": "24.1"
+  },
+  {
+   "qid": "contract-penalty",
+   "category": "PROSE",
+   "gold_docs": [
+    "capitolato_fornitura_linea3.pdf"
+   ],
+   "query": "penale giornaliera per ritardo nella consegna della Linea 3",
+   "answer": "0.3%"
+  },
+  {
+   "qid": "contract-penalty-paraphrase",
+   "category": "PARAPHRASE",
+   "gold_docs": [
+    "capitolato_fornitura_linea3.pdf"
+   ],
+   "query": "quanto ci deve il fornitore per ogni giorno in cui arriva tardi con la nuova linea",
+   "answer": "0.3%"
+  },
+  {
+   "qid": "contract-warranty",
+   "category": "PROSE",
+   "gold_docs": [
+    "capitolato_fornitura_linea3.pdf"
+   ],
+   "query": "quanti mesi di garanzia dopo il collaudo in sito",
+   "answer": "36"
+  },
+  {
+   "qid": "contract-advance",
+   "category": "PROSE",
+   "gold_docs": [
+    "capitolato_fornitura_linea3.pdf"
+   ],
+   "query": "che percentuale si paga all'ordine della linea di confezionamento",
+   "answer": "30%"
+  },
+  {
+   "qid": "report-oee",
+   "category": "TABLE",
+   "gold_docs": [
+    "report_qualita_Q3_2026.pdf"
+   ],
+   "query": "OEE della Linea 2 nel mese di agosto",
+   "answer": "78.9%"
+  },
+  {
+   "qid": "report-complaint",
+   "category": "EXACT",
+   "gold_docs": [
+    "report_qualita_Q3_2026.pdf"
+   ],
+   "query": "che difetto riguardava il reclamo RC-2026-040",
+   "answer": "etichetta illeggibile"
+  },
+  {
+   "qid": "report-best-line",
+   "category": "AGG",
+   "gold_docs": [
+    "report_qualita_Q3_2026.pdf"
+   ],
+   "query": "quale linea ha avuto l'efficienza migliore nel terzo trimestre",
+   "answer": "Linea 4"
+  },
+  {
+   "qid": "audit-nc",
+   "category": "EXACT",
+   "gold_docs": [
+    "verbale_audit_ISO9001_2026.pdf"
+   ],
+   "query": "a quale requisito della norma si riferisce la non conformità NC-03",
+   "answer": "9.1.2"
+  },
+  {
+   "qid": "audit-majors",
+   "category": "AGG",
+   "gold_docs": [
+    "verbale_audit_ISO9001_2026.pdf"
+   ],
+   "query": "quante non conformità maggiori sono emerse all'audit di certificazione",
+   "answer": "0"
+  },
+  {
+   "qid": "audit-auditor",
+   "category": "PROSE",
+   "gold_docs": [
+    "verbale_audit_ISO9001_2026.pdf"
+   ],
+   "query": "chi era l'auditor responsabile della verifica ISO 9001",
+   "answer": "ing. Paola Ferrero"
+  },
+  {
+   "qid": "sds-flash",
+   "category": "PROSE",
+   "gold_docs": [
+    "scheda_sicurezza_detergente_DX45.pdf"
+   ],
+   "query": "punto di infiammabilità del detergente DX45",
+   "answer": "72 °C"
+  },
+  {
+   "qid": "sds-gloves",
+   "category": "PARAPHRASE",
+   "gold_docs": [
+    "scheda_sicurezza_detergente_DX45.pdf"
+   ],
+   "query": "che protezioni mettere alle mani quando si usa il detergente alcalino",
+   "answer": "guanti in nitrile"
+  },
+  {
+   "qid": "sds-un",
+   "category": "EXACT",
+   "gold_docs": [
+    "scheda_sicurezza_detergente_DX45.pdf"
+   ],
+   "query": "numero ONU per spedire il DX45",
+   "answer": "UN 1719"
+  },
+  {
+   "qid": "budget-centro-2026",
+   "category": "LOOKALIKE",
+   "gold_docs": [
+    "budget_consolidato_2026.xlsx"
+   ],
+   "query": "ricavi 2026 dell'area Centro",
+   "answer": "8714"
+  },
+  {
+   "qid": "budget-inflation-2025",
+   "category": "LOOKALIKE",
+   "gold_docs": [
+    "budget_consolidato_2025.xlsx"
+   ],
+   "query": "ipotesi di inflazione sui costi usata nel budget 2025",
+   "answer": "0.025"
+  },
+  {
+   "qid": "budget-top-centre",
+   "category": "AGG",
+   "gold_docs": [
+    "budget_consolidato_2026.xlsx"
+   ],
+   "query": "quale centro di costo spende di più nel budget 2026",
+   "answer": "R&S"
+  },
+  {
+   "qid": "budget-ebitda",
+   "category": "AGG",
+   "gold_docs": [
+    "budget_consolidato_2026.xlsx"
+   ],
+   "query": "EBITDA previsto per il 2026",
+   "answer": "17673"
+  },
+  {
+   "qid": "parts-location",
+   "category": "EXACT",
+   "gold_docs": [
+    "magazzino_ricambi_2026.xlsx"
+   ],
+   "query": "dove è ubicato il ricambio RIC-10959",
+   "answer": "S6-F13"
+  },
+  {
+   "qid": "parts-supplier",
+   "category": "EXACT",
+   "gold_docs": [
+    "magazzino_ricambi_2026.xlsx"
+   ],
+   "query": "chi fornisce l'articolo RIC-16377",
+   "answer": "Rulmeca Italia"
+  },
+  {
+   "qid": "parts-lead-time",
+   "category": "AGG",
+   "gold_docs": [
+    "magazzino_ricambi_2026.xlsx"
+   ],
+   "query": "quale fornitore di ricambi ha i tempi di consegna più lunghi",
+   "answer": "Meccanica Bassi S.r.l."
+  },
+  {
+   "qid": "parts-below-min",
+   "category": "AGG",
+   "gold_docs": [
+    "magazzino_ricambi_2026.xlsx"
+   ],
+   "query": "quanti articoli di magazzino sono sotto la scorta minima",
+   "answer": "376"
+  },
+  {
+   "qid": "plan-pz8",
+   "category": "MATRIX",
+   "gold_docs": [
+    "piano_manutenzione_2026.xlsx"
+   ],
+   "query": "quante revisioni generali sono pianificate per il Pallettizzatore PZ8 nel 2026",
+   "answer": "3"
+  },
+  {
+   "qid": "plan-legend",
+   "category": "MATRIX",
+   "gold_docs": [
+    "piano_manutenzione_2026.xlsx"
+   ],
+   "query": "cosa vuol dire la lettera T nel piano di manutenzione",
+   "answer": "Taratura sensori"
+  },
+  {
+   "qid": "rota-nights",
+   "category": "MATRIX",
+   "gold_docs": [
+    "turni_reparto_ottobre_2026.xlsx"
+   ],
+   "query": "chi ha fatto più turni di notte in reparto a ottobre",
+   "answer": "Verdi Paolo"
+  },
+  {
+   "qid": "rota-legend",
+   "category": "MATRIX",
+   "gold_docs": [
+    "turni_reparto_ottobre_2026.xlsx"
+   ],
+   "query": "a che ora inizia il turno di notte secondo il foglio turni",
+   "answer": "22"
+  }
+ ]
+}
