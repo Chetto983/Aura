@@ -294,7 +294,7 @@ func (c *Client) hydrateRecallRanking(
 		factProse[normalizedRecallProse(fact.Statement)] = struct{}{}
 	}
 	quota := recallQuotaFor(limit)
-	identifiers := memoryQueryIdentifiers(request.Query)
+	identifiers := QueryIdentifiers(request.Query)
 	var admitted recallAdmission
 	evidence := make([]RecallEvidence, 0, min(len(ranked), limit))
 	seenProse := make(map[string]struct{}, len(ranked))
@@ -307,7 +307,7 @@ func (c *Client) hydrateRecallRanking(
 			break
 		}
 		if fact, ok := facts[item.rid]; ok {
-			if !memoryIdentifiersMatch(identifiers, fact.Statement, fact.Subject, fact.Object) {
+			if !IdentifiersMatch(identifiers, fact.Statement, fact.Subject, fact.Object) {
 				continue
 			}
 			key := normalizedRecallProse(fact.Statement)
@@ -325,7 +325,7 @@ func (c *Client) hydrateRecallRanking(
 			continue
 		}
 		turn, ok := turns[item.rid]
-		if !ok || !memoryIdentifiersMatch(identifiers, turn.Content) {
+		if !ok || !IdentifiersMatch(identifiers, turn.Content) {
 			continue
 		}
 		if _, excluded := excludedConversations[turn.ConversationID]; excluded {

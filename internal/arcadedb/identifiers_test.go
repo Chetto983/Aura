@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestMemoryIdentifiersRequireCompleteTechnicalNames(t *testing.T) {
+func TestIdentifiersRequireCompleteTechnicalNames(t *testing.T) {
 	for _, test := range []struct {
 		query, text string
 		want        bool
@@ -25,7 +25,7 @@ func TestMemoryIdentifiersRequireCompleteTechnicalNames(t *testing.T) {
 		{"A1 B2", "B2 poi A1", true},
 	} {
 		t.Run(test.query+"/"+test.text, func(t *testing.T) {
-			if got := memoryIdentifiersMatch(memoryQueryIdentifiers(test.query), test.text); got != test.want {
+			if got := IdentifiersMatch(QueryIdentifiers(test.query), test.text); got != test.want {
 				t.Fatalf("match = %v, want %v", got, test.want)
 			}
 		})

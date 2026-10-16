@@ -5,12 +5,14 @@ import (
 	"unicode"
 )
 
-// Similarity cannot establish an exact technical identity. Qualify the bounded
-// hydrated candidates before admission, including when ranking fell back to
-// lexical search. Ordinary words and purely numeric dates are not identifiers.
-func memoryQueryIdentifiers(query string) []string {
+// QueryIdentifiers are the query's exact technical names: a token holding a letter and
+// a digit or an underscore. Similarity cannot establish an exact technical identity, so
+// memory recall admits a candidate only when it carries every one of them, including when
+// ranking fell back to lexical search. Ordinary words and purely numeric dates are not
+// identifiers.
+func QueryIdentifiers(query string) []string {
 	var identifiers []string
-	for _, token := range memoryIdentifierTokens(query) {
+	for _, token := range identifierTokens(query) {
 		var letter, digit bool
 		for _, symbol := range token {
 			letter = letter || unicode.IsLetter(symbol)
@@ -23,20 +25,22 @@ func memoryQueryIdentifiers(query string) []string {
 	return identifiers
 }
 
-func memoryIdentifierTokens(text string) []string {
+func identifierTokens(text string) []string {
 	return strings.FieldsFunc(strings.ToLower(text), func(symbol rune) bool {
 		return !unicode.IsLetter(symbol) && !unicode.IsDigit(symbol) &&
 			!unicode.IsMark(symbol) && symbol != '_' && symbol != '-'
 	})
 }
 
-func memoryIdentifiersMatch(identifiers []string, texts ...string) bool {
+// IdentifiersMatch reports whether texts carry every identifier as a whole token; no
+// identifiers match anything.
+func IdentifiersMatch(identifiers []string, texts ...string) bool {
 	if len(identifiers) == 0 {
 		return true
 	}
 	available := make(map[string]struct{})
 	for _, text := range texts {
-		for _, token := range memoryIdentifierTokens(text) {
+		for _, token := range identifierTokens(text) {
 			available[token] = struct{}{}
 		}
 	}
