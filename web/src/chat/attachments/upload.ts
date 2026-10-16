@@ -29,23 +29,6 @@ const browserForbiddenUploadHeaders = new Set([
   'via',
 ]);
 
-const documentExtensions = new Set([
-  '.pdf',
-  '.docx',
-  '.pptx',
-  '.xlsx',
-  '.xlsm',
-  '.html',
-  '.htm',
-  '.csv',
-  '.md',
-  '.markdown',
-  '.txt',
-  '.json',
-  '.xml',
-  '.epub',
-]);
-
 const terminalStatuses = new Set<Asset['status']>(['failed', 'refused', 'deleted', 'canceled']);
 
 /** PUT the file at the presigned URL, reporting fractional progress.
@@ -95,20 +78,14 @@ function isBrowserForbiddenUploadHeader(name: string): boolean {
   );
 }
 
+/** The modality hint the presign takes: the browser's MIME type for media, and 'unknown' for
+ *  everything else, which the server classifies against its own allowlist (internal/assets
+ *  InferModality). The allowlist is not copied here: a copy kept here drifted from it. */
 export function inferModality(file: File): AssetModality {
   const type = file.type.toLowerCase();
-  const name = file.name.toLowerCase();
   if (type.startsWith('image/')) return 'image';
   if (type.startsWith('audio/')) return 'audio';
-  if (type === 'application/pdf' || hasDocumentExtension(name)) return 'document';
   return 'unknown';
-}
-
-function hasDocumentExtension(name: string): boolean {
-  for (const ext of documentExtensions) {
-    if (name.endsWith(ext)) return true;
-  }
-  return false;
 }
 
 /** An asset is attachable once the SERVER has accepted it — not once it is indexed.

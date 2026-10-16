@@ -109,8 +109,9 @@ describe('uploading a Studio frame', () => {
 
     await uploadStudioFrame(pdf, vi.fn());
 
+    // Not asserted to be an image: 'unknown' lets the server classify it, as a document.
     expect(presignMock).toHaveBeenCalledWith(
-      expect.objectContaining({ modality_hint: 'document', file_name: 'manual.pdf' }),
+      expect.objectContaining({ modality_hint: 'unknown', file_name: 'manual.pdf' }),
     );
   });
 });

@@ -61,10 +61,25 @@ describe('createAuraAttachmentAdapter', () => {
   // Measured live 2026-08-17: the first yield carried the file name as its id and later ones
   // the asset id, so the runtime kept BOTH — one chip frozen at 0%, one at 100%, for a single
   // file. The id must not move once the runtime has seen it.
-  it('takes the clips the presigner takes, MP4 and WebM, and no other video', () => {
-    const accepted = createAuraAttachmentAdapter({ threadId: 't' }).accept.split(',');
-    expect(accepted).toEqual(expect.arrayContaining(['.mp4', '.webm']));
-    expect(accepted).not.toContain('video/*');
+  // The presigner owns the allowlist (internal/assets documentExts, derived from the ingest's),
+  // and a copy kept here drifted: a .go or a .tsx the ingest reads was not even selectable.
+  it('leaves the choice of file to the presigner', () => {
+    expect(createAuraAttachmentAdapter({ threadId: 't' }).accept).toBe('*');
+  });
+
+  it("shows a document chip once the server classified the file, even a source file's", async () => {
+    presignAsset.mockResolvedValue({
+      asset: asset({ status: 'presigned', modality: 'document', file_name: 'nastro.go' }),
+      upload: { upload_url: 'https://store.invalid/put', required_headers: {} },
+    });
+    const adapter = createAuraAttachmentAdapter({ threadId: 'conv-1' });
+
+    const yields = await drain(
+      adapter.add({ file: file('nastro.go', '') }) as AsyncGenerator<PendingAttachment, void>,
+    );
+
+    expect(yields[0]?.type).toBe('file');
+    expect(yields[yields.length - 1]?.type).toBe('document');
   });
 
   it('keeps one identity for the whole upload', async () => {

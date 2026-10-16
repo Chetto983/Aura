@@ -1,11 +1,14 @@
 package documents
 
+import "github.com/chetto1983/aura/internal/documents/filecard"
+
 // supportedDocumentExt is the single source-of-truth allowlist of file
-// extensions Aura ingests. It is the gate the CLI, Telegram, and asset paths
-// share. Ingest REGISTERS a document in the catalog; it does not convert it, so
-// an entry here means "the agent can open and compute on this", not "a converter
-// can flatten it to markdown".
-var supportedDocumentExt = map[string]struct{}{
+// extensions Aura ingests; the asset presign derives its document list from it
+// (internal/assets/limits.go). Ingest REGISTERS a document in the catalog; it does
+// not convert it, so an entry here means "the agent can open and compute on this",
+// not "a converter can flatten it to markdown". Source files are filecard's list,
+// which the ingest reads as text (prd.md §11, 2026-10-16).
+var supportedDocumentExt = withSourceFiles(map[string]struct{}{
 	".pdf":      {},
 	".docx":     {},
 	".pptx":     {},
@@ -25,12 +28,19 @@ var supportedDocumentExt = map[string]struct{}{
 	".jpeg":     {},
 	".gif":      {},
 	".webp":     {},
+})
+
+func withSourceFiles(set map[string]struct{}) map[string]struct{} {
+	for _, ext := range filecard.SourceExtensions() {
+		set[ext] = struct{}{}
+	}
+	return set
 }
 
 // SupportedDocumentExts returns the ingest allowlist extensions (lowercased, with the
-// leading dot). Exported so the asset-upload layer (internal/assets) can assert its own
-// document allowlist stays in sync with what the ingest pipeline actually accepts — the
-// drift that silently 400'd pptx/html uploads. Order is unspecified.
+// leading dot). The asset-upload layer builds its document allowlist from it, so the two
+// cannot drift the way they once did, when a hand-kept copy silently 400'd pptx/html
+// uploads. Order is unspecified.
 func SupportedDocumentExts() []string {
 	out := make([]string, 0, len(supportedDocumentExt))
 	for ext := range supportedDocumentExt {

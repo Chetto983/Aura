@@ -52,6 +52,12 @@ func TestIsSupportedDocument(t *testing.T) {
 		{"photo.jpeg", true},
 		{"anim.gif", true},
 		{"photo.webp", true},
+		// Source files, read as text by the ingest (filecard.SourceExtensions).
+		{"nastro.go", true},
+		{"Page.tsx", true},
+		{"Motor.scl", true},
+		{"run-speed.mjs", true},
+		{"Makefile", false},
 		// Case-insensitive over the extension.
 		{"REPORT.PDF", true},
 		{"Slides.Pptx", true},

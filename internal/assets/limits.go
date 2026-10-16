@@ -7,6 +7,8 @@ import (
 	"mime"
 	"path/filepath"
 	"strings"
+
+	"github.com/chetto1983/aura/internal/documents"
 )
 
 // Refusal reasons a caller can act on. A channel has to tell "your file is too big"
@@ -25,28 +27,23 @@ type Limits struct {
 	MaxVideoBytes    int64
 }
 
-// documentExts is the asset-upload allowlist for the ModalityDocument path. It MUST
-// stay in sync with the text-document subset of documents.supportedDocumentExt (the
-// ingest allowlist) — image formats live on the ModalityImage path, so they are
-// intentionally excluded here. Drift between the two lists silently 400s uploads of
-// formats the ingest pipeline supports (the pptx/html regression). limits_sync_test.go
-// asserts they match.
-var documentExts = map[string]bool{
-	".pdf":      true,
-	".docx":     true,
-	".pptx":     true,
-	".xlsx":     true,
-	".xlsm":     true,
-	".html":     true,
-	".htm":      true,
-	".csv":      true,
-	".md":       true,
-	".markdown": true,
-	".txt":      true,
-	".json":     true,
-	".xml":      true,
-	".epub":     true,
-}
+// imageExts are the ingest-allowlist formats that ride the ModalityImage path (vision/OCR)
+// rather than the document path; InferModality reads documentExts first, so they stay out of it.
+var imageExts = map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true}
+
+// documentExts is the asset-upload allowlist for the ModalityDocument path: the ingest's
+// allowlist less the images. It is derived rather than kept by hand, because a hand-kept
+// copy drifted once and silently 400'd uploads of formats the ingest supported (the
+// pptx/html regression).
+var documentExts = func() map[string]bool {
+	out := map[string]bool{}
+	for _, ext := range documents.SupportedDocumentExts() {
+		if !imageExts[ext] {
+			out[ext] = true
+		}
+	}
+	return out
+}()
 
 // videoExts is the asset-upload allowlist for the ModalityVideo path: exactly the two
 // formats the watcher this slice feeds is contracted to play back, MP4 and WebM. Unlike
@@ -106,6 +103,8 @@ func (l Limits) Validate(modality Modality, fileName string, size int64) error {
 		if size > l.MaxVideoBytes {
 			return fmt.Errorf("%w: video exceeds %d bytes", ErrAssetTooLarge, l.MaxVideoBytes)
 		}
+	case ModalityUnknown:
+		return fmt.Errorf("%w: Aura does not read %q files", ErrAssetUnsupported, strings.ToLower(filepath.Ext(fileName)))
 	default:
 		return fmt.Errorf("%w: asset modality %q", ErrAssetUnsupported, modality)
 	}

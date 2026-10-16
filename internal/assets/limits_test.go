@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -61,6 +62,42 @@ func TestInferModalityFallsBackToTheExtension(t *testing.T) {
 				t.Fatalf("InferModality(%q, %q) = %v, want %v", tc.fileName, tc.mimeType, got, tc.want)
 			}
 		})
+	}
+}
+
+// The presign's document list is the ingest's, less the images, which ride ModalityImage. A
+// browser labels a .ts file video/mp2t, which is why the extension is checked first.
+func TestTheDocumentListIsTheIngestsLessTheImages(t *testing.T) {
+	limits := Limits{MaxDocumentBytes: 100}
+	for _, tc := range []struct{ fileName, mimeType string }{
+		{"nastro.go", "application/octet-stream"},
+		{"index.ts", "video/mp2t"},
+		{"Motor.scl", ""},
+		{"manual.pdf", "application/pdf"},
+	} {
+		modality := InferModality(tc.fileName, tc.mimeType)
+		if modality != ModalityDocument {
+			t.Errorf("InferModality(%q, %q) = %q, want document", tc.fileName, tc.mimeType, modality)
+		}
+		if err := limits.Validate(modality, tc.fileName, 10); err != nil {
+			t.Errorf("Validate(%q) = %v", tc.fileName, err)
+		}
+	}
+	if got := InferModality("photo.png", ""); got != ModalityImage {
+		t.Errorf("InferModality(png) = %q: the document list swallowed an image", got)
+	}
+	if err := limits.Validate(ModalityDocument, "setup.exe", 10); err == nil {
+		t.Error("Validate(.exe as a document) succeeded")
+	}
+}
+
+// The cockpit hands every file to the presign, so its refusal is what the operator reads on the
+// chip: it names the file type, not an internal modality.
+func TestAFileTypeAuraDoesNotReadIsRefusedByName(t *testing.T) {
+	err := Limits{}.Validate(InferModality("setup.exe", "application/octet-stream"), "setup.exe", 1)
+
+	if !errors.Is(err, ErrAssetUnsupported) || !strings.Contains(err.Error(), `Aura does not read ".exe" files`) {
+		t.Fatalf("refusal = %v", err)
 	}
 }
 

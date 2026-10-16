@@ -1,6 +1,6 @@
 import type { AttachmentAdapter, CompleteAttachment, PendingAttachment } from '@assistant-ui/core';
 import { deleteAsset, finalizeAsset, presignAsset } from './api';
-import type { Asset } from './types';
+import type { Asset, AssetModality } from './types';
 import { inferModality, isReadyAsset, pollUntilReady, putWithProgress } from './upload';
 
 // auraAttachmentAdapter — Aura's four-step upload (presign → PUT → finalize → poll) expressed
@@ -18,10 +18,10 @@ import { inferModality, isReadyAsset, pollUntilReady, putWithProgress } from './
 // 100% — measured live 2026-08-17. assetFor() maps the stable id onto the asset the run
 // envelope needs, which keeps the identity the UI keys on separate from the server's.
 
-/** What the presigner accepts today; the browser file dialog filters on it. Video goes by
- *  extension because the presigner does (assets.videoExts): not every video/* plays. */
-const ACCEPTED_TYPES =
-  'image/*,audio/*,application/pdf,.docx,.pptx,.xlsx,.xlsm,.html,.htm,.csv,.md,.markdown,.txt,.json,.xml,.epub,.mp4,.webm';
+/** Every file reaches the presigner, which owns the allowlist and refuses what Aura cannot
+ *  read with a sentence that names the file type. A list kept here drifted from it: a .go or a
+ *  .tsx the ingest reads was not even selectable. */
+const ACCEPTED_TYPES = '*';
 
 /** The adapter plus the one thing the AttachmentAdapter shape cannot carry: the Aura Asset
  * behind an attachment id. CompleteAttachment has no free-form metadata field, and the
@@ -78,11 +78,12 @@ export function createAuraAttachmentAdapter(
         );
         // Progress 1 marks the bytes as delivered; the chip reads that as "processing",
         // because what follows is the server indexing the document, not more upload.
-        yield pending(file, attachmentId, {
-          type: 'running',
-          reason: 'uploading',
-          progress: latest > 0 && latest < 1 ? latest : 1,
-        });
+        yield pending(
+          file,
+          attachmentId,
+          { type: 'running', reason: 'uploading', progress: latest > 0 && latest < 1 ? latest : 1 },
+          asset.modality,
+        );
 
         const finalized = await finalizeAsset(asset.id);
         asset = await pollUntilReady(finalized, { pollIntervalMs: options.pollIntervalMs });
@@ -98,11 +99,16 @@ export function createAuraAttachmentAdapter(
       if (!isReadyAsset(asset)) {
         // Refused and failed are different words for the operator but the same shape here:
         // the file is not attachable, and the server's reason is the only useful message.
-        yield pending(file, attachmentId, {
-          type: 'incomplete',
-          reason: 'error',
-          message: asset.error_message ?? `attachment ${asset.status}`,
-        });
+        yield pending(
+          file,
+          attachmentId,
+          {
+            type: 'incomplete',
+            reason: 'error',
+            message: asset.error_message ?? `attachment ${asset.status}`,
+          },
+          asset.modality,
+        );
         return;
       }
 
@@ -110,7 +116,12 @@ export function createAuraAttachmentAdapter(
       // 'requires-action / composer-send' is the library's own word for "uploaded, waiting
       // for the turn to be sent" — SimpleImageAttachmentAdapter returns exactly this — and
       // it is what stops a ready attachment from reading as a still-running upload.
-      yield pending(file, attachmentId, { type: 'requires-action', reason: 'composer-send' });
+      yield pending(
+        file,
+        attachmentId,
+        { type: 'requires-action', reason: 'composer-send' },
+        asset.modality,
+      );
     },
 
     // The bytes are already on the server by the time the turn is sent, so this only marks
@@ -137,10 +148,17 @@ export function createAuraAttachmentAdapter(
   };
 }
 
-function pending(file: File, id: string, status: PendingAttachment['status']): PendingAttachment {
+/** The chip's type comes from the server's classification once the presign answered, and
+ *  from the browser's MIME type before that. */
+function pending(
+  file: File,
+  id: string,
+  status: PendingAttachment['status'],
+  modality: AssetModality = inferModality(file),
+): PendingAttachment {
   return {
     id,
-    type: attachmentTypeFor(file),
+    type: attachmentTypeFor(modality),
     name: file.name,
     contentType: file.type || 'application/octet-stream',
     file,
@@ -148,8 +166,7 @@ function pending(file: File, id: string, status: PendingAttachment['status']): P
   };
 }
 
-function attachmentTypeFor(file: File): PendingAttachment['type'] {
-  const modality = inferModality(file);
+function attachmentTypeFor(modality: AssetModality): PendingAttachment['type'] {
   if (modality === 'image') return 'image';
   if (modality === 'document') return 'document';
   return 'file';

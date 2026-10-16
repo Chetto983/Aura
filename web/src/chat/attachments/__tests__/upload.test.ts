@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attachmentPollDelayMs, isReadyAsset, isTerminalAsset } from '../upload';
+import { attachmentPollDelayMs, inferModality, isReadyAsset, isTerminalAsset } from '../upload';
 import type { Asset, AssetStatus } from '../types';
 
 function asset(status: AssetStatus): Asset {
@@ -13,6 +13,20 @@ function asset(status: AssetStatus): Asset {
     size_bytes: 4,
   };
 }
+
+describe('inferModality', () => {
+  // Only what the browser's MIME type says for media is a hint; every other file goes to the
+  // presigner as 'unknown', which classifies it against its own allowlist.
+  it('hints media from the MIME type and leaves the rest to the server', () => {
+    expect(inferModality(new File(['x'], 'foto.jpg', { type: 'image/jpeg' }))).toBe('image');
+    expect(inferModality(new File(['x'], 'nota.mp3', { type: 'audio/mpeg' }))).toBe('audio');
+    expect(inferModality(new File(['x'], 'manuale.pdf', { type: 'application/pdf' }))).toBe(
+      'unknown',
+    );
+    expect(inferModality(new File(['x'], 'nastro.go', { type: '' }))).toBe('unknown');
+    expect(inferModality(new File(['x'], 'index.ts', { type: 'video/mp2t' }))).toBe('unknown');
+  });
+});
 
 describe('isReadyAsset', () => {
   // The old rule waited for 'searchable', which internal/assets/context.go measured as never
