@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/chetto1983/aura/internal/arcadedb"
-	"github.com/chetto1983/aura/internal/config"
 	"github.com/chetto1983/aura/internal/embeddings"
 )
 
@@ -33,38 +32,11 @@ func TestProductionRetrievalRecall(t *testing.T) {
 	defer cancel()
 
 	identity := benchEnv(t, "AURA_BENCH_IDENTITY")
-	raw, err := os.ReadFile(benchEnv(t, "AURA_BENCH_PILOT"))
-	if err != nil {
-		t.Fatalf("read pilot: %v", err)
-	}
-	var pilot benchPilot
-	if err := json.Unmarshal(raw, &pilot); err != nil {
-		t.Fatalf("decode pilot: %v", err)
-	}
-	if pilot.SchemaID != "aura.document-retrieval-eval/v1" || len(pilot.Questions) == 0 {
-		t.Fatalf("pilot contract is missing or empty: schema=%q", pilot.SchemaID)
-	}
-
-	credentials, err := arcadedb.NewTenantCredentials()
-	if err != nil {
-		t.Fatalf("tenant credentials: %v", err)
-	}
-	admin, err := arcadedb.New(arcadedb.Config{
-		BaseURL: benchEnv(t, "AURA_ARCADEDB_URL"), Database: benchEnv(t, "AURA_ARCADEDB_DATABASE"),
-		User: benchEnv(t, "AURA_ARCADEDB_ADMIN_USER"), Password: benchEnv(t, "AURA_ARCADEDB_ADMIN_PASSWORD"),
-	})
-	if err != nil {
-		t.Fatalf("admin client: %v", err)
-	}
-	embedder := arcadedb.NewMemoryEmbedder(config.EmbedConfig{BaseURL: benchEnv(t, "AURA_EMBED_BASE_URL")}, nil)
+	pilot, _ := loadBenchPilot(t)
+	index, embedder := benchDocumentIndex(t)
 	space, err := embedder.Space(ctx)
 	if err != nil {
 		t.Fatalf("embedding space: %v", err)
-	}
-	tenants := arcadedb.NewTenantClients(arcadedb.Config{BaseURL: benchEnv(t, "AURA_ARCADEDB_URL")}, admin, embedder, credentials)
-	index, err := arcadedb.NewDocumentIndex(tenants, arcadedb.DocumentIndexConfig{Dimensions: 768})
-	if err != nil {
-		t.Fatalf("document index: %v", err)
 	}
 
 	cfg := normalizedRetrievalConfig(RetrievalConfig{})

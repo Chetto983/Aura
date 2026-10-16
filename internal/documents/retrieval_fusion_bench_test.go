@@ -81,23 +81,11 @@ func benchEnv(t *testing.T, name string) string {
 	return value
 }
 
-// benchDocName maps a passage's object key back to the benchmark's ground-truth unit.
-// The corpus is uploaded under one prefix, so the document IS the base name.
-func benchDocName(sourceKey string) string { return path.Base(sourceKey) }
-
-func TestFusionBenchmark(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-
-	identity := benchEnv(t, "AURA_BENCH_IDENTITY")
-	baseURL := benchEnv(t, "AURA_ARCADEDB_URL")
-	adminUser := benchEnv(t, "AURA_ARCADEDB_ADMIN_USER")
-	adminPassword := benchEnv(t, "AURA_ARCADEDB_ADMIN_PASSWORD")
-	pilotPath := benchEnv(t, "AURA_BENCH_PILOT")
-	outPath := benchEnv(t, "AURA_BENCH_OUT")
-	embedURL := benchEnv(t, "AURA_EMBED_BASE_URL")
-
-	raw, err := os.ReadFile(pilotPath)
+// loadBenchPilot reads AURA_BENCH_PILOT and refuses a question set that cannot be scored. The
+// raw bytes come back too: a report pins the exact qrels it was scored against by their hash.
+func loadBenchPilot(t *testing.T) (benchPilot, []byte) {
+	t.Helper()
+	raw, err := os.ReadFile(benchEnv(t, "AURA_BENCH_PILOT"))
 	if err != nil {
 		t.Fatalf("read pilot: %v", err)
 	}
@@ -113,7 +101,14 @@ func TestFusionBenchmark(t *testing.T) {
 			t.Fatalf("invalid scored question: %+v", question)
 		}
 	}
+	return pilot, raw
+}
 
+// benchDocumentIndex is the production document index over the live stack, resolving each
+// identity's tenant database the way the daemon does, and the embedder serving its queries.
+func benchDocumentIndex(t *testing.T) (*arcadedb.DocumentIndex, arcadedb.DenseEmbedder) {
+	t.Helper()
+	baseURL := benchEnv(t, "AURA_ARCADEDB_URL")
 	credentials, err := arcadedb.NewTenantCredentials()
 	if err != nil {
 		t.Fatalf("tenant credentials: %v", err)
@@ -122,20 +117,35 @@ func TestFusionBenchmark(t *testing.T) {
 	// endpoints; the tenant resolver overrides it per identity.
 	admin, err := arcadedb.New(arcadedb.Config{
 		BaseURL: baseURL, Database: benchEnv(t, "AURA_ARCADEDB_DATABASE"),
-		User: adminUser, Password: adminPassword,
+		User: benchEnv(t, "AURA_ARCADEDB_ADMIN_USER"), Password: benchEnv(t, "AURA_ARCADEDB_ADMIN_PASSWORD"),
 	})
 	if err != nil {
 		t.Fatalf("admin client: %v", err)
 	}
-	embedder := arcadedb.NewMemoryEmbedder(config.EmbedConfig{BaseURL: embedURL}, nil)
-	space, err := embedder.Space(ctx)
-	if err != nil {
-		t.Fatalf("embedding space: %v", err)
-	}
+	embedder := arcadedb.NewMemoryEmbedder(config.EmbedConfig{BaseURL: benchEnv(t, "AURA_EMBED_BASE_URL")}, nil)
 	tenants := arcadedb.NewTenantClients(arcadedb.Config{BaseURL: baseURL}, admin, embedder, credentials)
 	index, err := arcadedb.NewDocumentIndex(tenants, arcadedb.DocumentIndexConfig{Dimensions: 768})
 	if err != nil {
 		t.Fatalf("document index: %v", err)
+	}
+	return index, embedder
+}
+
+// benchDocName maps a passage's object key back to the benchmark's ground-truth unit.
+// The corpus is uploaded under one prefix, so the document IS the base name.
+func benchDocName(sourceKey string) string { return path.Base(sourceKey) }
+
+func TestFusionBenchmark(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	identity := benchEnv(t, "AURA_BENCH_IDENTITY")
+	outPath := benchEnv(t, "AURA_BENCH_OUT")
+	pilot, raw := loadBenchPilot(t)
+	index, embedder := benchDocumentIndex(t)
+	space, err := embedder.Space(ctx)
+	if err != nil {
+		t.Fatalf("embedding space: %v", err)
 	}
 	cfg := normalizedRetrievalConfig(RetrievalConfig{})
 	strategies := []arcadedb.FusionStrategy{arcadedb.FusionRRF, arcadedb.FusionDBSF, arcadedb.FusionLINEAR}

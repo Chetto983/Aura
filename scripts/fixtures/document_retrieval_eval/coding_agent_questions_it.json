@@ -1,0 +1,182 @@
+{
+ "schema_id": "aura.document-retrieval-eval/v1",
+ "questions": [
+  {
+   "qid": "dense-gate",
+   "query": "Dove decide il retrieval dei documenti se le gambe dense possono girare, e per quanto tempo resta in cache la decisione?",
+   "gold_docs": [
+    "aura/internal/arcadedb/embedding_space.go"
+   ]
+  },
+  {
+   "qid": "tenant-password",
+   "query": "Come viene derivata la password ArcadeDB di ogni tenant dal segreto dei tenant?",
+   "gold_docs": [
+    "aura/internal/arcadedb/tenant.go"
+   ]
+  },
+  {
+   "qid": "secure-version",
+   "query": "Dove rifiuta Aura un server ArcadeDB più vecchio della versione minima sicura?",
+   "gold_docs": [
+    "aura/internal/arcadedb/admin.go",
+    "aura/internal/arcadedb/tenant_clients.go"
+   ]
+  },
+  {
+   "qid": "lucene-escape",
+   "query": "Quale funzione fa l'escape dei caratteri speciali Lucene prima di una query full-text?",
+   "gold_docs": [
+    "aura/internal/arcadedb/memory_vector.go"
+   ]
+  },
+  {
+   "qid": "fused-statement",
+   "query": "Dove viene costruita la query fusa lessicale e vettoriale sui passaggi per la ricerca documenti?",
+   "gold_docs": [
+    "aura/internal/arcadedb/document_retrieval.go"
+   ]
+  },
+  {
+   "qid": "relevance-floors",
+   "query": "Dove sono definite le soglie di rilevanza del retrieval denso dei documenti, e cosa succede con uno spazio di embedding non calibrato?",
+   "gold_docs": [
+    "aura/internal/arcadedb/relevance_floors.go"
+   ]
+  },
+  {
+   "qid": "extractable",
+   "query": "Come decide il sidecar di ingest se un file ha del testo da estrarre?",
+   "gold_docs": [
+    "aura/services/ingest/extract.py"
+   ]
+  },
+  {
+   "qid": "no-vision-route",
+   "query": "Cosa succede a un'immagine nel bucket quando nessuna route di modello configurata sa leggere le immagini?",
+   "gold_docs": [
+    "aura/services/ingest/media.py",
+    "aura/cmd/aura-media-index/main.go"
+   ]
+  },
+  {
+   "qid": "chunk-ceiling",
+   "query": "Qual è la dimensione massima di un chunk in token per l'embedding, e perché viene imposta?",
+   "gold_docs": [
+    "aura/services/ingest/chunk.py"
+   ]
+  },
+  {
+   "qid": "embed-env",
+   "query": "Dove calcola il supervisor dell'ingest l'ambiente di embedding che passa al processo figlio?",
+   "gold_docs": [
+    "aura/cmd/aura-ingest-supervisor/main.go",
+    "aura/internal/ingestsupervisor/route.go",
+    "aura/internal/ingestsupervisor/supervisor.go"
+   ]
+  },
+  {
+   "qid": "error-control-plane",
+   "query": "Da dove viene l'errore 'retrieval control plane has no document index'?",
+   "gold_docs": [
+    "aura/internal/documents/retrieval_cards.go"
+   ]
+  },
+  {
+   "qid": "keylock",
+   "query": "C'è un helper che serializza il lavoro per chiave con un insieme fisso di mutex?",
+   "gold_docs": [
+    "aura/internal/keylock/keylock.go"
+   ]
+  },
+  {
+   "qid": "log-redaction",
+   "query": "Come rendiamo sicura una stringa non fidata da mettere in una singola riga di log?",
+   "gold_docs": [
+    "aura/internal/redact/line.go"
+   ]
+  },
+  {
+   "qid": "host-update-request",
+   "query": "Come arriva all'updater dell'host la decisione di aggiornamento di un admin, e come viene validata la richiesta?",
+   "gold_docs": [
+    "aura/internal/hostupdate/request.go"
+   ]
+  },
+  {
+   "qid": "document-open",
+   "query": "Come fa document_open a restituire i byte originali di un documento indicizzato dal bucket?",
+   "gold_docs": [
+    "aura/internal/documents/open.go",
+    "aura/internal/agent/tools/document_open.go"
+   ]
+  },
+  {
+   "qid": "degradation-log",
+   "query": "Dov'è il warning con rate limit che dice perché una gamba del retrieval è andata persa?",
+   "gold_docs": [
+    "aura/internal/documents/retrieval_degradation.go"
+   ]
+  },
+  {
+   "qid": "abstention",
+   "query": "Quando la ricerca documenti si astiene invece di restituire documenti?",
+   "gold_docs": [
+    "aura/internal/documents/retrieval.go"
+   ]
+  },
+  {
+   "qid": "tool-search-rank",
+   "query": "Come fa tool_search a risolvere e ordinare i tool differiti?",
+   "gold_docs": [
+    "aura/internal/agent/tools/search.go",
+    "aura/internal/agent/tools/search_keywords.go"
+   ]
+  },
+  {
+   "qid": "tool-promotion",
+   "query": "Come diventa invocabile un tool differito dopo che tool_search ne carica la spec?",
+   "gold_docs": [
+    "aura/internal/agent/llm_agent_promote.go"
+   ]
+  },
+  {
+   "qid": "telegram-docwait",
+   "query": "Come aspetta il bot Telegram che un documento caricato sia indicizzato prima di far partire il turno?",
+   "gold_docs": [
+    "aura/internal/channels/telegram/bot_dispatch_docwait.go"
+   ]
+  },
+  {
+   "qid": "mcp-auth-panel",
+   "query": "Quale componente del cockpit mostra il pannello di autorizzazione dei server MCP?",
+   "gold_docs": [
+    "aura/web/src/governance/McpAuthorizationPanel.tsx"
+   ]
+  },
+  {
+   "qid": "publish-images",
+   "query": "Quale script pubblica le immagini dei container sul registry, e in che ordine?",
+   "gold_docs": [
+    "aura/scripts/publish_images.sh"
+   ]
+  },
+  {
+   "qid": "coverage-policy",
+   "query": "Come applica il coverage gate le soglie per package e le baseline di non regressione?",
+   "gold_docs": [
+    "aura/scripts/coverage_package_gate.py",
+    "aura/scripts/coverage_package_policy.json",
+    "aura/scripts/coverage_gate.sh"
+   ]
+  },
+  {
+   "qid": "embed-space-stamp",
+   "query": "Dove marca l'ingest lo spazio di embedding su ogni passaggio che scrive?",
+   "gold_docs": [
+    "aura/services/ingest/app.py",
+    "aura/services/ingest/embed.py"
+   ]
+  }
+ ]
+}
