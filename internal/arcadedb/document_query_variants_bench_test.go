@@ -160,15 +160,29 @@ func fusedQueryVariants(t *testing.T, where string, limit int) []queryVariant {
 	withFilter := func(replacement string) string { return strings.Replace(shipped, filter, replacement, 1) }
 	postFiltered := strings.Replace(withFilter("{ maxDistance: :max_distance }"), floor,
 		floor+" AND embed_space = :space", 1)
+	// ArcadeDB's maintainers proposed three edits on 2026-10-16: drop the dense filter, keep the
+	// full-text leg's best :fetch rows, and rerank the fusion's top :candidates (the variant above
+	// of that name). SEARCH_INDEX returns matches by descending $score (manual, full-text index,
+	// "Result Order, LIMIT and Cancellation"), so the LIMIT keeps the leg's best rows.
+	noFilter := withFilter("{ maxDistance: :max_distance }")
+	textLimit := func(statement string) string {
+		return strings.Replace(statement, lexicalLeg, strings.TrimSuffix(lexicalLeg, ")")+" LIMIT :fetch)", 1)
+	}
+	rerankTop := func(statement string) string {
+		return strings.Replace(statement, groupOptions, "groupSize: "+strconv.Itoa(fusedGroupSize)+", limit: :candidates }", 1)
+	}
 	return []queryVariant{
 		{name: "shipped", statement: shipped},
+		{name: "no filter", statement: noFilter},
+		{name: "full-text LIMIT :fetch", statement: textLimit(shipped)},
+		{name: "no filter, rerank top 80", statement: rerankTop(noFilter)},
+		{name: "maintainers' three edits", statement: rerankTop(textLimit(noFilter))},
 		{name: "lexical: stopwords out", statement: shipped, bind: stopwordsOut},
 		{name: "lexical: memory's shape", bind: memoryShaped, statement: strings.Replace(shipped, lexicalLeg,
 			"SEARCH_INDEX('"+documentPassageType+"[text]', :query) = true AND $score >= :min_lexical_score AND "+
 				where+" LIMIT :candidates)", 1)},
 		{name: "fusion order, cosine floor", statement: fusionOrder},
-		{name: "rerank the fusion's top 80", statement: strings.Replace(shipped, groupOptions,
-			"groupSize: "+strconv.Itoa(fusedGroupSize)+", limit: :candidates }", 1)},
+		{name: "rerank the fusion's top 80", statement: rerankTop(shipped)},
 		{name: "post-filter", statement: postFiltered},
 		{name: "filter from the index", statement: withFilter("{ filter: (SELECT rid FROM INDEX:`" +
 			documentPassageType + "[embed_space]` WHERE key = :space).rid, maxDistance: :max_distance }")},
