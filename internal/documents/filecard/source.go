@@ -159,8 +159,9 @@ func isSourceExtension(ext string) bool {
 
 // describeSource names a source file and claims nothing about its contents: the ingest reads
 // it as passages, and an outline of it has not been measured. A NUL byte outside a UTF-16 BOM
-// marks a binary under a source name, the same rule services/ingest/extract.py applies, and
-// that file gets the unread card any unknown file gets.
+// marks a binary under a source name, as it does in services/ingest/extract.py, and that file
+// gets the unread card any unknown file gets. extract.py also reads no text from bytes that
+// neither UTF-8 nor cp1252 decodes; such a file still gets a source card here.
 func describeSource(req Request, card Card) (Card, error) {
 	binary, err := holdsBinary(req)
 	if err != nil {

@@ -1,4 +1,5 @@
-// aura-filecard renders one file's card on stdout.
+// aura-filecard renders one file's card on stdout, or with -source-extensions the list of
+// extensions filecard cards as source files.
 //
 // It exists so the ingest sidecar can build cards WITHOUT a second implementation of
 // filecard. The card is what makes a spreadsheet answerable: measured on a 500-row,

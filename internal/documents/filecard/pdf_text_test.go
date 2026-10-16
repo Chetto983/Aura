@@ -128,6 +128,9 @@ func TestFileNameTitleIsNotATitle(t *testing.T) {
 		{"relazione.docx", true},
 		{"SINAMICS G220 converter", false},
 		{"art. 3", false},
+		// Source extensions are one or two letters often enough to end a real title.
+		{"W100 Datasheet Rev.C", false},
+		{"Tesi di Ph.D", false},
 		{"", false},
 	} {
 		if got := titleIsFileName(tc.title); got != tc.want {

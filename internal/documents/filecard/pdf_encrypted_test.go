@@ -28,6 +28,15 @@ func TestAnEncryptedPDFsInfoStringsAreNotRead(t *testing.T) {
 	}
 }
 
+func TestEncryptMetadataAloneIsNotEncryption(t *testing.T) {
+	if pdfEncrypted([]byte("<</Type/Metadata/EncryptMetadata false>>"), nil) {
+		t.Error("/EncryptMetadata alone read as an /Encrypt entry")
+	}
+	if !pdfEncrypted(nil, []byte(encryptedPDFTrailer)) {
+		t.Error("the trailer's /Encrypt entry was missed")
+	}
+}
+
 func TestAnEncryptedPDFStillTakesItsPlaintextXMP(t *testing.T) {
 	// /EncryptMetadata false leaves the XMP packet readable, and then it is the truth.
 	path := writeFile(t, "scheda.pdf", "%PDF-1.4\n"+

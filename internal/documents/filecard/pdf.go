@@ -134,10 +134,12 @@ func pdfReadCaveat(pages int, exact bool) string {
 // name — the reference corpus' Costituzione.pdf states "Costituzione VIGENTE
 // DEF.pdf", which displaces the title its own first page carries. Card.Title
 // must be a DESCRIPTION the file holds; the name is indexed on its own already,
-// so a name here is noise standing in the way of the real thing.
+// so a name here is noise standing in the way of the real thing. Only a document
+// extension counts: source extensions are one or two letters often enough to end
+// a real title, "W100 Datasheet Rev.C" or "Tesi di Ph.D".
 func titleIsFileName(title string) bool {
 	kind, _ := handlerFor(strings.ToLower(filepath.Ext(strings.TrimSpace(title))))
-	return kind != KindFile
+	return kind != KindFile && kind != KindSource
 }
 
 func readTail(file *os.File, size int64, want int64) []byte {
@@ -163,9 +165,11 @@ func readTail(file *os.File, size int64, want int64) []byte {
 // of (2026-10-16). Its XMP packet is plaintext under /EncryptMetadata false and
 // unparseable otherwise, so XMP is still worth a look.
 func pdfMetadata(head, tail []byte, infoKey, xmpKey string, encrypted bool) string {
-	for _, buffer := range [][]byte{head, tail} {
-		if value := pdfInfoValue(buffer, infoKey); value != "" && !encrypted {
-			return value
+	if !encrypted {
+		for _, buffer := range [][]byte{head, tail} {
+			if value := pdfInfoValue(buffer, infoKey); value != "" {
+				return value
+			}
 		}
 	}
 	for _, buffer := range [][]byte{head, tail} {
@@ -176,7 +180,10 @@ func pdfMetadata(head, tail []byte, infoKey, xmpKey string, encrypted bool) stri
 	return ""
 }
 
-// pdfEncrypted reports a trailer, or an xref stream's dictionary, naming an /Encrypt entry.
+// pdfEncrypted reports an /Encrypt key anywhere in the bytes read. In a well-formed file
+// that is the trailer or an xref stream's dictionary, but any uncompressed occurrence
+// counts, and an encryption dictionary beyond the bytes read is missed. Either mistake
+// only moves the title between the Info string and the first text block.
 func pdfEncrypted(head, tail []byte) bool {
 	marker := []byte("/Encrypt")
 	for _, buffer := range [][]byte{head, tail} {
