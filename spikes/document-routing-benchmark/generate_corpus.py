@@ -94,7 +94,11 @@ def save_workbook(wb, filename):
     wb.properties.modified = FIXED_DOCUMENT_TIME
     target = os.path.join(OUT, filename)
     wb.save(target)
+    normalize_xlsx(target)
 
+
+def normalize_xlsx(target):
+    """Rewrite an XLSX with fixed ZIP timestamps and a fixed modification date."""
     normalized = target + ".normalized"
     with zipfile.ZipFile(target, "r") as source, zipfile.ZipFile(
         normalized, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
