@@ -12,7 +12,11 @@ query's variants and the production retriever with gold, and add complex PDFs an
 - **The query variants change nothing measurable on these sets.** Every variant, the maintainers'
   three edits included, gives answers identical to the shipped statement on all 54 office and
   complex questions. These sets hold too few passages to tell the variants apart.
-- **The code sets are not measured yet.** Their ingest needs about ten hours on this CPU.
+- **Ranking a document that carries the question's identifiers first recovers both lost exact
+  matches** with nothing lost: complex r@1 0.735 → 0.794, MRR 0.848 → 0.882, office unchanged.
+  It shipped on the branch in b0c264a.
+- **The code sets could not be measured here.** Their ingest failed on embedding timeouts, so
+  they gate the merge.
 
 ## Setup
 
@@ -75,6 +79,33 @@ By category on the complex set, the count of questions answered first:
 This is the same lever the coding-question run of the same day named: the final `vector.rerank`
 orders by cosine alone, so a lexical first place does not survive it.
 
+## Identifiers first
+
+The engine offers no fix for this. `vector.rerank` takes no options in 26.10.1, and ordering by
+the fusion's own score was rejected the same day. Memory recall already decides the question
+with its identifier rule, so document ranking reuses it. A token with a letter and a digit or an
+underscore is an identifier (`arcadedb.QueryIdentifiers`). A document whose title, card or
+returned passages carry every identifier of the question ranks ahead of one that does not, the
+score deciding within each group. It runs before the reserved place and the limit.
+
+It was first measured as a ranking-rule arm of `TestCodingAgentQuestions`, then shipped in
+`rankDocuments` (b0c264a) and measured again end to end. The bench's check that its
+re-derivation equals production held on both sets.
+
+| Set | Arm | r@1 | r@3 | r@8 | MRR |
+|---|---|---|---|---|---|
+| complex | identifiers ignored (before) | 0.735 | 0.971 | 0.971 | 0.848 |
+| complex | production (b0c264a) | 0.794 | 0.971 | 0.971 | 0.882 |
+| office | both | 0.500 | 0.850 | 0.950 | 0.692 |
+
+- **What it recovers.** `report-complaint` (`RC-2026-040`) moves 3 → 1 and `audit-nc` (`NC-03`)
+  2 → 1. No other question moved in either set.
+- **What it cannot recover.** A store's part number lives only in a workbook's rows, which are in
+  no card and no passage: `parts-location` and `parts-supplier` stay second. The remaining
+  first-place losses are all workbook questions, which are the card leg's lever, not the rerank's.
+- **Office does not move** because its codes are not identifiers by that rule. "fattura numero
+  011" and "fattura 2026_007" have digits but no letter.
+
 **The ranking-rule arms** move nothing on the complex set except memory's quota, which loses
 r@1, from 0.735 to 0.647. Two or three reserved places lift office r@3 from 0.850 to 0.950.
 
@@ -106,13 +137,18 @@ a measurement of the variants: the 7,798-passage run of the same day is.
   that differ from `corpus.sha256`, before and after this session's refactor alike. The
   generator's output is stable between runs, so the drift comes from the environment, most likely
   the openpyxl version.
-- **The code ingest is CPU-bound on embedding:** about 28 inputs a minute. A real ingest chunk
-  is about 2,000 tokens, against the 1,000 characters of the earlier synthetic load.
+- **The code ingest failed on this host.** Embedding ran at about 28 inputs a minute on the CPU,
+  a real chunk being about 2,000 tokens. CocoIndex sends batches concurrently to an embedder with
+  one slot, and 5,918 requests waited past the ingest's 120 s timeout. The audit then reported 20
+  of 6,001 objects indexed. Pausing the container twice for measurements made the queue worse.
+  The workstation's GPU index (`cb-arcade`) is where those sets run.
 
 ## What this does not prove
 
 - **The code sets are missing.** The 24 English, 24 Italian and 6 find-by-name questions over
-  Aura's sources were not run: their ingest was still embedding when this was written.
+  Aura's sources were not run, because their ingest failed here. Several of those questions name
+  identifiers with an underscore, such as environment variables, so the rule acts on them. They
+  gate the merge.
 - **One author wrote the corpus and its questions,** and knew the documents. The gold is
   objective, but the wording leans toward the documents' own words, which favours full-text.
 - **Small sets.** One question moves r@1 by 0.029 on the complex set and 0.050 on office.
