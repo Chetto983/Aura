@@ -1,0 +1,47 @@
+{
+ "schema_id": "aura.document-retrieval-eval/v1",
+ "questions": [
+  {
+   "qid": "name-rank-go",
+   "query": "open retrieval_rank.go",
+   "gold_docs": [
+    "aura/internal/documents/retrieval_rank.go"
+   ]
+  },
+  {
+   "qid": "name-publish",
+   "query": "show me the publish_images.sh script",
+   "gold_docs": [
+    "aura/scripts/publish_images.sh"
+   ]
+  },
+  {
+   "qid": "name-panel",
+   "query": "the McpAuthorizationPanel component",
+   "gold_docs": [
+    "aura/web/src/governance/McpAuthorizationPanel.tsx"
+   ]
+  },
+  {
+   "qid": "name-extensions-py",
+   "query": "source_extensions.py in the ingest service",
+   "gold_docs": [
+    "aura/services/ingest/source_extensions.py"
+   ]
+  },
+  {
+   "qid": "name-keylock",
+   "query": "keylock.go",
+   "gold_docs": [
+    "aura/internal/keylock/keylock.go"
+   ]
+  },
+  {
+   "qid": "name-compose",
+   "query": "the compose.yaml file",
+   "gold_docs": [
+    "aura/compose.yaml"
+   ]
+  }
+ ]
+}

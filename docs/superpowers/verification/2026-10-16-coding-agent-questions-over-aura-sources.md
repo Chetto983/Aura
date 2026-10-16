@@ -144,6 +144,72 @@ Each answer below was verified against the code afterwards.
 | How does the updater restart edge after aura? | 6: `deploy/aura-image-update.sh` | yes, its line 49 |
 | Which env var sets the retrieval candidates? | 5: `internal/config/config_document_retrieval.go` | yes: `AURA_DOCUMENT_RETRIEVAL_CANDIDATES`, 200 |
 
+## Ranking levers, measured the same day on the same index
+
+**Two levels.** The passage order was measured with `TestFusedQueryVariants` in
+`internal/arcadedb`: each variant is the shipped statement with one clause replaced, scored on 20
+passages, one per file. The document order was measured with `TestCodingAgentQuestions`'
+ranking-rule arms.
+- Those arms re-order the production retriever's whole ranking from the evidence each document
+  carries.
+- The empty rule must reproduce production. It did on every question of every set.
+
+### Passage order
+
+| Variant | EN r@1 | EN r@10 | EN MRR | IT r@1 | IT r@10 | IT MRR | Same answers EN/IT |
+|---|---|---|---|---|---|---|---|
+| shipped | 0.458 | 0.875 | 0.583 | 0.417 | 0.750 | 0.500 | 24/24 |
+| full-text: stopwords out | 0.458 | 0.875 | 0.588 | 0.417 | 0.750 | 0.510 | 10 / 5 |
+| full-text as memory recall's (stopwords out, BM25 floor 2, top 80) | 0.458 | 0.917 | 0.591 | 0.375 | 0.750 | 0.471 | 6 / 7 |
+| fusion order, cosine floor | 0.333 | 0.917 | 0.547 | 0.000 | 0.583 | 0.124 | 0 / 0 |
+| rerank only the fusion's top 80 | 0.458 | 0.875 | 0.583 | 0.417 | 0.750 | 0.501 | 24 / 23 |
+
+**The filter variants,** which only change how the dense candidates are filtered:
+- these all gave identical answers in both languages:
+  - the filter applied after the rerank;
+  - the filter read from the index;
+  - the filter as one list;
+- with fetch 100, the answers changed on 3 English and 2 Italian questions.
+
+**Ordering by the fusion is rejected.** It loses the first place in English and collapses in
+Italian. Memory recall measured the same on 2026-09-02 (`memory_vector.go`): the full-text leg
+belongs in the candidate pool, not in the order.
+
+**The full-text variants move MRR by less than one question** in each direction. They are not a
+result.
+
+### Document order
+
+Four question sets:
+- the 24 coding questions in English and in Italian;
+- six find-by-name questions over the same sources
+  (`scripts/fixtures/document_retrieval_eval/coding_agent_questions_names.json`);
+- the office fixture's 20 Italian questions (`qrels.json`) over its 22 files, ingested as a
+  second identity. Its scanned PDF was left out, because it would reach the vision route.
+
+| Rule | EN r@8 / MRR | IT r@8 / MRR | names r@8 / MRR | office r@8 / MRR |
+|---|---|---|---|---|
+| production | 0.792 / 0.533 | 0.625 / 0.434 | 1.000 / 0.667 | 0.800 / 0.650 |
+| B: the lane only for a file with no passage at all | 0.792 / 0.552 | 0.625 / 0.453 | 1.000 / 0.750 | 0.800 / 0.650 |
+| C: B, and a card scores only such a file | 0.875 / 0.569 | 0.708 / 0.485 | 0.833 / 0.521 | 0.800 / 0.650 |
+| D: memory's quota, cards at places 2 and 4 | 0.833 / 0.555 | 0.625 / 0.470 | 1.000 / 0.667 | 0.800 / 0.625 |
+
+**B** is `reserveCardLane` doing what its own comment says it is for: a spreadsheet, a file with no
+passages by design. Today it gives the place to any document this query found no passage of, so a
+file matched only by its name is promoted to second.
+- Over the 74 questions B moved 14 golds higher and none lower.
+
+**C** improves the topical questions in both languages, but it loses find-by-name lookups:
+- `compose.yaml` drops from first to out of the 8;
+- `retrieval_rank.go` drops from third to eighth.
+
+A file with text is then found only by its passages, and a passage does not carry its own file
+name.
+
+**D** applies memory recall's lesson (`memory_recall_quota.go`): two record types embedded apart
+have no common cosine scale, so each gets its own places. It sits between B and C on the code, and
+costs one first place on the office set.
+
 ## What this does not prove
 
 - **One corpus, and an unusual one.** Its documents describe its own code, and plans often quote
@@ -157,3 +223,7 @@ Each answer below was verified against the code afterwards.
 - **Latency is not a measurement here.** The median was 642 ms, on a workstation running other
   work.
 - **The cockpit upload path was not exercised.** The extension gate above is read from the code.
+- **The ranking rules were measured on small, local sets.** The office fixture has 20 questions.
+  The live 118-document corpus behind `reserveCardLane`'s original measurement
+  (`docs/document-retrieval-order-pilot.json`, on the lab VM) was not re-run. The find-by-name
+  questions are six, written by the same agent.

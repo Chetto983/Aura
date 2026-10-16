@@ -65,7 +65,7 @@ func TestDenseFilterCost(t *testing.T) {
 
 	var allShipped, allUnfiltered, allSubquery []float64
 	changed := 0
-	t.Logf("%-28s %10s %10s %10s  same answers", "question", "shipped", "no filter", "subquery")
+	t.Logf("%-28s %10s %10s %10s %8s  same answers", "question", "shipped", "no filter", "subquery", "results")
 	for _, q := range questions {
 		vectors, err := embedder.Embed(ctx, embeddings.RetrievalQueries([]string{q.Query}))
 		if err != nil || len(vectors) != 1 {
@@ -73,16 +73,18 @@ func TestDenseFilterCost(t *testing.T) {
 		}
 		run := map[string]any{"embedding": vectors[0], "query": escapeLucene(q.Query)}
 		maps.Copy(run, params)
-		shippedMS, shippedKeys := timeStatement(ctx, t, client, shipped, run)
-		unfilteredMS, unfilteredKeys := timeStatement(ctx, t, client, unfiltered, run)
+		shippedMS, shippedRows := timeStatement(ctx, t, client, shipped, run)
+		unfilteredMS, unfilteredRows := timeStatement(ctx, t, client, unfiltered, run)
 		subqueryMS, _ := timeStatement(ctx, t, client, subquery, run)
-		same := slices.Equal(shippedKeys, unfilteredKeys)
+		shippedKeys := columnValues(shippedRows, "passage_key")
+		same := slices.Equal(shippedKeys, columnValues(unfilteredRows, "passage_key"))
 		if !same {
 			changed++
 		}
 		allShipped, allUnfiltered, allSubquery = append(allShipped, shippedMS),
 			append(allUnfiltered, unfilteredMS), append(allSubquery, subqueryMS)
-		t.Logf("%-28s %8.1fms %8.1fms %8.1fms  %v", q.QID, shippedMS, unfilteredMS, subqueryMS, same)
+		// Two empty answers are equal too, so the count says whether "same" compared anything.
+		t.Logf("%-28s %8.1fms %8.1fms %8.1fms %8d  %v", q.QID, shippedMS, unfilteredMS, subqueryMS, len(shippedKeys), same)
 	}
 	t.Logf("median over %d questions (each the median of %d runs): shipped %.1fms, no filter %.1fms, "+
 		"filter subquery %.1fms; answers changed on %d", len(questions), filterBenchReps,
@@ -90,8 +92,8 @@ func TestDenseFilterCost(t *testing.T) {
 }
 
 // timeStatement runs statement once to warm it, then filterBenchReps times, and returns the
-// median latency and the passage keys of the last run, in order.
-func timeStatement(ctx context.Context, t *testing.T, client *Client, statement string, params map[string]any) (float64, []string) {
+// median latency and the rows of the last run, in order.
+func timeStatement(ctx context.Context, t *testing.T, client *Client, statement string, params map[string]any) (float64, []map[string]any) {
 	t.Helper()
 	var rows []map[string]any
 	var err error
@@ -105,13 +107,18 @@ func timeStatement(ctx context.Context, t *testing.T, client *Client, statement 
 			samples = append(samples, float64(time.Since(start).Microseconds())/1000)
 		}
 	}
-	keys := make([]string, 0, len(rows))
+	return median(samples), rows
+}
+
+// columnValues is one string column of rows, in their order.
+func columnValues(rows []map[string]any, column string) []string {
+	values := make([]string, 0, len(rows))
 	for _, row := range rows {
-		if key, ok := row["passage_key"].(string); ok {
-			keys = append(keys, key)
+		if value, ok := row[column].(string); ok {
+			values = append(values, value)
 		}
 	}
-	return median(samples), keys
+	return values
 }
 
 func median(values []float64) float64 {
@@ -124,8 +131,9 @@ func median(values []float64) float64 {
 }
 
 type filterBenchQuestion struct {
-	QID   string `json:"qid"`
-	Query string `json:"query"`
+	QID      string   `json:"qid"`
+	Query    string   `json:"query"`
+	GoldDocs []string `json:"gold_docs"`
 }
 
 func filterBenchQuestions(t *testing.T, file string) []filterBenchQuestion {
