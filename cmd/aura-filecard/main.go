@@ -18,24 +18,29 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/chetto1983/aura/internal/documents/filecard"
 )
 
 func main() {
-	name := flag.String("name", "", "file name to describe the document as (defaults to the path's base name)")
-	asJSON := flag.Bool("json", false, "emit {\"card\":...} instead of the rendered text")
-	flag.Parse()
-	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: aura-filecard [-name NAME] [-json] PATH")
-		os.Exit(2)
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func run(args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("aura-filecard", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	name := flags.String("name", "", "file name to describe the document as (defaults to the path's base name)")
+	asJSON := flags.Bool("json", false, "emit {\"card\":...,\"description\":...} instead of the rendered text")
+	if err := flags.Parse(args); err != nil || flags.NArg() != 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: aura-filecard [-name NAME] [-json] PATH")
+		return 2
 	}
-	path := flag.Arg(0)
+	path := flags.Arg(0)
 	info, err := os.Stat(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "aura-filecard: %v\n", err)
-		os.Exit(1)
+		return failed(stderr, err)
 	}
 	fileName := *name
 	if fileName == "" {
@@ -50,15 +55,23 @@ func main() {
 		Path: path, FileName: fileName, SizeBytes: info.Size(),
 	})
 	if buildErr != nil {
-		fmt.Fprintf(os.Stderr, "aura-filecard: %s: %v\n", fileName, buildErr)
+		_, _ = fmt.Fprintf(stderr, "aura-filecard: %s: %v\n", fileName, buildErr)
 	}
-	rendered := card.Render()
 	if *asJSON {
-		if err := json.NewEncoder(os.Stdout).Encode(map[string]string{"card": rendered}); err != nil {
-			fmt.Fprintf(os.Stderr, "aura-filecard: %v\n", err)
-			os.Exit(1)
-		}
-		return
+		// The ingest stores the card and embeds the description (prd.md §11, 2026-10-16).
+		err = json.NewEncoder(stdout).Encode(map[string]string{
+			"card": card.Render(), "description": card.Description(),
+		})
+	} else {
+		_, err = fmt.Fprint(stdout, card.Render())
 	}
-	fmt.Print(rendered)
+	if err != nil {
+		return failed(stderr, err)
+	}
+	return 0
+}
+
+func failed(stderr io.Writer, err error) int {
+	_, _ = fmt.Fprintf(stderr, "aura-filecard: %v\n", err)
+	return 1
 }

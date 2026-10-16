@@ -133,7 +133,33 @@ const cardTrailer = "Written by Aura at ingest from the file itself: it describe
 // whole budget is how the card overran it.
 const cardCutNotice = "The description was cut to fit; the file holds more than this."
 
-// Render turns a card into the text the digest index holds.
+// Render turns a card into the text the digest index holds and the agent reads.
+func (c Card) Render() string {
+	described, caveats, truncated := c.layout()
+	var b strings.Builder
+	for _, line := range append(described, caveats...) {
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	if truncated {
+		b.WriteString(cardCutNotice)
+		b.WriteByte('\n')
+	}
+	b.WriteString(cardTrailer)
+	return b.String()
+}
+
+// Description is the card without what it says about Aura: no caveat, no cut notice, no
+// trailer. A card's vector is computed from it. Measured 2026-10-16 on five question sets
+// (prd.md §11), those sentences made every card look a little like every question about
+// documents, and embedding the description instead raised recall@8 in all five.
+func (c Card) Description() string {
+	described, _, _ := c.layout()
+	return strings.Join(described, "\n")
+}
+
+// layout chooses the lines a card shows, split into those describing the file and the
+// caveats, so Render and Description can never disagree about which lines fit.
 //
 // The budget is divided BETWEEN sheets rather than spent in file order. A
 // workbook with seven sheets otherwise spends the whole card on the first two
@@ -141,7 +167,7 @@ const cardCutNotice = "The description was cut to fit; the file holds more than 
 // to end: a file the index cannot describe is a file the index cannot find.
 // Within a sheet the order is column names, then column narrations, then sampled
 // rows, so a tight allowance loses examples before it loses structure.
-func (c Card) Render() string {
+func (c Card) layout() (described, caveats []string, truncated bool) {
 	budget := MaxCardChars - len(cardTrailer) - len(cardCutNotice) - 2
 	head := c.headLines()
 	tail := append(append([]string(nil), c.Text...), c.Caveats...)
@@ -149,7 +175,8 @@ func (c Card) Render() string {
 	head, headSpent, headCut := takeLines(head, budget)
 	tail, tailSpent, tailCut := takeLines(tail, budget-headSpent)
 	room := budget - headSpent - tailSpent
-	truncated := headCut || tailCut
+	truncated = headCut || tailCut
+	text := tail[:min(len(tail), len(c.Text))]
 
 	var sheets []string
 	for i, sheet := range c.Sheets {
@@ -163,18 +190,7 @@ func (c Card) Render() string {
 		room -= spent
 		truncated = truncated || cut
 	}
-
-	var b strings.Builder
-	for _, line := range append(append(head, sheets...), tail...) {
-		b.WriteString(line)
-		b.WriteByte('\n')
-	}
-	if truncated {
-		b.WriteString(cardCutNotice)
-		b.WriteByte('\n')
-	}
-	b.WriteString(cardTrailer)
-	return b.String()
+	return append(append(head, sheets...), text...), tail[len(text):], truncated
 }
 
 // takeLines keeps as many leading lines as fit in budget, reporting the bytes
