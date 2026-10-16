@@ -101,6 +101,17 @@ func TestAFileTypeAuraDoesNotReadIsRefusedByName(t *testing.T) {
 	}
 }
 
+// A Makefile or a LICENSE has no extension to name, so the refusal names the file instead of
+// saying Aura does not read "" files.
+func TestAFileWithoutAnExtensionIsRefusedByItsName(t *testing.T) {
+	err := Limits{}.Validate(InferModality("Makefile", "application/octet-stream"), "Makefile", 1)
+
+	if !errors.Is(err, ErrAssetUnsupported) ||
+		!strings.Contains(err.Error(), `Aura does not read "Makefile": it has no file extension`) {
+		t.Fatalf("refusal = %v", err)
+	}
+}
+
 // A negative size is refused before any per-modality rule runs, because each of those
 // compares against a maximum and a negative number passes all of them.
 func TestValidateRefusesANegativeSizeForEveryModality(t *testing.T) {

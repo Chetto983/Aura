@@ -104,7 +104,11 @@ func (l Limits) Validate(modality Modality, fileName string, size int64) error {
 			return fmt.Errorf("%w: video exceeds %d bytes", ErrAssetTooLarge, l.MaxVideoBytes)
 		}
 	case ModalityUnknown:
-		return fmt.Errorf("%w: Aura does not read %q files", ErrAssetUnsupported, strings.ToLower(filepath.Ext(fileName)))
+		ext := strings.ToLower(filepath.Ext(fileName))
+		if ext == "" {
+			return fmt.Errorf("%w: Aura does not read %q: it has no file extension", ErrAssetUnsupported, fileName)
+		}
+		return fmt.Errorf("%w: Aura does not read %q files", ErrAssetUnsupported, ext)
 	default:
 		return fmt.Errorf("%w: asset modality %q", ErrAssetUnsupported, modality)
 	}
