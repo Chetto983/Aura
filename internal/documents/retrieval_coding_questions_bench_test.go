@@ -49,6 +49,10 @@ type rankingRule struct {
 	// cardsOnlyForFilesWithoutPassages lets a card score only a file that has no passages, so a
 	// file with text ranks by its text and not by its name.
 	cardsOnlyForFilesWithoutPassages bool
+	// reservedPlaces is how many files with no passage at all are held right behind the best hit;
+	// zero means reserveCardLane's one. Memory recall measured "at least two of each kind" as
+	// where its plateau ends (memory_recall_quota.go).
+	reservedPlaces int
 	// cardSlots gives the card leg its own places, memory recall's quota (memory_recall_quota.go):
 	// cards rank only against cards, passages only against passages, and no card score is ever
 	// compared with a passage score.
@@ -77,6 +81,8 @@ func TestCodingAgentQuestions(t *testing.T) {
 	rules := []rankingRule{
 		{name: "cards: no passages at all", cardsOnlyForFilesWithoutPassages: true},
 		{name: "quota: cards at 2 and 4", cardSlots: []int{1, 3}},
+		{name: "two reserved places", reservedPlaces: 2},
+		{name: "three reserved places", reservedPlaces: 3},
 	}
 
 	arms := []*codingAgentArm{{name: "production"}, {name: "lexical only"}}
@@ -164,12 +170,22 @@ func applyRankingRule(documents []RetrievalDocument, rule rankingRule) []Retriev
 		return withCardSlots(all, rule.cardSlots)
 	}
 	sortRanked(all)
-	const lane = 1
-	best := slices.IndexFunc(all, func(entry rankedEvidence) bool { return !hasPassages(entry.document) })
-	if best > lane {
-		promoted := all[best]
-		copy(all[lane+1:best+1], all[lane:best])
-		all[lane] = promoted
+	// The k-th file with no passage sits no lower than place k+2, the best hit staying first.
+	for lane := 1; lane <= max(rule.reservedPlaces, 1); lane++ {
+		seen, best := 0, -1
+		for index, entry := range all {
+			if !hasPassages(entry.document) {
+				if seen++; seen == lane {
+					best = index
+					break
+				}
+			}
+		}
+		if best > lane {
+			promoted := all[best]
+			copy(all[lane+1:best+1], all[lane:best])
+			all[lane] = promoted
+		}
 	}
 	out := make([]RetrievalDocument, 0, documentSearchDefaultLimit)
 	for _, entry := range all[:min(len(all), documentSearchDefaultLimit)] {

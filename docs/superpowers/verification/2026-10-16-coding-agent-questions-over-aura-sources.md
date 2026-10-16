@@ -221,6 +221,65 @@ costs one first place on the office set.
   pilot that first measured `reserveCardLane`. Its 118-document corpus is gone from the lab VM: the
   VM holds one tenant with 9 documents and 7 passages, and no `ArcadeDB-Manual.pdf`.
 
+## The documents: the office fixture
+
+All numbers below are after B.
+
+**By question category:**
+
+| Category | Questions | Production |
+|---|---|---|
+| PROSE and AGING | 8 | all first |
+| EXACT ("fattura numero 011") | 3 | gold second, through the reserved place; full text alone ranks 2 of them first |
+| AGG and CROSSREF | 4 of 6 | the gold spreadsheet is missing |
+
+Two more experiments, neither of which helped:
+- **Two or three reserved places** changed nothing in any set. The missing spreadsheet is not a
+  candidate at all. For q04 the answer holds three documents, and `contabilita_2026.xlsx` is
+  not one of them. Full text alone ranks it first, at BM25 4.34.
+- **The floor is why it is missing.** `documentCardStatement` applies the passage floor, 0.32,
+  to cards. That floor was measured on 2026-09-09 over passages.
+
+**`TestCardCosineBand`** measures every card's cosine against each question
+(`scripts/fixtures/document_retrieval_eval/card_band_questions.json`: the 20 questions plus the
+five out-of-corpus questions of 2026-09-09):
+- **The four gold cards that go missing** sit just under the floor: `contabilita_2026.xlsx` at
+  0.300, 0.301 and 0.316, and `anagrafica_clienti.xlsx` at 0.298.
+- **The best card for an out-of-corpus question** scores 0.135-0.202. Cards therefore have a band
+  of their own, from 0.202 to 0.298, with a midpoint near 0.25.
+
+**A card floor of 0.25** was measured once, as a local change that was never committed:
+
+| Set | r@8 | MRR | golds moved |
+|---|---|---|---|
+| office | 0.800 → 1.000 | 0.650 → 0.722 | all four spreadsheets come back |
+| English code | — | 0.552 → 0.537 | 6 down one place each |
+| Italian code | — | 0.453 → 0.444 | 2 down one place each |
+| find-by-name | — | 0.750 → 0.722 | 1 down one place |
+
+**What moved the code results down.** The reserved place went to a newly qualifying file Aura
+could not read, whose card is its name and "Aura did not read this file at ingest: nothing here
+describes its contents" (`run-speed.mjs`, `*.sse` test data). Such a file has no passage, like a
+spreadsheet. The index cannot tell the two apart: `IndexedDocument` stores the card's text, not
+filecard's kind.
+
+**Not shipped.** A floor of the cards' own needs the index to know which cards describe their
+file.
+
+## CocoIndex Code, read 2026-10-16
+
+`cocoindex-io/cocoindex-code` (v1 source, pushed 2026-10-06) chunks code with the same
+`cocoindex.ops.text.RecursiveSplitter` as `services/ingest/chunk.py`. Its settings:
+- `language=detect_code_language(filename=...)`, which gives tree-sitter boundaries;
+- `CHUNK_SIZE = 1000`, `MIN_CHUNK_SIZE = 250` and `CHUNK_OVERLAP = 150`.
+
+Aura's chunker passes no `language` and budgets about 8,000 bytes, so it splits code the way it
+splits prose.
+
+Search there is vector-only, a KNN over sqlite-vec. The default model is
+`Snowflake/snowflake-arctic-embed-xs`, with `nomic-embed-code` and `CodeRankEmbed` curated as
+alternatives. A structural `ccc grep` sits beside the search.
+
 ## What this does not prove
 
 - **One corpus, and an unusual one.** Its documents describe its own code, and plans often quote
