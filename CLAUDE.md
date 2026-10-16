@@ -4,7 +4,7 @@ Project guidance for Claude Code (claude.ai/code) on this codebase.
 
 - **Spike findings for Aura** (implementation patterns, constraints, gotchas — skills self-extension, sandbox runtime, MCP live servers, AG-UI gateway, Telegram channel) → `Skill("spike-findings-Aura")`
 - **Consolidamento 2026-10-09 — Aura è l'ospite del lavoro dell'anno.** PMSync, StickyFlow,
-  wpt-iot, sacchi_agent, Market_MCP e le letture di OpenDots e SVAR cedono ad Aura
+  wpt-iot, sacchi_agent, Market_MCP e le letture di OpenDots, SVAR e Rag_Full_Version cedono ad Aura
   **comportamenti, mai codice**: inventario ordinato, con la misura che gata ogni atterraggio,
   in `docs/superpowers/specs/2026-10-09-consolidation-best-of-design.md` (PRD §1).
 

@@ -78,6 +78,39 @@ Not taken, with the reason:
   two live siblings, sacchi_agent and Market_MCP, keep Aura's method and stay separate.
 - **PMSync's web push**: Telegram carries every notification today; measure a need first.
 
+## Read 2026-10-16: Rag_Full_Version
+
+Asked by the operator: "take the best techniques" of `github.com/Souheil007/Rag_Full_Version`, an
+outside Python RAG engine, read at `e32534a`: 107 files, about 6,200 lines. Its own evidence is
+thin: a 25-question chunking benchmark, where recall@5 moves by one question, and a 10-question
+end-to-end run. What it offers is techniques, measured here on Aura's own sets
+(`verification/2026-10-16-rag-full-version-techniques-spike.md`). The same rule holds:
+behaviours, never code.
+
+| # | Behaviour | From | Aura today | Lands in | Gate | State |
+|---|---|---|---|---|---|---|
+| R1 | Workbook rows as key-value passages: 15-row groups, 2 rows of overlap, the header repeated in every row | `BlockChunker`, `TableSerializer.to_kv_sentences` | a workbook has no passage; the card and `document_open` answer for it (prd.md §11) | the ingest's spreadsheet route and `passage_count` | the code sets, then a spec that keeps aggregates on `document_open` and settles look-alike workbooks | spiked: MRR 0.812 → 0.893 over 54 questions, every gold within 8 |
+| R2 | A real title in EmbeddingGemma's `title:` slot, which the model card says improves document embeddings | the section-path prefix on every chunk | `title: none` | `embeddings.UntitledDocumentPrefix`, `chunk.EMBED_DOC_PREFIX`, a `RecipeVersion` bump and a full re-embed | the code sets, where a file path is the most telling title | spiked: nothing alone; beside R1 MRR 0.893 → 0.900, complex up and office down |
+| R3 | Cross-encoder rerank of the fused candidates | `Reranker`, English `ms-marco-MiniLM-L-6-v2` | cosine `vector.rerank`; `internal/rerank` and the `aura-rerank` sidecar were deleted for having no caller, never measured | a multilingual reranker on llama.cpp's rerank endpoint, after the fused query | a rerank arm on every set, and latency on the appliance | not measured |
+| R4 | Large PDF tables in row groups with the header repeated | `BlockChunker` on Docling's table nodes | PDF text from pypdf, chunked by size | a table extractor Aura does not have since the Docling era | a measured loss first: the complex manuals' table questions are already first | not now |
+| R5 | Claim-level answer check against the retrieved passages | `CitationVerifier`, `HallucinationDetector` | citation tokens and locators on every passage, no answer-level check | the agent's answer path | an answer-level eval; `complex_qrels.json` carries each expected answer | later |
+
+Already in Aura, no action: hybrid dense and BM25 retrieval fused by RRF, done inside ArcadeDB in
+one query rather than in Python; adjacent-passage expansion (`RetrievalRequest.Neighbours`, which
+`HitCollapser`'s row window and sibling merge resemble); a `heading_path` field on passages, often
+empty today where Rag_Full_Version always fills its section path; a golden
+question set with gold documents per corpus.
+
+Not taken, with the reason:
+
+- **VLM table repair with Mistral Pixtral**: a paid cloud model reading the operator's
+  documents, against local-first and item 7.
+- **Docling**: Aura left the Docling era for CocoIndex with its own extractors.
+- **Semantic answer cache**: it serves stale answers on a corpus that changes, and no latency
+  problem is measured.
+- **Query router and contextual compression**: no measured need on Aura's sets.
+- **Langfuse and Sentry**: Aura has its own observability.
+
 ## Process, taken now
 
 Three rules from the siblings are worth a line in `CLAUDE.md`, because Aura already lives by
