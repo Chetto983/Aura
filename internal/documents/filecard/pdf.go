@@ -46,7 +46,8 @@ func buildPDF(req Request, card Card) (Card, error) {
 	head = head[:n]
 	tail := readTail(file, req.SizeBytes, pdfTailBytes)
 
-	card.Title = pdfMetadata(head, tail, "Title", "dc:title")
+	encrypted := pdfEncrypted(head, tail)
+	card.Title = pdfMetadata(head, tail, "Title", "dc:title", encrypted)
 	if titleIsFileName(card.Title) {
 		card.Title = ""
 	}
@@ -55,7 +56,7 @@ func buildPDF(req Request, card Card) (Card, error) {
 		{"Keywords", "Keywords", "pdf:Keywords"},
 		{"Author", "Author", "dc:creator"},
 	} {
-		if value := pdfMetadata(head, tail, field.info, field.xmp); value != "" {
+		if value := pdfMetadata(head, tail, field.info, field.xmp, encrypted); value != "" {
 			card.Text = append(card.Text, field.label+": "+truncateRunes(value, 200))
 		}
 	}
@@ -156,9 +157,14 @@ func readTail(file *os.File, size int64, want int64) []byte {
 
 // pdfMetadata prefers the Info dictionary and falls back to XMP. Both are plain
 // bytes near the head or the tail of the file, so neither costs a parse.
-func pdfMetadata(head, tail []byte, infoKey, xmpKey string) string {
+//
+// An encrypted file's Info strings are ciphertext and are not read: a SICK datasheet,
+// RC4 with an owner password only, carded its title as bytes no reader could make sense
+// of (2026-10-16). Its XMP packet is plaintext under /EncryptMetadata false and
+// unparseable otherwise, so XMP is still worth a look.
+func pdfMetadata(head, tail []byte, infoKey, xmpKey string, encrypted bool) string {
 	for _, buffer := range [][]byte{head, tail} {
-		if value := pdfInfoValue(buffer, infoKey); value != "" {
+		if value := pdfInfoValue(buffer, infoKey); value != "" && !encrypted {
 			return value
 		}
 	}
@@ -168,6 +174,26 @@ func pdfMetadata(head, tail []byte, infoKey, xmpKey string) string {
 		}
 	}
 	return ""
+}
+
+// pdfEncrypted reports a trailer, or an xref stream's dictionary, naming an /Encrypt entry.
+func pdfEncrypted(head, tail []byte) bool {
+	marker := []byte("/Encrypt")
+	for _, buffer := range [][]byte{head, tail} {
+		for offset := 0; ; {
+			index := bytes.Index(buffer[offset:], marker)
+			if index < 0 {
+				break
+			}
+			cursor := offset + index + len(marker)
+			// /EncryptMetadata is a key of the encryption dictionary itself, not the trailer's.
+			if cursor >= len(buffer) || !isPDFNameByte(buffer[cursor]) {
+				return true
+			}
+			offset = cursor
+		}
+	}
+	return false
 }
 
 // pdfInfoValue reads /Key (literal) or /Key <hex> out of the Info dictionary.
