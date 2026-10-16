@@ -210,6 +210,17 @@ name.
 have no common cosine scale, so each gets its own places. It sits between B and C on the code, and
 costs one first place on the office set.
 
+**Outcome: B shipped, keyed on the card's passage count (PRD §11, 2026-10-16).**
+- Rebuilt and re-run on all four sets, the production arm now gives B's numbers, and the
+  ranking-rule arms' empty rule reproduces it.
+- The change also reaches lexical-only mode, the degraded path. There:
+  - English moved 5 golds up and none down;
+  - Italian moved one up, and `coverage-policy` down from 2 to 4;
+  - one find-by-name gold moved down one place.
+- **The 2026-09-09 pilot could not be re-run.** `docs/document-retrieval-order-pilot.json` is the
+  pilot that first measured `reserveCardLane`. Its 118-document corpus is gone from the lab VM: the
+  VM holds one tenant with 9 documents and 7 passages, and no `ArcadeDB-Manual.pdf`.
+
 ## What this does not prove
 
 - **One corpus, and an unusual one.** Its documents describe its own code, and plans often quote

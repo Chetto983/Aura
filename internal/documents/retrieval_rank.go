@@ -132,11 +132,17 @@ func rankDocuments(
 // the score says how close the text is to the question, and one place is held for the file
 // that can answer it rather than resemble it. What the measurement does NOT show: sixteen
 // questions, one corpus, one embedder.
+//
+// The file is one whose card says it has no passage at all, not one this query retrieved no
+// passage of. Measured 2026-10-16 over Aura's own sources, the latter promoted files found by
+// their name alone -- a .service unit, a skill reference scoring 0.344 -- above better hits;
+// keyed on the card, 14 of 74 golds rose and none fell across code, find-by-name and the
+// office fixture (docs/superpowers/verification/2026-10-16-coding-agent-questions-over-aura-sources.md).
 func reserveCardLane(ranked []*rankedDocument) {
 	const lane = 1 // zero-based: the reserved document sits right behind the best hit
 	best := -1
 	for index, doc := range ranked {
-		if len(doc.passages) == 0 {
+		if count := doc.document.PassageCount; count != nil && *count == 0 {
 			best = index
 			break
 		}

@@ -46,10 +46,6 @@ type codingAgentAnswer struct {
 // rankingRule is one candidate change to rankDocuments; the zero value is the shipped rule.
 type rankingRule struct {
 	name string
-	// laneForFilesWithoutPassages holds reserveCardLane's place for a file that has no passage
-	// at all, the spreadsheet it was written for, instead of for any document this query
-	// retrieved no passage of.
-	laneForFilesWithoutPassages bool
 	// cardsOnlyForFilesWithoutPassages lets a card score only a file that has no passages, so a
 	// file with text ranks by its text and not by its name.
 	cardsOnlyForFilesWithoutPassages bool
@@ -79,8 +75,7 @@ func TestCodingAgentQuestions(t *testing.T) {
 	whole := &HostRetriever{ControlPlane: control, PassageIndex: index, Embedder: embedder,
 		Config: RetrievalConfig{MaxLimit: wholeRanking}}
 	rules := []rankingRule{
-		{name: "lane: no passages at all", laneForFilesWithoutPassages: true},
-		{name: "cards: no passages at all", laneForFilesWithoutPassages: true, cardsOnlyForFilesWithoutPassages: true},
+		{name: "cards: no passages at all", cardsOnlyForFilesWithoutPassages: true},
 		{name: "quota: cards at 2 and 4", cardSlots: []int{1, 3}},
 	}
 
@@ -170,12 +165,7 @@ func applyRankingRule(documents []RetrievalDocument, rule rankingRule) []Retriev
 	}
 	sortRanked(all)
 	const lane = 1
-	best := slices.IndexFunc(all, func(entry rankedEvidence) bool {
-		if rule.laneForFilesWithoutPassages {
-			return !hasPassages(entry.document)
-		}
-		return len(entry.document.Passages) == 0
-	})
+	best := slices.IndexFunc(all, func(entry rankedEvidence) bool { return !hasPassages(entry.document) })
 	if best > lane {
 		promoted := all[best]
 		copy(all[lane+1:best+1], all[lane:best])
