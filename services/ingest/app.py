@@ -50,7 +50,6 @@ async def coco_lifespan(builder: coco.EnvironmentBuilder):
     # Schema BEFORE any write: a Cypher MERGE against an untyped property makes
     # LSM_VECTOR refuse to index it (measured live in Task 5; arcade.py docstring).
     arcade.ensure_schema(ARCADE_HTTP, ARCADE_DB, ("root", ARCADE_PASSWORD), embed.DIMENSIONS)
-    builder.provide(media.CONFIG_FINGERPRINT, media.fingerprint())
     builder.provide(KG_DB, neo4j.ConnectionFactory(
         uri=ARCADE_BOLT, auth=("root", ARCADE_PASSWORD), database=ARCADE_DB))
     async with source.create_client(_S3_CONFIG) as client:
@@ -250,8 +249,7 @@ def _extract(content: bytes, suffix: str, file_name: str, content_type: str | No
     the bytes, the key's suffix -- which names the temporary file the extractors route on --
     the name and the content type, and none of them moves with the route. A change to this
     body re-runs it for every file, and the billed calls inside it do not run again: they are
-    memoized on the bytes (media.py). A change of media route re-runs it for a scanned PDF
-    only, whose OCR reads media.CONFIG_FINGERPRINT (tests/test_billed_media_memo.py).
+    memoized on the bytes and the name (media.py, tests/test_billed_media_memo.py).
 
     The print runs only when this body does: "[extract]" in the log counts real extractions
     (scripts/ingest_reconcile_e2e.sh asserts on the count).

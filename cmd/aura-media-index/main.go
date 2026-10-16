@@ -2,9 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -188,52 +185,6 @@ func mediaType(path, fileName string, raw []byte) string {
 	return http.DetectContentType(raw)
 }
 
-type routeFingerprint struct {
-	Revision    int    `json:"revision"`
-	VisionMode  string `json:"vision_mode"`
-	VisionBase  string `json:"vision_base"`
-	VisionModel string `json:"vision_model"`
-	STTMode     string `json:"stt_mode"`
-	STTBase     string `json:"stt_base"`
-	STTModel    string `json:"stt_model"`
-	STTLanguage string `json:"stt_language"`
-}
-
-// mediaConfigFingerprint records the route media was actually derived through, so
-// CocoIndex's CONFIG_FINGERPRINT invalidates a memo whose result came from an arm that
-// no longer applies. primaryAcceptsImages is the resolved capability, not a switch:
-// Revision 3 retires AURA_VISION_CLOUD and therefore re-derives existing media once.
-func mediaConfigFingerprint(cfg *config.Config, primaryAcceptsImages bool) string {
-	signature := routeFingerprint{Revision: 3}
-	if primaryAcceptsImages && cfg.LLM.BaseURL != "" {
-		signature.VisionMode = "primary"
-		signature.VisionBase = cfg.LLM.BaseURL
-		signature.VisionModel = cfg.LLM.Model
-	} else {
-		signature.VisionMode = "local"
-		signature.VisionBase = cfg.MultimodalBaseURL
-		signature.VisionModel = cfg.MultimodalModel
-	}
-	if cfg.STTCloudModel != "" {
-		// The cloud leg runs where multimodal.STTConfigFrom sends it, never on the chat base: a
-		// chat route change must not re-transcribe every stored recording.
-		signature.STTMode = "cloud"
-		signature.STTBase, _ = cfg.SpeechCloudRoute()
-		signature.STTModel = cfg.STTCloudModel
-	} else {
-		signature.STTMode = "local"
-		signature.STTBase = cfg.STTBaseURL
-		signature.STTModel = cfg.STTModel
-		signature.STTLanguage = cfg.STTLanguage
-	}
-	payload, err := json.Marshal(signature)
-	if err != nil {
-		panic(err)
-	}
-	digest := sha256.Sum256(payload)
-	return hex.EncodeToString(digest[:])
-}
-
 func loadEffectiveConfig(ctx context.Context) (*config.Config, error) {
 	dbURL := strings.TrimSpace(os.Getenv("AURA_DB_URL"))
 	if dbURL == "" {
@@ -270,10 +221,13 @@ func loadEffectiveConfig(ctx context.Context) (*config.Config, error) {
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("aura-media-index", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	fingerprint := fs.Bool("fingerprint", false, "print the effective non-secret media route fingerprint")
 	kind := fs.String("kind", "", "media kind: image, audio, or pdf")
 	name := fs.String("name", "", "original file name")
 	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if fs.NArg() != 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: aura-media-index -kind image|audio|pdf [-name NAME] PATH")
 		return 2
 	}
 	cfg, err := loadEffectiveConfig(ctx)
@@ -281,21 +235,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	// One resolution per process, shared by the fingerprint and the derivation, so the
-	// two can never disagree about which arm this invocation would use.
 	acceptsImages := multimodal.PrimaryAcceptsImages(
 		ctx, llm.NewContentCapabilitySource(cfg.LLM, visionCapabilityTTL),
 	)
-	if *fingerprint {
-		if _, err = fmt.Fprintln(stdout, mediaConfigFingerprint(cfg, acceptsImages)); err != nil {
-			return 1
-		}
-		return 0
-	}
-	if fs.NArg() != 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: aura-media-index -kind image|audio|pdf [-name NAME] PATH")
-		return 2
-	}
 	fileName := *name
 	if fileName == "" {
 		fileName = filepath.Base(fs.Arg(0))

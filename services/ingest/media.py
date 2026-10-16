@@ -21,7 +21,6 @@ _PDF_EXTENSION = ".pdf"
 # cmd/aura-media-index exitNoVisionRoute). Distinct from any other failure on purpose.
 _EXIT_NO_VISION_ROUTE = 3
 
-CONFIG_FINGERPRINT = coco.ContextKey[str]("media_config_fingerprint", detect_change=True)
 _BINARY = "aura-media-index"
 
 
@@ -61,10 +60,6 @@ def _run(args: list[str], timeout: float) -> str:
             f"media indexer exited {done.returncode}" + (f": {detail}" if detail else "")
         )
     return done.stdout.decode("utf-8", "replace").strip()
-
-
-def fingerprint() -> str:
-    return _run(["-fingerprint"], timeout=30)
 
 
 def derive(path: str, file_name: str) -> str:
@@ -151,15 +146,12 @@ def _content_sha256(path: str) -> str:
         return hashlib.file_digest(file, "sha256").hexdigest()
 
 
-# The billed calls are memoized on the bytes, never on the path. _extract writes the bytes to
-# a random temporary file, so a memo keyed on the path missed whenever _extract ran again and
-# billed every image and every scan once more (prd.md §11, 2026-10-16). Outside a CocoIndex
-# component, as in the unit tests, a memo is a plain call.
-#
-# Only the scan reads CONFIG_FINGERPRINT, so only the scan is read again when the media route
-# changes. An image or a recording is not, as before this memo existed: depending on the
-# route would bill every one of them again on each change of the primary model that reads
-# images.
+# The billed calls are memoized on the bytes and the name, and on nothing else: a file is
+# read again only when it changes (operator, prd.md §11, 2026-10-16). _extract writes the
+# bytes to a random temporary file, so a memo keyed on the path missed whenever _extract ran
+# again and billed every image and every scan once more; and a scan was read again on every
+# change of the media route. Outside a CocoIndex component, as in the unit tests, a memo is a
+# plain call.
 @coco.fn(memo=True, memo_key={"path": _content_sha256})
 def extract_media(path: str, file_name: str) -> str:
     return derive(path, file_name)
@@ -167,5 +159,4 @@ def extract_media(path: str, file_name: str) -> str:
 
 @coco.fn(memo=True, version=1, memo_key={"path": _content_sha256})
 def extract_scanned_pdf(path: str, file_name: str) -> str:
-    coco.use_context(CONFIG_FINGERPRINT)
     return derive_scanned_pdf(path, file_name)

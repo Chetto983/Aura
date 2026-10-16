@@ -1,4 +1,3 @@
-import re
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,9 +14,8 @@ def vision_server():
     Two endpoints, because the route now needs both. Since the vision switch was retired
     the bridge asks the model whether it reads images (POST /api/show), and a source that
     cannot answer is not read as permission -- so a server that only completes resolves to
-    the LOCAL arm, and the primary is never called at all. Both tests below used to point
-    at a completions-only endpoint and got exactly that: an empty answer, and a fingerprint
-    that no longer moved with AURA_LLM_MODEL because the model was not in the resolved arm.
+    the LOCAL arm, and the primary is never called at all. The test below used to point at
+    a completions-only endpoint and got exactly that: an empty answer.
 
     Ollama is the shape used because its probe is a plain POST the stdlib can serve;
     llm.ollamaShowURL also requires the base to end in /v1 and puts /api/show at the root,
@@ -75,31 +73,6 @@ def vision_server():
 )
 def test_media_kind_routes_only_supported_families(name, want):
     assert media.kind(name) == want
-
-
-def test_media_fingerprint_tracks_existing_model_settings_not_secret(
-    monkeypatch, tmp_path, vision_server,
-):
-    """The fingerprint records the RESOLVED arm, so the model only belongs in it when the
-    primary is the arm that reads images. That is why this needs a probe-able backend and
-    not just a base URL: with an endpoint the bridge cannot ask, the vision arm resolves
-    local and the primary model is correctly absent from the signature."""
-    base_url, _ = vision_server
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AURA_DB_URL", "")
-    monkeypatch.setenv("AURA_LLM_PROVIDER", "ollama")
-    monkeypatch.setenv("AURA_LLM_BASE_URL", base_url)
-    monkeypatch.setenv("AURA_LLM_MODEL", "gemma4:31b-cloud")
-    monkeypatch.setenv("AURA_STT_CLOUD_MODEL", "vendor/stt-one")
-    monkeypatch.setenv("OPENROUTER_API_KEY", "secret-one")
-    first = media.fingerprint()
-    assert re.fullmatch(r"[0-9a-f]{64}", first)
-
-    monkeypatch.setenv("OPENROUTER_API_KEY", "secret-two")
-    assert media.fingerprint() == first
-
-    monkeypatch.setenv("AURA_LLM_MODEL", "qwen/qwen3.8-flash")
-    assert media.fingerprint() != first
 
 
 def test_non_media_file_yields_no_derived_text(tmp_path):

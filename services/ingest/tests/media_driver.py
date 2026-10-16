@@ -12,14 +12,13 @@ import sys
 
 import cocoindex as coco
 
-from ingest import app, media
+from ingest import app
 
 
 @coco.lifespan
-async def _lifespan(builder: coco.EnvironmentBuilder):
-    # Replaces app.py's lifespan (CocoIndex keeps the last one registered): the media route
-    # fingerprint, and nothing else, since nothing here reads the bucket or writes ArcadeDB.
-    builder.provide(media.CONFIG_FINGERPRINT, media.fingerprint())
+async def _lifespan(_builder: coco.EnvironmentBuilder):
+    # Replaces app.py's lifespan (CocoIndex keeps the last one registered) with nothing:
+    # nothing here reads the bucket or writes ArcadeDB.
     yield
 
 

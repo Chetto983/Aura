@@ -1,11 +1,15 @@
-"""A billed vision or speech-to-text call runs once per content, whatever re-runs _extract.
+"""A billed vision or speech-to-text call runs once per content, and only a new content runs it.
 
 _extract re-runs for every file whenever its code changes, and before this it repeated every
 image description and every scanned PDF's OCR with it: media.derive had no memo, and
-extract_scanned_pdf's was keyed on the random temporary path the bytes were written to
-(prd.md §11, 2026-10-16). Here a changed content type stands in for a changed _extract: it
-re-runs _extract with the bytes and the name unchanged, through the production memos
-(media_driver.py), against a stub bridge that counts its calls.
+extract_scanned_pdf's was keyed on the random temporary path the bytes were written to. A
+scan was also read again whenever the media route changed. The operator's rule (prd.md §11,
+2026-10-16): a file is read again only when it changes.
+
+Here a changed content type stands in for a changed _extract: it re-runs _extract with the
+bytes and the name unchanged, through the production memos (media_driver.py). The stub bridge
+records every invocation, so a pipeline that asked it for anything else -- the route it would
+use, say -- fails the test as surely as one that read the file twice.
 """
 
 import os
@@ -15,7 +19,6 @@ import sys
 import pytest
 
 _STUB = """#!/bin/sh
-if [ "$1" = "-fingerprint" ]; then echo "$STUB_FINGERPRINT"; exit 0; fi
 echo "$*" >> "$STUB_CALLS"
 echo "una valvola rossa su un tubo grigio"
 """
@@ -47,9 +50,9 @@ def bridge(tmp_path):
     calls = tmp_path / "calls"
     calls.touch()
 
-    def run(path, content_type, route="route-a"):
+    def run(path, content_type):
         env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", STUB_CALLS=str(calls),
-                   STUB_FINGERPRINT=route, COCOINDEX_DB=str(tmp_path / "coco.db"))
+                   COCOINDEX_DB=str(tmp_path / "coco.db"))
         done = subprocess.run(
             [sys.executable, "-m", "ingest.tests.media_driver", str(path), content_type],
             env=env, capture_output=True, text=True, timeout=300,
@@ -82,13 +85,3 @@ def test_a_scanned_pdf_is_read_once_when_extract_runs_again(bridge, tmp_path):
 
     assert extracted == 1, "the changed content type did not re-run _extract"
     assert len(calls) == 1, f"the scan was read again: {calls}"
-
-
-def test_a_scanned_pdf_is_read_again_when_the_route_changes(bridge, tmp_path):
-    scan = tmp_path / "verbale.pdf"
-    scan.write_bytes(_blank_pdf())
-
-    bridge(scan, "application/pdf")
-    _, calls = bridge(scan, "application/pdf", route="route-b")
-
-    assert len(calls) == 2, f"a new route did not read the scan again: {calls}"
