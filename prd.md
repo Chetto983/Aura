@@ -1391,6 +1391,31 @@ passages should reuse the native recursive splitter before fixed-width fallback,
 preserving overlap and absolute locators. Timings must compare equal source coverage;
 see [the measured decision](docs/document-ingestion-benchmark.md).
 
+**Source files (measured 2026-10-16).** The extractor routed only office, PDF and markup
+suffixes, so a `.go`, `.py` or `.st` file was indexed by name only. Through the production
+extractor (iscc-tika in `aura-ingest:edge` at `426753ef9`), Tika returned the exact text of
+`.go`, `.py`, `.sh`, IEC 61131-3 Structured Text and Siemens `.scl`/`.awl`/`.db`/`.udt`
+sources, UTF-8 accents included. It routes on sniffed content, not on the name, and that
+failed three ways:
+- a `.ts` and a `.tsx` holding markup went to the HTML parser, which dropped the code;
+- an SCL comment `(* *)` was typed as Mathematica, harmlessly this time;
+- a Go test whose string literal starts a PDF (`%PDF-1.4` in its first bytes) went to the PDF
+  parser and failed the file. Indexing Aura's own 5,504 source files left out exactly that one.
+
+Source files and `.txt` are therefore read directly, without Tika:
+- a UTF-16 BOM decodes as UTF-16;
+- any other file with a NUL byte keeps its name-only row, which is what a SQLite `.db` gets;
+- otherwise the text is strict UTF-8 without its BOM, then cp1252, the encoding STEP 7
+  exports often carry, and a file that neither decodes keeps its name-only row too.
+
+The extensions are the common languages of the GitHub-linguist list the operator chose (gist
+`ppisarczyk/43962d06686722d26d176fad46879d41`), plus Structured Text (`.st`, `.iecst`, as the
+ControlForge extension names them) and Siemens TIA Portal sources (`.scl`, `.awl`, `.db`,
+`.udt`). This does not prove: Siemens' own documentation of those four extensions (only
+secondary sources agree on them), chunks that follow a language's structure (they still split
+by size), a card for a source file (still "file, N KB"), or files named without an extension
+(`Makefile`, `Dockerfile`), which keep their name-only row.
+
 For direct operator diagnostics, expose the existing `aura docs ingest` and
 `aura docs search` handlers through a stdio MCP (`aura docs mcp`), using the
 installed MCP SDK. On 2026-09-09 the CLI search returned complete passage evidence
