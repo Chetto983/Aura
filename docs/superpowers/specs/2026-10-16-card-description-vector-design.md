@@ -98,9 +98,9 @@ Amended on 2026-10-16 while planning; the proposal it replaces follows it below.
   new `extract_media`, which wraps `media.derive`, take `memo_key={"path": <the file's
   SHA-256>}`. Re-running `_extract` then calls no billed route again. Measured: two calls per
   image and per scan before, one after (`services/ingest/tests/test_billed_media_memo.py`).
-- **The route dependency stays as it was.** Only the scan reads `media.CONFIG_FINGERPRINT`.
-  Making images and recordings depend on it would bill them again on every change of a
-  primary model that reads images. That is left to the operator, and prd.md §11 records it.
+- **Only a changed file is read again** (operator, 2026-10-16). The route fingerprint that
+  made a scan re-read on every change of media route is removed, in the ingest and in
+  `aura-media-index`.
 
 The upgrade's cost per library is then:
 - **`_extract` once per file.** That means local work (Tika, filecard, LibreOffice for a

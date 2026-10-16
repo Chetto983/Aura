@@ -1,14 +1,18 @@
 # Card description vector implementation plan
 
 **Status (2026-10-16):** PARTIAL.
-- **Landed on master:** Tasks 0 to 7, in 6a8f1aaf9, 84ac521f0, bba43ff65, 39a9f7290, 8ec1df3ed,
-  a70640dad, b33096b3d, 003fd665d and 97fec747e. The measurements before them are 6334cfb1e,
-  81cae63d9 and 0c48e281d, and the spec is bddef47d0 and 88f0a1557.
-- **Measured so far:** the ingest suite is 220/220 in an image built from master. The billed
-  media calls fall from two to one per re-run of `_extract`, and cocoindex 1.0.25 kept every
-  memo (0 re-extractions over 6,035 files).
-- **Open:** Task 8 (acceptance 3, the real ingest over `cb-arcade`), Task 9 (review and push)
-  and Task 10 (the appliance count, the edge publish and the lab VM run).
+- **Landed on master:** Tasks 0 to 8, in 6a8f1aaf9, 84ac521f0, bba43ff65, 39a9f7290, 8ec1df3ed,
+  a70640dad, b33096b3d, 003fd665d, 97fec747e, and, after the operator's ruling on the route,
+  the PRD amendment before b026a5c4d and b026a5c4d itself. The measurements before them are
+  6334cfb1e, 81cae63d9 and 0c48e281d, and the spec is bddef47d0 and 88f0a1557.
+- **Measured:**
+  - The ingest suite is 218/218 in an image built from master.
+  - The billed media calls fall from two to one per re-run of `_extract`.
+  - cocoindex 1.0.25 kept every memo: 0 re-extractions over 6,035 files.
+  - Acceptance 3: one pass through the real ingest reproduced the five sets exactly
+    (verification file, "Through the ingest").
+- **Open:** Task 9 (review and push) and Task 10 (the appliance count, the edge publish and the
+  lab VM run).
 
 > **For agentic workers:** Use superpowers:executing-plans with test-driven-development. The
 > operator requires the work in D:/Aura on master, with no worktree.
@@ -73,10 +77,10 @@ operator on 2026-10-16; decisions 3 and 5 amended while planning).
 - Ruling: an encrypted PDF skips its Info strings and still reads a plaintext XMP packet.
 - Ruling: cocoindex 1.0.25 is taken first, as Task 1, so the upgrade pass runs on the version
   that ships.
-- Ruling: `extract_media` does not read `CONFIG_FINGERPRINT`, so the route dependency is as it
-  was. Depending on it would bill every image and recording again on each change of a primary
-  model that reads images. Cost if wrong: images keep the previous route's description. Left
-  to the operator (prd.md §11).
+- Operator, 2026-10-16: a billed media call is redone only when the document changes. The
+  scan's route dependency went with it, and so did the route fingerprint
+  (`media.CONFIG_FINGERPRINT`, `aura-media-index -fingerprint`), which nothing else read. Cost:
+  a file keeps the description of the route that first read it.
 - Ruling: in the billed-memo test a changed content type stands in for changed `_extract`
   code. Both re-run `_extract` with the bytes and the name unchanged.
 - Ruling: the billed-memo PRD paragraph (003fd665d) landed after its code (b33096b3d), not
@@ -113,15 +117,12 @@ operator on 2026-10-16; decisions 3 and 5 amended while planning).
   The tests in `test_billed_media_memo.py` went RED at two calls each, then GREEN.
 - [x] **Task 7: the ingest embeds the description.** 97fec747e. RED twice: on the missing
   `Card`, then on a document vector still made from the card. Ingest suite 220/220.
-- [ ] **Task 8: acceptance 3 through the real ingest.**
-  - [ ] Build `aura-ingest:cc126` from master. Run one catch-up pass over each `cb-arcade`
-    library (code, office, pdf) with `scratchpad/cb/cc-pass.sh aura-ingest:cc126 <name>`.
-    Expected: `[extract]` once per file, and embedding requests near one per card, since
-    passages with unchanged text hit `embed_text`'s memo.
-  - [ ] Re-run the five sets with `scratchpad/cb/rules-one.sh <set> <name> desc` and compare
-    against `answers-base4-*.json` and the nocav measurement. Expected: r@8 and MRR within one
-    question of the PRD table.
-  - [ ] Record the pass and the sets in the verification file.
+- [x] **Task 7b: only a changed file is read again.** b026a5c4d, after the operator's ruling.
+  RED on the `-fingerprint` call the lifespan made, then GREEN; ingest suite 218/218.
+- [x] **Task 8: acceptance 3 through the real ingest.** An image built at 97fec747e
+  (`aura-ingest:desc`) made one pass over each `cb-arcade` library: `[extract]` once per file;
+  one embedding per card plus the 97 passages of newly readable extensions; no other passage
+  re-embedded; no paid call. The five sets reproduced the in-place numbers exactly.
 - [ ] **Task 9: review and push.**
   - [ ] One fresh reviewer on the whole range `6334cfb1e^..HEAD`, given this plan, the spec and
     the Review Focus above.

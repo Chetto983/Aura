@@ -404,6 +404,44 @@ order list, and 2 `sample.pdf`.
 - filecard's metadata reader reads the raw bytes, so the card's Title, Subject and Author lines
   are ciphertext. That text is embedded.
 
+## Through the ingest: spec acceptance 3
+
+The change shipped as code (97fec747e: the ingest stores the card and embeds its description)
+and ran as the ingest itself. One catch-up pass of an image built from master went over each
+`cb-arcade` library, on that library's existing CocoIndex 1.0.25 state.
+
+| Library | Files | `[extract]` | Embedding inputs | Of which passages | Time |
+|---|---|---|---|---|---|
+| code | 5,983 | 5,983 | 6,080 | 97 | 356 s |
+| office | 22 | 22 | 22 | 0 | 4 s |
+| pdf | 30 | 30 | 30 | 0 | 5 s |
+
+- **`_extract` ran once for every file**, as its changed body requires. The log's line-start
+  count read 5,885 and 29 because concurrent prints tear lines ("[embed] 1 chunk(s) in one
+  request[extract] fattura_2026_004.xlsx"). Counting every record gives the table.
+- **One embedding per card, and no existing passage re-embedded.** The code library's 97 extra
+  inputs are the passages of its 85 `.css`, `.cypher`, `.jsx` and `.mjs` files, which the
+  source list gained in 39a9f7290; ArcadeDB holds exactly 97 passages for those extensions.
+  Every other passage kept its text and hit `embed_text`'s memo.
+- **No paid call.** None of the three libraries holds an image, a recording or a video, and
+  all ten PDFs carry a text layer, checked offline with the ingest's own reader first.
+- **The audit** found every object indexed in all three libraries.
+
+The five sets, over those rows:
+
+| Set | Before (r@8 / MRR) | Through the ingest | Rewritten in place |
+|---|---|---|---|
+| English code | 0.792 / 0.552 | 0.833 / 0.557 | 0.833 / 0.557 |
+| Italian code | 0.625 / 0.453 | 0.667 / 0.462 | 0.667 / 0.462 |
+| find-by-name | 1.000 / 0.750 | 1.000 / 1.000 | 1.000 / 1.000 |
+| office | 0.800 / 0.650 | 0.900 / 0.667 | 0.900 / 0.667 |
+| PDF corpus | 0.895 / 0.757 | 0.947 / 0.768 | 0.947 / 0.768 |
+
+The ingest reproduces the in-place measurement exactly, on every set. That also answers the
+spec's open question 2: the source card's new head line ("nastro.go — source file, 55 bytes.")
+and the 97 new passages move no production number. The lexical-only variant does move,
+English MRR 0.385 → 0.401, because the cards' text changed.
+
 ## CocoIndex Code, read 2026-10-16
 
 `cocoindex-io/cocoindex-code` (v1 source, pushed 2026-10-06) chunks code with the same
@@ -439,7 +477,7 @@ alternatives. A structural `ccc grep` sits beside the search.
   files of short, distinct documents. It does not show how a PDF card behaves among hundreds of
   manuals on one topic. The media line and the "could not read" caveat were dropped from no
   vector.
-- **The vectors were rewritten in place, not produced by the ingest.** The texts went through the
-  same embedder, with the same document prefix the ingest uses. "As stored" reproduces the
-  ingest's vectors at cosine 1.0000, which shows the two paths agree. It does not exercise an
-  ingest change.
+- **The levers were measured by rewriting vectors in place.** The card-vector change alone was
+  then run through the ingest, which reproduced its numbers exactly. The other levers were not.
+- **No media went through the new ingest**, and no route reads images in these libraries. The
+  billed-call memo is proven with a stub bridge only (`test_billed_media_memo.py`).

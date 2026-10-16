@@ -1496,8 +1496,11 @@ card. The design is
 [the spec](docs/superpowers/specs/2026-10-16-card-description-vector-design.md); the record is
 [the verification](docs/superpowers/verification/2026-10-16-coding-agent-questions-over-aura-sources.md).
 
+Then through the ingest itself: one catch-up pass of the shipped code (97fec747e) over the same
+three libraries reproduced all five rows exactly. It ran `_extract` once per file and embedded
+one description per card, and it re-embedded no passage whose text was unchanged.
+
 This does not prove:
-- the ingest path itself. Those vectors were rewritten through the same embedder and prefix;
 - media cards. No image, audio or video was in any corpus;
 - large libraries on one topic. The PDF corpus is 30 short, distinct files;
 - anything beyond sets of 6 to 38 questions written by one agent.
