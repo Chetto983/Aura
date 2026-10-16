@@ -1502,7 +1502,7 @@ This does not prove:
 - large libraries on one topic. The PDF corpus is 30 short, distinct files;
 - anything beyond sets of 6 to 38 questions written by one agent.
 
-**A billed media call runs once per content (measured 2026-10-16).** The ingest's `_extract`
+**A billed media call runs once per file content (measured 2026-10-16).** The ingest's `_extract`
 writes a file's bytes to a random temporary path. The vision and speech-to-text calls inside it
 were keyed on that path (`extract_scanned_pdf`) or not memoized at all (`media.derive`). So any
 change to `_extract`'s code described every image and read every scan again, in every library,
@@ -1511,11 +1511,15 @@ cocoindex 1.0.25's `memo_key`.
 - **Measured** through the production memos, with a stub bridge counting its calls
   (`services/ingest/tests/test_billed_media_memo.py`). Re-running `_extract` cost two calls per
   image and per scan before, and one after.
-- **The route dependency is unchanged.** A scan reads `media.CONFIG_FINGERPRINT`, so it is read
-  again when the media route changes. An image or a recording is not. Depending on the route
-  would bill each of them again on every change of a primary model that reads images. It would
-  also re-read an image indexed while no route accepted images; read from the code, such an
-  image stays card-only until its bytes change. Both are the operator's decision.
+- **Only a changed file is read again** (operator, 2026-10-16). A new media route reads
+  nothing again, a new vision or speech-to-text model included. Until then a scan was re-read
+  on every route change, through a route fingerprint (`media.CONFIG_FINGERPRINT`,
+  `aura-media-index -fingerprint`). Nothing else read that fingerprint, and it is removed. The
+  test's stub records every invocation, so a pipeline that asked the bridge for its route would
+  fail it.
+- **What the rule costs.** A file keeps the description or transcript of the route that first
+  read it. An image indexed while no route accepted images stays card-only until its bytes
+  change; that is read from the code, not measured.
 - **The upgrade still pays once.** Every memo key is new, so the first pass of the release
   calls the media routes once per image, recording and scan. Counted on the lab VM: one
   recording, transcribed locally, and no billed call. The appliance's count is a gate before
@@ -1543,10 +1547,13 @@ failing files kept their old rows, so the documents could never all reach the ne
 embedding space. Audio files are still transcribed. Not measured: how long one
 transcription of that file takes on an idle sidecar, and whether the seven ran strictly in
 parallel. An audio-only `.webm` loses its transcript too: the ingest and the card read the
-extension, not the MIME type. A video whose transcription already succeeded somewhere keeps
-it until its bytes change: the extraction memo is fingerprinted on `_extract`'s own code,
-not on the `media.py` it calls (cocoindex `_compute_logic_fingerprint`), and invalidating it
-would re-run every document's extraction, vision calls included.
+extension, not the MIME type. A video transcribed before that decision kept its transcript
+while `_extract`'s memo held, because the memo is fingerprinted on `_extract`'s own code, not
+on the `media.py` it calls (cocoindex `_compute_logic_fingerprint`). The 2026-10-16 change to
+`_extract` runs it once more for every file, and such a video then keeps its card, name and
+size and loses the transcript. That pass still calls the media routes once per image,
+recording and scan, since every memo key is new; after it, a change to `_extract` repeats
+none of them (see "A billed media call runs once per file content").
 
 **Deleting an asset.** A deleted asset leaves `aura.assets`. The delete first stamps the row
 `deleting` with `deleted_at`, which hides it from every identity-scoped read and from every
