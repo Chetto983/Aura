@@ -1,12 +1,13 @@
 # Document cards: embed what describes the file
 
 Proposed on 2026-10-16 at `0c48e281d`. The operator approved the five-point direction in
-conversation that day ("vai"). This written spec is still for review.
+conversation that day ("vai"), and this written spec the same day. Decisions 3 and 5 were
+amended while planning; each says how.
 
 It rests on the measurements in
 `docs/superpowers/verification/2026-10-16-coding-agent-questions-over-aura-sources.md`, sections
 "What a card's vector is made of" and "Every caveat, and PDFs". Every number below comes from
-there. Nothing here has been built.
+there unless it says otherwise.
 
 Risk tier: **medium**. It changes the vector of every document card in every library, the
 ingest's memo layout, and the upload allowlist. No Postgres migration, and no ArcadeDB schema
@@ -84,7 +85,31 @@ truncated.
 unchanged. `IndexedDocument.embedding` becomes the description's vector. An empty description
 embeds as the zero vector, as an empty card does today.
 
-### 3. The card moves out of `_extract` into its own memo
+### 3. `_extract` gets the card and the description from one filecard call
+
+Amended on 2026-10-16 while planning; the proposal it replaces follows it below.
+
+- **`_card`** calls `aura-filecard -json` and returns both renderings. `Extracted` gains
+  `description`, and `index_object` embeds it.
+- **No `_describe`.** A second memo would run `extract.prepared` a second time, and LibreOffice
+  with it for a legacy format. It would also save nothing in this release: `_extract` re-runs
+  once anyway, because its body changes.
+- **The billed calls become content-keyed in the same release.** `extract_scanned_pdf` and a
+  new `extract_media`, which wraps `media.derive`, take `memo_key={"path": <the file's
+  SHA-256>}`. Re-running `_extract` then calls no billed route again. Measured: two calls per
+  image and per scan before, one after (`services/ingest/tests/test_billed_media_memo.py`).
+- **The route dependency stays as it was.** Only the scan reads `media.CONFIG_FINGERPRINT`.
+  Making images and recordings depend on it would bill them again on every change of a
+  primary model that reads images. That is left to the operator, and prd.md §11 records it.
+
+The upgrade's cost per library is then:
+- **`_extract` once per file.** That means local work (Tika, filecard, LibreOffice for a
+  legacy format) and one paid call per image, recording and scan, because every memo key is
+  new.
+- **One embedding call per card.**
+- **No passage re-embedding.**
+
+The proposal as first written, superseded:
 
 The constraint, read from the installed CocoIndex (`cocoindex/_internal/function.py`,
 `_compute_logic_fingerprint`):
@@ -150,8 +175,11 @@ duplicated.
 
 ### 5. An encrypted PDF's metadata is not read raw
 
-When a PDF's trailer declares `/Encrypt`, filecard skips the Info and XMP strings. The title then
-comes from the first text block, as it does for a PDF with no metadata. This is a correctness fix:
+When a PDF's trailer declares `/Encrypt`, filecard skips the Info strings. The title then comes
+from the first text block, as it does for a PDF with no metadata. A plaintext XMP packet is still
+read: one stored with `/EncryptMetadata false` is the truth, and ciphertext XMP is not XML, so it
+yields nothing. The SICK datasheet now cards as "Titled: DATA SHEET" (amended 2026-10-16,
+a70640dad). This is a correctness fix:
 ciphertext in a card is wrong whatever it does to ranking. Reading the decrypted metadata through
 poppler's `pdfinfo` is the alternative. It is left out because it adds a second process per PDF
 for a field the first text block usually carries.
@@ -167,14 +195,14 @@ per the PRD-first rule.
 |---|---|
 | `internal/documents/filecard/card.go` | `Description()`, one shared layout with `Render()` |
 | `internal/documents/filecard/build.go` | `KindSource` routing from the extension list |
-| `internal/documents/filecard/source_extensions.go` (new) | the list and `SourceExtensions()` |
-| `internal/documents/filecard/pdf.go` | skip raw metadata when `/Encrypt` is present |
+| `internal/documents/filecard/source.go` (new) | the list, `SourceExtensions()` and the source card |
+| `internal/documents/filecard/pdf.go` | skip the Info strings when `/Encrypt` is present |
 | `cmd/aura-filecard/main.go` | `-json` gains `description`; `-source-extensions` |
 | `internal/documents/extensions.go` | the gate includes `filecard.SourceExtensions()` |
 | `internal/assets/limits.go`, `limits_sync_test.go` | `documentExts` derived from the gate; the sync test removed |
 | `services/ingest/source_extensions.py` | reads the list from `aura-filecard` |
-| `services/ingest/app.py` | `_describe`; `_extract` without the card; `index_object` embeds the description |
-| `services/ingest/media.py` | billed calls keyed on content, not on the temporary path |
+| `services/ingest/app.py` | `_card` returns card and description; `index_object` embeds the description |
+| `services/ingest/media.py` | `extract_media`; billed calls keyed on content, not on the temporary path |
 | `prd.md` §11 | the amendment |
 
 No file crosses 600 lines. `app.py` is the one to watch, and the split, if needed, moves `_card`
@@ -195,9 +223,11 @@ None.
      and both still refuse `.exe`.
 2. **Unit, Python.**
    - `index_object` embeds the description and stores the card.
-   - `SOURCE_EXTENSIONS` equals the binary's list.
-   - A stubbed media bridge called through `_extract` twice, with `_extract`'s code changed in
-     between, is invoked once per file. That proves the billed calls no longer re-run.
+   - `source_extensions()` is the binary's list.
+   - A stubbed media bridge called through `_extract` twice, with `_extract` re-run in between,
+     is invoked once per file. That proves the billed calls no longer re-run. A changed
+     content type stands in for changed code: both re-run `_extract` with the bytes and the
+     name unchanged.
 3. **The five sets through the real ingest.** A catch-up pass of the new code runs over the
    existing `cb-arcade` libraries. Read from the pass:
    - `[extract]` prints once per file;

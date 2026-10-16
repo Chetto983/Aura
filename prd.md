@@ -1502,6 +1502,30 @@ This does not prove:
 - large libraries on one topic. The PDF corpus is 30 short, distinct files;
 - anything beyond sets of 6 to 38 questions written by one agent.
 
+**A billed media call runs once per content (measured 2026-10-16).** The ingest's `_extract`
+writes a file's bytes to a random temporary path. The vision and speech-to-text calls inside it
+were keyed on that path (`extract_scanned_pdf`) or not memoized at all (`media.derive`). So any
+change to `_extract`'s code described every image and read every scan again, in every library,
+cloud routes included. Both calls are now memoized on the file's SHA-256 and its name, through
+cocoindex 1.0.25's `memo_key`.
+- **Measured** through the production memos, with a stub bridge counting its calls
+  (`services/ingest/tests/test_billed_media_memo.py`). Re-running `_extract` cost two calls per
+  image and per scan before, and one after.
+- **The route dependency is unchanged.** A scan reads `media.CONFIG_FINGERPRINT`, so it is read
+  again when the media route changes. An image or a recording is not. Depending on the route
+  would bill each of them again on every change of a primary model that reads images. It would
+  also re-read an image indexed while no route accepted images; read from the code, such an
+  image stays card-only until its bytes change. Both are the operator's decision.
+- **The upgrade still pays once.** Every memo key is new, so the first pass of the release
+  calls the media routes once per image, recording and scan. Counted on the lab VM: one
+  recording, transcribed locally, and no billed call. The appliance's count is a gate before
+  the edge image is published.
+
+This does not prove:
+- a real vision or speech-to-text route: the bridge was a stub;
+- that a live library keeps a nested memo's entries across an outer re-run beyond the two
+  passes the test makes.
+
 The primary model receives supported media natively where its route advertises that
 capability. OCR/transcription/extraction use shared services and settings. Telegram is
 an attachment wrapper, not a competing pipeline. Runs that need indexing wait for the
