@@ -64,17 +64,25 @@ class EmbedRequestError(RuntimeError):
 
 
 def _estimated_tokens(text: str) -> int:
-    """A free upper bound on what the server will count for this chunk.
+    """A free estimate of what the server will count for this chunk, for packing requests.
 
-    chunk.CHARS_PER_TOKEN_FALLBACK is 3 where the tokenizer measured ~5.32, and chunk.py
-    picked that ratio precisely because it always OVERSHOOTS -- so a text this bound clears
-    is never actually longer. Using it here keeps the happy path free of round trips: asking
-    /tokenize per chunk would trade N embedding requests for N tokenizing ones, which is the
-    cost this batching exists to remove. The price is under-packed requests, and against a
-    25.9x saving that is not a price worth optimising.
+    chunk.CHARS_PER_TOKEN_FALLBACK is 3 where the tokenizer measured ~5.32 on prose, so on
+    prose it overshoots and requests come out under-packed, which is cheap. It is NOT a
+    bound: measured 2026-10-16, cards of hashes and figures ran 1.3 chars/token. Whether a
+    text fits is decided by _surely_fits, never by this.
     """
     chars = len(chunk.EMBED_DOC_PREFIX + text)
     return math.ceil(chars / chunk.CHARS_PER_TOKEN_FALLBACK) + EMBED_SPECIAL_TOKENS
+
+
+def _surely_fits(text: str) -> bool:
+    """Whether text fits the ceiling without asking the tokenizer.
+
+    No token is shorter than one UTF-8 byte (the rule _fit_hosted cuts by), so the byte count
+    is a true upper bound where the chars/token estimate is only an average. A text above it
+    may still fit, and then the tokenizer says so.
+    """
+    return len((chunk.EMBED_DOC_PREFIX + text).encode("utf-8")) + EMBED_SPECIAL_TOKENS <= chunk.MODEL_MAX_TOKENS
 
 
 def _fit_for_embedding(text: str) -> tuple[str, int]:
@@ -87,10 +95,10 @@ def _fit_for_embedding(text: str) -> tuple[str, int]:
     the provider's error string."
     """
     cost = _estimated_tokens(text)
-    if cost <= chunk.MODEL_MAX_TOKENS:
+    if _surely_fits(text):
         return text, cost
     head = _head_within_ceiling(text)
-    if head is None:  # the real tokenizer disagrees with the overshooting estimate
+    if head is None:  # the real tokenizer says it fits
         return text, cost
     # Losing the vector loses the WHOLE FILE: CocoIndex catches the component failure,
     # prints "component build failed" and carries on, so the document simply never reaches

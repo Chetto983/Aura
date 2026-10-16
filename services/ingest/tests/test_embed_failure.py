@@ -9,6 +9,7 @@ settled by a token count the error can carry itself.
 import asyncio
 import io
 import json
+import math
 import urllib.error
 
 import pytest
@@ -119,6 +120,30 @@ def test_an_overflow_is_cut_BEFORE_the_request_not_after_it_fails(monkeypatch):
         chunk.EMBED_DOC_PREFIX + fitted, add_special=True
     ) <= chunk.MODEL_MAX_TOKENS
     assert cost <= chunk.MODEL_MAX_TOKENS
+
+
+def test_a_dense_input_the_estimate_clears_is_still_measured_and_cut(monkeypatch):
+    """Measured 2026-10-16 on Aura's own sources: the filecard cards of three spike
+    results.json files counted 2,580-2,600 tokens at 1.3 chars/token, where the 3 chars/token
+    estimate put them near 1,150. A card is the one input no chunker has measured, so they went
+    out unmeasured, the server refused them and each file left the index. The tokenizer here
+    stands in for the server's own at that measured ratio, which no test environment can be
+    relied on to reach."""
+    def dense_tokenizer(text: str, add_special: bool = False) -> int:
+        return math.ceil(len(text) / 1.3) + (2 if add_special else 0)
+
+    def never_called(*_args, **_kwargs):
+        raise AssertionError("fitting must not need the server to fail first")
+
+    monkeypatch.setattr(chunk, "count_tokens", dense_tokenizer)
+    monkeypatch.setattr(embed.urllib.request, "urlopen", never_called)
+    card = '{"run": "090", "sha256": "9f2c41d07be3a5", "ms": [12.5, 13.1]}\n' * 55
+    assert embed._estimated_tokens(card) <= chunk.MODEL_MAX_TOKENS < dense_tokenizer(
+        chunk.EMBED_DOC_PREFIX + card, add_special=True)
+
+    fitted, _ = embed._fit_for_embedding(card)
+
+    assert dense_tokenizer(chunk.EMBED_DOC_PREFIX + fitted, add_special=True) <= chunk.MODEL_MAX_TOKENS
 
 
 def test_an_oversized_chunk_does_not_take_its_batch_mates_down_with_it(monkeypatch):
