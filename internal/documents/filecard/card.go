@@ -52,6 +52,7 @@ const (
 	KindImage        Kind = "image"
 	KindAudio        Kind = "audio"
 	KindVideo        Kind = "video"
+	KindSource       Kind = "source file"
 	KindFile         Kind = "file"
 )
 

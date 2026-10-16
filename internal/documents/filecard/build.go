@@ -46,6 +46,9 @@ const (
 	sampleRows = 5
 )
 
+// unreadCaveat is the card's statement about a file no reader opened.
+const unreadCaveat = "Aura did not read this file at ingest: nothing here describes its contents."
+
 // Request names the file to describe. FileName is the name the library shows,
 // which is not always the name on disk: an asset upload lands in a temp file.
 type Request struct {
@@ -63,8 +66,7 @@ func Build(req Request) (Card, error) {
 	kind, handler := handlerFor(req.ext())
 	card := Card{FileName: req.FileName, Kind: kind, SizeBytes: req.SizeBytes}
 	if handler == nil {
-		card.Caveats = append(card.Caveats,
-			"Aura did not read this file at ingest: nothing here describes its contents.")
+		card.Caveats = append(card.Caveats, unreadCaveat)
 		return card, nil
 	}
 	built, err := handler(req, card)
@@ -124,7 +126,9 @@ func handlerFor(ext string) (Kind, handlerFunc) {
 		return KindAudio, buildAudio
 	case ".mp4", ".webm":
 		return KindVideo, buildVideo
-	default:
-		return KindFile, nil
 	}
+	if isSourceExtension(ext) {
+		return KindSource, describeSource
+	}
+	return KindFile, nil
 }

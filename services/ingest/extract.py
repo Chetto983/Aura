@@ -25,7 +25,7 @@ import tempfile
 
 from iscc_tika import Extractor
 
-from ingest.source_extensions import SOURCE_EXTENSIONS
+from ingest.source_extensions import source_extensions
 
 # Everything LibreOffice can turn into the OOXML that BOTH consumers understand.
 #
@@ -67,7 +67,8 @@ _TEXTUAL = {
     ".csv", ".tsv", ".json", ".xml", ".html", ".htm", ".epub", ".rst",
 } | set(_LEGACY)
 
-_PLAIN_TEXT = SOURCE_EXTENSIONS | {".txt"}
+def _plain_text(suffix: str) -> bool:
+    return suffix == ".txt" or suffix in source_extensions()
 
 
 def needs_normalisation(path: str) -> bool:
@@ -75,9 +76,9 @@ def needs_normalisation(path: str) -> bool:
 
 
 def extractable(path: str) -> bool:
-    """Whether this file has text to read at all. See _TEXTUAL and _PLAIN_TEXT."""
+    """Whether this file has text to read at all. See _TEXTUAL and _plain_text."""
     suffix = pathlib.Path(path).suffix.lower()
-    return suffix in _TEXTUAL or suffix in _PLAIN_TEXT
+    return suffix in _TEXTUAL or _plain_text(suffix)
 
 
 def _read_text(path: str) -> str:
@@ -138,7 +139,7 @@ def extract_text(path: str) -> str:
     # 2026-09-24, an empty prompt.txt, 59 failures an hour).
     if pathlib.Path(path).stat().st_size == 0:
         return ""
-    if pathlib.Path(path).suffix.lower() in _PLAIN_TEXT:
+    if _plain_text(pathlib.Path(path).suffix.lower()):
         return _read_text(path)
     with prepared(path) as ready:
         text, metadata = _extractor.extract_file_to_string(ready)

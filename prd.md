@@ -1410,11 +1410,21 @@ Source files and `.txt` are therefore read directly, without Tika:
 
 The extensions are the common languages of the GitHub-linguist list the operator chose (gist
 `ppisarczyk/43962d06686722d26d176fad46879d41`), plus Structured Text (`.st`, `.iecst`, as the
-ControlForge extension names them) and Siemens TIA Portal sources (`.scl`, `.awl`, `.db`,
-`.udt`). This does not prove: Siemens' own documentation of those four extensions (only
-secondary sources agree on them), chunks that follow a language's structure (they still split
-by size), a card for a source file (still "file, N KB"), or files named without an extension
-(`Makefile`, `Dockerfile`), which keep their name-only row.
+ControlForge extension names them), Siemens TIA Portal sources (`.scl`, `.awl`, `.db`,
+`.udt`), and `.css`, `.cypher`, `.jsx` and `.mjs`, which indexing Aura's own repository found
+missing. The list has one copy, `internal/documents/filecard/source.go`. The ingest reads it
+from `aura-filecard -source-extensions`.
+
+A source file's card names it ("nastro.go — source file, 55 bytes.") and claims nothing about
+its contents. Before, the card said "Aura did not read this file", which was false on 5,046 of
+the 5,983 cards over Aura's sources. A NUL byte outside a UTF-16 BOM still makes a source-named
+file an unread file, on the card as in the ingest.
+
+This does not prove:
+- Siemens' own documentation of those four extensions. Only secondary sources agree on them;
+- chunks that follow a language's structure. They still split by size;
+- the card's wording for ranking. It is measured at the change's acceptance;
+- files named without an extension (`Makefile`, `Dockerfile`). They keep their name-only row.
 
 For direct operator diagnostics, expose the existing `aura docs ingest` and
 `aura docs search` handlers through a stdio MCP (`aura docs mcp`), using the

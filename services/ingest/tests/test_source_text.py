@@ -13,7 +13,7 @@ import pytest
 
 from ingest.extract import _LEGACY, _TEXTUAL, extractable, extract_text
 from ingest.media import _AUDIO_EXTENSIONS, _IMAGE_EXTENSIONS, _VIDEO_EXTENSIONS
-from ingest.source_extensions import SOURCE_EXTENSIONS
+from ingest.source_extensions import source_extensions
 
 GO = 'package nastro\n\n// La temperatura è già oltre la soglia.\nfunc Fermo() string { return "fermo" }\n'
 TSX = (
@@ -116,7 +116,14 @@ def test_source_extensions_route_and_unnamed_files_do_not():
         assert not extractable(name), name
 
 
+def test_the_list_is_the_one_aura_filecard_owns():
+    """.css, .cypher, .jsx and .mjs exist only in Go's list (internal/documents/filecard/source.go)."""
+    for name in ["main.css", "seed.cypher", "Panel.jsx", "run-speed.mjs"]:
+        assert extractable(name), name
+
+
 def test_source_extensions_take_nothing_another_route_owns():
     owned = _TEXTUAL | set(_LEGACY) | _IMAGE_EXTENSIONS | _AUDIO_EXTENSIONS | _VIDEO_EXTENSIONS
-    assert SOURCE_EXTENSIONS.isdisjoint(owned), sorted(SOURCE_EXTENSIONS & owned)
-    assert all(ext == ext.lower() and ext.count(".") == 1 for ext in SOURCE_EXTENSIONS)
+    sources = source_extensions()
+    assert sources.isdisjoint(owned), sorted(sources & owned)
+    assert all(ext == ext.lower() and ext.count(".") == 1 for ext in sources)

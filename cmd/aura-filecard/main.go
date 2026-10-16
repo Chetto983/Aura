@@ -33,9 +33,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	name := flags.String("name", "", "file name to describe the document as (defaults to the path's base name)")
 	asJSON := flags.Bool("json", false, "emit {\"card\":...,\"description\":...} instead of the rendered text")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: aura-filecard [-name NAME] [-json] PATH")
+	sources := flags.Bool("source-extensions", false, "print the source-file extensions as a JSON list and exit")
+	parseErr := flags.Parse(args)
+	wantArgs := 1
+	if *sources {
+		wantArgs = 0
+	}
+	if parseErr != nil || flags.NArg() != wantArgs {
+		_, _ = fmt.Fprintln(stderr, "usage: aura-filecard [-name NAME] [-json] PATH | -source-extensions")
 		return 2
+	}
+	if *sources {
+		// services/ingest reads its list of source extensions from here: there is one copy.
+		if err := json.NewEncoder(stdout).Encode(filecard.SourceExtensions()); err != nil {
+			return failed(stderr, err)
+		}
+		return 0
 	}
 	path := flags.Arg(0)
 	info, err := os.Stat(path)

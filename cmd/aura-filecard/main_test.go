@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -47,6 +48,21 @@ func TestPlainOutputIsTheRenderedCard(t *testing.T) {
 	card, _ := filecard.Build(filecard.Request{Path: path})
 	if stdout.String() != card.Render() {
 		t.Fatalf("plain output = %q, want %q", stdout.String(), card.Render())
+	}
+}
+
+func TestSourceExtensionsPrintsTheListTheIngestReads(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	if code := run([]string{"-source-extensions"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr.String())
+	}
+	var got []string
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("decode %q: %v", stdout.String(), err)
+	}
+	if !slices.Equal(got, filecard.SourceExtensions()) {
+		t.Fatalf("printed %d extensions, want filecard's %d", len(got), len(filecard.SourceExtensions()))
 	}
 }
 
