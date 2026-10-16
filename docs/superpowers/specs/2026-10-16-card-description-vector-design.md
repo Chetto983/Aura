@@ -205,8 +205,8 @@ per the PRD-first rule.
 | `services/ingest/media.py` | `extract_media`; billed calls keyed on content, not on the temporary path |
 | `prd.md` §11 | the amendment |
 
-No file crosses 600 lines. `app.py` is the one to watch, and the split, if needed, moves `_card`
-and `_describe` into `services/ingest/card.py`.
+No file crosses 600 lines. `app.py` is the one to watch, at 498 lines on 2026-10-16; the split,
+if needed, moves `Card` and `_card` into `services/ingest/card.py`.
 
 ### New env vars
 
@@ -249,13 +249,12 @@ None.
    - **The appliance at 192.168.1.225** was not reachable from the workstation. Its count is a
      gate before the edge image this change ships in is published.
 
-   The operator approved the spec on 2026-10-16, with decision 3 as written. The fallback, if the
-   appliance's count is large, keeps `_extract` frozen for one more release: `_describe` still
-   provides the card, and `_extract`'s own card is computed and ignored until the release that
-   makes the billed calls content-keyed.
-2. **Whether `KindSource`'s head line ("source file") moves code ranking.** The measured variant
-   gave unread source files a head line of "file, N KB" and nothing else. Acceptance 3 measures
-   the new wording before the VM run.
+   The operator approved the spec on 2026-10-16. Decision 3 as amended makes the billed calls
+   content-keyed in the same release, so the fallback first proposed (keep `_extract` frozen for
+   one release) is not needed. The upgrade still pays one call per image, recording and scan,
+   and the appliance's count bounds that.
+2. **Whether `KindSource`'s head line ("source file") moves code ranking.** Answered by
+   acceptance 3: through the real ingest no production number moved.
 
 ## Later levers, not in this spec
 

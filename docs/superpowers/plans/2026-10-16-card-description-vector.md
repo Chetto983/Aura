@@ -11,8 +11,21 @@
   - cocoindex 1.0.25 kept every memo: 0 re-extractions over 6,035 files.
   - Acceptance 3: one pass through the real ingest reproduced the five sets exactly
     (verification file, "Through the ingest").
-- **Open:** Task 9 (review and push) and Task 10 (the appliance count, the edge publish and the
-  lab VM run).
+- **Final review** (headless opus, read-only, range 84ac521f0..97fec747e): "with fixes", no
+  Critical. Every finding was fixed test-first in one pass, in 4b866593e, the assets and web
+  commits after it, and the ingest commit that closes the pass:
+  - PDF titles ending in a source extension were dropped (Important).
+  - An extensionless file's refusal named nothing (Important).
+  - The browser's MIME hint overrode the server's extension-first classification, so a `.pls`
+    would have been filed as audio. Graded Minor by the reviewer, re-graded Important for that
+    reason.
+  - Every unreadable file went through the billed memo.
+  - A silent filecard exit left no trace.
+  - The chip lost the server's type after a failed PUT.
+  - The encryption check's comment overclaimed.
+  - Review Focus 3 had no test.
+  - Several docs were stale.
+- **Open:** Task 10 (the appliance count, the edge publish and the lab VM run).
 
 > **For agentic workers:** Use superpowers:executing-plans with test-driven-development. The
 > operator requires the work in D:/Aura on master, with no worktree.
@@ -123,11 +136,10 @@ operator on 2026-10-16; decisions 3 and 5 amended while planning).
   (`aura-ingest:desc`) made one pass over each `cb-arcade` library: `[extract]` once per file;
   one embedding per card plus the 97 passages of newly readable extensions; no other passage
   re-embedded; no paid call. The five sets reproduced the in-place numbers exactly.
-- [ ] **Task 9: review and push.**
-  - [ ] One fresh reviewer on the whole range `6334cfb1e^..HEAD`, given this plan, the spec and
-    the Review Focus above.
-  - [ ] Fix Critical and Important findings test-first, then push with the WSL recipe and read
-    CI for this SHA.
+- [x] **Task 9: review and fixes.** One fresh reviewer on the range, given this plan, the spec
+  and the Review Focus; its findings fixed test-first (Status above). Go `-race` on the
+  touched packages, the ingest suite 220/220, and web 221/221 with tsc and oxlint clean.
+- [ ] **Task 9b: push** with the WSL recipe, then read CI for that SHA.
 - [ ] **Task 10: publish and the lab VM.**
   - [ ] Count the appliance's images, recordings and text-less PDFs read-only. That count is the
     gate before the edge image is published.
