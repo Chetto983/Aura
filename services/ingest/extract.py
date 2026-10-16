@@ -11,14 +11,21 @@ LibreOffice is here for a narrower reason: internal/documents/filecard/build.go 
 only .xlsx and .xlsm, so an ordinary 2010 .xls has no way into Aura's ETL path at all.
 `soffice --convert-to` preserves what filecard needs -- banner rows, the real header
 below them, and numeric cells that stay numeric.
+
+Source files and .txt bypass both (prd.md §11, 2026-10-16): Tika routes on sniffed content,
+so a .tsx holding markup lost its code to the HTML parser and a Go test opening with a %PDF
+literal failed in the PDF parser. They are plain text, and _read_text reads them as such.
 """
 
+import codecs
 import contextlib
 import pathlib
 import subprocess
 import tempfile
 
 from iscc_tika import Extractor
+
+from ingest.source_extensions import SOURCE_EXTENSIONS
 
 # Everything LibreOffice can turn into the OOXML that BOTH consumers understand.
 #
@@ -60,14 +67,39 @@ _TEXTUAL = {
     ".csv", ".tsv", ".json", ".xml", ".html", ".htm", ".epub", ".rst",
 } | set(_LEGACY)
 
+_PLAIN_TEXT = SOURCE_EXTENSIONS | {".txt"}
+
 
 def needs_normalisation(path: str) -> bool:
     return pathlib.Path(path).suffix.lower() in _LEGACY
 
 
 def extractable(path: str) -> bool:
-    """Whether the extractor can read this file at all. See _TEXTUAL."""
-    return pathlib.Path(path).suffix.lower() in _TEXTUAL
+    """Whether this file has text to read at all. See _TEXTUAL and _PLAIN_TEXT."""
+    suffix = pathlib.Path(path).suffix.lower()
+    return suffix in _TEXTUAL or suffix in _PLAIN_TEXT
+
+
+def _read_text(path: str) -> str:
+    """A plain-text file's text, or "" when its bytes are not text whatever its name says.
+
+    A NUL byte outside UTF-16 marks a binary -- a .db is a Siemens data block source and far
+    more often SQLite -- and "" keeps such a file's row by name, like any file without text.
+    cp1252 follows UTF-8 because STEP 7 exports and older Windows sources often carry it.
+    """
+    data = pathlib.Path(path).read_bytes()
+    if data.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        encodings = ("utf-16",)
+    elif b"\x00" in data:
+        return ""
+    else:
+        encodings = ("utf-8-sig", "cp1252")
+    for encoding in encodings:
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return ""
 
 
 def normalise(path: str, outdir: str) -> str:
@@ -100,12 +132,14 @@ def prepared(path: str):
 
 
 def extract_text(path: str) -> str:
-    """Extract plain text from any office document, converting legacy formats first."""
+    """Extract plain text: plain-text files as they are, documents through Tika."""
     # An empty file has no text, and the extractor refuses it ("InputStream must have > 0
     # bytes"): raising failed the file on every cycle and left it without a row (lab VM,
     # 2026-09-24, an empty prompt.txt, 59 failures an hour).
     if pathlib.Path(path).stat().st_size == 0:
         return ""
+    if pathlib.Path(path).suffix.lower() in _PLAIN_TEXT:
+        return _read_text(path)
     with prepared(path) as ready:
         text, metadata = _extractor.extract_file_to_string(ready)
         if "true" in metadata.get("X-TIKA:EXCEPTION:write_limit_reached", []):
