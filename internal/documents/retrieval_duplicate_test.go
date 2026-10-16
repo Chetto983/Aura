@@ -30,7 +30,7 @@ func TestRankDocumentsCollapsesByteIdenticalCopies(t *testing.T) {
 		OriginalSHA256: sharedHash, Rank: 4.66,
 	}}
 
-	documents := rankDocuments(cards, passages, nil, 8, 3, false)
+	documents := rankDocuments(cards, passages, nil, nil, 8, 3, false)
 
 	if len(documents) != 1 {
 		ids := make([]string, 0, len(documents))
@@ -66,7 +66,7 @@ func TestRankDocumentsPrefersTheCardTitleOverTheKeyFallback(t *testing.T) {
 		OriginalSHA256: hash, Rank: 6.05,
 	}}
 
-	documents := rankDocuments(cards, passages, nil, 8, 3, false)
+	documents := rankDocuments(cards, passages, nil, nil, 8, 3, false)
 
 	if len(documents) != 1 || documents[0].Title != "meteo_caraglio_settimanale.docx" {
 		t.Fatalf("title = %q, want the card's name", documents[0].Title)
@@ -90,7 +90,7 @@ func TestABetterCardOutranksAWeakerPassage(t *testing.T) {
 		SourceKey: "Documenti/gi_comuni_cap.xlsx", OriginalSHA256: "cccc", Rank: 0.71,
 	}}
 
-	documents := rankDocuments(cards, passages, nil, 8, 3, false)
+	documents := rankDocuments(cards, passages, nil, nil, 8, 3, false)
 
 	if len(documents) != 2 {
 		t.Fatalf("documents = %d, want both", len(documents))
@@ -124,7 +124,7 @@ func TestRankDocumentsCarriesTheObjectFactsThatSeparateSameNamedCopies(t *testin
 		},
 	}
 
-	documents := rankDocuments(cards, nil, nil, 8, 3, false)
+	documents := rankDocuments(cards, nil, nil, nil, 8, 3, false)
 
 	if len(documents) != 2 {
 		t.Fatalf("documents = %d, want both copies", len(documents))
@@ -151,7 +151,7 @@ func TestRankDocumentsOmitsObjectFactsWithoutACard(t *testing.T) {
 		Text: "un passaggio senza card", Leg: arcadedb.RetrievalLegFused, FusedScore: &score,
 	}}
 
-	documents := rankDocuments(nil, passages, nil, 8, 3, false)
+	documents := rankDocuments(nil, passages, nil, nil, 8, 3, false)
 
 	if len(documents) != 1 {
 		t.Fatalf("documents = %d, want one", len(documents))
@@ -187,7 +187,7 @@ func TestRankDocumentsCollapsesCopiesWithIdenticalText(t *testing.T) {
 		OriginalSHA256: "f2c8d876af35", Rank: 0.59846956,
 	}}
 
-	documents := rankDocuments(cards, passages, nil, 8, 3, false)
+	documents := rankDocuments(cards, passages, nil, nil, 8, 3, false)
 
 	if len(documents) != 1 {
 		keys := make([]string, 0, len(documents))
@@ -219,7 +219,7 @@ func TestRankDocumentsKeepsDocumentsWithDifferentText(t *testing.T) {
 			Leg: arcadedb.RetrievalLegFused, FusedScore: &score,
 		},
 	}
-	if documents := rankDocuments(nil, passages, nil, 8, 3, false); len(documents) != 2 {
+	if documents := rankDocuments(nil, passages, nil, nil, 8, 3, false); len(documents) != 2 {
 		t.Fatalf("documents = %d, want both", len(documents))
 	}
 }
@@ -248,7 +248,7 @@ func TestRankDocumentsCollapsesCardOnlyCopiesWithIdenticalText(t *testing.T) {
 		},
 	}
 
-	documents := rankCardsOnly(cards, 8, 3)
+	documents := rankCardsOnly(cards, nil, 8, 3)
 
 	if len(documents) != 2 {
 		t.Fatalf("documents = %d, want the two texts and not the three files", len(documents))
@@ -283,7 +283,7 @@ func TestRankDocumentsReservesOneSlotForAPassagelessDocument(t *testing.T) {
 		SourceKey: "Documenti/gi_comuni_cap.xlsx", OriginalSHA256: "table", Rank: 0.35,
 	}}
 
-	documents := rankDocuments(cards, passages, nil, 3, 3, false)
+	documents := rankDocuments(cards, passages, nil, nil, 3, 3, false)
 
 	if len(documents) != 3 {
 		t.Fatalf("documents = %d, want the limit", len(documents))
@@ -305,7 +305,7 @@ func TestRankDocumentsLeavesAnAlreadyTopPassagelessDocumentAlone(t *testing.T) {
 		{DocumentID: "doc_a", Title: "a.xlsx", OriginalSHA256: "a", Rank: 0.7},
 		{DocumentID: "doc_b", Title: "b.xlsx", OriginalSHA256: "b", Rank: 0.6},
 	}
-	documents := rankCardsOnly(cards, 8, 3)
+	documents := rankCardsOnly(cards, nil, 8, 3)
 	if len(documents) != 2 || documents[0].Title != "a.xlsx" {
 		t.Fatalf("ranking = %+v, want the card order untouched", documents)
 	}

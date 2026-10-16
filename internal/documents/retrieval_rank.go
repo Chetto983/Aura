@@ -20,14 +20,15 @@ type rankedDocument struct {
 
 // rankCardsOnly is the degraded answer: cards with no passage leg behind them. Names are
 // not looked up because a card already carries the one it was ranked by.
-func rankCardsOnly(cards []RetrievalCard, limit, topPassages int) []RetrievalDocument {
-	return rankDocuments(cards, nil, nil, limit, topPassages, true)
+func rankCardsOnly(cards []RetrievalCard, identifiers []string, limit, topPassages int) []RetrievalDocument {
+	return rankDocuments(cards, nil, nil, identifiers, limit, topPassages, true)
 }
 
 func rankDocuments(
 	cards []RetrievalCard,
 	passages []arcadedb.PassageCandidate,
 	names map[string]string,
+	identifiers []string,
 	limit int,
 	topPassages int,
 	forceOpen bool,
@@ -101,6 +102,7 @@ func rankDocuments(
 		}
 		return ranked[i].ordinal < ranked[j].ordinal
 	})
+	rankIdentifiersFirst(ranked, identifiers)
 	reserveCardLane(ranked)
 	if len(ranked) > limit {
 		ranked = ranked[:limit]
@@ -110,6 +112,37 @@ func rankDocuments(
 		out[index] = ranked[index].document
 	}
 	return out
+}
+
+// rankIdentifiersFirst moves every document whose title, card or returned passages carry all
+// of the question's identifiers ahead of those that do not, keeping the score order within
+// each group. It runs before the limit, so such a document is never cut off by the ones that
+// outscore it.
+//
+// Similarity cannot establish an exact technical identity, which is memory recall's rule
+// (arcadedb identifiers.go), and the final vector.rerank orders by cosine alone. Measured
+// 2026-10-16 on the complex corpus: "che difetto riguardava il reclamo RC-2026-040" ranked
+// note_pagamenti.txt first and the quality report, the only file holding that number, third.
+// With the rule r@1 went 0.735 -> 0.794 and MRR 0.848 -> 0.882 over 34 questions, two golds up
+// and none down, and the office fixture did not move (prd.md, "Exact identifiers rank first").
+// What that does not show: the code sets, which were not run.
+func rankIdentifiersFirst(ranked []*rankedDocument, identifiers []string) {
+	if len(identifiers) == 0 {
+		return
+	}
+	sort.SliceStable(ranked, func(i, j int) bool {
+		return carriesIdentifiers(ranked[i].document, identifiers) &&
+			!carriesIdentifiers(ranked[j].document, identifiers)
+	})
+}
+
+func carriesIdentifiers(document RetrievalDocument, identifiers []string) bool {
+	texts := make([]string, 0, 2+len(document.Passages))
+	texts = append(texts, document.Title, document.Card)
+	for _, passage := range document.Passages {
+		texts = append(texts, passage.Text)
+	}
+	return arcadedb.IdentifiersMatch(identifiers, texts...)
 }
 
 // reserveCardLane keeps ONE place for a document that has no passages.

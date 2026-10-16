@@ -27,6 +27,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/chetto1983/aura/internal/arcadedb"
 )
 
 // documentSearchDefaultLimit is document_search's own default (internal/agent/tools).
@@ -57,6 +59,9 @@ type rankingRule struct {
 	// cards rank only against cards, passages only against passages, and no card score is ever
 	// compared with a passage score.
 	cardSlots []int
+	// ignoreIdentifiers ranks by score alone, without rankIdentifiersFirst: the shipped rule
+	// before 2026-10-16, kept so its counterfactual stays measured.
+	ignoreIdentifiers bool
 }
 
 type codingAgentArm struct {
@@ -83,6 +88,7 @@ func TestCodingAgentQuestions(t *testing.T) {
 		{name: "quota: cards at 2 and 4", cardSlots: []int{1, 3}},
 		{name: "two reserved places", reservedPlaces: 2},
 		{name: "three reserved places", reservedPlaces: 3},
+		{name: "identifiers ignored", ignoreIdentifiers: true},
 	}
 
 	arms := []*codingAgentArm{{name: "production"}, {name: "lexical only"}}
@@ -123,14 +129,14 @@ func TestCodingAgentQuestions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("whole ranking %s: %v", question.QID, err)
 		}
-		shipped := applyRankingRule(full.Documents, rankingRule{})
+		shipped := applyRankingRule(full.Documents, rankingRule{}, question.Query)
 		if got, want := sourceKeys(shipped), arms[0].ranking[question.QID]; !slices.Equal(got, want) {
 			t.Fatalf("%s: the re-derived shipped order drifted from production:\n got %v\nwant %v",
 				question.QID, got, want)
 		}
 		for i, rule := range rules {
 			response := full
-			response.Documents = applyRankingRule(full.Documents, rule)
+			response.Documents = applyRankingRule(full.Documents, rule, question.Query)
 			record(arms[2+i], question, response, 0)
 		}
 	}
@@ -152,8 +158,9 @@ func TestCodingAgentQuestions(t *testing.T) {
 
 // applyRankingRule re-orders a whole ranking the way rankDocuments would under rule, from the
 // evidence each document carries (retrieval_rank.go: the best score, then the best position
-// either leg gave it, then the id, then the earliest passage), and keeps the tool's limit.
-func applyRankingRule(documents []RetrievalDocument, rule rankingRule) []RetrievalDocument {
+// either leg gave it, then the id, then the earliest passage, with the documents carrying the
+// question's identifiers first), and keeps the tool's limit.
+func applyRankingRule(documents []RetrievalDocument, rule rankingRule, query string) []RetrievalDocument {
 	var all []rankedEvidence
 	for _, document := range documents {
 		entry := evidenceOf(document)
@@ -170,6 +177,12 @@ func applyRankingRule(documents []RetrievalDocument, rule rankingRule) []Retriev
 		return withCardSlots(all, rule.cardSlots)
 	}
 	sortRanked(all)
+	if !rule.ignoreIdentifiers {
+		identifiers := arcadedb.QueryIdentifiers(query)
+		sort.SliceStable(all, func(i, j int) bool {
+			return carriesIdentifiers(all[i].document, identifiers) && !carriesIdentifiers(all[j].document, identifiers)
+		})
+	}
 	// The k-th file with no passage sits no lower than place k+2, the best hit staying first.
 	for lane := 1; lane <= max(rule.reservedPlaces, 1); lane++ {
 		seen, best := 0, -1

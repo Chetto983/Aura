@@ -328,7 +328,7 @@ func (r *HostRetriever) Retrieve(ctx context.Context, request RetrievalRequest) 
 	if r.PassageIndex == nil {
 		response.Status, response.DegradationReason = RetrievalCardOnly, DegradationUnconfigured
 		r.degradations.warn(DegradationUnconfigured, "no passage index is wired", request.IdentityID)
-		response.Documents = rankCardsOnly(cards, request.Limit, cfg.TopPassages)
+		response.Documents = rankCardsOnly(cards, arcadedb.QueryIdentifiers(request.Query), request.Limit, cfg.TopPassages)
 		return response, nil
 	}
 	response.Indexing = r.ingestState(ctx, request.IdentityID)
@@ -340,7 +340,7 @@ func (r *HostRetriever) Retrieve(ctx context.Context, request RetrievalRequest) 
 	if err != nil {
 		response.Status, response.DegradationReason = RetrievalCardOnly, DegradationArcade
 		r.degradations.warn(DegradationArcade, err.Error(), request.IdentityID)
-		response.Documents = rankCardsOnly(cards, request.Limit, cfg.TopPassages)
+		response.Documents = rankCardsOnly(cards, arcadedb.QueryIdentifiers(request.Query), request.Limit, cfg.TopPassages)
 		return response, nil
 	}
 	// Abstain when NEITHER leg qualified, not when the passage leg alone came back empty.
@@ -367,12 +367,12 @@ func (r *HostRetriever) Retrieve(ctx context.Context, request RetrievalRequest) 
 		// No passage was retrieved, so nothing here can be quoted: every answer must be
 		// opened. That is rankCardsOnly's contract, and it is not a degradation -- both
 		// legs ran and one of them found something.
-		response.Documents = rankCardsOnly(cards, request.Limit, cfg.TopPassages)
+		response.Documents = rankCardsOnly(cards, arcadedb.QueryIdentifiers(request.Query), request.Limit, cfg.TopPassages)
 		return response, nil
 	}
 	response.Documents = rankDocuments(
 		cards, fused, r.passageLegNames(ctx, request.IdentityID, cards, fused),
-		request.Limit, cfg.TopPassages, false,
+		arcadedb.QueryIdentifiers(request.Query), request.Limit, cfg.TopPassages, false,
 	)
 	r.attachNeighbours(ctx, request.IdentityID, response.Documents, request.Neighbours)
 	return response, nil
