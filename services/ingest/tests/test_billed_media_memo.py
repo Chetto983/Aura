@@ -20,8 +20,11 @@ import pytest
 
 _STUB = """#!/bin/sh
 echo "$*" >> "$STUB_CALLS"
+if [ -n "$STUB_EXIT" ]; then echo "no configured route accepts images" >&2; exit "$STUB_EXIT"; fi
 echo "una valvola rossa su un tubo grigio"
 """
+# cmd/aura-media-index exitNoVisionRoute.
+_NO_VISION_ROUTE = "3"
 
 
 def _blank_pdf() -> bytes:
@@ -50,9 +53,9 @@ def bridge(tmp_path):
     calls = tmp_path / "calls"
     calls.touch()
 
-    def run(path, content_type):
+    def run(path, content_type, exit_code=""):
         env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}", STUB_CALLS=str(calls),
-                   COCOINDEX_DB=str(tmp_path / "coco.db"))
+                   STUB_EXIT=exit_code, COCOINDEX_DB=str(tmp_path / "coco.db"))
         done = subprocess.run(
             [sys.executable, "-m", "ingest.tests.media_driver", str(path), content_type],
             env=env, capture_output=True, text=True, timeout=300,
@@ -85,3 +88,19 @@ def test_a_scanned_pdf_is_read_once_when_extract_runs_again(bridge, tmp_path):
 
     assert extracted == 1, "the changed content type did not re-run _extract"
     assert len(calls) == 1, f"the scan was read again: {calls}"
+
+
+def test_an_image_no_route_reads_stays_card_only_without_a_retry_each_cycle(bridge, tmp_path):
+    # The component succeeds (bridge() asserts the driver's exit code) and _extract keeps the
+    # blank, so an unchanged pass asks nothing. The refusal itself is not memoized, so the next
+    # re-run of _extract asks the bridge again.
+    image = tmp_path / "valvola.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\n not a real image")
+
+    extracted, calls = bridge(image, "image/png", _NO_VISION_ROUTE)
+    assert (extracted, len(calls)) == (1, 1)
+    extracted, calls = bridge(image, "image/png", _NO_VISION_ROUTE)
+    assert (extracted, len(calls)) == (0, 1), "an unchanged pass asked the bridge again"
+    extracted, calls = bridge(image, "application/octet-stream", _NO_VISION_ROUTE)
+
+    assert (extracted, len(calls)) == (1, 2), "the refusal was memoized"

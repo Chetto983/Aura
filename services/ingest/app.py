@@ -185,6 +185,7 @@ def _card(path: str, file_name: str) -> Card:
     if done.stderr:
         print(f"[card] {file_name}: {done.stderr.decode('utf-8', 'replace').strip()}", flush=True)
     if done.returncode != 0:
+        print(f"[card] {file_name}: aura-filecard exited {done.returncode}", flush=True)
         return _NO_CARD
     rendered = json.loads(done.stdout)
     return Card(text=rendered["card"], description=rendered["description"])

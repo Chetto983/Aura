@@ -75,10 +75,16 @@ def test_media_kind_routes_only_supported_families(name, want):
     assert media.kind(name) == want
 
 
-def test_non_media_file_yields_no_derived_text(tmp_path):
-    path = tmp_path / "archive.zip"
-    path.write_bytes(b"PK")
-    assert media.derive(str(path), path.name) == ""
+def test_only_images_and_recordings_reach_the_billed_memo(monkeypatch, tmp_path):
+    # The memo hashes the whole file to key it, and a video can be large: a file no route
+    # reads has nothing to memoize.
+    monkeypatch.setattr(
+        media, "extract_media", lambda *_args: pytest.fail("a file no route reads reached the memo"),
+    )
+    for name in ("archive.zip", "videoplayback.mp4"):
+        path = tmp_path / name
+        path.write_bytes(b"not media")
+        assert media.index_text(str(path), path.name) == ""
 
 
 def test_video_is_indexed_by_metadata_only(monkeypatch, tmp_path):

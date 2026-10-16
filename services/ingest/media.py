@@ -62,22 +62,11 @@ def _run(args: list[str], timeout: float) -> str:
     return done.stdout.decode("utf-8", "replace").strip()
 
 
-def derive(path: str, file_name: str) -> str:
-    media_kind = kind(file_name or path)
-    if media_kind in (None, "video"):
-        return ""
+def derive(path: str, file_name: str, media_kind: str) -> str:
+    """Describe an image, transcribe a recording, or OCR an image-only PDF ("pdf")."""
     request_timeout = max(1, int(os.environ.get("MULTIMODAL_TIMEOUT_SEC", "120")))
     return _run(
         ["-kind", media_kind, "-name", file_name, path],
-        timeout=(3 * request_timeout) + 30,
-    )
-
-
-def derive_scanned_pdf(path: str, file_name: str) -> str:
-    """Render and OCR an image-only PDF through the existing selected vision model."""
-    request_timeout = max(1, int(os.environ.get("MULTIMODAL_TIMEOUT_SEC", "120")))
-    return _run(
-        ["-kind", "pdf", "-name", file_name, path],
         timeout=(3 * request_timeout) + 30,
     )
 
@@ -136,7 +125,10 @@ def index_text(path: str, file_name: str, content_type: str | None = None) -> st
             if pathlib.PurePath(path).suffix.lower() == _PDF_EXTENSION and not text.strip():
                 return extract_scanned_pdf(path, file_name)
             return text
-        return extract_media(path, file_name)
+        media_kind = kind(file_name or path)
+        if media_kind in ("image", "audio"):
+            return extract_media(path, file_name, media_kind)
+        return ""
     except NoVisionRoute:
         return ""
 
@@ -152,11 +144,15 @@ def _content_sha256(path: str) -> str:
 # again and billed every image and every scan once more; and a scan was read again on every
 # change of the media route. Outside a CocoIndex component, as in the unit tests, a memo is a
 # plain call.
+#
+# A change to the routing in index_text or kind() -- a new image extension, say -- reaches a
+# stored file only when _extract's own code changes: a plain function is not part of a
+# memo's key (cocoindex _compute_logic_fingerprint).
 @coco.fn(memo=True, memo_key={"path": _content_sha256})
-def extract_media(path: str, file_name: str) -> str:
-    return derive(path, file_name)
+def extract_media(path: str, file_name: str, media_kind: str) -> str:
+    return derive(path, file_name, media_kind)
 
 
 @coco.fn(memo=True, version=1, memo_key={"path": _content_sha256})
 def extract_scanned_pdf(path: str, file_name: str) -> str:
-    return derive_scanned_pdf(path, file_name)
+    return derive(path, file_name, "pdf")
