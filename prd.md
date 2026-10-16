@@ -1458,6 +1458,40 @@ This does not prove:
 - the right answer when only cards answer. There the place now reaches a passage-less file further
   down, where before it changed nothing.
 
+**The card's vector (measured 2026-10-16).** A card's vector is computed from its
+description: the card without what it says about Aura. That means no caveat, no cut notice, and
+no trailer ("Written by Aura at ingest … open it with document_open …").
+- **The card itself is unchanged.** It is stored whole in `IndexedDocument.card`, full-text
+  indexed and read by the agent, caveats included.
+- **The trailer was on all 6,035 cards measured.** It and the caveats made every card look a
+  little like every question about documents.
+
+Each card vector was rewritten in place from its description and five question sets re-run:
+
+| Set | Questions | r@8 | MRR |
+|---|---|---|---|
+| English code | 24 | 0.792 → 0.833 | 0.552 → 0.557 |
+| Italian code | 24 | 0.625 → 0.667 | 0.453 → 0.462 |
+| find-by-name | 6 | 1.000 | 0.750 → 1.000 |
+| office | 20 | 0.800 → 0.900 | 0.650 → 0.667 |
+| PDF corpus | 38 | 0.895 → 0.947 | 0.757 → 0.768 |
+
+- **What moved.** Twelve golds rose and four fell, by near-ties or because a spreadsheet newly
+  took the reserved place.
+- **What did not.** PDF golds were already first in 21 of 22 cases.
+- **Noise.** Restoring the vectors reproduced every baseline, one question moving one place.
+
+`filecard.Card.Description()` is the rendering, and `aura-filecard -json` emits it beside the
+card. The design is
+[the spec](docs/superpowers/specs/2026-10-16-card-description-vector-design.md); the record is
+[the verification](docs/superpowers/verification/2026-10-16-coding-agent-questions-over-aura-sources.md).
+
+This does not prove:
+- the ingest path itself. Those vectors were rewritten through the same embedder and prefix;
+- media cards. No image, audio or video was in any corpus;
+- large libraries on one topic. The PDF corpus is 30 short, distinct files;
+- anything beyond sets of 6 to 38 questions written by one agent.
+
 The primary model receives supported media natively where its route advertises that
 capability. OCR/transcription/extraction use shared services and settings. Telegram is
 an attachment wrapper, not a competing pipeline. Runs that need indexing wait for the
