@@ -266,6 +266,83 @@ filecard's kind.
 **Not shipped.** A floor of the cards' own needs the index to know which cards describe their
 file.
 
+## What a card's vector is made of
+
+The ingest embeds the whole rendered card (`services/ingest/app.py`, `index_object`). That card
+carries fixed sentences of filecard's:
+- **every card** ends with `cardTrailer`: "Written by Aura at ingest from the file itself: it
+  describes the file and is not the file — open it with document_open to read or compute on it.";
+- **a file filecard has no handler for** also says "Aura did not read this file at ingest: nothing
+  here describes its contents." (`filecard/build.go`).
+
+**Census of the stored cards:**
+
+| Sentence | Code corpus (5,983 cards) | Office (22) |
+|---|---|---|
+| the trailer | 5,983 | 22 |
+| "Aura did not read this file" | 5,046 | 0 |
+| "The description was cut to fit" | 2 | 0 |
+| "Aura could not read this file", the PDF lines, the media line | 0 | 0 |
+
+**The 5,046 include the source files.** filecard has no handler for `.go`, `.ts` and the other
+extensions the ingest has read directly since ed4126f86. So a source file indexed as passages
+carries a card saying nothing describes its contents.
+
+**`TestCardTextVariants`** (`internal/arcadedb/document_card_floor_bench_test.go`) re-embeds
+each office card with some lines dropped. It then scores the 22 golds that only a card can
+answer against the 0.32 floor (`card_band_questions.json`):
+
+| Card text | Gold cards ≥ 0.32 | Lowest gold | Best out-of-corpus card |
+|---|---|---|---|
+| as stored (re-embedding reproduces the stored vectors, cosine 1.0000) | 17/22 | 0.295 | 0.202 |
+| without the trailer and the "did not read" caveat | 19/22 | 0.307 | 0.217 |
+| also without the sample rows | 16/22 | 0.228 | 0.200 |
+| schema lines only | 15/22 | 0.214 | 0.180 |
+
+- **Sample rows help.** Dropping them loses golds, so they do not dilute the card.
+- **The fixed sentences shift the band, not its width.** The gap between the lowest gold and the
+  best out-of-corpus card is 0.093 as stored and 0.090 without them. Two golds lose a little:
+  `fattura_2026_011.xlsx` falls from 0.419 to 0.397 for q09, still over the floor.
+
+**End to end.** For the end-to-end run, every card vector of both identities in `cb-arcade` was
+rewritten from its own text without those two sentences. The card text was left unchanged, so the
+full-text leg saw what it saw before. The rewrite took 115 s for the 5,983 code cards.
+
+Two checks before measuring:
+- **The index held the new vectors.** Every rewritten record was its own nearest neighbour, at
+  distance 0.000000, except two groups:
+  - 134 records whose vector another record shares exactly;
+  - 11 where the approximate search returned a different record.
+- **The ranking was otherwise unchanged.** The lexical-only arm was identical in all four sets.
+
+| Set | r@8 | MRR | Golds better | Golds worse |
+|---|---|---|---|---|
+| English code | 0.792 → 0.833 | 0.552 → 0.559 | `extractable` missing → 5 | `degradation-log` 4 → 5 |
+| Italian code | 0.625 → 0.667 | 0.453 → 0.462 | `extractable` missing → 7; `abstention`, `mcp-auth-panel` 6 → 5 | — |
+| find-by-name | 1.000 | 0.750 → 1.000 | `name-rank-go`, `name-publish`, `name-keylock` 2 → 1 | — |
+| office | 0.800 → 0.900 | 0.650 → 0.652 | q07 and q14 missing → 4 | q09 2 → 3; q18 2 → 5 |
+
+**The losses are near-ties:**
+- **q18:** the reserved place went to `fattura_2026_009.xlsx` instead of `fattura_2026_005.xlsx`,
+  0.478 against 0.476. Both are invoice cards.
+- **q09:** `contabilita_2026.xlsx` and `anagrafica_clienti.xlsx` swapped places, 0.003 apart.
+
+**Fewer cards answered alone.** Documents that entered the top 8 with no passage at all:
+
+| Set | Before | After |
+|---|---|---|
+| English | 15 | 5 |
+| Italian | 18 | 5 |
+| find-by-name, where a card is the right answer | 4 | 7 |
+
+**Run-to-run noise.** The vectors were restored from a snapshot and the four sets re-run. Every
+answer matched the fresh baseline except one: Italian `abstention` moved 6 → 5. One gain above is
+therefore within noise. The restored corpus is the one the earlier sections measured.
+
+**Not shipped.** The trailer and caveats are fixed sentences about Aura, not about the file.
+Embedding the card without them is a filecard and ingest change. It waits on approval, together
+with the false caveat on source files.
+
 ## CocoIndex Code, read 2026-10-16
 
 `cocoindex-io/cocoindex-code` (v1 source, pushed 2026-10-06) chunks code with the same
@@ -297,3 +374,10 @@ alternatives. A structural `ccc grep` sits beside the search.
   The live 118-document corpus behind `reserveCardLane`'s original measurement
   (`docs/document-retrieval-order-pilot.json`, on the lab VM) was not re-run. The find-by-name
   questions are six, written by the same agent.
+- **The card rewrite was measured on text and code only.** No PDF and no media file is in either
+  corpus. The PDF lines, the media line, the "could not read" caveat and the cut notice were never
+  dropped from a vector, because only two cards carry any of them.
+- **The vectors were rewritten in place, not produced by the ingest.** The texts went through the
+  same embedder, with the same document prefix the ingest uses. "As stored" reproduces the
+  ingest's vectors at cosine 1.0000, which shows the two paths agree. It does not exercise an
+  ingest change.
