@@ -1,5 +1,6 @@
-import pathlib
+import hashlib
 import os
+import pathlib
 import subprocess
 
 import cocoindex as coco
@@ -140,13 +141,31 @@ def index_text(path: str, file_name: str, content_type: str | None = None) -> st
             if pathlib.PurePath(path).suffix.lower() == _PDF_EXTENSION and not text.strip():
                 return extract_scanned_pdf(path, file_name)
             return text
-        return derive(path, file_name)
+        return extract_media(path, file_name)
     except NoVisionRoute:
         return ""
 
 
+def _content_sha256(path: str) -> str:
+    with open(path, "rb") as file:
+        return hashlib.file_digest(file, "sha256").hexdigest()
 
-@coco.fn(memo=True, version=1)
+
+# The billed calls are memoized on the bytes, never on the path. _extract writes the bytes to
+# a random temporary file, so a memo keyed on the path missed whenever _extract ran again and
+# billed every image and every scan once more (prd.md §11, 2026-10-16). Outside a CocoIndex
+# component, as in the unit tests, a memo is a plain call.
+#
+# Only the scan reads CONFIG_FINGERPRINT, so only the scan is read again when the media route
+# changes. An image or a recording is not, as before this memo existed: depending on the
+# route would bill every one of them again on each change of the primary model that reads
+# images.
+@coco.fn(memo=True, memo_key={"path": _content_sha256})
+def extract_media(path: str, file_name: str) -> str:
+    return derive(path, file_name)
+
+
+@coco.fn(memo=True, version=1, memo_key={"path": _content_sha256})
 def extract_scanned_pdf(path: str, file_name: str) -> str:
     coco.use_context(CONFIG_FINGERPRINT)
     return derive_scanned_pdf(path, file_name)
