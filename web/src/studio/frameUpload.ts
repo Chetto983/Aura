@@ -1,5 +1,5 @@
 import { presignAsset } from '../chat/attachments/api';
-import { inferModality, putWithProgress } from '../chat/attachments/upload';
+import { putWithProgress } from '../chat/attachments/upload';
 import { finalizeStudioUpload, type StudioImageRef } from './studioApi';
 
 // frameUpload.ts — the three steps that turn a file the operator dropped on the composer into
@@ -12,9 +12,9 @@ import { finalizeStudioUpload, type StudioImageRef } from './studioApi';
  *  The presign names no thread: a Studio frame belongs to the identity, not to a conversation,
  *  and the library route lists the identity's images from any thread or none.
  *
- *  The modality hint is read from the file rather than asserted to be an image, so a file that
- *  is not one is refused by the server with a sentence about that file — instead of being
- *  mislabelled on the way in and failing later for a reason nobody can act on. */
+ *  The presign carries no modality of its own: the server classifies the file, so one that is
+ *  not an image is refused with a sentence about that file — instead of being mislabelled on
+ *  the way in and failing later for a reason nobody can act on. */
 export async function uploadStudioFrame(
   file: File,
   onProgress: (progress: number) => void,
@@ -24,7 +24,7 @@ export async function uploadStudioFrame(
     file_name: file.name,
     mime_type: file.type,
     size_bytes: file.size,
-    modality_hint: inferModality(file),
+    modality_hint: 'unknown',
   });
   await putWithProgress(
     presigned.upload.upload_url,

@@ -82,6 +82,40 @@ describe('createAuraAttachmentAdapter', () => {
     expect(yields[yields.length - 1]?.type).toBe('document');
   });
 
+  // The server classifies by extension before MIME type (internal/assets InferModality), and a
+  // hint would win over both: browsers label a PL/SQL .pls "audio/x-scpls".
+  it('sends no modality hint of its own, so the server classifies a source file by its name', async () => {
+    const adapter = createAuraAttachmentAdapter({ threadId: 'conv-1' });
+
+    await drain(
+      adapter.add({ file: file('pkg_ordini.pls', 'audio/x-scpls') }) as AsyncGenerator<
+        PendingAttachment,
+        void
+      >,
+    );
+
+    expect(presignAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ file_name: 'pkg_ordini.pls', modality_hint: 'unknown' }),
+    );
+  });
+
+  it("keeps the server's type on the chip when a later step fails", async () => {
+    presignAsset.mockResolvedValue({
+      asset: asset({ status: 'presigned', modality: 'document', file_name: 'nastro.go' }),
+      upload: { upload_url: 'https://store.invalid/put', required_headers: {} },
+    });
+    putWithProgress.mockRejectedValue(new Error('upload failed: HTTP 403'));
+    const adapter = createAuraAttachmentAdapter({ threadId: 'conv-1' });
+
+    const yields = await drain(
+      adapter.add({ file: file('nastro.go', '') }) as AsyncGenerator<PendingAttachment, void>,
+    );
+    const last = yields[yields.length - 1];
+
+    expect(last?.status).toMatchObject({ type: 'incomplete', message: 'upload failed: HTTP 403' });
+    expect(last?.type).toBe('document');
+  });
+
   it('keeps one identity for the whole upload', async () => {
     const adapter = createAuraAttachmentAdapter({ threadId: 'conv-1' });
 

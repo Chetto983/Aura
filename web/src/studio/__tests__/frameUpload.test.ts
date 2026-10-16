@@ -61,7 +61,7 @@ describe('uploading a Studio frame', () => {
       file_name: 'cat.png',
       mime_type: 'image/png',
       size_bytes: 3,
-      modality_hint: 'image',
+      modality_hint: 'unknown',
     });
     const [url, file, headers, progress] = putMock.mock.calls[0] ?? [];
     expect(url).toBe('https://objects.example/put/cat.png?sig=1');
@@ -104,7 +104,7 @@ describe('uploading a Studio frame', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('hints the modality from the file, so the server can refuse what is not an image', async () => {
+  it('lets the server classify the file, so it can refuse what is not an image', async () => {
     const pdf = new File([new Uint8Array([1])], 'manual.pdf', { type: 'application/pdf' });
 
     await uploadStudioFrame(pdf, vi.fn());

@@ -78,9 +78,10 @@ function isBrowserForbiddenUploadHeader(name: string): boolean {
   );
 }
 
-/** The modality hint the presign takes: the browser's MIME type for media, and 'unknown' for
- *  everything else, which the server classifies against its own allowlist (internal/assets
- *  InferModality). The allowlist is not copied here: a copy kept here drifted from it. */
+/** The chip's type until the server answers: the browser's MIME type for media, 'unknown' for
+ *  everything else. It is never sent as the presign's hint, because a hint wins over the
+ *  server's own classification (internal/assets InferModality), which reads the extension
+ *  before the MIME type: browsers label a PL/SQL .pls "audio/x-scpls". */
 export function inferModality(file: File): AssetModality {
   const type = file.type.toLowerCase();
   if (type.startsWith('image/')) return 'image';

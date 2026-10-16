@@ -53,14 +53,14 @@ export function createAuraAttachmentAdapter(
       // like a dropped one.
       yield pending(file, attachmentId, { type: 'running', reason: 'uploading', progress: 0 });
 
-      let asset: Asset;
+      let asset: Asset | undefined;
       try {
         const presigned = await presignAsset({
           thread_id: options.threadId,
           file_name: file.name,
           mime_type: file.type || 'application/octet-stream',
           size_bytes: file.size,
-          modality_hint: inferModality(file),
+          modality_hint: 'unknown',
         });
         asset = presigned.asset;
         // The PUT reports progress through a callback, but a generator cannot yield from
@@ -88,11 +88,12 @@ export function createAuraAttachmentAdapter(
         const finalized = await finalizeAsset(asset.id);
         asset = await pollUntilReady(finalized, { pollIntervalMs: options.pollIntervalMs });
       } catch (err) {
-        yield pending(file, attachmentId, {
-          type: 'incomplete',
-          reason: 'error',
-          message: errorMessage(err),
-        });
+        yield pending(
+          file,
+          attachmentId,
+          { type: 'incomplete', reason: 'error', message: errorMessage(err) },
+          asset?.modality,
+        );
         return;
       }
 
