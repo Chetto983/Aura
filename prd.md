@@ -1439,6 +1439,25 @@ status. Unsupported extraction cannot imply content coverage.
 insufficient passage evidence. A few passages cannot establish a whole-table aggregate.
 A filename match is a diagnostic, not the answer-quality oracle.
 
+**The reserved place (measured 2026-10-16).** One place, right behind the best hit, is held
+for a file that has no passage at all: a spreadsheet, answered from the file itself, whose card
+cannot outscore the documents that merely mention its subject (measured 2026-09-09).
+
+The place used to go to any document the query retrieved no passage of. Over Aura's own sources
+that promoted files found by their name alone, such as a `.service` unit, or a skill reference
+scoring 0.344 above hits at 0.48. Keyed on the card's passage count instead, 14 of 74 golds rose
+and none fell. The 74 questions are the coding questions in English and Italian, six find-by-name
+questions and the office fixture; the record is
+[the verification](docs/superpowers/verification/2026-10-16-coding-agent-questions-over-aura-sources.md).
+In lexical-only mode the same change moved 6 golds up and 2 down, each by one or two places.
+
+This does not prove:
+- that the 2026-09-09 pilot still passes. Its 118-document corpus is gone from the lab VM, which
+  holds one 9-document library, so it could not be re-run;
+- anything beyond small sets of 6 to 24 questions;
+- the right answer when only cards answer. There the place now reaches a passage-less file further
+  down, where before it changed nothing.
+
 The primary model receives supported media natively where its route advertises that
 capability. OCR/transcription/extraction use shared services and settings. Telegram is
 an attachment wrapper, not a competing pipeline. Runs that need indexing wait for the
