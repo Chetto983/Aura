@@ -212,11 +212,17 @@ None.
 
 ## Open questions
 
-1. **The one-time re-run of the billed calls (decision 3).** Measure the count first. If it is
-   small, ship as decided. If not, the alternative keeps `_extract` frozen for one more release:
-   `_describe` still provides the card, and `_extract`'s own card is computed and ignored until
-   the release that makes the billed calls content-keyed. That is debt with a date on it, and the
-   operator chooses.
+1. **The one-time re-run of the billed calls (decision 3).** Counted read-only on 2026-10-16:
+   - **Lab VM.** One identity, 9 documents. One is an audio file, transcribed by the local
+     `aura-stt` (whisper) sidecar. There are no images and no PDFs. The re-run costs one local
+     transcription and no billed call.
+   - **The appliance at 192.168.1.225** was not reachable from the workstation. Its count is a
+     gate before the edge image this change ships in is published.
+
+   The operator approved the spec on 2026-10-16, with decision 3 as written. The fallback, if the
+   appliance's count is large, keeps `_extract` frozen for one more release: `_describe` still
+   provides the card, and `_extract`'s own card is computed and ignored until the release that
+   makes the billed calls content-keyed.
 2. **Whether `KindSource`'s head line ("source file") moves code ranking.** The measured variant
    gave unread source files a head line of "file, N KB" and nothing else. Acceptance 3 measures
    the new wording before the VM run.
