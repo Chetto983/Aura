@@ -47,7 +47,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if *sources {
 		// services/ingest reads its list of source extensions from here: there is one copy.
-		if err := json.NewEncoder(stdout).Encode(filecard.SourceExtensions()); err != nil {
+		if err := writeJSON(stdout, filecard.SourceExtensions()); err != nil {
 			return failed(stderr, err)
 		}
 		return 0
@@ -73,7 +73,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintf(stderr, "aura-filecard: %s: %v\n", fileName, buildErr)
 	}
 	if *asJSON {
-		err = json.NewEncoder(stdout).Encode(rendered(card))
+		err = writeJSON(stdout, rendered(card))
 	} else {
 		_, err = fmt.Fprint(stdout, card.Render())
 	}
@@ -92,6 +92,15 @@ func rendered(card filecard.Card) map[string]any {
 		rows = []filecard.Row{}
 	}
 	return map[string]any{"card": card.Render(), "description": card.Description(), "rows": rows}
+}
+
+// writeJSON leaves <, > and & as they are: the reader is the ingest, not a browser, and
+// encoding/json's HTML escaping writes each as a six-byte \u escape, so a row full of them
+// grows up to 6x.
+func writeJSON(w io.Writer, v any) error {
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	return enc.Encode(v)
 }
 
 func failed(stderr io.Writer, err error) int {

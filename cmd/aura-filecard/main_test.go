@@ -35,6 +35,28 @@ func TestJSONCarriesTheCardAndTheDescriptionItsVectorIsComputedFrom(t *testing.T
 	}
 }
 
+func TestJSONLeavesMarkupCharactersUnescaped(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nota.txt")
+	if err := os.WriteFile(path, []byte("testo"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+
+	if code := run([]string{"-json", "-name", "<a & b>.txt", path}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "<a & b>") {
+		t.Fatalf("output escapes the markup characters: %s", stdout.String())
+	}
+	var got struct{ Card string }
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("decode %q: %v", stdout.String(), err)
+	}
+	if !strings.Contains(got.Card, "<a & b>.txt") {
+		t.Fatalf("card = %q, want it to name <a & b>.txt", got.Card)
+	}
+}
+
 func TestPlainOutputIsTheRenderedCard(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nota.txt")
 	if err := os.WriteFile(path, []byte("testo"), 0o600); err != nil {
