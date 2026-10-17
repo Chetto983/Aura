@@ -56,7 +56,7 @@ def main():
         app.app.update_blocking()
         profile.disable()
         elapsed = time.perf_counter() - start
-        assert app.audit_pass() == 0, "source missing from index"
+        assert app.audit_pass(0) == 0, "source missing from index"
         profile.dump_stats(str(args.output / f"{label}.prof"))
         stats = pstats.Stats(profile)
         stages = {}

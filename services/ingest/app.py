@@ -415,7 +415,7 @@ app = coco.App(
     app_main, _S3_CONFIG.identity_id, _INTERVAL_S,
 )
 
-def audit_pass() -> int:
+def audit_pass(errors: int) -> int:
     """Compare the bucket against the index and name every object that produced no row.
 
     This exists because an ingest that loses documents and exits 0 is not a hypothetical:
@@ -425,12 +425,16 @@ def audit_pass() -> int:
     document with nothing to say -- in catch-up mode as well as live, whatever compose.yaml
     claims. Reconciliation is the only thing that can tell them apart, so it ships.
 
+    `errors` is CocoIndex's own failure count for the run, printed beside the comparison
+    because a complete index does not make a run clean: on 2026-10-17 an upgrade reported
+    19 errors while the audit counted every object indexed.
+
     Returns the number of missing objects; the caller decides what that is worth.
     """
     expected, indexed = _bucket_versus_index()
     missing = sorted(expected - indexed)
     print(f"[audit] {len(expected)} objects in {_S3_CONFIG.bucket}, "
-          f"{len(indexed)} indexed, {len(missing)} missing", flush=True)
+          f"{len(indexed)} indexed, {len(missing)} missing, {errors} errors", flush=True)
     for key in missing:
         print(f"[audit] MISSING {key}", flush=True)
     return len(missing)
@@ -492,8 +496,8 @@ def _publish_status(snapshot: coco.UpdateSnapshot) -> None:
         print(f"ingest status not published: {exc}", file=sys.stderr, flush=True)
 
 
-async def _update_publishing_status() -> None:
-    """Run the update and publish every status it reports.
+async def _update_publishing_status() -> coco.UpdateSnapshot | None:
+    """Run the update, publish every status it reports and return the last one seen.
 
     update_blocking() threw the handle away, and the handle is the only thing that says
     whether the reconciler has caught up: watch() yields RUNNING while work is in flight
@@ -503,14 +507,34 @@ async def _update_publishing_status() -> None:
     writing lifecycle states when this pipeline took them over, had nothing to write.
 
     In live mode watch() keeps yielding after the first READY, so the row tracks each
-    later cycle too rather than freezing on the catch-up.
+    later cycle too rather than freezing on the catch-up. The last snapshot of a catch-up
+    carries the run's final error count, which is what the exit code reads.
     """
+    last = None
     async for snapshot in app.update(live=_LIVE).watch():
         _publish_status(snapshot)
+        last = snapshot
+    return last
+
+
+def _error_count(snapshot: coco.UpdateSnapshot | None) -> int:
+    total = getattr(getattr(snapshot, "stats", None), "total", None)
+    return getattr(total, "num_errors", 0)
+
+
+def _exit_code(missing: int, errors: int) -> int:
+    return 1 if missing or errors else 0
+
+
+def _catch_up() -> int:
+    """One catch-up run, as the exit code the container reports."""
+    errors = _error_count(asyncio.run(_update_publishing_status()))
+    return _exit_code(audit_pass(errors), errors)
 
 
 if __name__ == "__main__":
-    asyncio.run(_update_publishing_status())
     # Live never returns, so there is no pass to audit and no exit code to carry one.
-    if not _LIVE:
-        sys.exit(1 if audit_pass() else 0)
+    if _LIVE:
+        asyncio.run(_update_publishing_status())
+    else:
+        sys.exit(_catch_up())
