@@ -14,6 +14,7 @@ import time
 import urllib.error
 import urllib.request
 
+import cocoindex as coco
 import pytest
 
 from ingest import embed
@@ -34,12 +35,6 @@ def fake(monkeypatch):
     """fake_embedder.install() replaces urllib.request.urlopen outright; this restores it."""
     monkeypatch.setattr(urllib.request, "urlopen", urllib.request.urlopen)
     return fake_embedder
-
-
-@pytest.fixture(autouse=True)
-def unread_bound(monkeypatch):
-    """The bound is read once per process, so each test starts from a process that has not."""
-    monkeypatch.setattr(embed, "_bound", None, raising=False)
 
 
 def _all_at_once(target, args_list):
@@ -117,7 +112,9 @@ def test_a_failed_props_bounds_to_one(fake, monkeypatch, props):
     assert embed._total_slots() == 1
 
 
-def test_props_is_read_from_the_server_root_with_the_key_when_there_is_one(fake, monkeypatch):
+def test_props_is_read_from_the_server_root_and_never_carries_a_key(fake, monkeypatch):
+    """Only the local route reads /props, and that route has no credential; a key held for
+    any other route must not reach the sidecar through this probe."""
     fake.install(props=_slots(1))
     answer = urllib.request.urlopen
     asked = []
@@ -129,13 +126,29 @@ def test_props_is_read_from_the_server_root_with_the_key_when_there_is_one(fake,
 
     monkeypatch.setattr(urllib.request, "urlopen", recording)
     monkeypatch.setattr(embed, "BASE_URL", "http://sidecar:8081/v1/")
-    monkeypatch.setattr(embed, "_API_KEY", "sk-local")
+    monkeypatch.setattr(embed, "_API_KEY", "sk-provider")
 
     embed._total_slots()
 
     [req] = asked
     assert req.full_url == "http://sidecar:8081/props"
-    assert req.get_header("Authorization") == "Bearer sk-local"
+    assert req.get_header("Authorization") is None
+
+
+def test_a_refused_props_closes_its_response(monkeypatch):
+    body = io.BytesIO(b"Unauthorized")
+    # Held so the error outlives the except block: CPython's refcounting would otherwise close
+    # the body when the error is collected, and this would pass whether or not it is closed.
+    raised = []
+
+    def refused(req, *_args, **_kwargs):
+        raised.append(urllib.error.HTTPError(req.full_url, 401, "Unauthorized", None, body))
+        raise raised[-1]
+
+    monkeypatch.setattr(embed.urllib.request, "urlopen", refused)
+
+    assert embed._total_slots() == 1
+    assert body.closed, "the refused /props left its connection open"
 
 
 def test_props_is_read_once(fake):
@@ -177,6 +190,10 @@ def _http_500(req):
     raise urllib.error.HTTPError(req.full_url, 500, "boom", None, io.BytesIO(b"boom"))
 
 
+def _http_400(req):
+    raise urllib.error.HTTPError(req.full_url, 400, "refused", None, io.BytesIO(b"refused"))
+
+
 def _timed_out(_req):
     raise TimeoutError("timed out")
 
@@ -199,6 +216,20 @@ def test_the_permit_is_released_on_every_failure(fake, monkeypatch, failure, rai
 
     permits = embed._inflight_bound()
     assert permits.acquire(blocking=False), "the failed request kept its slot"
+    permits.release()
+
+
+def test_a_split_batch_gives_its_permit_back(fake, monkeypatch):
+    """A refused input leaves through RetryWithSmallerBatch, and the split that follows needs
+    the slot the refused request held."""
+    fake.install(props=_slots(1))
+    _fails_with(fake, monkeypatch, _http_400)
+
+    with pytest.raises(coco.RetryWithSmallerBatch):
+        embed._embed_texts(["uno", "due"])
+
+    permits = embed._inflight_bound()
+    assert permits.acquire(blocking=False), "the split batch kept its slot"
     permits.release()
 
 

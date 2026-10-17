@@ -241,7 +241,10 @@ def _counted_in_flight():
 # them queues INSIDE the server with its 120 s already running: reproduced 2026-10-17, 16 were
 # in flight against one slot, answered one every ~9 s, and 19 timed out. Queued here instead, a
 # request starts its deadline when a slot is free. --parallel is fixed for the sidecar's life,
-# so /props is read once, best-effort, as Go reads it (internal/llm/llamacpp_caps.go).
+# so /props is read once, best-effort, as Go reads it (internal/llm/llamacpp_caps.go), and a
+# failed read at the first request bounds the whole process to 1 (its "[embed] ... gave no
+# usable total_slots" line is how that shows). The bound is per process: a second ingest
+# process against the same sidecar holds its own.
 _PROPS_TIMEOUT_S = 2.0
 _bound: threading.BoundedSemaphore | None = None
 _bound_lock = threading.Lock()
@@ -250,13 +253,15 @@ _bound_lock = threading.Lock()
 def _total_slots() -> int:
     """The sidecar's total_slots, or 1 when it does not say: one slot is the appliance's shape,
     and never wrong for it."""
-    # fetchLlamaCppProps' rule: /props hangs off the server root, not off /v1.
+    # fetchLlamaCppProps' rule: /props hangs off the server root, not off /v1. No key, as there:
+    # only the local route gets here, and it has none (config.ResolveEmbedRoute).
     url = BASE_URL.strip().rstrip("/").removesuffix("/v1") + "/props"
-    headers = {"Authorization": f"Bearer {_API_KEY}"} if _API_KEY else {}
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=_PROPS_TIMEOUT_S) as resp:
+        with urllib.request.urlopen(urllib.request.Request(url), timeout=_PROPS_TIMEOUT_S) as resp:
             slots = json.loads(resp.read())["total_slots"]
     except (OSError, http.client.HTTPException, ValueError, KeyError, TypeError) as exc:
+        if isinstance(exc, urllib.error.HTTPError):
+            exc.close()
         reason = f"{type(exc).__name__}: {exc}"
     else:
         # bool is an int in Python, and true is not a slot count.
