@@ -1,6 +1,8 @@
 # Workbook row passages implementation plan
 
-**Status (2026-10-17):** DONE except Tasks 9 and 10.
+**Status (2026-10-17):** DONE except Task 10. Task 9: final review "with fixes", no Critical; one fix wave
+(e3801ae..b2696c1) and its scoped re-review cleared every finding; merged to master on the operator's
+instruction.
 - **Landed:** Tasks 0 to 8.
   - PRD: e9d1afb.
   - filecard rows: 93589f7, 2793a47 and ee075a0.
@@ -297,11 +299,14 @@ ArcadeDB 26.10.1, EmbeddingGemma-300M Q8_0 through llama.cpp, Garage, Docker.
 
 ### Task 9: review and fixes
 
-- [ ] Give one fresh reviewer the range from Task 0 to Task 8, this plan, the spec and the
+- [x] Give one fresh reviewer the range from Task 0 to Task 8, this plan, the spec and the
   Review Focus.
-- [ ] Fix every finding test-first.
-- [ ] Run Go `-race` on the touched packages, `make ingest-test`, `make quality`, and the
-  coverage gate.
+- [x] Fix every finding test-first.
+- [x] Run Go `-race` on the touched packages, `make ingest-test`, `make quality`, and the
+  coverage gate. What ran here: `go vet ./...`, `go build ./...`, `-race` on the four touched
+  packages, `golangci-lint` (0 issues), `check-file-size.sh`, filecard coverage 90.3%, and the
+  ingest suite (259 passed) through the scratch harness. `make quality` and
+  `scripts/coverage_gate.sh` need the WSL stack and were not run; CI or the operator runs them.
 
 ### Task 10: push, publish and the lab VM
 

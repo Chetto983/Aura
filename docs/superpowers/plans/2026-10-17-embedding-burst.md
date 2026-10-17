@@ -1,6 +1,7 @@
 # Ingest embedding bound implementation plan
 
-**Status (2026-10-17):** DONE except acceptance 4. The spec was approved by the operator on
+**Status (2026-10-17):** DONE except acceptance 4. Final review shared with the workbook-row plan:
+one fix wave (adding the `waiting=` count among others) and a clean re-review; merged to master. The spec was approved by the operator on
 2026-10-17 ("Approvata, scrivi il piano e procedi con subagent").
 - **Landed:** Tasks 0 to 4, in 288985e, bc0405c (PRD), c233147 (the `[embed]` line), bf8d50e and
   8bae3cd (the bound), and c1b30d5 and 4139f71 (the exit code). Each task had a review and a
