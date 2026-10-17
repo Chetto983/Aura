@@ -111,6 +111,32 @@ Not taken, with the reason:
 - **Query router and contextual compression**: no measured need on Aura's sets.
 - **Langfuse and Sentry**: Aura has its own observability.
 
+## Read 2026-10-17: two r/Rag field reports
+
+The operator shared r/Rag on 2026-10-17. Two posts reach Aura's measured losses.
+- **"1.5 years of RAG in fintech"** (u/Klutzy_Newspaper3196, 2026-09-17, 368 votes). These are
+  lessons from production, with no benchmark.
+- **"We ran 4 RAG setups over all 34,735 FDA drug labels"** (u/International_Elk_33,
+  2026-10-17). A vendor's own evaluation:
+  - 100 questions, with the answer keys written before any run;
+  - a blind grader;
+  - the setup at `doi.org/10.5281/zenodo.23403889`, which was not read here.
+
+The comments were not read, because Reddit serves automated browsers a challenge. The rule is
+the same as above: behaviours, never code.
+
+| # | Behaviour | From | Aura today | Lands in | Gate | State |
+|---|---|---|---|---|---|---|
+| D1 | Read what the question names first, rank second. When a question's identifier names a document (its title or card), search that document's own passages for the rest of the question | FDA post: crowding by related labels hid the named drug's own boxed warning; "look up the names first" took false reassurances from 5 to 0 | Identifiers first ranks a document only if its title, card or *returned* passages carry every identifier. For "FX300 … A119" no document qualifies, because the FX300's A119 passage is not returned (`2026-10-17-answers-read-by-a-model.md`) | `rankDocuments` plus one full-text query restricted to the named document | the PDF look-alikes `fx300-alarm-A119` and `fx300-chains`, then every set | not measured |
+| D2 | Code chunked by its syntax | fintech post: "AST worked better than plain text chunking" | `chunk.chunk` calls CocoIndex's `RecursiveSplitter` with no `language`, so source files split as prose. The installed 1.0.25 already takes `language=` (tree-sitter) and offers `detect_code_language(filename=)` | `services/ingest/chunk.py`, from the file name | the English, Italian and find-by-name code sets, the lowest today (r@8 0.833 English, 0.667 Italian, prd.md §11 "The card's vector") | not measured |
+| D3 | Document versions: effective date, and active or superseded | fintech post: with policy v3 and v4 both indexed, "your RAG can very accurately retrieve the wrong policy" | Memory facts are bitemporal (prd.md, valid time); documents carry no version and no supersede. The 2025/2026 budgets are the harmless case | a design question before any code: what marks a document superseded, and who sets it | a measured failure on a versioned corpus | open question |
+| D4 | Questions over every document ("which contracts have a change-of-control clause", "which expire in two months") | FDA post: every search-based setup listed under 1 in 10 of 282 contracts; looking at every document found 88% | no sweep; the agent can only open documents one at a time | outside retrieval: an agent or batch path over the card catalog | a question set of that kind | not measured |
+
+Already in Aura, no action:
+- the calculation goes to code, and the model only explains it (`document_open` with pandas);
+- memory, documents, the database and the sandbox are separate routes;
+- passages carry citation tokens, so a quoted sentence can be checked against its source.
+
 ## Process, taken now
 
 Three rules from the siblings are worth a line in `CLAUDE.md`, because Aura already lives by
