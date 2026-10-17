@@ -4,6 +4,21 @@ Proposed on 2026-10-17. The operator asked for it ("Sì, scrivi la spec") after 
 native image for its memory ("Io passerei a native: è più lenta ma di poco, ma consuma molta meno
 RAM").
 
+**Status (2026-10-17): parked until ArcadeDB 26.11.1 ships.** The operator: "ora aspettiamo che
+esca la nuova release di ArcadeDB nelle prossime 2 settimane". It is not yet approved.
+- **One question is open, the operator's to answer.** How the Aura-built ArcadeDB image (phase
+  B) reaches an appliance.
+  - **Proposed:** published like the other repo-built images (`AURA_ARCADEDB_IMAGE`,
+    `AURA_ARCADEDB_PULL_POLICY`), on a fixed tag tied to the ArcadeDB version, never on `edge`.
+    The database then changes only when the pin does, as a third-party image does today.
+  - **Alternative:** the moving `edge` tag, refreshed by the updater like the sidecars.
+  - The operator did not choose ("Non so") and asked to wait for the release.
+- **On the release, before the plan:**
+  - re-run `docs/superpowers/verification/2026-10-17-arcadedb-native-image-defects.md` and the
+    latency and memory files on `26.11.1` and `26.11.1-native`;
+  - answer the question above;
+  - then approve the spec.
+
 **This spec waits for ArcadeDB 26.11.1.**
 - Roberto Franchini said on 2026-10-17 that it ships "un paio di settimane" later.
 - Nothing here lands on a snapshot. Every number below is from `26.11.1-SNAPSHOT` at `15958b48f`,
