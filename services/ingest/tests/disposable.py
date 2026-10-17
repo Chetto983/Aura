@@ -10,6 +10,8 @@ import sys
 from ingest.arcade import ArcadeSchemaError, _post
 
 ARCADE_HTTP = os.environ.get("ARCADE_HTTP", "http://arcadedb:2480")
+# ArcadeDB requires the rootPassword baked into the running container -- see
+# test_arcade_integration.py's docstring for how to read it without hardcoding it.
 AUTH = ("root", os.environ["ARCADEDB_PASSWORD"])
 
 
