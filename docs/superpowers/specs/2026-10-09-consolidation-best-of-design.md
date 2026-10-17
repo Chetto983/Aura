@@ -171,6 +171,29 @@ Shared by the operator on 2026-10-17: `github.com/paperless-ngx/paperless-ngx`, 
 | D5 | Document fields the operator owns (type, counterparty, dates, typed custom fields), used as **filters** by `document_search`. They are assigned by rules first, then by a classifier trained on the operator's own corrections, and by an LLM only as a last resort | Paperless's data model, matching rules and "Auto" classifier | `CandidateFilter` filters by document, key or prefix only. filecard drops an invoice's header rows ("Data emissione", "Cliente"), which are exactly those fields. Free LLM tags would add little: the words are already in the text, the name and the card | `IndexedDocument` properties, a filter in `document_search`, extraction in filecard/the ingest | a question set of "which documents…" (office q09 and q18 are two of them today) and BASELINE OR DROP for the classifier against the rules alone | not measured |
 | D6 | An LLM summary per file, beside the card, never in its place | discussed with the operator 2026-10-17; Paperless's AI suggestions | the card is deterministic and its description is the document vector (prd.md §11, "The card's vector") | the ingest, memoized on the file's bytes like the billed media calls | the English and Italian code sets, against the card alone, with summaries for every file of the library and the cost per file on the appliance's local LLM | not measured |
 
+**The code read (2026-10-17, `0cb2cdb`)** is in `docs/paperless-ngx-behaviours-2026-10-17.md`.
+It describes behaviours with file:line references and copies no code. What it adds to D5:
+- **Values come from people, not from content.** Paperless never extracts a custom field's value
+  from the text. Values come from the operator, the API or a workflow's fixed value, and the
+  created date is the one exception. Extracting an invoice's header pairs into typed fields is
+  therefore Aura's own design, and STOP BEFORE BESPOKE applies to it.
+- **The classifier has discipline, but no published accuracy.**
+  - It learns only from reviewed documents, and only labels the operator opted in.
+  - It has a "none" class and balanced weights.
+  - It abstains below a 0.3 probability.
+  - It has no test against a baseline, so with Aura's small libraries per identity BASELINE OR
+    DROP may well end at "rules only".
+  - scikit-learn and dateparser would be new ingest dependencies.
+- **What the LLM path is allowed to do.** The model picks only among candidate IDs that retrieval
+  proposed, and an ID it was not shown is rejected. The document's content goes in marked
+  untrusted. The answer stays a suggestion until accepted.
+- **Two risks for Aura.**
+  - A hard filter on a wrongly assigned field hides the right document, and Aura has no inbox
+    review. Each value should record who set it: operator, rule, classifier or LLM.
+  - Office q09's and q18's gold lists include `contabilita_2026.xlsx`, a ledger, not an invoice.
+    A naive "type = invoice" filter would drop a gold document. This is read from the gold, not
+    run.
+
 Not taken, with the reason:
 
 - **Document versioning (formerly D3), and Paperless's root-plus-versions model.** The operator
