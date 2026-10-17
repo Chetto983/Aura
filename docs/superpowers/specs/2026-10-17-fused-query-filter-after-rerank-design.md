@@ -45,16 +45,35 @@ holds them.** Acceptance 1 re-measures them and records them.
 - It gave identical answers on all 20 office and 34 complex questions
   (`2026-10-16-complex-documents-retrieval-quality.md`, "Query variants"), and on the 16 above.
 
-**3. The other two edits change answers or gain nothing.**
-- **The full-text `LIMIT`** changed 2 of the 16 answers. Aura's rerank re-scores the whole fused
-  pool by cosine, so a passage past the full-text leg's limit can still win.
-- **Fuse's `limit`** gains nothing on the JVM and is not in the 26.10.2 manual. Its documentation
-  is arcadedb-docs#494, still open.
+**3. The other two edits are not judged yet.** Roberto's statement, as he sent it, has three
+parts:
+- `LIMIT :fetch` on the full-text leg;
+- `limit: :candidates` in `vector.fuse`;
+- no `filter` in `vector.neighbors`, "if you have a single embed_space".
+
+What was measured:
+- **All three together, over the 16 questions:** 13.3 ms, against 48.4 ms for the shipped
+  statement. 2 of the 16 answers changed: one lost a document the shipped statement found, and
+  one gained a better passage. That corpus has no gold, so neither change can be called a loss or
+  a gain.
+- **All three, over the 54 office and complex questions with gold:** the answers were identical.
+- **The 48 coding questions:** not measured with them.
+- **Fuse's `limit` on its own** is the "rerank the fusion's top 80" variant. It gave 24 identical
+  answers in English and 23 in Italian, with MRR unchanged. It is in the engine since 26.10.2, but
+  its documentation is arcadedb-docs#494, still open.
+- **With fuse's `limit`, the full-text `LIMIT` should rarely matter.**
+  - The rerank then sees only the fusion's top `:candidates` (80 at the default limit), ranked by
+    RRF.
+  - A full-text row past rank 200 scores at most 1/(60+201) from that leg, so it reaches the
+    top 80 only if the dense leg ranks it high too.
+  - This is reasoned, not measured. Acceptance 2 measures it.
+- **Removing the filter outright breaks isolation when two spaces coexist.** Arm R therefore
+  keeps the space filter after the rerank.
 
 ## Goal
 
-The fused query costs about what the unfiltered one does, and returns the same answers on every
-measured set. Embedding spaces stay isolated, and a caller's document scope keeps holding.
+The fused query costs about what the unfiltered one does, and loses no answer on any set with
+gold. Embedding spaces stay isolated, and a caller's document scope keeps holding.
 
 ## Decisions (proposed)
 
@@ -76,11 +95,19 @@ the one shipped today.
   dense leg would then contribute nothing.
 - **A scoped filter subquery is small,** so its cost is not the one measured above.
 
-### 3. What stays
+### 3. Two arms, chosen by measurement
 
-The rerank, its `:candidates` (four times the limit, between 20 and the configured maximum),
-`fusedDenseNeighbours` (200), the floors and the group size all stay as they are. The full-text
-`LIMIT` and fuse's `limit` are not taken.
+- **Arm P** is decisions 1 and 2 alone. The rerank and its `:candidates` (four times the limit,
+  between 20 and the configured maximum), `fusedDenseNeighbours` (200), the floors and the group
+  size all stay as they are.
+- **Arm R** is Roberto's statement, with the space filter after the rerank (decision 1's outer
+  clause) so isolation holds. It adds `LIMIT :fetch` to the full-text leg and `limit: :candidates`
+  to `vector.fuse`, on unscoped searches only.
+- **Which one ships.**
+  - Arm R ships if it is at least as good as arm P on every set (r@1, r@3, r@8 and MRR, one
+    question of noise) and faster on the code index.
+  - Otherwise arm P ships.
+  - If neither keeps the shipped statement's answers on the gold sets, nothing ships.
 
 ### 4. The known cost: fewer results while two spaces coexist
 
@@ -98,7 +125,7 @@ During a change of embedding model, a library holds two spaces until its re-embe
 |---|---|
 | `internal/arcadedb/document_retrieval.go` | `fusedStatement` takes whether the request is scoped and emits the two shapes; the doc comment cites this spec and #10169 |
 | `internal/arcadedb/document_retrieval_test.go` | the two statements, clause by clause |
-| `internal/arcadedb/document_query_variants_bench_test.go` | "shipped" becomes the new statement; the old one stays as a variant, "dense filter inside neighbours" |
+| `internal/arcadedb/document_query_variants_bench_test.go` | arm R as a variant ("maintainers' statement, space after the rerank"); after the choice, "shipped" becomes the winner and the old statement stays as a variant, "dense filter inside neighbours" |
 | `prd.md` §11 | the amendment, before the code |
 
 ### New env vars
@@ -110,9 +137,12 @@ None.
 1. **Latency, recorded.** Run `TestFusedQueryVariants` on the workstation's `cb-arcade` code
    index (11,771 passages), on ArcadeDB at Aura's pin. Record the shipped and new statements'
    medians in a dated verification file. This replaces the chat-only numbers of problem 1.
-2. **Answers.** `TestFusedQueryVariants` and `TestCodingAgentQuestions` on every set: English,
-   Italian, find-by-name, office, complex, and the PDF corpus where it exists. Every answer must
-   be identical to the shipped statement's. A difference stops the slice until it is explained.
+2. **Answers, both arms.** `TestFusedQueryVariants` and `TestCodingAgentQuestions` on every set:
+   English, Italian, find-by-name, office, complex, and the PDF corpus where it exists.
+   - **Arm P** must give every answer identical to the shipped statement's.
+   - **Arm R** is judged by decision 3's rule.
+   - In arm R, report on its own every question it changes.
+   - A difference in arm P stops the slice until it is explained.
 3. **Scope.** An integration test runs a scoped search (`DocumentIDs` of two documents) and an
    unscoped one over the same library, and checks that the scoped one returns only those
    documents.
@@ -132,4 +162,5 @@ None.
 
 - **Latency on the appliance.** The numbers are from a workstation and a cloud container.
 - **Recall for scoped searches,** which keep today's statement.
-- **Anything about the full-text `LIMIT`.** It changed answers and is not taken.
+- **Arm R on the code sets,** until acceptance 2 runs: today only the 54 office and complex
+  questions with gold, and 16 without it, have seen all three edits.
