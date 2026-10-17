@@ -143,8 +143,9 @@ Riga 4: Area: Centro; T1: 1972; T2: 1921; T3: 2525; T4: 2296; Totale anno: 8714
 **This is arm C of acceptance 3,** not yet a decision.
 - **The rule.** A sheet whose data rows all appear in its card gets no row passages: it has at
   most `sampleRows` (5) data rows, and its card was not cut.
-- **Why.** The invoices and the budgets are such sheets, and they caused the look-alike losses
-  of problem 3, while their cards already answered for them.
+- **Why.** Such sheets caused the look-alike losses of problem 3, while their cards already
+  answered for them. All the invoices' sheets qualify, and three of the four sheets of each
+  budget. A budget's `Costi` has 6 data rows, one more than the card shows.
 - **The workbook keeps the reserved place.** A workbook all of whose sheets are like that keeps
   `passage_count == 0`.
 - **The cost.** Office q01 and q02 each ask for one invoice, and both rose to first in the
