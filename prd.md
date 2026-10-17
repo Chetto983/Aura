@@ -1587,6 +1587,48 @@ This does not prove:
 - aggregates. Rows do not answer them, and the retrieval gold counts a lookup and an aggregate
   the same.
 
+**Ingest embeddings are bounded to the sidecar's slots (proposed 2026-10-17).** The ingest sends
+its embedding requests to a sidecar that serves one at a time, and a request that waits in the
+server's queue is timed out by the client. Measured on this host on 2026-10-17:
+- **The sidecar has one slot.** llama.cpp runs with `-np 1`, and `GET /props` reports
+  `total_slots: 1`. `embed._embed_batch` sends each request with `urlopen(timeout=120)`, and the
+  120 s count from the send, queueing at the server included.
+- **One large workbook passes, two do not.** The 5,000-row ledger alone ingested cleanly: 385 row
+  passages, about 2 requests in flight, 410 s. The arm-A upgrade of the complex library embedded
+  two large workbooks in one pass. About 17 requests (136 inputs) were queued at the first
+  `TimeoutError`, a retry of those two files reached about 37 (291 inputs) and timed out again,
+  and both kept their old documents with no row passages. The code ingest of 2026-10-16 failed
+  the same way: 5,918 requests waited past 120 s and 20 of 6,001 objects were indexed.
+- **A failed rewrite passed the catch-up.** The upgrade printed "33 indexed, 0 missing" and exited
+  0, while CocoIndex's `IngestStatus` row said `errors: 2`. The audit compares the bucket's keys
+  with the index's, a document whose rewrite failed keeps its old row, and the exit code looks at
+  nothing else.
+
+Proposed, to be kept only if the plan's measurements hold:
+- `embed._embed_batch` takes a process-wide semaphore before it sends, sized from the local
+  sidecar's `total_slots` (read once from `/props`, 1 if it cannot be read). The wait is not part
+  of the 120 s. The hosted route, the one with `AURA_EMBED_MODEL` set, stays unbounded.
+- The catch-up exits 1 when the last snapshot's `stats.total.num_errors` is above 0, and the audit
+  line prints the count.
+- No new env var, no retry on timeout, no change to the batch bounds (32 inputs, 4,096 tokens).
+
+The design is [the spec](docs/superpowers/specs/2026-10-17-embedding-burst-design.md). Its
+acceptance: the same upgrade, rerun after reproducing the timeout, ends with zero timeouts, every
+row passage written, 33 of 33 and 0 errors; one catch-up of Aura's own 6,001 objects ends with
+all indexed and 0 errors. Until then this paragraph is a proposal.
+
+This does not prove:
+- why CocoIndex keeps 37 requests in flight where one workbook keeps 2. Reading cocoindex 1.0.25's
+  `_create_batcher` gave the facts (a `BatchQueue` per batcher, up to 1,024 components in flight),
+  not the Rust core's scheduling. The bound makes the cause irrelevant to correctness, not to speed;
+- that a bound of `total_slots` is the fastest. One request queued behind the running one might
+  keep the slot busier, and the plan compares 1 with 2;
+- the appliance. Its sidecar is the same one-slot llama.cpp, but its CPU and corpus are not this
+  host's;
+- a hosted route under load, which stays unbounded as it is today;
+- that the pinned llama.cpp release documents `total_slots` on `/props`. Only the bench build
+  `b11146` was seen to serve it.
+
 **A billed media call runs once per file content (measured 2026-10-16).** The ingest's `_extract`
 writes a file's bytes to a random temporary path. The vision and speech-to-text calls inside it
 were keyed on that path (`extract_scanned_pdf`) or not memoized at all (`media.derive`). So any
