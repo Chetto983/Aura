@@ -211,8 +211,10 @@ place.
   - The spike embedded 962 row passages in about 10 minutes on this host's CPU, about 96 a
     minute.
   - The 5,000-row ledger alone made 385 passages, about 4 minutes.
-  - The cap allows 8 sheets of 10,000 rows, about 6,150 passages in one workbook, or an hour at
-    that rate.
+  - The cap allows 8 sheets of 10,000 rows, about 6,150 passages in one workbook. The bounded
+    rate measured on 2026-10-17 is about 56 a minute (385 passages in 410 s,
+    `docs/superpowers/verification/2026-10-17-workbook-row-passages.md`), so about 1.8 h on the CPU
+    sidecar, holding the process-wide permit throughout.
 - **No new env var.** The bounds are filecard's.
 
 **The prerequisite.** The code ingest of 2026-10-16 failed on this host:
