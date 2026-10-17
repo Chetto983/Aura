@@ -147,6 +147,9 @@ Riga 4: Area: Centro; T1: 1972; T2: 1921; T3: 2525; T4: 2296; Totale anno: 8714
 
 ### 3. A sheet the card already shows whole gets no row passages
 
+**Measured 2026-10-17 and rejected:** arm C lost to arm B on both sets (MRR complex 0.978 against
+0.985, office 0.739 against 0.804), and was reverted.
+
 **This is arm C of acceptance 3,** not yet a decision.
 - **The rule.** A sheet whose data rows all appear in its card gets no row passages: it has at
   most `sampleRows` (5) data rows, its card was not cut, and none of its sample values was cut.

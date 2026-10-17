@@ -1,7 +1,18 @@
 # Ingest embedding bound implementation plan
 
-**Status (2026-10-17):** NOT STARTED. The spec was approved by the operator on 2026-10-17
-("Approvata, scrivi il piano e procedi con subagent").
+**Status (2026-10-17):** DONE except acceptance 4. The spec was approved by the operator on
+2026-10-17 ("Approvata, scrivi il piano e procedi con subagent").
+- **Landed:** Tasks 0 to 4, in 288985e, bc0405c (PRD), c233147 (the `[embed]` line), bf8d50e and
+  8bae3cd (the bound), and c1b30d5 and 4139f71 (the exit code). Each task had a review and a
+  scoped re-review after its fix round.
+- **Measured:**
+  - The failure reproduced: 16 in flight, 19 timeouts, exit 0.
+  - The fix: 1 in flight, 0 timeouts, every row passage written, 0 errors.
+  - The record is `docs/superpowers/verification/2026-10-17-embedding-burst.md`.
+- **Cut by the operator:** Task 5, the full code library (about 7 h on this CPU), was replaced by
+  a 62-file subset under 20 minutes. Acceptance 4 stays open.
+- **Not run:** Task 4's bound-2 arm. A side measurement had already shown that concurrency
+  against one slot buys no throughput.
 
 > **For agentic workers:** Use superpowers:subagent-driven-development with
 > test-driven-development. This plan runs on branch `claude/github-abuse-review-0o3kqw`, on top
@@ -91,22 +102,22 @@ slots, and a catch-up that CocoIndex reports as failed somewhere exits non-zero.
 
 ### Task 0: PRD amendment
 
-- [ ] In prd.md §11, beside the embedding-route paragraphs, record problems 1 to 3 of the spec
+- [x] In prd.md §11, beside the embedding-route paragraphs, record problems 1 to 3 of the spec
   with their numbers: the 37 queued requests, the 120 s deadline counted from the send, the two
   lost workbooks, `errors: 2` with exit 0, and the code ingest of 2026-10-16.
-- [ ] Record decisions 1 and 2, and what is not proved.
-- [ ] Commit: `docs(prd): bound ingest embeddings to the sidecar's slots`.
+- [x] Record decisions 1 and 2, and what is not proved.
+- [x] Commit: `docs(prd): bound ingest embeddings to the sidecar's slots`.
 
 ### Task 1: make the burst visible, then reproduce it
 
-- [ ] RED in `tests/test_embed_inflight.py`: `test_the_embed_line_carries_time_and_inflight`.
+- [x] RED in `tests/test_embed_inflight.py`: `test_the_embed_line_carries_time_and_inflight`.
   Two concurrent `_embed_batch` calls against `fake_embedder` print `[embed] <ISO time> inflight=N
   <k> chunk(s) in one request`, and one of the lines shows `inflight=2`.
-- [ ] GREEN in `embed.py`: an in-flight counter under a lock, incremented around `urlopen`, and
+- [x] GREEN in `embed.py`: an in-flight counter under a lock, incremented around `urlopen`, and
   printed with the time.
-- [ ] Run the suite and ruff.
-- [ ] Commit: `feat(ingest): show when and how many embedding requests are in flight`.
-- [ ] Reproduce. Build `aura-ingest:burst-1` from this commit
+- [x] Run the suite and ruff.
+- [x] Commit: `feat(ingest): show when and how many embedding requests are in flight`.
+- [x] Reproduce. Build `aura-ingest:burst-1` from this commit
   (`scratchpad/harness/arm-image.sh`). Re-run the failing complex upgrade from fresh copies of
   `cb-arcade` and `ingest-state-complex`, the same pass that failed in the workbook-row Task 5.
   - Expect a `TimeoutError`.
@@ -115,7 +126,7 @@ slots, and a catch-up that CocoIndex reports as failed somewhere exits non-zero.
 
 ### Task 2: the bound
 
-- [ ] RED in `tests/test_embed_inflight.py`. `fake_embedder` answers `/props` and counts the peak
+- [x] RED in `tests/test_embed_inflight.py`. `fake_embedder` answers `/props` and counts the peak
   of requests served at once. The tests:
   - `test_requests_never_exceed_the_sidecars_slots`: `total_slots: 1`, 8 concurrent callers,
     peak 1. It must first fail with a peak above 1;
@@ -125,29 +136,29 @@ slots, and a catch-up that CocoIndex reports as failed somewhere exits non-zero.
   - `test_the_permit_is_released_on_every_failure`, for an HTTPError, a timeout and a malformed
     response;
   - `test_the_deadline_starts_after_the_wait`: the `urlopen` timeout is 120 s from the acquire.
-- [ ] GREEN in `embed.py`: `_inflight_bound()` (once, under a lock), and the semaphore around the
+- [x] GREEN in `embed.py`: `_inflight_bound()` (once, under a lock), and the semaphore around the
   request in `_embed_batch`, released in a `finally`. The comment cites the README sentence.
-- [ ] Run the suite and ruff. 228 + Task 1 + these tests must pass.
-- [ ] Commit: `fix(ingest): never send more embedding requests than the sidecar has slots`.
+- [x] Run the suite and ruff. 228 + Task 1 + these tests must pass.
+- [x] Commit: `fix(ingest): never send more embedding requests than the sidecar has slots`.
 
 ### Task 3: the exit code
 
-- [ ] RED in `tests/test_audit.py` (or `test_audit_cycle.py`, beside the audit's own tests):
+- [x] RED in `tests/test_audit.py` (or `test_audit_cycle.py`, beside the audit's own tests):
   - `test_a_catch_up_with_cocoindex_errors_exits_one`;
   - `test_the_audit_line_prints_the_error_count`.
 
   Drive `__main__`'s exit decision with a snapshot whose `num_errors` is 2 and an audit with
   nothing missing.
-- [ ] GREEN in `app.py`:
+- [x] GREEN in `app.py`:
   - `_update_publishing_status` returns the last snapshot;
   - the exit code is 1 when its `num_errors > 0` or the audit is non-zero;
   - the audit prints `[audit] … K missing, E errors`.
-- [ ] Run the suite and ruff.
-- [ ] Commit: `fix(ingest): a catch-up that CocoIndex saw fail exits non-zero`.
+- [x] Run the suite and ruff.
+- [x] Commit: `fix(ingest): a catch-up that CocoIndex saw fail exits non-zero`.
 
 ### Task 4: the same upgrade, fixed
 
-- [ ] Build `aura-ingest:burst-2` from Task 3's commit. Re-run Task 1's upgrade on fresh copies.
+- [x] Build `aura-ingest:burst-2` from Task 3's commit. Re-run Task 1's upgrade on fresh copies.
   Expect:
   - zero timeouts;
   - the row passages of both workbooks written: 120 for the store, 385 for the ledger;
@@ -156,10 +167,10 @@ slots, and a catch-up that CocoIndex reports as failed somewhere exits non-zero.
   - peak `inflight=1`.
 
   Record the wall time beside the failed run's.
-- [ ] Open question 2: build a scratch image with the bound forced to 2, never committed, and
+- [ ] (not run: answered by the side measurement in the verification) Open question 2: build a scratch image with the bound forced to 2, never committed, and
   re-run. Keep 1 unless 2 is faster with zero timeouts. If 2 wins, amend the spec, then commit the
   change as its own task.
-- [ ] Record everything in the verification file of Task 6. This task makes no commit.
+- [x] Record everything in the verification file of Task 6. This task makes no commit.
 
 ### Task 5: the code library
 

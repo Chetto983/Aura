@@ -1,7 +1,25 @@
 # Workbook row passages implementation plan
 
-**Status (2026-10-17):** IN PROGRESS. Task 0 landed in e9d1afb. The spec was approved by the operator on 2026-10-17
-("Approvata, scrivi il piano").
+**Status (2026-10-17):** DONE except Tasks 9 and 10.
+- **Landed:** Tasks 0 to 8.
+  - PRD: e9d1afb.
+  - filecard rows: 93589f7, 2793a47 and ee075a0.
+  - Arm A: 5d0a81a.
+  - Arm B: 51d19fc.
+  - Arm C: 3969d7c, reverted in 1bab6f4 with its Go side removed in 797ea8d.
+- **The embedding bound.** Task 5 stopped on embedding timeouts. The fix landed through
+  `2026-10-17-embedding-burst.md`, then the arms ran.
+- **Measured:**
+  - B ships: complex MRR 0.882 → 0.985, office 0.692 → 0.804;
+  - the code subset is unchanged or better;
+  - answers read blind: 54 of 54.
+  - The record is `docs/superpowers/verification/2026-10-17-workbook-row-passages.md`.
+- **Arm C lost and is gone.** Every mention below of `ShownWhole`, `shown_whole` and decision 3
+  describes what was measured and then removed.
+- **Open:**
+  - the operator's full code-index gate on the workstation;
+  - Task 9's final review;
+  - Task 10 (publish and the lab VM).
 
 > **For agentic workers:** Use superpowers:executing-plans with test-driven-development. The
 > operator's convention is to work in D:/Aura on master, with no worktree. The acceptance runs
@@ -129,7 +147,7 @@ ArcadeDB 26.10.1, EmbeddingGemma-300M Q8_0 through llama.cpp, Garage, Docker.
 
 ### Task 1: filecard keeps the rows
 
-- [ ] RED, in `rows_test.go`, over workbooks built in the test with the helpers `card_test.go`
+- [x] RED, in `rows_test.go`, over workbooks built in the test with the helpers `card_test.go`
   already uses:
   - `TestRowsCarryTheWorksheetRowNumber`: in `budget_consolidato_2026.xlsx`, `Ricavi`, Centro is
     row 6 under two banner rows (Review Focus 1);
@@ -144,40 +162,40 @@ ArcadeDB 26.10.1, EmbeddingGemma-300M Q8_0 through llama.cpp, Garage, Docker.
   - `TestRowsStopAtTheRowCap`: rows end at `maxRowsScanned`, and the card still says sampled;
   - `TestShownWhole`: true for the 2026 budget's `Ricavi` (5 data rows); false for its
     `Costi` (6 rows, 5 samples), for the store's `Giacenze`, and for a card that was cut.
-- [ ] Run `go test ./internal/documents/filecard/ -run 'Rows|ShownWhole|Probe'`. Expect FAIL:
+- [x] Run `go test ./internal/documents/filecard/ -run 'Rows|ShownWhole|Probe'`. Expect FAIL:
   `Row` is undefined.
-- [ ] GREEN:
+- [x] GREEN:
   - `table.go`: `consume(values, position)`; `resolveHeader` passes `probePositions[i]`; a
     `keepRows` flag appends `rowText(values)` with its position.
   - `rows.go`: `Row`, `rowText`, `ShownWhole`.
   - `xlsx.go`: `readWorksheet` sets `keepRows` and returns the rows; `buildXLSX` appends them
     to `card.Rows` in sheet order.
-- [ ] `go test -race ./internal/documents/filecard/`. The package stays at its policy in
+- [x] `go test -race ./internal/documents/filecard/`. The package stays at its policy in
   `scripts/coverage_package_policy.json`; check with `bash scripts/coverage_gate.sh`.
-- [ ] Commit: `feat(filecard): keep a workbook's rows under the card's headers`.
+- [x] Commit: `feat(filecard): keep a workbook's rows under the card's headers`.
 
 ### Task 2: `aura-filecard -json` emits the rows
 
-- [ ] RED in `main_test.go`:
+- [x] RED in `main_test.go`:
   - `TestJSONCarriesRowsAndShownWhole` on the budget 2026: `rows` holds
     `{"sheet":"Ricavi","row":6,"text":"Area: Centro; T1: 1972; …"}`, and `shown_whole` lists
     `Ricavi` and not `Costi`;
   - `TestJSONOmitsRowsForAPDF`: a PDF has `rows: []`.
-- [ ] GREEN: the encoder map gains `rows` and `shown_whole`, both as empty lists, never null.
-- [ ] `go test -race ./cmd/aura-filecard/ ./internal/documents/filecard/`.
-- [ ] Commit: `feat(aura-filecard): emit rows and the sheets the card shows whole`.
+- [x] GREEN: the encoder map gains `rows` and `shown_whole`, both as empty lists, never null.
+- [x] `go test -race ./cmd/aura-filecard/ ./internal/documents/filecard/`.
+- [x] Commit: `feat(aura-filecard): emit rows and the sheets the card shows whole`.
 
 ### Task 3: the ingest declares row passages (arm A: sheet line only)
 
-- [ ] RED in `tests/test_rows.py`, with `count_tokens` as `test_chunk.py` uses it:
+- [x] RED in `tests/test_rows.py`, with `count_tokens` as `test_chunk.py` uses it:
   - `test_rows_group_fifteen_at_a_time_sharing_two`: 40 rows give groups starting at rows
     1, 14 and 27 (and so on);
   - `test_every_group_opens_with_its_sheet`: `Foglio: Giacenze`;
   - `test_a_group_over_budget_splits_and_every_piece_keeps_the_header`;
   - `test_sheets_never_share_a_group`.
-- [ ] Extend `tests/space_driver.py` so an argument `name=@path` passes a file's bytes, with its
+- [x] Extend `tests/space_driver.py` so an argument `name=@path` passes a file's bytes, with its
   suffix and content type, through `_extract` and `index_object`. Today it takes text only.
-- [ ] RED in `tests/test_row_passages.py`, through that driver against a disposable ArcadeDB
+- [x] RED in `tests/test_row_passages.py`, through that driver against a disposable ArcadeDB
   database with `fake_embedder`. Ingest `magazzino_ricambi_2026.xlsx` and read it back with the
   SQL Aura's reader uses (`internal/arcadedb/document_retrieval.go`):
   - `test_a_workbook_gets_row_passages_without_a_span`:
@@ -189,73 +207,73 @@ ArcadeDB 26.10.1, EmbeddingGemma-300M Q8_0 through llama.cpp, Garage, Docker.
     with a span, then without (Review Focus 5);
   - `test_a_part_number_in_a_row_is_found_by_full_text`: `RIC-10959` through the passage
     full-text index.
-- [ ] Run `make ingest-test`. Expect FAIL: there is no `rows` module.
-- [ ] GREEN:
+- [x] Run `make ingest-test`. Expect FAIL: there is no `rows` module.
+- [x] GREEN:
   - `rows.py`: `group(rows, file_name)` returns `chunk.Chunk`s. In arm A it does not use
     `file_name`.
   - `app.py`: `Card` and `Extracted` gain `rows`. `_card` parses `rendered["rows"]`.
     `index_object` uses `rows.group` when `extracted.rows` is non-empty, and `chunk.chunk`
     otherwise. `Passage.char_start` and `char_end` become `int | None`.
   - `media.py`: the comment says rows come from filecard.
-- [ ] `make ingest-test` and `ruff check services/ingest` both green.
-- [ ] Commit: `feat(ingest): give workbooks row passages headed by their sheet`.
+- [x] `make ingest-test` and `ruff check services/ingest` both green.
+- [x] Commit: `feat(ingest): give workbooks row passages headed by their sheet`.
 
 ### Task 4: the prerequisite — a large workbook through the real ingest
 
-- [ ] Build `aura-ingest:rows-a` from Task 3's commit.
-- [ ] One catch-up pass, on CPU, of a fresh identity whose bucket holds only
+- [x] Build `aura-ingest:rows-a` from Task 3's commit.
+- [x] One catch-up pass, on CPU, of a fresh identity whose bucket holds only
   `movimenti_analitici_5000.xlsx` from the office fixture.
-- [ ] Expect:
+- [x] Expect:
   - about 385 row passages;
   - zero `EmbedRequestError` and zero timeouts in the log;
   - an audit with 1 of 1 objects indexed.
 
   Record the time.
-- [ ] **If it times out: STOP.** Write the measured burst (requests in flight, the embedder's
+- [x] **If it times out: STOP.** Write the measured burst (requests in flight, the embedder's
   slot count, the 120 s deadline) and bring it to the operator as its own spec. Nothing after
   this task runs until that one lands.
-- [ ] Record the result in the verification file of Task 8. This task makes no commit.
+- [x] Record the result in the verification file of Task 8. This task makes no commit.
 
 ### Task 5: arm A through the ingest
 
-- [ ] Copy `cb-arcade` and the `ingest-state-complex` and `ingest-state-office` volumes to an
+- [x] Copy `cb-arcade` and the `ingest-state-complex` and `ingest-state-office` volumes to an
   arm-A set. Run one catch-up pass per identity with `aura-ingest:rows-a`. This is the upgrade
   path, not a fresh index.
-- [ ] Measure the upgrade:
+- [x] Measure the upgrade:
   - `[extract]` once per file;
   - one embedding per row passage;
   - no PDF or text passage re-embedded;
   - no table replace in the log.
-- [ ] Measure `TestCodingAgentQuestions` on complex and office. They must reproduce the spike's
+- [x] Measure `TestCodingAgentQuestions` on complex and office. They must reproduce the spike's
   row (complex MRR 0.951, office 0.794) within one question per set. **If not, stop and explain**
   before Task 6.
-- [ ] Report q12, q13, q15, the four budget questions and `rota-legend` one by one. Then
+- [x] Report q12, q13, q15, the four budget questions and `rota-legend` one by one. Then
   report the passages added, the embedding time, and the database size before and after.
 
 ### Task 6: arm B — the file name in the line
 
-- [ ] RED in `test_rows.py`: `test_every_group_names_its_file_and_sheet`, for
+- [x] RED in `test_rows.py`: `test_every_group_names_its_file_and_sheet`, for
   `File: budget_consolidato_2026.xlsx — Foglio: Ricavi`. Also extend the split test so every
   piece carries both names.
-- [ ] GREEN: `rows.group` writes the file line.
-- [ ] Run `make ingest-test` and ruff.
-- [ ] Commit: `feat(ingest): row passages name their file beside their sheet`.
-- [ ] Measure as in Task 5, on a fresh copy of the as-shipped volumes, with
+- [x] GREEN: `rows.group` writes the file line.
+- [x] Run `make ingest-test` and ruff.
+- [x] Commit: `feat(ingest): row passages name their file beside their sheet`.
+- [x] Measure as in Task 5, on a fresh copy of the as-shipped volumes, with
   `aura-ingest:rows-b`.
 
 ### Task 7: arm C — no rows for a sheet the card shows whole
 
-- [ ] RED in `test_row_passages.py`:
+- [x] RED in `test_row_passages.py`:
   - `test_a_sheet_the_card_shows_whole_gets_no_row_passages`;
   - `test_a_workbook_shown_whole_keeps_passage_count_zero` (Review Focus 7).
-- [ ] GREEN: `index_object` drops the rows of every sheet in `shown_whole`.
-- [ ] Run `make ingest-test` and ruff.
-- [ ] Commit: `feat(ingest): a sheet its card shows whole needs no row passages`.
-- [ ] Measure as in Task 5 with `aura-ingest:rows-c`.
+- [x] GREEN: `index_object` drops the rows of every sheet in `shown_whole`.
+- [x] Run `make ingest-test` and ruff.
+- [x] Commit: `feat(ingest): a sheet its card shows whole needs no row passages`.
+- [x] Measure as in Task 5 with `aura-ingest:rows-c`.
 
 ### Task 8: choose the arm, read the answers, record
 
-- [ ] Choose the arm with the spec's rule:
+- [x] Choose the arm with the spec's rule:
   - it beats as-shipped on MRR on complex and office;
   - it loses nothing beyond one question on the English, Italian and find-by-name code sets,
     measured on the workstation's GPU index (`cb-arcade`) for the chosen arm and as-shipped.
@@ -264,15 +282,18 @@ ArcadeDB 26.10.1, EmbeddingGemma-300M Q8_0 through llama.cpp, Garage, Docker.
   - **if B or C wins,** revert the arms after it;
   - **if A beats B,** stop and bring it to the operator: B is the operator's constraint;
   - **if no arm beats as-shipped,** revert Tasks 3, 6 and 7 and record the drop in the PRD.
-- [ ] Add each question's expected answer to `qrels.json`, read from the files, so the office
+- [x] Add each question's expected answer to `qrels.json`, read from the files, so the office
   half can be judged blind.
-- [ ] Read the answers for the chosen arm with the 2026-10-17 harness, blind on both sets.
+- [x] Read the answers for the chosen arm with the 2026-10-17 harness, blind on both sets.
   There must be no more wrong answers than today (1 of 34 complex, 0 of 20 office). Report how
   many answers needed `document_open`.
-- [ ] Write `docs/superpowers/verification/2026-10-17-workbook-row-passages.md`. It holds
+- [x] Write `docs/superpowers/verification/2026-10-17-workbook-row-passages.md`. It holds
   Tasks 4 to 8, every arm's table, and what the run does not prove.
-- [ ] Update prd.md §11 with the measured result, and add the citation.
-- [ ] Commit the verification and the PRD together.
+- [x] Update prd.md §11 with the measured result, and add the citation.
+- [x] Commit the verification and the PRD together.
+
+- [ ] The binding code-set gate: the full index on the operator's workstation. A 62-file subset
+  stood in here, under the operator's 20-minute cap.
 
 ### Task 9: review and fixes
 

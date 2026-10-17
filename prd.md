@@ -1494,8 +1494,9 @@ This does not prove:
 - **anything on the code sets.** The English, Italian and find-by-name questions over Aura's
   sources were not run: on the measuring host their ingest failed on embedding timeouts. They gate
   the merge;
-- **a whole-table lookup.** A code that lives only in a workbook's rows, such as a store's part
-  number, is in no card or passage, so this rule cannot find it;
+- **a whole-table lookup, until 2026-10-17.** A code that lived only in a workbook's rows, such
+  as a store's part number, was in no card or passage, so this rule could not find it. Since
+  workbook rows became passages ("Workbook rows as passages", below), `RIC-10959` ranks first;
 - anything beyond 54 questions written by the corpus's own generator.
 
 **The card's vector (measured 2026-10-16).** A card's vector is computed from its
@@ -1535,7 +1536,7 @@ This does not prove:
 - large libraries on one topic. The PDF corpus is 30 short, distinct files;
 - anything beyond sets of 6 to 38 questions written by one agent.
 
-**Workbook rows as passages (proposed 2026-10-17, spiked 2026-10-16).** A value that lives only
+**Workbook rows as passages (measured 2026-10-17, spiked 2026-10-16).** A value that lives only
 in a workbook's rows cannot be searched: a workbook has no passages, its card answers for it, and
 `document_open` reads it. A spike over copies of the 2026-10-16 indexes gave each sheet groups of
 15 rows, 2 shared with the next, headed by the sheet's name, each row written as
@@ -1565,29 +1566,48 @@ is within the first 8.
   it put the Caraglio row in a 2,114-character chunk beside fourteen other municipalities, with
   no header to name a value's column. Aggregates still go to `document_open`. What changes, if an
   arm ships, is key-value row passages from filecard, with the header repeated in every row.
-- **Three arms, measured through the real ingest before anything ships.** A: rows with the sheet
-  line only, which must reproduce the spike within one question per set. B: A plus the file name
-  in that line, the operator's constraint. C: B, without row passages for a sheet its card
-  already shows whole. An arm ships only if it beats as shipped on MRR on complex and office and
-  loses no more than one question on the English, Italian and find-by-name code sets. If none
-  does, nothing ships and this paragraph records the drop (BASELINE OR DROP).
+- **Three arms were measured through the real ingest, and B ships.**
+  - **The arms.** A has rows with the sheet line only. B adds the file name to that line
+    (`File: <name> — Foglio: <sheet>`), which is the operator's constraint. C is B without rows
+    for a sheet its card shows whole.
+  - **The method.** Each arm was one catch-up upgrade of fresh copies of the as-shipped index,
+    run through the bounded embedder.
+
+    | Set | as shipped | A | B | C |
+    |---|---|---|---|---|
+    | complex MRR | 0.882 | 0.971 | **0.985** | 0.978 |
+    | office MRR | 0.692 | 0.746 | **0.804** | 0.739 |
+
+  - **What B fixed.** The store's part numbers, the rota legend (no documents before) and the
+    plan legend are first. The invoices' numbers, which filecard leaves out of their rows, are
+    recovered through the file name (office q01, q02).
+  - **Why C lost.** Without rows, the invoices fell back to their cards, and C was reverted.
+  - **Code subset.** On 62 files (the coding questions' 36 gold files and the repository's 26
+    workbooks), B against the exact as-shipped counterfactual moved three questions:
+    - English MRR 0.917 → 0.938, Italian 0.812 → 0.833, find-by-name 1.000;
+    - no workbook reached a moved question's top.
+  - **Answers.** Read blind by a fresh agent: 54 of 54 correct. 49 came from the search response,
+    5 needed `document_open` (two aggregates and two PDF look-alikes among them), and none needed
+    a second search.
 
 The design is [the spec](docs/superpowers/specs/2026-10-17-workbook-row-passages-design.md); the
-record is [the spike](docs/superpowers/verification/2026-10-16-rag-full-version-techniques-spike.md).
+records are [the spike](docs/superpowers/verification/2026-10-16-rag-full-version-techniques-spike.md)
+and [the ingest run](docs/superpowers/verification/2026-10-17-workbook-row-passages.md).
 
 This does not prove:
-- the ingest. The spike wrote rows over copies of the indexes: 54 questions written by the
-  corpora's own generator and the office fixture's author, one run per configuration;
-- arms B and C. The file name in the text and the whole-sheet rule are unmeasured;
-- anything on the code sets, which were not run;
-- the appliance's embedding rate and storage. On this host's CPU the spike embedded 962 row
-  passages in about 10 minutes, 385 of them from one 5,000-row ledger;
+- the full code index. The code sets ran on 62 documents, not 6,000; the binding comparison is
+  the full index on the operator's workstation;
+- filecard's header detection. It still drops an invoice's header rows from its rows, takes a
+  rota's first employee as its header and shifts the registry summary's quarter rows;
+- the appliance's embedding rate and storage. Here the two libraries grew from 11,984 KB to
+  18,156 KB and from 12,240 KB to 20,980 KB, and the 5,000-row ledger alone made 385 passages in
+  410 s;
 - an exact lookup by vector. A 15-row group embeds as one averaged vector, so an exact lookup
   rides on the full-text leg and on identifiers-first;
 - aggregates. Rows do not answer them, and the retrieval gold counts a lookup and an aggregate
   the same.
 
-**Ingest embeddings are bounded to the sidecar's slots (proposed 2026-10-17).** The ingest sends
+**Ingest embeddings are bounded to the sidecar's slots (measured 2026-10-17).** The ingest sends
 its embedding requests to a sidecar that serves one at a time, and a request that waits in the
 server's queue is timed out by the client. Measured on this host on 2026-10-17:
 - **The sidecar has one slot.** llama.cpp runs with `-np 1`, and `GET /props` reports
@@ -1607,7 +1627,7 @@ server's queue is timed out by the client. Measured on this host on 2026-10-17:
   with the index's, a document whose rewrite failed keeps its old row, and the exit code looks at
   nothing else.
 
-Proposed, to be kept only if the plan's measurements hold:
+Shipped:
 - `embed._embed_batch` takes a process-wide semaphore before it sends, sized from the local
   sidecar's `total_slots` (read once from `/props`, 1 if it cannot be read). The wait is not part
   of the 120 s. The hosted route, the one with `AURA_EMBED_MODEL` set, stays unbounded.
@@ -1615,20 +1635,34 @@ Proposed, to be kept only if the plan's measurements hold:
   line prints the count.
 - No new env var, no retry on timeout, no change to the batch bounds (32 inputs, 4,096 tokens).
 
-The design is [the spec](docs/superpowers/specs/2026-10-17-embedding-burst-design.md). Its
-acceptance: the same upgrade, rerun after reproducing the timeout, ends with zero timeouts, every
-row passage written, 33 of 33 and 0 errors; one catch-up of Aura's own 6,001 objects ends with
-all indexed and 0 errors. Until then this paragraph is a proposal.
+Measured after the change, from fresh copies of the same volumes:
+- **Reproduced first, with a timestamp and an in-flight count on every `[embed]` line.**
+  - In flight went from 1 to 16 within 2 s, and stayed at 16 while the slot completed one request
+    every ~9 s.
+  - There were 19 timeouts and `IngestStatus.errors = 19`, yet the audit said "0 missing" and the
+    process exited 0.
+- **The same upgrade, bounded.**
+  - In flight stayed at 1, and there were no timeouts.
+  - Both workbooks have their row passages: 120 and 385.
+  - The audit line reads "33 indexed, 0 missing, 0 errors" and the process exits 0, in 768 s
+    against 357 s for the incomplete failed run.
+  - Every later upgrade of the day also ran without a timeout.
+- **Concurrency is not throughput on this CPU.** Over 32 inputs of ~500 tokens:
+  - one slot gives 47–50 inputs a minute sequential, and 48 with 4 concurrent requests;
+  - four slots give 50 to 54;
+  - only the slowest request grows, from 11 to 40 s.
+
+The design is [the spec](docs/superpowers/specs/2026-10-17-embedding-burst-design.md); the record
+is [the verification](docs/superpowers/verification/2026-10-17-embedding-burst.md).
 
 This does not prove:
-- why CocoIndex keeps 37 requests in flight where one workbook keeps 2. Reading cocoindex 1.0.25's
-  `_create_batcher` gave the facts (a `BatchQueue` per batcher, up to 1,024 components in flight),
-  not the Rust core's scheduling. The bound makes the cause irrelevant to correctness, not to speed;
-- that a bound of `total_slots` is the fastest. One request queued behind the running one might
-  keep the slot busier, and the plan compares 1 with 2;
-- the appliance. Its sidecar is the same one-slot llama.cpp, but its CPU and corpus are not this
-  host's;
-- a hosted route under load, which stays unbounded as it is today.
+- **why CocoIndex keeps 16 requests in flight.** The plateau points to a fixed cap upstream. The
+  bound makes the cause irrelevant to correctness, not to speed;
+- **a full library.** The catch-up of Aura's own 6,027 objects, about 7 h on this CPU, was cut
+  by the operator. A 62-file subset ran instead in under 20 minutes with no timeout;
+- **the appliance.** Its sidecar runs on the Intel iGPU through Vulkan (`compose.vulkan.yaml`),
+  and its ingest rate was not measured;
+- **a multi-slot sidecar or a hosted route under load.**
 
 **A billed media call runs once per file content (measured 2026-10-16).** The ingest's `_extract`
 writes a file's bytes to a random temporary path. The vision and speech-to-text calls inside it
