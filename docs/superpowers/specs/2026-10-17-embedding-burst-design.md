@@ -3,7 +3,10 @@
 Proposed on 2026-10-17 at `abc97e7`.
 - **Requested by the operator,** after the workbook-row slice stopped on its own gate
   ("Prima la raffica"). That slice is `2026-10-17-workbook-row-passages.md`, at Task 5.
-- **Not yet approved.**
+- **Approved by the operator on 2026-10-17** ("Approvata, scrivi il piano e procedi con
+  subagent"); the plan is `docs/superpowers/plans/2026-10-17-embedding-burst.md`.
+- **The decisions below shipped,** as measured in
+  [the verification](../verification/2026-10-17-embedding-burst.md).
 
 Measured in `.superpowers/sdd/2026-10-17-workbook-row-passages/task-4-5-report.md` and in
 `docs/superpowers/verification/2026-10-16-complex-documents-retrieval-quality.md`. The
@@ -56,7 +59,7 @@ An ingest never has more embedding requests at the local sidecar than the sideca
 none waits past its deadline in the server's queue. A catch-up that CocoIndex reports as having
 failed somewhere exits non-zero.
 
-## Decisions (proposed)
+## Decisions (shipped)
 
 ### 1. A bound on requests in flight, sized from the sidecar
 

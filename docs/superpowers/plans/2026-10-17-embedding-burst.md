@@ -184,9 +184,9 @@ slots, and a catch-up that CocoIndex reports as failed somewhere exits non-zero.
 
 ### Task 6: verification, PRD, review, push
 
-- [ ] Write `docs/superpowers/verification/2026-10-17-embedding-burst.md`: Tasks 1, 4 and 5, with
+- [x] Write `docs/superpowers/verification/2026-10-17-embedding-burst.md`: Tasks 1, 4 and 5, with
   what they do not prove.
-- [ ] Add the measured result and its citation to the PRD paragraph of Task 0.
+- [x] Add the measured result and its citation to the PRD paragraph of Task 0. (Done in `eede788`, with the verification file.)
 - [ ] Final review by one fresh reviewer, on the range, this plan, the spec and the Review Focus.
   Fix its findings test-first.
 - [ ] Push. Then resume the workbook-row plan at its Task 5.
