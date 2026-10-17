@@ -4,6 +4,14 @@ Proposed on 2026-10-17 at `1652e65`.
 - **Queued.** The operator queued it after the workbook-row slice ("mettila in coda dopo le righe
   Excel"), so it lands after `2026-10-17-workbook-row-passages.md` closes.
 - **The direction is approved.** This written spec is not yet.
+- **Measured on 2026-10-17** (`docs/superpowers/verification/2026-10-17-fused-query-maintainers-edits.md`).
+  - Acceptance 2, passage level only (`TestFusedQueryVariants`): on 108 gold questions arm P is
+    identical everywhere, and arm R changes one Italian answer with no metric moving.
+  - On 7,798 passages at 26.10.1: shipped 44.3 ms, P 15.3, R 12.3.
+  - The full-text `LIMIT` alone changes 2 of 16 ungolded answers, which refutes the reasoning
+    above that it is inert under fuse's `limit`.
+  - Still open: acceptance 1 (the 11,771-passage code index), `TestCodingAgentQuestions` for
+    acceptance 2, and acceptances 3 to 5.
 
 It answers ArcadeDB's maintainers.
 - On 2026-10-16 Roberto Franchini proposed three edits to Aura's fused query: drop the dense
