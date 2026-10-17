@@ -78,6 +78,19 @@ docker run --rm -v /tmp/dbs:/home/arcadedb/databases arcadedata/arcadedb:latest-
 | 1 | `Creating default database 'test'...`, server started | 0 |
 | 2, the same command after a stop | server started; the SEVERE above, with `SecurityUserFileRepository.load` | 1 |
 
+**The cause, read in ArcadeDB's source at `15958b48f`.**
+- **The file.** `package/src/main/config/server-users.jsonl` is the multi-line file, and
+  `.github/workflows/native-image.yml:500` copies `package/src/main/config/*` into the native image
+  verbatim. Why the JVM image ships none was not traced.
+- **The parse.** `SecurityUserFileRepository.load` (`:139`) parses each line as one JSON object,
+  `new JSONObject(reader.readLine())`, so the first line, `{`, throws `JSONException`.
+- **The misnamed log.** `ServerSecurity.loadUsers` (`:268`) catches it and calls
+  `groupRepository.saveInError(e)`, the group repository's method. That is why the SEVERE names
+  `server-groups.json` and says it saves `config/server-groups-error.json`. The users then fall back
+  to `SecurityUserFileRepository.createDefault()`.
+- **Not traced:** why run A logs nothing. A guess, unverified: `saveInError` returns early while
+  `latestGroupConfiguration` is null.
+
 After the fallback, root logs in (HTTP 200) and the default database exists. So the cost is the
 SEVERE line, and the users file reset to its defaults.
 
