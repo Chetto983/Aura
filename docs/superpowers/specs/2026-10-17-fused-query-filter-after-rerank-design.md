@@ -12,6 +12,13 @@ Proposed on 2026-10-17 at `1652e65`.
     above that it is inert under fuse's `limit`.
   - Still open: acceptance 1 (the 11,771-passage code index), `TestCodingAgentQuestions` for
     acceptance 2, and acceptances 3 to 5.
+- **Measured on ArcadeDB's 26.11.1-SNAPSHOT the same day**
+  (`docs/superpowers/verification/2026-10-17-fused-query-arcadedb-latest-native.md`).
+  - #10181 does not move this query, and the native build is slower than the JVM.
+  - #10169's `where: { embed_space: :space }` on `vector.neighbors` keeps every answer at P's cost
+    (14.5 against 14.3 ms on the JVM). It also filters inside the search, which removes decision
+    4's cost. 26.10.1 refuses the option, so it waits for Aura's pin to move to a release that
+    carries #10169.
 
 It answers ArcadeDB's maintainers.
 - On 2026-10-16 Roberto Franchini proposed three edits to Aura's fused query: drop the dense
