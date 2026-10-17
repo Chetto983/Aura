@@ -1591,7 +1591,10 @@ This does not prove:
 its embedding requests to a sidecar that serves one at a time, and a request that waits in the
 server's queue is timed out by the client. Measured on this host on 2026-10-17:
 - **The sidecar has one slot.** llama.cpp runs with `-np 1`, and `GET /props` reports
-  `total_slots: 1`. `embed._embed_batch` sends each request with `urlopen(timeout=120)`, and the
+  `total_slots: 1`. The pinned image (`ghcr.io/ggml-org/llama.cpp:server-v0.5.0`, build `b11146`,
+  `compose.cpu.yaml`) documents the field in `tools/server/README.md`: "`total_slots` - the total
+  number of slots for process requests (defined by `--parallel` option)".
+  `embed._embed_batch` sends each request with `urlopen(timeout=120)`, and the
   120 s count from the send, queueing at the server included.
 - **One large workbook passes, two do not.** The 5,000-row ledger alone ingested cleanly: 385 row
   passages, about 2 requests in flight, 410 s. The arm-A upgrade of the complex library embedded
@@ -1625,9 +1628,7 @@ This does not prove:
   keep the slot busier, and the plan compares 1 with 2;
 - the appliance. Its sidecar is the same one-slot llama.cpp, but its CPU and corpus are not this
   host's;
-- a hosted route under load, which stays unbounded as it is today;
-- that the pinned llama.cpp release documents `total_slots` on `/props`. Only the bench build
-  `b11146` was seen to serve it.
+- a hosted route under load, which stays unbounded as it is today.
 
 **A billed media call runs once per file content (measured 2026-10-16).** The ingest's `_extract`
 writes a file's bytes to a random temporary path. The vision and speech-to-text calls inside it
