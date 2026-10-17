@@ -518,8 +518,9 @@ async def _update_publishing_status() -> coco.UpdateSnapshot | None:
 
 
 def _error_count(snapshot: coco.UpdateSnapshot | None) -> int:
-    total = getattr(getattr(snapshot, "stats", None), "total", None)
-    return getattr(total, "num_errors", 0)
+    if snapshot is None:
+        return 0
+    return getattr(snapshot.stats.total, "num_errors", 0)
 
 
 def _exit_code(missing: int, errors: int) -> int:

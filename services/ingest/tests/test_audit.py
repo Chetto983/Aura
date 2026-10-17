@@ -103,7 +103,8 @@ def catch_up(monkeypatch, last_snapshot, expected: set[str], indexed: set[str]) 
 
 def test_a_catch_up_with_cocoindex_errors_exits_one(monkeypatch):
     # MEASURED 2026-10-17: CocoIndex published errors=19 for an upgrade, the audit counted
-    # 33 objects, 33 indexed, 0 missing, and the process exited 0. The index being complete does not make the run clean.
+    # 33 objects, 33 indexed, 0 missing, and the process exited 0. The index being
+    # complete does not make the run clean.
     assert catch_up(monkeypatch, snapshot(2), {"a.pdf"}, {"a.pdf"}) == 1
 
 
@@ -115,9 +116,15 @@ def test_a_catch_up_with_a_missing_object_still_exits_one(monkeypatch):
     assert catch_up(monkeypatch, snapshot(0), {"a.pdf"}, set()) == 1
 
 
-@pytest.mark.parametrize("last", [None, SimpleNamespace(), snapshot(None)])
-def test_a_snapshot_that_reports_no_error_count_counts_as_none(monkeypatch, last):
+@pytest.mark.parametrize("last", [None, snapshot(None)])
+def test_no_snapshot_or_no_error_count_counts_as_none(monkeypatch, last):
     assert catch_up(monkeypatch, last, {"a.pdf"}, {"a.pdf"}) == 0
+
+
+def test_a_snapshot_without_stats_fails_loudly_instead_of_reading_clean(monkeypatch):
+    # If CocoIndex's snapshot shape drifts, a silent 0 would be the false clean again.
+    with pytest.raises(AttributeError):
+        catch_up(monkeypatch, SimpleNamespace(), {"a.pdf"}, {"a.pdf"})
 
 
 def test_the_audit_line_prints_the_error_count(monkeypatch, capsys):

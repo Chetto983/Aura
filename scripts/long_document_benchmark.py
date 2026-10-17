@@ -53,10 +53,12 @@ def main():
         profile = cProfile.Profile()
         start = time.perf_counter()
         profile.enable()
-        app.app.update_blocking()
+        snapshot = asyncio.run(app._update_publishing_status())
         profile.disable()
         elapsed = time.perf_counter() - start
-        assert app.audit_pass(0) == 0, "source missing from index"
+        errors = app._error_count(snapshot)
+        assert app.audit_pass(errors) == 0, "source missing from index"
+        assert errors == 0, "CocoIndex reported failed components"
         profile.dump_stats(str(args.output / f"{label}.prof"))
         stats = pstats.Stats(profile)
         stages = {}
