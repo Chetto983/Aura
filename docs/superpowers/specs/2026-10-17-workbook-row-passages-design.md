@@ -2,7 +2,8 @@
 
 Proposed on 2026-10-17 at `e8c2937`. The operator asked for this spec ("Scrivi la spec per le
 righe Excel come passage"). They then set its constraint: every row passage names its file and
-its sheet in its own text. Not yet approved.
+its sheet in its own text. Approved by the operator on 2026-10-17 ("Approvata, scrivi il
+piano"); the plan is `docs/superpowers/plans/2026-10-17-workbook-row-passages.md`.
 
 The measurements behind it are in three files under `docs/superpowers/verification/`:
 - `2026-10-16-rag-full-version-techniques-spike.md` (the spike);

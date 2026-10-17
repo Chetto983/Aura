@@ -1,6 +1,6 @@
 # Workbook row passages implementation plan
 
-**Status (2026-10-17):** NOT STARTED. The spec was approved by the operator on 2026-10-17
+**Status (2026-10-17):** IN PROGRESS. Task 0 landed in e9d1afb. The spec was approved by the operator on 2026-10-17
 ("Approvata, scrivi il piano").
 
 > **For agentic workers:** Use superpowers:executing-plans with test-driven-development. The
@@ -118,14 +118,14 @@ ArcadeDB 26.10.1, EmbeddingGemma-300M Q8_0 through llama.cpp, Garage, Docker.
 
 ### Task 0: PRD amendment
 
-- [ ] Amend prd.md §11 after "The card's vector". The new paragraph records the spike's numbers
+- [x] Amend prd.md §11 after "The card's vector". The new paragraph records the spike's numbers
   (spec, problem 2), the operator's constraint, the three arms, and what is not proved.
-- [ ] In the reserved-place paragraph, add one sentence: a workbook with row passages leaves the
+- [x] In the reserved-place paragraph, add one sentence: a workbook with row passages leaves the
   place.
-- [ ] Narrow the 2026-09-09 decision ("a spreadsheet is queried, not read") rather than
+- [x] Narrow the 2026-09-09 decision ("a spreadsheet is queried, not read") rather than
   contradict it. Generic chunking still does not apply to a workbook, and aggregates still go to
   `document_open`.
-- [ ] Commit: `docs(prd): workbook rows become passages that name their file and sheet`.
+- [x] Commit: `docs(prd): workbook rows become passages that name their file and sheet`.
 
 ### Task 1: filecard keeps the rows
 
