@@ -48,7 +48,6 @@ func (t *tableBuilder) keepRow(values []string, position int64) {
 		}
 		t.budget.exhausted, t.budget.stoppedSheet, t.budget.stoppedRow = true, t.name, position
 	}
-	t.rowsLeftOut = true
 }
 
 // rowText labels each value with the card's header for its column. A column without one,
@@ -90,19 +89,4 @@ func columnLetter(index int) string {
 		letters = append([]byte{byte('A' + (index-1)%26)}, letters...)
 	}
 	return string(letters)
-}
-
-// ShownWhole reports whether the card already shows every data row of the named sheet whole:
-// each row it scanned is one of its samples, no sample value was cut, every row was kept, and
-// nothing in the card was cut to fit.
-func (c Card) ShownWhole(sheet string) bool {
-	if _, _, truncated := c.layout(); truncated {
-		return false
-	}
-	for _, s := range c.Sheets {
-		if s.Name == sheet {
-			return s.RowsScanned > 0 && s.RowsScanned == len(s.Samples) && !s.samplesCut && !s.rowsLeftOut
-		}
-	}
-	return false
 }

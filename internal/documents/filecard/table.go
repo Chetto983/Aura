@@ -44,9 +44,8 @@ type tableBuilder struct {
 
 	// budget is set by the worksheet reader only. A delimited file is extracted as
 	// text by the ingest, and its rows must not reach the index a second time.
-	budget      *rowBudget
-	rows        []Row
-	rowsLeftOut bool
+	budget *rowBudget
+	rows   []Row
 }
 
 func newTable(name string) *tableBuilder {
@@ -91,14 +90,12 @@ func (t *tableBuilder) done(declaredTotal int64) Sheet {
 			rows = max(declaredTotal-int64(t.rowsSkipped), 0)
 		}
 	}
-	sheet := Sheet{Name: t.name, Rows: rows, RowsScanned: t.rowsScanned, HeaderRow: t.headerRow, rowsLeftOut: t.rowsLeftOut}
+	sheet := Sheet{Name: t.name, Rows: rows, RowsScanned: t.rowsScanned, HeaderRow: t.headerRow}
 	for _, col := range t.columns {
 		sheet.Columns = append(sheet.Columns, col.column())
 	}
 	for _, row := range t.pickSamples() {
-		sample, cut := t.sampleRow(row)
-		sheet.Samples = append(sheet.Samples, sample)
-		sheet.samplesCut = sheet.samplesCut || cut
+		sheet.Samples = append(sheet.Samples, t.sampleRow(row))
 	}
 	return sheet
 }
@@ -218,11 +215,8 @@ func (t *tableBuilder) pickSamples() [][]string {
 	return out
 }
 
-// sampleRow reports whether it cut a value, since a card that abbreviates a row has not
-// shown it whole.
-func (t *tableBuilder) sampleRow(values []string) (SampleRow, bool) {
+func (t *tableBuilder) sampleRow(values []string) SampleRow {
 	row := make(SampleRow, 0, len(values))
-	cut := false
 	for i, value := range values {
 		if i >= maxColumnsScanned {
 			break
@@ -235,11 +229,9 @@ func (t *tableBuilder) sampleRow(values []string) (SampleRow, bool) {
 		if i < len(t.headers) {
 			header = t.headers[i]
 		}
-		shown := truncateRunes(value, maxValueRunes)
-		cut = cut || shown != value
-		row = append(row, Cell{Header: header, Value: shown})
+		row = append(row, Cell{Header: header, Value: truncateRunes(value, maxValueRunes)})
 	}
-	return row, cut
+	return row
 }
 
 // columnStats narrates one column: how many values, how many distinct, which

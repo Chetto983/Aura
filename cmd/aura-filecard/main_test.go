@@ -83,7 +83,6 @@ type jsonOutput struct {
 		Row   int64  `json:"row"`
 		Text  string `json:"text"`
 	} `json:"rows"`
-	ShownWhole []string `json:"shown_whole"`
 }
 
 func renderJSON(t *testing.T, path string) (jsonOutput, map[string]json.RawMessage) {
@@ -103,7 +102,7 @@ func renderJSON(t *testing.T, path string) (jsonOutput, map[string]json.RawMessa
 	return got, raw
 }
 
-func TestJSONCarriesRowsAndShownWhole(t *testing.T) {
+func TestJSONCarriesRows(t *testing.T) {
 	got, _ := renderJSON(t, complexCorpus("budget_consolidato_2026.xlsx"))
 
 	found := false
@@ -115,16 +114,11 @@ func TestJSONCarriesRowsAndShownWhole(t *testing.T) {
 	if !found {
 		t.Errorf("rows = %+v, want Ricavi row 6 to be Centro", got.Rows)
 	}
-	if !slices.Contains(got.ShownWhole, "Ricavi") || slices.Contains(got.ShownWhole, "Costi") {
-		t.Errorf("shown_whole = %q, want Ricavi and not Costi", got.ShownWhole)
-	}
 }
 
 func TestJSONOmitsRowsForAPDF(t *testing.T) {
 	_, raw := renderJSON(t, complexCorpus("report_qualita_Q3_2026.pdf"))
-	for _, field := range []string{"rows", "shown_whole"} {
-		if string(raw[field]) != "[]" {
-			t.Errorf("%s = %s, want an empty list", field, raw[field])
-		}
+	if string(raw["rows"]) != "[]" {
+		t.Errorf("rows = %s, want an empty list", raw["rows"])
 	}
 }

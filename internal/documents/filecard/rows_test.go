@@ -236,54 +236,6 @@ func TestADelimitedFileKeepsNoRows(t *testing.T) {
 	}
 }
 
-func TestShownWhole(t *testing.T) {
-	budget := build(t, complexCorpus("budget_consolidato_2026.xlsx"), "budget_consolidato_2026.xlsx")
-	if !budget.ShownWhole("Ricavi") {
-		t.Errorf("Ricavi's 5 data rows are all in the card, yet it is not shown whole")
-	}
-	if budget.ShownWhole("Costi") {
-		t.Errorf("Costi has 6 data rows and its card shows 5, yet it is shown whole")
-	}
-	if budget.ShownWhole("Nessuno") {
-		t.Errorf("a sheet the workbook does not have is shown whole")
-	}
-
-	store := build(t, complexCorpus("magazzino_ricambi_2026.xlsx"), "magazzino_ricambi_2026.xlsx")
-	if store.ShownWhole("Giacenze") {
-		t.Errorf("Giacenze has 1,500 rows, yet it is shown whole")
-	}
-	// Fornitori's 5 rows are all samples, but the card was cut to fit.
-	if !strings.Contains(store.Render(), cardCutNotice) {
-		t.Fatalf("the store's card is no longer cut, so this case tests nothing:\n%s", store.Render())
-	}
-	if store.ShownWhole("Fornitori") {
-		t.Errorf("a sheet of a card that was cut is shown whole")
-	}
-
-	empty := build(t, oneSheetWorkbook(t, "vuoto.xlsx", "Vuoto", ""), "vuoto.xlsx")
-	if empty.ShownWhole("Vuoto") {
-		t.Errorf("a sheet with no data rows is shown whole")
-	}
-
-	// The card shows a value of 200 runes cut at 72, so the reader has not seen that row whole.
-	data := `<row r="1">` + inline("A1", "Codice") + inline("B1", "Nota") + `</row>`
-	for i := 2; i <= sampleRows+1; i++ {
-		note := "breve"
-		if i == 4 {
-			note = strings.Repeat("ò", 200)
-		}
-		data += fmt.Sprintf(`<row r="%d">%s%s</row>`, i, inline(fmt.Sprintf("A%d", i), fmt.Sprintf("K%d", i)),
-			inline(fmt.Sprintf("B%d", i), note))
-	}
-	long := build(t, oneSheetWorkbook(t, "lunga.xlsx", "Lunga", data), "lunga.xlsx")
-	if long.Sheets[0].RowsScanned != len(long.Sheets[0].Samples) || strings.Contains(long.Render(), cardCutNotice) {
-		t.Fatalf("every row of Lunga should be a sample of an uncut card:\n%s", long.Render())
-	}
-	if long.ShownWhole("Lunga") {
-		t.Errorf("a sheet whose card cut one of its values is shown whole")
-	}
-}
-
 // A cell holds an index into the string table, so one long string can be referenced by every
 // cell of every row, and no read cap bounds the row text that makes. The workbook's rows share
 // one budget, and past it the rows that follow, in this sheet and the next, are left out.
@@ -322,13 +274,6 @@ func TestRowTextStopsAtTheWorkbookBudget(t *testing.T) {
 	}
 	if rows := rowsOf(card, "Piccolo"); len(rows) != 0 {
 		t.Errorf("a sheet after the budget kept rows: %+v", rows)
-	}
-	if card.ShownWhole("Piccolo") {
-		t.Errorf("a sheet whose rows were left out is shown whole")
-	}
-	alone := build(t, workbookWith(t, "piccolo.xlsx", "", sheetPart{"Piccolo", small}), "piccolo.xlsx")
-	if !alone.ShownWhole("Piccolo") {
-		t.Errorf("Piccolo on its own is not shown whole, so the case above tests nothing")
 	}
 }
 

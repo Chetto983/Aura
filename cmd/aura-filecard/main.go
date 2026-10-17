@@ -34,7 +34,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	name := flags.String("name", "", "file name to describe the document as (defaults to the path's base name)")
 	asJSON := flags.Bool("json", false,
-		"emit {\"card\",\"description\",\"rows\",\"shown_whole\"} as JSON instead of the rendered text")
+		"emit {\"card\",\"description\",\"rows\"} as JSON instead of the rendered text")
 	sources := flags.Bool("source-extensions", false, "print the source-file extensions as a JSON list and exit")
 	parseErr := flags.Parse(args)
 	wantArgs := 1
@@ -84,24 +84,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 // rendered is what the ingest reads (prd.md §11): it stores the card, embeds the description
-// (2026-10-16), and turns a workbook's rows into passages; shown_whole names the sheets whose
-// every row the card already shows. Both lists are empty rather than null, so a reader never
-// has to tell the two apart.
+// (2026-10-16), and turns a workbook's rows into passages. rows is empty rather than null,
+// so a reader never has to tell a missing field from an empty one.
 func rendered(card filecard.Card) map[string]any {
 	rows := card.Rows
 	if rows == nil {
 		rows = []filecard.Row{}
 	}
-	shownWhole := []string{}
-	for _, sheet := range card.Sheets {
-		if card.ShownWhole(sheet.Name) {
-			shownWhole = append(shownWhole, sheet.Name)
-		}
-	}
-	return map[string]any{
-		"card": card.Render(), "description": card.Description(),
-		"rows": rows, "shown_whole": shownWhole,
-	}
+	return map[string]any{"card": card.Render(), "description": card.Description(), "rows": rows}
 }
 
 func failed(stderr io.Writer, err error) int {
