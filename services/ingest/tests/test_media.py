@@ -192,8 +192,8 @@ def test_index_text_leaves_spreadsheets_to_document_open(monkeypatch, tmp_path):
     from Calabria to Piemonte, reduced to a single vector whose meaning is their average.
 
     Returning "" is the module's existing way to say this: the card, the name and the row
-    survive, so the file stays findable, and with no passage behind it retrieval reports
-    requires_open.
+    survive, so the file stays findable. A workbook's passages are its rows, which arrive
+    through aura-filecard with the card and never through this path (rows.py).
     """
     book = tmp_path / "gi_comuni_cap.xlsx"
     book.write_bytes(b"PK\x03\x04 not a real workbook")

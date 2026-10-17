@@ -19,19 +19,13 @@ In every pass, every row's vector is the one the fake embedder produces for that
 stamp: a passage's from its text, a document's from its card's description.
 """
 
-import os
 import re
-import subprocess
-import sys
 
 import pytest
 
 from ingest import app, chunk, embed
-from ingest.arcade import ArcadeSchemaError, _post
-from ingest.tests import fake_embedder
+from ingest.tests import disposable, fake_embedder
 
-ARCADE_HTTP = os.environ.get("ARCADE_HTTP", "http://arcadedb:2480")
-AUTH = ("root", os.environ["ARCADEDB_PASSWORD"])
 DATABASE = "aura_t_space_reruns"
 SPACE_A, SPACE_B = "es1-aaaaaaaaaaaaaaaa", "es1-bbbbbbbbbbbbbbbb"
 HEALTHY, REFUSED = "fornitori.txt", "rifiutato.txt"
@@ -44,32 +38,20 @@ OBJECTS = [
 ]
 
 
-def _drop() -> None:
-    try:
-        _post(ARCADE_HTTP, "/api/v1/server", {"command": f"drop database {DATABASE}"}, AUTH, 30.0)
-    except ArcadeSchemaError as exc:
-        if "not exist" not in str(exc).lower():
-            raise
-
-
 @pytest.fixture
 def database():
-    _drop()
+    disposable.drop(DATABASE)
     try:
         yield DATABASE
     finally:
-        _drop()
+        disposable.drop(DATABASE)
 
 
 def _pass(state, space, refusing=""):
-    env = dict(os.environ, AURA_EMBED_SPACE=space, COCOINDEX_DB=str(state), SPACE_THAT_REFUSES=refusing)
-    done = subprocess.run(
-        [sys.executable, "-m", "ingest.tests.space_driver", DATABASE, *OBJECTS],
-        env=env, capture_output=True, text=True, timeout=600,
-    )
-    assert done.returncode == 0, done.stdout + done.stderr
-    requests = int(re.search(r"^REQUESTS (\d+)$", done.stdout, re.MULTILINE).group(1))
-    return done.stdout.count("[extract] "), requests
+    stdout = disposable.space_driver_pass(DATABASE, OBJECTS, state, AURA_EMBED_SPACE=space,
+                                          SPACE_THAT_REFUSES=refusing)
+    requests = int(re.search(r"^REQUESTS (\d+)$", stdout, re.MULTILINE).group(1))
+    return stdout.count("[extract] "), requests
 
 
 def _descriptions(tmp_path) -> dict[str, str]:
@@ -89,10 +71,7 @@ def _stamps(descriptions: dict[str, str]) -> dict[str, set[str]]:
         ("Passage", lambda row: row["text"]),
         ("IndexedDocument", lambda row: descriptions[row["source_key"]]),
     ):
-        body = _post(ARCADE_HTTP, f"/api/v1/query/{DATABASE}", {
-            "language": "sql", "command": f"SELECT FROM {type_name}",
-        }, AUTH, 30.0)
-        for row in body["result"]:
+        for row in disposable.query(DATABASE, f"SELECT FROM {type_name}"):
             stamps.setdefault(row["source_key"], set()).add(row["embed_space"])
             sent = sent_of(row)
             assert sent.strip(), f"{type_name} {row['source_key']}: nothing was embedded"

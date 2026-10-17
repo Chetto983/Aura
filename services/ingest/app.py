@@ -26,7 +26,7 @@ import tempfile
 import cocoindex as coco
 from cocoindex.connectors import amazon_s3, neo4j
 
-from ingest import arcade, chunk, embed, extract, identity, media, outline, source
+from ingest import arcade, chunk, embed, extract, identity, media, outline, rows, source
 
 ARCADE_HTTP = os.environ.get("ARCADE_HTTP", "http://aura-arcadedb:2480")
 ARCADE_BOLT = os.environ.get("ARCADE_BOLT", "bolt://aura-arcadedb:7687")
@@ -110,8 +110,10 @@ class Passage:
     text: str
     normalized_text_sha256: str
     heading_path: list[str]
-    char_start: int
-    char_end: int
+    # None for a workbook's row passage: PassageLocator anchors in the extractor's text and a
+    # workbook has none, so the citation falls back to the ordinal (spec 2026-10-17, decision 4).
+    char_start: int | None
+    char_end: int | None
     embedding: list[float]
     embed_space: str
 
@@ -144,7 +146,8 @@ def _card_name(file_name: str, converted_path: str) -> str:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Card:
-    """filecard's two renderings of one file: the card a reader opens, and its description.
+    """filecard's two renderings of one file, the card a reader opens and its description, and
+    a workbook's rows (empty for every other file).
 
     The description is the card without its caveats, its cut notice and its trailer, which
     are true sentences about Aura that every card shares. The card is stored and the
@@ -154,9 +157,10 @@ class Card:
 
     text: str
     description: str
+    rows: list[rows.Row]
 
 
-_NO_CARD = Card(text="", description="")
+_NO_CARD = Card(text="", description="", rows=[])
 
 
 def _card(path: str, file_name: str) -> Card:
@@ -188,7 +192,11 @@ def _card(path: str, file_name: str) -> Card:
         print(f"[card] {file_name}: aura-filecard exited {done.returncode}", flush=True)
         return _NO_CARD
     rendered = json.loads(done.stdout)
-    return Card(text=rendered["card"], description=rendered["description"])
+    return Card(
+        text=rendered["card"], description=rendered["description"],
+        rows=[rows.Row(sheet=row["sheet"], number=row["row"], text=row["text"])
+              for row in rendered["rows"]],
+    )
 
 
 @coco.fn
@@ -219,11 +227,11 @@ def _text_fingerprint(text: str) -> str:
     """The extracted text's hash, and EMPTY when there is no text.
 
     Hashing nothing is not evidence that two files say the same thing, and every file
-    routed away from text extraction has none: a spreadsheet is answered from its card and
-    the file itself, so media.index_text returns "" for all of them. Hashed anyway, all of
-    them carry sha256("") = e3b0c442... -- measured 2026-09-09 on the live corpus, four
-    unrelated .xlsx did -- and retrieval, which collapses documents that share this hash,
-    would have shown one spreadsheet in place of every other.
+    routed away from text extraction has none: a spreadsheet is answered from its card, its
+    rows and the file itself, so media.index_text returns "" for all of them. Hashed anyway,
+    all of them carry sha256("") = e3b0c442... -- measured 2026-09-09 on the live corpus,
+    four unrelated .xlsx did -- and retrieval, which collapses documents that share this
+    hash, would have shown one spreadsheet in place of every other.
     """
     if not text:
         return ""
@@ -232,12 +240,14 @@ def _text_fingerprint(text: str) -> str:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class Extracted:
-    """What one file says: its text, its card, the card's description and where its sections start."""
+    """What one file says: its text, its card, the card's description, where its sections start
+    and, for a workbook, its rows."""
 
     text: str
     card: str
     description: str
     anchors: list[outline.Anchor]
+    rows: list[rows.Row]
 
 
 @coco.fn(memo=True)
@@ -277,7 +287,8 @@ def _extract(content: bytes, suffix: str, file_name: str, content_type: str | No
             # every chunk keeps the empty heading_path it has today.
             anchors = outline.anchors_in(text, outline.titles_of(ready))
             card = _card(ready, _card_name(file_name, ready))
-    return Extracted(text=text, card=card.text, description=card.description, anchors=list(anchors))
+    return Extracted(text=text, card=card.text, description=card.description, anchors=list(anchors),
+                     rows=card.rows)
 
 
 @coco.fn(memo=True)
@@ -311,12 +322,19 @@ async def index_object(
     identity_id: str, key: str, file_name: str, content: bytes, extracted: Extracted,
     table: neo4j.TableTarget[Passage], documents: neo4j.TableTarget[IndexedDocument],
 ) -> None:
-    """Chunk, embed and declare one object's rows, every vector stamped with embed.SPACE."""
+    """Chunk, embed and declare one object's records, every vector stamped with embed.SPACE.
+
+    A workbook has no extracted text (media.index_text), so its passages are its rows.
+    """
     source_kind = "s3"
     search_document_id = identity.search_document_id(identity_id, source_kind, key)
-    # document_budget(), not the bare ceiling: embed sends EMBED_DOC_PREFIX + text, so a
-    # chunk sized to the full ceiling overflows by the prefix and the request 500s.
-    pieces = chunk.chunk(extracted.text, max_tokens=chunk.document_budget(), anchors=extracted.anchors)
+    if extracted.rows:
+        pieces = rows.group(extracted.rows)
+    else:
+        # document_budget(), not the bare ceiling: embed sends EMBED_DOC_PREFIX + text, so a
+        # chunk sized to the full ceiling overflows by the prefix and the request 500s.
+        pieces = chunk.chunk(extracted.text, max_tokens=chunk.document_budget(),
+                             anchors=extracted.anchors)
     raw_sha256 = hashlib.sha256(content).hexdigest()
     await coco.map(
         process_chunk, list(enumerate(pieces)),

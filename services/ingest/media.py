@@ -7,7 +7,6 @@ import cocoindex as coco
 
 from ingest import extract
 
-
 _IMAGE_EXTENSIONS = frozenset({".gif", ".jpeg", ".jpg", ".png", ".webp"})
 _AUDIO_EXTENSIONS = frozenset({".aac", ".flac", ".m4a", ".mp3", ".oga", ".ogg", ".opus", ".wav"})
 # The formats internal/assets calls video (limits.go videoExts), indexed by metadata only
@@ -71,15 +70,20 @@ def derive(path: str, file_name: str, media_kind: str) -> str:
     )
 
 
-# A spreadsheet is queried, not read. The product contract already says an aggregate cannot
-# come from a few passages and points at document_open for counts, sums, groupings and
-# cross-column filters, so chunking one produces passages nothing should ever answer from.
+# A spreadsheet is queried, not read as text. The product contract already says an aggregate
+# cannot come from a few passages and points at document_open for counts, sums, groupings and
+# cross-column filters, so chunking its extracted text produces passages nothing should ever
+# answer from.
 #
 # Measured 2026-09-09 on eight Italian reference tables (comuni, CAP, province, nazioni):
 # 3.4M characters became 981 passages -- more than the entire live corpus -- and the Caraglio
 # row landed in a 2,114-character chunk beside fourteen unrelated municipalities from
-# Calabria to Piemonte, then collapsed into ONE vector whose meaning is their average. The
-# question those files answer, "the CAP of Caraglio", is an exact lookup on a key.
+# Calabria to Piemonte, with no header to say which column a value was, then collapsed into
+# ONE vector whose meaning is their average.
+#
+# A workbook's passages are its rows instead, and they do not come from here: aura-filecard
+# hands them over with the card, each under its sheet's headers, and rows.py groups them (spec
+# 2026-10-17; prd.md §11). This path keeps returning "" for every spreadsheet.
 #
 # Legacy .xls/.ods arrive here already normalised to .xlsx; the originals are listed anyway
 # so the routing does not depend on normalisation having run.

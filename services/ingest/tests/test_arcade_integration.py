@@ -26,33 +26,14 @@ import os
 import pytest
 from neo4j import GraphDatabase
 
-from ingest.arcade import ArcadeSchemaError, _post, ensure_schema
+from ingest.arcade import _post, ensure_schema
+from ingest.tests import disposable
+from ingest.tests.disposable import ARCADE_HTTP, AUTH
 
-ARCADE_HTTP = os.environ.get("ARCADE_HTTP", "http://arcadedb:2480")
 ARCADE_BOLT = os.environ.get("ARCADE_BOLT", "bolt://arcadedb:7687")
-# ArcadeDB requires the rootPassword baked into the running container -- see
-# this file's docstring for how to read it without hardcoding it.
-ARCADE_PW = os.environ["ARCADEDB_PASSWORD"]
-AUTH = ("root", ARCADE_PW)
 
 TEST_DB = "aura_t5_it"
 DIMS = 768
-
-
-def _drop_database_ignoring_absence(database: str) -> None:
-    try:
-        _post(ARCADE_HTTP, "/api/v1/server", {"command": f"drop database {database}"}, AUTH, 30.0)
-    except ArcadeSchemaError as exc:
-        if "not exist" not in str(exc).lower():
-            raise
-
-
-def _query(database: str, statement: str, params: dict) -> list[dict]:
-    body = _post(
-        ARCADE_HTTP, f"/api/v1/query/{database}",
-        {"language": "sql", "command": statement, "params": params}, AUTH, 30.0,
-    )
-    return body["result"]
 
 
 def _command(database: str, statement: str) -> None:
@@ -64,11 +45,11 @@ def _command(database: str, statement: str) -> None:
 
 @pytest.fixture
 def disposable_database():
-    _drop_database_ignoring_absence(TEST_DB)  # clean slate from a prior failed run
+    disposable.drop(TEST_DB)  # clean slate from a prior failed run
     try:
         yield TEST_DB
     finally:
-        _drop_database_ignoring_absence(TEST_DB)
+        disposable.drop(TEST_DB)
 
 
 def test_ensure_schema_succeeds_on_a_fresh_database(disposable_database):
@@ -89,14 +70,14 @@ def test_ensure_schema_removes_retired_values_properties_and_types(disposable_da
         "CREATE INDEX IF NOT EXISTS ON Passage (active, document_id) NOTUNIQUE",
         "CREATE VERTEX TYPE DocumentProjection IF NOT EXISTS",
         "CREATE EDGE TYPE HAS_PASSAGE IF NOT EXISTS",
-        "INSERT INTO Passage SET passage_key = 'retired', document_id = 'old', "
-        "active = true, self_ref = '/old'",
+        ("INSERT INTO Passage SET passage_key = 'retired', document_id = 'old', "
+         "active = true, self_ref = '/old'"),
     ):
         _command(disposable_database, statement)
 
     ensure_schema(ARCADE_HTTP, disposable_database, AUTH, DIMS)
 
-    schema = _query(
+    schema = disposable.query(
         disposable_database,
         "SELECT name, properties FROM schema:types",
         {},
@@ -110,7 +91,7 @@ def test_ensure_schema_removes_retired_values_properties_and_types(disposable_da
     assert "DocumentProjection" not in by_name
     assert "HAS_PASSAGE" not in by_name
 
-    rows = _query(
+    rows = disposable.query(
         disposable_database,
         "SELECT FROM Passage WHERE passage_key = :key",
         {"key": "retired"},
@@ -144,7 +125,7 @@ def test_bolt_written_vector_is_typed_and_ann_retrievable(disposable_database):
     finally:
         driver.close()
 
-    rows = _query(
+    rows = disposable.query(
         disposable_database,
         "SELECT embedding.type() AS t, embedding.size() AS n FROM Passage WHERE passage_key = :k",
         {"k": "p1"},
@@ -155,7 +136,7 @@ def test_bolt_written_vector_is_typed_and_ann_retrievable(disposable_database):
     )
     assert rows[0]["n"] == DIMS
 
-    ann = _query(
+    ann = disposable.query(
         disposable_database,
         "SELECT expand(`vector.neighbors`('Passage[embedding]', :q, 3))",
         {"q": v1},
@@ -179,8 +160,10 @@ def test_rows_written_before_the_stamp_are_counted_through_its_index(disposable_
     _command(disposable_database,
              "INSERT INTO Passage SET passage_key = 'after', text = 'y', embed_space = 'es1-aaaaaaaaaaaaaaaa'")
 
-    unstamped = _query(disposable_database, "SELECT count(*) AS n FROM Passage WHERE embed_space IS NULL", {})
-    stamped = _query(disposable_database, "SELECT count(*) AS n FROM Passage WHERE embed_space = :s",
-                     {"s": "es1-aaaaaaaaaaaaaaaa"})
+    unstamped = disposable.query(disposable_database,
+                                 "SELECT count(*) AS n FROM Passage WHERE embed_space IS NULL")
+    stamped = disposable.query(disposable_database,
+                               "SELECT count(*) AS n FROM Passage WHERE embed_space = :s",
+                               {"s": "es1-aaaaaaaaaaaaaaaa"})
     assert unstamped[0]["n"] == 1, "the stamp index hides the rows written before it"
     assert stamped[0]["n"] == 1

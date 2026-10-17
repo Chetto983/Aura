@@ -30,9 +30,8 @@ import math
 import os
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field, replace
-
 from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 
 from cocoindex.ops.text import RecursiveSplitter, SeparatorSplitter
 from cocoindex.resources.chunk import Chunk as CoreChunk
@@ -83,11 +82,17 @@ FALLBACK_ACTIVE = False  # visible flag: True after the most recent count_tokens
 
 @dataclass(frozen=True, slots=True)
 class Chunk:
+    """A passage to embed and, when it was cut from extracted text, where it sits in it.
+
+    A workbook's row group (rows.py) was cut from no text, so its span stays None rather
+    than claim an anchor that does not exist (spec 2026-10-17, decision 4).
+    """
+
     text: str
-    start: int
-    end: int
-    start_pos: TextPosition
-    end_pos: TextPosition
+    start: int | None = None
+    end: int | None = None
+    start_pos: TextPosition | None = None
+    end_pos: TextPosition | None = None
     heading_path: list[str] = field(default_factory=list)
 
 def _tokenize_remote(text: str, add_special: bool = False) -> list[int] | None:
@@ -238,7 +243,7 @@ def chunk(
     text: str,
     max_tokens: int = MODEL_MAX_TOKENS,
     overlap_ratio: float = DEFAULT_OVERLAP_RATIO,
-    anchors: "Sequence[outline.Anchor]" = (),
+    anchors: Sequence[outline.Anchor] = (),
 ) -> list[Chunk]:
     """Split text so every chunk fits the embedding model's token ceiling.
 
