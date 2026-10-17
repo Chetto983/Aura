@@ -145,8 +145,8 @@ writing" below.
   root-owned, so the anonymous `log/` and `config/` volumes come up unwritable and the server
   exits (measured).
 - **No upstream `server-users.jsonl`.** The native image ships a pretty-printed, multi-line one,
-  and the JSONL loader rejects it: one SEVERE at every boot, misnamed as `server-groups.json`,
-  then a fallback to the defaults. The JVM image ships none. The Dockerfile leaves it out.
+  and the JSONL loader rejects it. That gives one SEVERE whenever a new container meets an existing
+  database, misnamed as `server-groups.json`, then a fallback to the defaults. The JVM image ships none. The Dockerfile leaves it out.
 - **The probe.** A static Go binary built in a first stage, whose `healthcheck <url>` exits 0 on
   any 2xx.
   - `/api/v1/ready` answers 204, and `cloudflaresupervisor.Healthcheck` accepts only 200
@@ -231,10 +231,12 @@ A guard at tenant open that refuses a missing index was considered and dropped.
   - ready in 2 s;
   - it reads the 7,798-passage library, `create database` answers `ok`, and Bolt listens;
   - after a stop, 0 files under the databases mount belong to anyone but 1000.
-- **The SEVERE at boot.** It appears on the upstream native image too, run as root, whenever
-  `defaultDatabases` is set, and it does not appear on the 26.10.1 JVM with the same arguments.
-  The stack trace is `SecurityUserFileRepository.load`, the users loader, failing on line 1 (`{`)
-  of the image's multi-line `server-users.jsonl`.
+- **The SEVERE at boot.** It appears on the upstream native image too, run as root, when a new
+  container starts on a databases directory that already holds a database, with or without
+  `defaultDatabases`. The 26.10.1 JVM logs nothing under the same conditions. The stack trace is
+  `SecurityUserFileRepository.load`, the users loader, failing on line 1 (`{`) of the image's
+  multi-line `server-users.jsonl`. The reproduction is
+  `docs/superpowers/verification/2026-10-17-arcadedb-native-image-defects.md`.
 
 ## Shape
 
