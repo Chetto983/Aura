@@ -108,6 +108,12 @@ description:
     filecard already ships, and the card and its passages must agree on what a column is called.
 - **The caps are the card's caps:** 8 sheets, 10,000 rows per sheet, 64 columns, 8 MiB of
   shared strings. A capped sheet's rows stop where its card says it stopped.
+- **Row text has its own budget: 16 MiB per workbook** (`maxRowTextBytes`, no env var).
+  - The caps alone did not bound it. A cell holds an index into the string table, so one long
+    string can be referenced by every cell of every row.
+  - Past the budget no further row is kept, in that sheet or the next. A row is checked before
+    it is built.
+  - The card says where keeping stopped, and only then, so no card of the corpus changes.
 - **Formats.**
   - `.xlsx` and `.xlsm` are read directly.
   - `.xls` and `.ods` are read through the LibreOffice normalisation that already feeds their
@@ -143,7 +149,9 @@ Riga 4: Area: Centro; T1: 1972; T2: 1921; T3: 2525; T4: 2296; Totale anno: 8714
 
 **This is arm C of acceptance 3,** not yet a decision.
 - **The rule.** A sheet whose data rows all appear in its card gets no row passages: it has at
-  most `sampleRows` (5) data rows, and its card was not cut.
+  most `sampleRows` (5) data rows, its card was not cut, and none of its sample values was cut.
+  A sheet whose card abbreviated a value at 72 runes, or whose rows the row budget left out,
+  has not been shown whole.
 - **Why.** Such sheets caused the look-alike losses of problem 3, while their cards already
   answered for them. All the invoices' sheets qualify, and three of the four sheets of each
   budget. A budget's `Costi` has 6 data rows, one more than the card shows.

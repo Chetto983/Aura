@@ -24,10 +24,9 @@ const maxValueRunes = 72
 
 // tableBuilder accumulates one tabular surface: a worksheet or a delimited file.
 type tableBuilder struct {
-	name     string
-	preamble []string
-	headers  []string
-	columns  []*columnStats
+	name    string
+	headers []string
+	columns []*columnStats
 
 	probe          [][]string
 	probePositions []int64
@@ -43,10 +42,11 @@ type tableBuilder struct {
 	stride     int
 	sinceKept  int
 
-	// keepRows is set by the worksheet reader only. A delimited file is extracted as
+	// budget is set by the worksheet reader only. A delimited file is extracted as
 	// text by the ingest, and its rows must not reach the index a second time.
-	keepRows bool
-	rows     []Row
+	budget      *rowBudget
+	rows        []Row
+	rowsLeftOut bool
 }
 
 func newTable(name string) *tableBuilder {
@@ -54,7 +54,8 @@ func newTable(name string) *tableBuilder {
 }
 
 // addRow feeds one raw row. The first rows are buffered until the header row is
-// identified; everything after it is counted, sampled and forgotten.
+// identified; everything after it is counted and sampled, and a worksheet's rows
+// are also kept whole while its workbook's row budget lasts.
 func (t *tableBuilder) addRow(values []string) {
 	t.addRowAt(values, 0)
 }
@@ -90,12 +91,14 @@ func (t *tableBuilder) done(declaredTotal int64) Sheet {
 			rows = max(declaredTotal-int64(t.rowsSkipped), 0)
 		}
 	}
-	sheet := Sheet{Name: t.name, Rows: rows, RowsScanned: t.rowsScanned, HeaderRow: t.headerRow}
+	sheet := Sheet{Name: t.name, Rows: rows, RowsScanned: t.rowsScanned, HeaderRow: t.headerRow, rowsLeftOut: t.rowsLeftOut}
 	for _, col := range t.columns {
 		sheet.Columns = append(sheet.Columns, col.column())
 	}
 	for _, row := range t.pickSamples() {
-		sheet.Samples = append(sheet.Samples, t.sampleRow(row))
+		sample, cut := t.sampleRow(row)
+		sheet.Samples = append(sheet.Samples, sample)
+		sheet.samplesCut = sheet.samplesCut || cut
 	}
 	return sheet
 }
@@ -107,8 +110,8 @@ const headerTextShare = 0.7
 
 // resolveHeader picks the header row out of the probe buffer: the first row as
 // wide as the widest probed row that reads like labels. A banner ("Elenco
-// fornitori 2025") is narrower than the table under it, so it is left as
-// preamble; and when NO probed row reads like labels the sheet is treated as
+// fornitori 2025") is narrower than the table under it, so it is skipped as a
+// banner; and when NO probed row reads like labels the sheet is treated as
 // headerless rather than sacrificing its first data row, which is what turned a
 // supplier list into a sheet whose columns were called "SIEMENS S.P.A." and "573".
 func (t *tableBuilder) resolveHeader() {
@@ -131,9 +134,6 @@ func (t *tableBuilder) resolveHeader() {
 	}
 	for i, row := range t.probe {
 		if i < pick {
-			if line := strings.TrimSpace(strings.Join(nonEmpty(row), " ")); line != "" {
-				t.preamble = append(t.preamble, line)
-			}
 			t.rowsSkipped++
 			continue
 		}
@@ -160,8 +160,8 @@ func (t *tableBuilder) setHeaders(row []string) {
 
 func (t *tableBuilder) consume(values []string, position int64) {
 	t.rowsScanned++
-	if t.keepRows {
-		t.rows = append(t.rows, Row{Sheet: t.name, Number: position, Text: rowText(t.headers, values)})
+	if t.budget != nil {
+		t.keepRow(values, position)
 	}
 	for i, value := range values {
 		if i >= maxColumnsScanned {
@@ -218,8 +218,11 @@ func (t *tableBuilder) pickSamples() [][]string {
 	return out
 }
 
-func (t *tableBuilder) sampleRow(values []string) SampleRow {
+// sampleRow reports whether it cut a value, since a card that abbreviates a row has not
+// shown it whole.
+func (t *tableBuilder) sampleRow(values []string) (SampleRow, bool) {
 	row := make(SampleRow, 0, len(values))
+	cut := false
 	for i, value := range values {
 		if i >= maxColumnsScanned {
 			break
@@ -232,9 +235,11 @@ func (t *tableBuilder) sampleRow(values []string) SampleRow {
 		if i < len(t.headers) {
 			header = t.headers[i]
 		}
-		row = append(row, Cell{Header: header, Value: truncateRunes(value, maxValueRunes)})
+		shown := truncateRunes(value, maxValueRunes)
+		cut = cut || shown != value
+		row = append(row, Cell{Header: header, Value: shown})
 	}
-	return row
+	return row, cut
 }
 
 // columnStats narrates one column: how many values, how many distinct, which
@@ -359,16 +364,6 @@ func countNonEmpty(values []string) int {
 		}
 	}
 	return n
-}
-
-func nonEmpty(values []string) []string {
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		if cleaned := clean(value); cleaned != "" {
-			out = append(out, cleaned)
-		}
-	}
-	return out
 }
 
 func readsAsLabels(values []string) bool {

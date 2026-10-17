@@ -93,6 +93,10 @@ type Sheet struct {
 	HeaderRow int64
 	Columns   []Column
 	Samples   []SampleRow
+	// samplesCut and rowsLeftOut say the card has not shown this sheet whole even when every
+	// row is a sample: a value was abbreviated, or the workbook's row budget ran out first.
+	samplesCut  bool
+	rowsLeftOut bool
 }
 
 // Column is one column's narration: what kind of values it holds, how many

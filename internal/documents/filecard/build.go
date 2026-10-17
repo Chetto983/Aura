@@ -29,6 +29,10 @@ const (
 	maxTrackedValues = 512
 	// maxSharedStringBytes bounds the shared-string table read from a workbook.
 	maxSharedStringBytes = 8 << 20
+	// maxRowTextBytes bounds the row text kept from one workbook, the rows the ingest
+	// turns into passages. The other caps do not bound it, because a shared string
+	// is stored once and can be referenced by every cell.
+	maxRowTextBytes = 16 << 20
 	// maxTextChars bounds prose read from one document part.
 	maxTextChars = 200 << 10
 	// maxProseWords bounds prose KEPT from a document.

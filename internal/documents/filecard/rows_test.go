@@ -3,6 +3,7 @@ package filecard
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -11,16 +12,35 @@ func complexCorpus(name string) string {
 	return filepath.Join("..", "..", "..", "scripts", "fixtures", "document_retrieval_eval", "complex_corpus", name)
 }
 
+type sheetPart struct{ name, xml string }
+
+// workbookWith lays out a workbook whose sheets come in the order given, each from its whole
+// worksheet XML. sharedStrings is the string table, or "" for none.
+func workbookWith(t *testing.T, name, sharedStrings string, sheets ...sheetPart) string {
+	t.Helper()
+	var listed, rels strings.Builder
+	parts := map[string]string{}
+	for i, sheet := range sheets {
+		fmt.Fprintf(&listed, `<sheet name="%s" sheetId="%d" r:id="rId%d"/>`, sheet.name, i+1, i+1)
+		fmt.Fprintf(&rels, `<Relationship Id="rId%d" Type="worksheet" Target="worksheets/sheet%d.xml"/>`, i+1, i+1)
+		parts[fmt.Sprintf("xl/worksheets/sheet%d.xml", i+1)] = sheet.xml
+	}
+	parts["xl/workbook.xml"] = "<workbook><sheets>" + listed.String() + "</sheets></workbook>"
+	parts["xl/_rels/workbook.xml.rels"] = "<Relationships>" + rels.String() + "</Relationships>"
+	if sharedStrings != "" {
+		parts["xl/sharedStrings.xml"] = sharedStrings
+	}
+	return writeZip(t, name, parts)
+}
+
+func sheetOf(sheetData string) string {
+	return "<worksheet><sheetData>" + sheetData + "</sheetData></worksheet>"
+}
+
 // oneSheetWorkbook wraps a worksheet's <sheetData> body in the parts a workbook needs.
 func oneSheetWorkbook(t *testing.T, name, sheet, sheetData string) string {
 	t.Helper()
-	return writeZip(t, name, map[string]string{
-		"xl/workbook.xml": `<workbook><sheets>` +
-			`<sheet name="` + sheet + `" sheetId="1" r:id="rId1"/></sheets></workbook>`,
-		"xl/_rels/workbook.xml.rels": `<Relationships>` +
-			`<Relationship Id="rId1" Type="worksheet" Target="worksheets/sheet1.xml"/></Relationships>`,
-		"xl/worksheets/sheet1.xml": `<worksheet><sheetData>` + sheetData + `</sheetData></worksheet>`,
-	})
+	return workbookWith(t, name, "", sheetPart{sheet, sheetOf(sheetData)})
 }
 
 func inline(ref, value string) string {
@@ -86,6 +106,9 @@ func TestRowsUseTheCardHeaders(t *testing.T) {
 			`<row r="2">`+inline("A2", "K1")+inline("B2", "  "+long+"\n")+inline("C2", "TORINO")+`</row>`+
 			`<row r="3">`+inline("A3", "K2")+inline("C3", "GENOVA")+`</row>`)
 	rows := rowsOf(build(t, path, "note.xlsx"), "Note")
+	if len(rows) != 2 {
+		t.Fatalf("rows = %+v, want the 2 under the header", rows)
+	}
 	if want := "Codice: K1; Nota: " + strings.TrimSpace(long) + "; Citta: TORINO"; rows[0].Text != want {
 		t.Errorf("a long value was not kept whole and clean:\n got %q\nwant %q", rows[0].Text, want)
 	}
@@ -95,17 +118,12 @@ func TestRowsUseTheCardHeaders(t *testing.T) {
 
 	// A shared string written as formatted runs arrives in pieces; every piece is the value.
 	run := strings.Repeat("sostituire la guarnizione ", 5)
-	richPath := writeZip(t, "ricco.xlsx", map[string]string{
-		"xl/workbook.xml": `<workbook><sheets><sheet name="Ricco" sheetId="1" r:id="rId1"/></sheets></workbook>`,
-		"xl/_rels/workbook.xml.rels": `<Relationships>` +
-			`<Relationship Id="rId1" Type="worksheet" Target="worksheets/sheet1.xml"/></Relationships>`,
-		"xl/sharedStrings.xml": `<sst><si><t>Nota</t></si><si>` +
-			`<r><rPr><b/></rPr><t>` + run + `</t></r><r><t>` + run + `</t></r><r><t>` + run + `</t></r>` +
-			`<r><t>` + run + `fine</t></r></si></sst>`,
-		"xl/worksheets/sheet1.xml": `<worksheet><sheetData>` +
-			`<row r="1"><c r="A1" t="s"><v>0</v></c></row><row r="2"><c r="A2" t="s"><v>1</v></c></row>` +
-			`</sheetData></worksheet>`,
-	})
+	richPath := workbookWith(t, "ricco.xlsx",
+		`<sst><si><t>Nota</t></si><si>`+
+			`<r><rPr><b/></rPr><t>`+run+`</t></r><r><t>`+run+`</t></r><r><t>`+run+`</t></r>`+
+			`<r><t>`+run+`fine</t></r></si></sst>`,
+		sheetPart{"Ricco", sheetOf(`<row r="1"><c r="A1" t="s"><v>0</v></c></row>` +
+			`<row r="2"><c r="A2" t="s"><v>1</v></c></row>`)})
 	rich := rowsOf(build(t, richPath, "ricco.xlsx"), "Ricco")
 	if want := "Nota: " + clean(strings.Repeat(run, 4)+"fine"); len(rich) != 1 || rich[0].Text != want {
 		t.Errorf("a value in formatted runs was cut:\n got %+v\nwant %q", rich, want)
@@ -195,14 +213,9 @@ func TestRowsStopAtTheRowCap(t *testing.T) {
 	for i := 2; i <= last; i++ {
 		fmt.Fprintf(&data, `<row r="%d">%s<c r="B%d"><v>%d</v></c></row>`, i, inline(fmt.Sprintf("A%d", i), fmt.Sprintf("K%06d", i)), i, i)
 	}
-	parts := map[string]string{
-		"xl/workbook.xml": `<workbook><sheets><sheet name="Grande" sheetId="1" r:id="rId1"/></sheets></workbook>`,
-		"xl/_rels/workbook.xml.rels": `<Relationships>` +
-			`<Relationship Id="rId1" Type="worksheet" Target="worksheets/sheet1.xml"/></Relationships>`,
-		"xl/worksheets/sheet1.xml": fmt.Sprintf(`<worksheet><dimension ref="A1:B%d"/><sheetData>%s</sheetData></worksheet>`,
-			last, data.String()),
-	}
-	card := build(t, writeZip(t, "grande.xlsx", parts), "grande.xlsx")
+	path := workbookWith(t, "grande.xlsx", "", sheetPart{"Grande",
+		fmt.Sprintf(`<worksheet><dimension ref="A1:B%d"/><sheetData>%s</sheetData></worksheet>`, last, data.String())})
+	card := build(t, path, "grande.xlsx")
 
 	if len(card.Rows) != maxRowsScanned-1 || len(card.Rows) != card.Sheets[0].RowsScanned {
 		t.Fatalf("rows = %d, want the %d data rows the card scanned", len(card.Rows), card.Sheets[0].RowsScanned)
@@ -250,5 +263,93 @@ func TestShownWhole(t *testing.T) {
 	empty := build(t, oneSheetWorkbook(t, "vuoto.xlsx", "Vuoto", ""), "vuoto.xlsx")
 	if empty.ShownWhole("Vuoto") {
 		t.Errorf("a sheet with no data rows is shown whole")
+	}
+
+	// The card shows a value of 200 runes cut at 72, so the reader has not seen that row whole.
+	data := `<row r="1">` + inline("A1", "Codice") + inline("B1", "Nota") + `</row>`
+	for i := 2; i <= sampleRows+1; i++ {
+		note := "breve"
+		if i == 4 {
+			note = strings.Repeat("ò", 200)
+		}
+		data += fmt.Sprintf(`<row r="%d">%s%s</row>`, i, inline(fmt.Sprintf("A%d", i), fmt.Sprintf("K%d", i)),
+			inline(fmt.Sprintf("B%d", i), note))
+	}
+	long := build(t, oneSheetWorkbook(t, "lunga.xlsx", "Lunga", data), "lunga.xlsx")
+	if long.Sheets[0].RowsScanned != len(long.Sheets[0].Samples) || strings.Contains(long.Render(), cardCutNotice) {
+		t.Fatalf("every row of Lunga should be a sample of an uncut card:\n%s", long.Render())
+	}
+	if long.ShownWhole("Lunga") {
+		t.Errorf("a sheet whose card cut one of its values is shown whole")
+	}
+}
+
+// A cell holds an index into the string table, so one long string can be referenced by every
+// cell of every row, and no read cap bounds the row text that makes. The workbook's rows share
+// one budget, and past it the rows that follow, in this sheet and the next, are left out.
+func TestRowTextStopsAtTheWorkbookBudget(t *testing.T) {
+	big := strings.Repeat("ricambio ", (1<<20)/9)
+	data := `<row r="1">` + inline("A1", "Codice") + inline("B1", "Nota") + inline("C1", "Altra nota") + `</row>`
+	for i := 2; i <= 21; i++ {
+		data += fmt.Sprintf(`<row r="%d">%s<c r="B%d" t="s"><v>0</v></c><c r="C%d" t="s"><v>0</v></c></row>`,
+			i, inline(fmt.Sprintf("A%d", i), fmt.Sprintf("K%02d", i)), i, i)
+	}
+	small := sheetOf(`<row r="1">` + inline("A1", "Codice") + `</row><row r="2">` + inline("A2", "F01") + `</row>`)
+	path := workbookWith(t, "pesante.xlsx", `<sst><si><t>`+big+`</t></si></sst>`,
+		sheetPart{"Note", sheetOf(data)}, sheetPart{"Piccolo", small})
+
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	card := build(t, path, "pesante.xlsx")
+	runtime.GC()
+	runtime.ReadMemStats(&after)
+
+	kept := 0
+	for _, row := range card.Rows {
+		kept += len(row.Text)
+	}
+	note := rowsOf(card, "Note")
+	if kept > maxRowTextBytes || len(note) == 0 || len(note) == 20 {
+		t.Fatalf("kept %d rows of Note, %d bytes, want some but not all, within %d bytes", len(note), kept, maxRowTextBytes)
+	}
+	if retained := int64(after.HeapAlloc) - int64(before.HeapAlloc); retained > maxRowTextBytes+4<<20 {
+		t.Errorf("the card holds %d MiB, past the %d MiB budget", retained>>20, maxRowTextBytes>>20)
+	}
+	caveat := fmt.Sprintf(`Rows from row %d of sheet "Note" onward`, note[len(note)-1].Number+1)
+	if !strings.Contains(card.Render(), caveat) {
+		t.Errorf("the card does not say where its rows stopped (%q):\n%s", caveat, card.Render())
+	}
+	if rows := rowsOf(card, "Piccolo"); len(rows) != 0 {
+		t.Errorf("a sheet after the budget kept rows: %+v", rows)
+	}
+	if card.ShownWhole("Piccolo") {
+		t.Errorf("a sheet whose rows were left out is shown whole")
+	}
+	alone := build(t, workbookWith(t, "piccolo.xlsx", "", sheetPart{"Piccolo", small}), "piccolo.xlsx")
+	if !alone.ShownWhole("Piccolo") {
+		t.Errorf("Piccolo on its own is not shown whole, so the case above tests nothing")
+	}
+}
+
+// Checking a row against the budget must not build it: the budget is there because building
+// is what runs out of memory.
+func TestARowThatDoesNotFitIsNotBuilt(t *testing.T) {
+	huge := strings.Repeat("x", 64<<20)
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	text, fits := rowText([]string{"Nota"}, []string{huge}, 1<<20)
+	runtime.ReadMemStats(&after)
+	if fits || text != "" {
+		t.Fatalf("a 64 MiB row fit in 1 MiB")
+	}
+	if grew := after.TotalAlloc - before.TotalAlloc; grew > 1<<20 {
+		t.Errorf("checking the row allocated %d bytes", grew)
+	}
+	if text, fits := rowText([]string{"Nota"}, []string{"abc"}, len("Nota: abc")); !fits || text != "Nota: abc" {
+		t.Errorf("a row exactly the size of the room = %q, %v", text, fits)
+	}
+	if _, fits := rowText([]string{"Nota"}, []string{"abc"}, len("Nota: abc")-1); fits {
+		t.Errorf("a row one byte over the room fit")
 	}
 }

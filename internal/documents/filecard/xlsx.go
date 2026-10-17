@@ -44,6 +44,7 @@ func buildXLSX(req Request, card Card) (Card, error) {
 	card.Facts = append(card.Facts, plural(len(sheets), "sheet", "sheets"))
 
 	scanned := 0
+	budget := newRowBudget()
 	for _, sheet := range sheets {
 		if scanned >= maxSheetsScanned {
 			card.Caveats = append(card.Caveats, fmt.Sprintf(
@@ -55,7 +56,7 @@ func buildXLSX(req Request, card Card) (Card, error) {
 		if file == nil {
 			continue
 		}
-		built, rows, capped, err := readWorksheet(file, sheet.name, shared)
+		built, rows, capped, err := readWorksheet(file, sheet.name, shared, budget)
 		if err != nil {
 			card.Caveats = append(card.Caveats, fmt.Sprintf("Sheet %q could not be read (%v).", sheet.name, err))
 			continue
@@ -69,6 +70,9 @@ func buildXLSX(req Request, card Card) (Card, error) {
 		card.Caveats = append(card.Caveats, tableCaveats(built)...)
 		card.Sheets = append(card.Sheets, built)
 		card.Rows = append(card.Rows, rows...)
+	}
+	if budget.exhausted {
+		card.Caveats = append(card.Caveats, budget.caveat())
 	}
 	if len(card.Sheets) == 1 && len(card.Sheets[0].Columns) > 0 {
 		card.Facts = append(card.Facts, fmt.Sprintf("%d rows x %d columns",
@@ -233,7 +237,7 @@ func readSharedStrings(reader *zip.Reader) []string {
 // readWorksheet streams one worksheet into a table card and its data rows. It
 // reports whether the row cap bit, so the card can say the sheet was sampled
 // instead of implying it was read whole.
-func readWorksheet(file *zip.File, name string, shared []string) (Sheet, []Row, bool, error) {
+func readWorksheet(file *zip.File, name string, shared []string, budget *rowBudget) (Sheet, []Row, bool, error) {
 	body, err := zipEntryReader(file)
 	if err != nil {
 		return Sheet{}, nil, false, err
@@ -241,7 +245,7 @@ func readWorksheet(file *zip.File, name string, shared []string) (Sheet, []Row, 
 	defer func() { _ = body.Close() }()
 
 	table := newTable(name)
-	table.keepRows = true
+	table.budget = budget
 	decoder := xml.NewDecoder(body)
 	declaredRows := int64(0)
 	physicalRow := int64(0)

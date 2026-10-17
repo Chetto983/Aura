@@ -88,7 +88,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 // every row the card already shows. Both lists are empty rather than null, so a reader never
 // has to tell the two apart.
 func rendered(card filecard.Card) map[string]any {
-	rows := append([]filecard.Row{}, card.Rows...)
+	rows := card.Rows
+	if rows == nil {
+		rows = []filecard.Row{}
+	}
 	shownWhole := []string{}
 	for _, sheet := range card.Sheets {
 		if card.ShownWhole(sheet.Name) {
