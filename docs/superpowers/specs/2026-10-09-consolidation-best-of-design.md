@@ -137,6 +137,45 @@ Already in Aura, no action:
 - memory, documents, the database and the sandbox are separate routes;
 - passages carry citation tokens, so a quoted sentence can be checked against its source.
 
+## Read 2026-10-17: Paperless-ngx
+
+Shared by the operator on 2026-10-17: `github.com/paperless-ngx/paperless-ngx`, GPL-3.0.
+- **Read from the `dev` branch:** `docs/usage.md`, `docs/advanced_usage.md`, and
+  `src/documents/` `matching.py`, `classifier.py`, `models.py`.
+- **It is a document archive with its own interface.** It is a source of behaviours for Aura's
+  documents, not a dependency. The agent's search, with passages and citations, stays Aura's.
+
+**What it does, as read:**
+- **Each document carries fields the operator owns:**
+  - a correspondent;
+  - a document type (invoice, contract, statement);
+  - nested tags;
+  - a created date, apart from the date added;
+  - an archive serial number;
+  - typed custom fields: Date, Monetary with an ISO 4217 code, Integer, Select, Document Link.
+- **Assignment starts deterministic:** Any, All, Exact, Regex and Fuzzy rules on each tag, type
+  or correspondent.
+- **"Auto" is not an LLM.**
+  - It is scikit-learn's `MLPClassifier` over a bag of words: `CountVectorizer`, 1–2-grams,
+    `min_df=0.01`.
+  - It is trained on the operator's own past assignments, and retrains hourly.
+  - It learns only from documents out of the inbox, which have been checked.
+  - Its own documentation says it works only where the text correlates with the label, and that
+    a tag like "TODO" cannot be learned.
+- **LLM suggestions are opt-in.** The model is Ollama locally or any OpenAI-compatible API, and
+  the documentation carries a privacy warning. Suggestions are accepted or rejected by the user.
+- **Versions.** A root document keeps the metadata, and file versions (`_v1`, `_v2`) keep the
+  file and its text. Search reads the latest version.
+
+| # | Behaviour | From | Aura today | Lands in | Gate | State |
+|---|---|---|---|---|---|---|
+| D5 | Document fields the operator owns (type, counterparty, dates, typed custom fields), used as **filters** by `document_search`. They are assigned by rules first, then by a classifier trained on the operator's own corrections, and by an LLM only as a last resort | Paperless's data model, matching rules and "Auto" classifier | `CandidateFilter` filters by document, key or prefix only. filecard drops an invoice's header rows ("Data emissione", "Cliente"), which are exactly those fields. Free LLM tags would add little: the words are already in the text, the name and the card | `IndexedDocument` properties, a filter in `document_search`, extraction in filecard/the ingest | a question set of "which documents…" (office q09 and q18 are two of them today) and BASELINE OR DROP for the classifier against the rules alone | not measured |
+| D6 | An LLM summary per file, beside the card, never in its place | discussed with the operator 2026-10-17; Paperless's AI suggestions | the card is deterministic and its description is the document vector (prd.md §11, "The card's vector") | the ingest, memoized on the file's bytes like the billed media calls | the English and Italian code sets, against the card alone, with summaries for every file of the library and the cost per file on the appliance's local LLM | not measured |
+
+D3 gains a concrete shape from Paperless: a root document holding the metadata, with file
+versions under it and search on the latest. It stays an open question until a versioned corpus
+fails.
+
 ## Process, taken now
 
 Three rules from the siblings are worth a line in `CLAUDE.md`, because Aura already lives by
