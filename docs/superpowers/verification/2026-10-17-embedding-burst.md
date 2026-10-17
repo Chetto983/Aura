@@ -12,7 +12,9 @@ first ("Prima la raffica").
     flight, no timeout, and every row passage written.
 - **A catch-up that CocoIndex saw fail no longer exits 0.**
   - Before, the audit said "33 indexed, 0 missing" over 19 CocoIndex errors.
-  - Now the audit line carries the error count, and any error exits 1.
+  - Now the audit line carries the error count, and any error exits 1. That path is proven by
+    unit tests (`_catch_up` and `_exit_code`, `services/ingest/tests/test_audit.py`); no real
+    run failed after the fix, so it was not observed on one.
 - **Concurrency buys no throughput on this CPU.**
   - Sending more requests at once to a one-slot sidecar only lengthens each request.
   - That longer wait is the timeout mechanism.
@@ -105,3 +107,9 @@ The setup was 32 inputs of ~500 tokens on the same host, measured when no other 
 - **A hosted route under load.** It stays unbounded, as before.
 - **A multi-slot sidecar.** The bound reads `total_slots`, but only 1 was run through an ingest.
 - **One run per configuration, on one host.**
+- **That a workbook's card always arrives in time.** Measured by the final reviewer, and older
+  than this change: a 29 KB workbook referencing one 1 MiB shared string from 12,736 cells takes
+  aura-filecard about 4 minutes, because `clean()` and `truncateRunes` walk the whole string for
+  every cell (`internal/documents/filecard/table.go`). That is past the ingest's 120 s card
+  timeout, so the workbook loses its card and its rows while the audit still counts it
+  indexed. A follow-up should bound the per-cell work to a prefix of the raw value.

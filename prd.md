@@ -1669,6 +1669,12 @@ This does not prove:
 - **the appliance.** Its sidecar runs on the Intel iGPU through Vulkan (`compose.vulkan.yaml`),
   and its ingest rate was not measured;
 - **a multi-slot sidecar or a hosted route under load.**
+- **that a workbook's card always arrives in time.** Measured by the final reviewer, and older
+  than the bound: a 29 KB workbook referencing one 1 MiB shared string from 12,736 cells takes
+  aura-filecard about 4 minutes (`clean()` and `truncateRunes` walk the whole string for every
+  cell), past the ingest's 120 s card timeout. That workbook loses its card and its rows while
+  the audit still counts it indexed; a follow-up should bound the per-cell work to a prefix of
+  the raw value.
 
 **A billed media call runs once per file content (measured 2026-10-16).** The ingest's `_extract`
 writes a file's bytes to a random temporary path. The vision and speech-to-text calls inside it
