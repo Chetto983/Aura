@@ -73,7 +73,7 @@ restore as today.
 - The document query filters by embedding space inside the ANN search: as fast as the
   post-filter arm, and with the full `k` from the caller's own space while two spaces coexist.
 - A native build with a gap of the kind measured in problem 3 never reaches an identity's volume: it is caught on a copy before the pin lands.
-- Going back to the JVM is an image change, not a recovery.
+- Going back to the JVM is a revert, not a recovery.
 
 ## Non-goals
 
@@ -97,42 +97,69 @@ restore as today.
 ## Anti-goals
 
 The slice has failed, even if the stack comes up, if any of these happens:
-- the server loads fewer indexes, types or users than the JVM on the same volume;
-- its log carries a `SEVERE`, a `ClassNotFoundException` or a `MissingReflectionRegistrationError`;
+- the server loads fewer indexes or types than the JVM on the same volume;
+- its log carries a `SEVERE` that the JVM of the same release does not log on the same start, a
+  `ClassNotFoundException` or a `MissingReflectionRegistrationError`;
 - a document search returns fewer results than before in a library holding one space;
 - a file under the ArcadeDB volumes ends up owned by root.
 
 ## Decisions
 
-### 1. Pin 26.11.1, and raise the floor to it
+### 1. Two phases, each one release and one revert
 
-- **The image.** `compose.yaml` pins `arcadedata/arcadedb:26.11.1-native` by its multi-arch index
-  digest, as the JVM tag is pinned today.
+**Phase A: the JVM at 26.11.1.**
+- **The pin.** `compose.yaml` pins `arcadedata/arcadedb:26.11.1` by its multi-arch index digest,
+  as today.
 - **The floor.** `minSecureVersion` (`internal/arcadedb/admin.go`) becomes 26.11.1. The refusal
-  names #10169: the `where` option does not exist before it, and 26.10.1-native resets schemas.
-  - Raising it makes an older server fail at `TenantClients.For`, before the first tenant is
-    served, instead of failing on the first document search.
-  - The version is the same on JVM and native, so the floor cannot tell the two runtimes apart,
-    and does not try.
+  names #10169, since the `where` option does not exist before it. It also makes an older server
+  fail at `TenantClients.For`, before the first tenant is served, instead of on the first
+  document search.
+- **The query.** It switches to `where` (decision 4).
 
-### 2. Aura builds its own ArcadeDB image
+**Phase B: the native image of the same release,** with decisions 2 and 3.
 
-`docker/arcadedb/Dockerfile` follows `docker/cloudflared/Dockerfile`, the existing pattern for a
-distroless upstream image that needs a probe:
-- **Base.** `FROM` the pinned native image.
-- **Probe.** `COPY` in a static Go binary built in a first stage. Its `healthcheck <url>`
-  subcommand exits 0 only on a 2xx from `/api/v1/ready`.
-  - Today's healthcheck needs no credential, because `/api/v1/ready` answers unauthenticated.
-  - Reuse `cloudflaresupervisor.Healthcheck` rather than writing a second one. Where the shared
-    function lives is the builder's call (REUSABLE CODE).
-- **User.** `USER 1000:1000`, the JVM image's `arcadedb` user. Existing volumes stay writable,
-  and the JVM image can open what the native one wrote.
-- **Healthcheck.** `HEALTHCHECK CMD [<probe>, "healthcheck", "http://127.0.0.1:2480/api/v1/ready"]`.
-  Compose keeps `service_healthy` for its three dependents.
+**Why two.**
+- A revert of B lands on A, a JVM that the floor accepts. A single slice would revert to
+  26.10.1, which the new floor refuses.
+- The floor reaches the code only after the pin reaches compose. `aura-image-update.sh` brings
+  `aura` up before it re-applies the stack (lines 498 to 515), so the release that raises the
+  floor must find every host already able to run 26.11.1.
+- The order inside phase A is the builder's, under one constraint: no commit has a floor above
+  the image compose pins.
 
-The service gets `build:` and an `image:`/`pull_policy:` pair like `arcadedb-mcp`'s.
+### 2. Phase B: Aura builds its own ArcadeDB image
 
-### 3. Settings move to the command line
+`docker/arcadedb/Dockerfile` does what the spike of 2026-10-17 proved. It is in "Measured while
+writing" below.
+- **Base.** A first stage is the pinned native image (`FROM arcadedata/arcadedb:26.11.1-native@sha256:…`).
+  The digest lives here and only here: compose names the built image.
+  `cmd/aura/container_artifacts_test.go` and `.github/dependabot.yml` follow it to
+  `/docker/arcadedb`.
+- **Re-owned from scratch.** The final stage is `FROM scratch`, with:
+  - `/etc/ssl`, as it is;
+  - `/tmp` and `/home/arcadedb`, `COPY --chown=1000:1000`;
+  - the upstream `WORKDIR`, `VOLUME`s and `ENTRYPOINT`, re-declared;
+  - `USER 1000:1000`, the JVM image's `arcadedb` user.
+
+  Setting `USER` on the upstream image is not enough: its five `VOLUME` directories are
+  root-owned, so the anonymous `log/` and `config/` volumes come up unwritable and the server
+  exits (measured).
+- **No upstream `server-users.jsonl`.** The native image ships a pretty-printed, multi-line one,
+  and the JSONL loader rejects it: one SEVERE at every boot, misnamed as `server-groups.json`,
+  then a fallback to the defaults. The JVM image ships none. The Dockerfile leaves it out.
+- **The probe.** A static Go binary built in a first stage, whose `healthcheck <url>` exits 0 on
+  any 2xx.
+  - `/api/v1/ready` answers 204, and `cloudflaresupervisor.Healthcheck` accepts only 200
+    (`health.go:47`).
+  - It moves to a shared package that accepts 2xx. Cloudflared's `/healthz` answers 200, so its
+    behaviour is unchanged.
+  - The image declares `HEALTHCHECK`, and compose keeps `service_healthy` for its three
+    dependents.
+- **The server root stays `/home/arcadedb`,** as in the JVM image. Compose's mounts, the contract
+  test's mount line and `scripts/restore_drill.sh`'s `file:///home/arcadedb/…` stay valid.
+- **Distribution.** This is the operator's question, below.
+
+### 3. Phase B: settings move to the command line
 
 - **Settings.** Compose's `JAVA_OPTS` becomes the service's `command:`, the same four `-D`
   settings in the same order. Each comment moves with its setting:
@@ -140,22 +167,33 @@ The service gets `build:` and an `image:`/`pull_policy:` pair like `arcadedb-mcp
   - `defaultDatabases=…[]`, with its brackets;
   - `restoreImportAllowLocalUrls`;
   - `plugins=Bolt:…`.
-- **No `ARCADEDB_OPTS_MEMORY`.** It is removed, and no environment variable replaces it. The
-  native heap sizes itself from `mem_limit`: the snapshot reported `MAXRAM=2.40GB` under a 3 GB
-  limit.
+- **No `ARCADEDB_OPTS_MEMORY`.**
+  - The native heap sizes itself from `mem_limit`: the snapshot reported `MAXRAM=2.40GB` under a
+    3 GB limit.
+  - The key joins `RETIRED_ENV_KEYS` (`deploy/aura-image-update.sh:48`), so a host's `.env` does
+    not keep a dead value.
+- **The root password.** `scripts/ingest_reconcile_e2e.sh:72` and `scripts/ingest_media_e2e.sh:35`
+  read it from the container's `JAVA_OPTS`. They read `ARCADEDB_PASSWORD` instead, the variable
+  compose itself takes it from.
 - **Unknown settings.** The binary reads every trailing `-D` as a system property, so a typo is
   not rejected. Acceptance 6 checks that each setting took effect, not only that the server
   started.
 
-### 4. The document query filters the space with `where`
+### 4. Phase A: the document query filters the space with `where`
 
 For an unscoped search, `fusedStatement` gives `vector.neighbors`
 `{ where: { embed_space: :space }, maxDistance: :max_distance }`, and no `filter`.
 - **What stays.** The full-text leg keeps `embed_space = :space` in its own WHERE. So do the
   rerank, `:candidates`, `fusedDenseNeighbours`, the floors and the group size.
 - **The bench.** In `document_query_variants_bench_test.go`, "shipped" becomes this statement, and
-  the old one stays as the variant "dense filter subquery". The bench's `where` variants of
-  2026-10-17 move there.
+  the old one stays as the variant "dense filter subquery". The `where` variants of 2026-10-17 were
+  never committed, so they are written there. Their statements are in
+  `2026-10-17-fused-query-arcadedb-latest-native.md`.
+- **The isolation test changes, with its justification.** `document_retrieval_floor_test.go:56`
+  requires `denseSpaceFilter` twice in the statement, and the `where` form carries it once, in
+  the full-text leg. The test is rewritten to check that both legs are bound to `:space`: the
+  `where` map and the full-text WHERE. Its commit message says why (CLAUDE.md, never modify a
+  test to pass).
 - **The doc comment** cites #10169, this spec, and the measured costs.
 
 ### 5. No runtime guard in Aura: the floor and the release gate do the work
@@ -176,38 +214,71 @@ A guard at tenant open that refuses a missing index was considered and dropped.
 
 ### 6. Going back is a revert
 
-Rolling back to the JVM of the same release is reverting this slice's compose and Dockerfile
-change: the JVM image has `wget`, so its old healthcheck works again. The pin and the floor stay
-at 26.11.1. Both runtimes run as 1000:1000, so neither leaves a file the other cannot write.
-Acceptance 8 proves it in both directions.
+- **Reverting phase B** restores the JVM 26.11.1 service of phase A, with its `wget` healthcheck.
+  Both runtimes run as 1000:1000, so neither leaves a file the other cannot write.
+- **Reverting phase A** restores 26.10.1 and the old floor. Opening data that 26.11.1 has written
+  with 26.10.1 is unmeasured.
+- Acceptance 8 runs both reverts.
+
+## Measured while writing
+
+**Native as 1000:1000.** On `latest-native` (26.11.1-SNAPSHOT `15958b48f`), 2026-10-17.
+- **`--user 1000:1000` on the upstream image:** exit 1, `AccessDeniedException:
+  ./log/arcadedb.log.0.lck`. The anonymous volumes are created root-owned from the image.
+- **Re-owning in a `FROM upstream` stage** with `COPY --chown`: the server still exits, unable to
+  write `config/server-users.jsonl`. The existing root-owned directory keeps its owner.
+- **Re-owning in a `FROM scratch` stage**, as decision 2 does:
+  - ready in 2 s;
+  - it reads the 7,798-passage library, `create database` answers `ok`, and Bolt listens;
+  - after a stop, 0 files under the databases mount belong to anyone but 1000.
+- **The SEVERE at boot.** It appears on the upstream native image too, run as root, whenever
+  `defaultDatabases` is set, and it does not appear on the 26.10.1 JVM with the same arguments.
+  The stack trace is `SecurityUserFileRepository.load`, the users loader, failing on line 1 (`{`)
+  of the image's multi-line `server-users.jsonl`.
 
 ## Shape
 
+**Phase A**
+
 | File | Change |
 |---|---|
-| `prd.md` §Persistence and §11 | the amendment, before the code: the pin, the floor, the native image, `where`, and what is not proved |
-| `compose.yaml` | the `arcadedb` service: `build:`, the new image, `command:`, no `JAVA_OPTS` or `ARCADEDB_OPTS_MEMORY`, the comments rewritten for native; the healthcheck now lives in the image |
-| `docker/arcadedb/Dockerfile` (new) | decision 2 |
-| the probe's package and `cmd/` | the shared healthcheck, if decision 2 moves it |
+| `prd.md` §10, where the ArcadeDB floor is written up (around line 1229) | the amendment, before the code: the two phases, the floor, `where`, and what is not proved |
+| `compose.yaml` | the JVM pin at 26.11.1 |
+| `cmd/aura/container_artifacts_test.go` | its pinned image line |
 | `internal/arcadedb/admin.go`, `version_test.go`, `client_admin_test.go`, `tenant_clients_test.go` | the 26.11.1 floor and its message |
-| `internal/arcadedb/document_retrieval.go`, `document_retrieval_test.go` | decision 4 |
+| `internal/arcadedb/document_retrieval.go`, `document_retrieval_test.go`, `document_retrieval_floor_test.go` | decision 4 |
 | `internal/arcadedb/document_query_variants_bench_test.go` | decision 4's bench |
-| `cmd/aura/container_artifacts_test.go` | the pinned image line |
 | `docs/superpowers/specs/2026-10-17-fused-query-filter-after-rerank-design.md` | marked superseded, pointing here |
+
+**Phase B**
+
+| File | Change |
+|---|---|
+| `prd.md` §10 | the native image's part of the amendment |
+| `docker/arcadedb/Dockerfile` (new) and `.dockerignore` | decision 2. `.dockerignore` lets the probe's source through, and `container_artifacts_test.go` checks it |
+| the probe's shared package, `internal/cloudflaresupervisor/health.go` and `cmd/` | decision 2's probe, accepting 2xx |
+| `compose.yaml` | the `arcadedb` service builds or names the image (per the operator's answer); `command:`; no `JAVA_OPTS` and no `ARCADEDB_OPTS_MEMORY`; the comments rewritten for native |
+| `cmd/aura/container_artifacts_test.go`, `.github/dependabot.yml` | the pin now in `/docker/arcadedb` |
+| `deploy/aura-image-update.sh` | `ARCADEDB_OPTS_MEMORY` retired, plus whatever the distribution answer needs |
+| `scripts/ingest_reconcile_e2e.sh`, `scripts/ingest_media_e2e.sh` | the root password from `ARCADEDB_PASSWORD` |
+| `.github/workflows/ci.yml` | the comments describing `JAVA_OPTS` (lines 457 and 816-820) |
 
 Every file stays under 600 lines, and every file touched is refactored on touch.
 
 ### New env vars
 
-None. `ARCADEDB_OPTS_MEMORY` is removed. It was never in the PRD's catalog; only `compose.yaml`
-read it.
+- **Phase A:** none.
+- **Phase B:** none, unless the distribution answer is a published image. That needs
+  `AURA_ARCADEDB_IMAGE` and `AURA_ARCADEDB_PULL_POLICY`, like `arcadedb-mcp`'s pair, catalogued
+  in the PRD. `ARCADEDB_OPTS_MEMORY` is removed and retired.
 
 ## Acceptance
 
-Each run is on the 26.11.1 release, never the snapshot.
+Each run is on the 26.11.1 release, never the snapshot. Items 1 to 4 close phase A, and items 5
+to 8 close phase B. Items 9 and 10 close each phase.
 1. **Unit, Go.**
-   - `go test -race ./internal/arcadedb/`: the statement clause by clause, the floor at 26.11.1,
-     and the refusal of a 26.10.2 server naming #10169.
+   - `go test -race ./internal/arcadedb/`: the statement clause by clause, both legs bound to
+     `:space`, the floor at 26.11.1, and a 26.10.2 server refused with #10169 named.
    - The package keeps its coverage policy, and the repo's `make quality` is green.
 2. **Answers.** `TestFusedQueryVariants` on the 7,798-passage library, office, complex, and code in
    English, Italian and find-by-name.
@@ -226,8 +297,11 @@ Each run is on the 26.11.1 release, never the snapshot.
    - Its statement is the shipped one, unchanged.
 5. **No silent gap.**
    - Start the native server on a copy of the lab VM's `aura-arcadedb` volume. Every database
-     lists the same indexes, types and users as under the 26.10.1 JVM.
-   - The log carries none of the anti-goals' error names.
+     lists the same indexes and types as under the JVM 26.11.1.
+   - The log fails none of the anti-goals.
+   - Users are not on that volume: `config/` is an anonymous volume that Aura reprovisions at
+     boot (`prd.md` around line 3990). So users are compared after `aura serve` has run once
+     against each runtime, by `ListUsers` names and their database grants.
 6. **Every setting took effect** on the compose stack.
    - Root logs in with `ARCADEDB_PASSWORD`, and `aura_memory` exists.
    - Bolt answers on 7687, and an ingest catch-up writes through it.
@@ -238,10 +312,11 @@ Each run is on the 26.11.1 release, never the snapshot.
    `docker stats` sampled throughout.
    - Record idle, peak, and whether any `OutOfMemoryError` occurred.
    - The verification file says whether 3 GB can come down, and this spec does not lower it.
-8. **Both directions.**
-   - JVM 26.10.1 volume to native 26.11.1, then to JVM 26.11.1, then back to native.
-   - Every step starts clean and passes step 5's comparison.
-   - No file under either volume is owned by root.
+8. **Both reverts.**
+   - Upgrade a copy of the lab VM's volumes: JVM 26.10.1, then phase A, then phase B.
+   - Then revert B. Then revert A, recording what 26.10.1 does with data 26.11.1 wrote.
+   - Every step starts clean and passes item 5's comparison.
+   - No file under any volume is owned by root.
 9. **E2E** on the lab VM, driven by the real agent, at a score above 9.8 (Definition of Done). It
    covers:
    - document search with citations;
