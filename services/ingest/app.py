@@ -147,7 +147,8 @@ def _card_name(file_name: str, converted_path: str) -> str:
 @dataclasses.dataclass(frozen=True, slots=True)
 class Card:
     """filecard's two renderings of one file, the card a reader opens and its description, and
-    a workbook's rows (empty for every other file).
+    a workbook's rows and the sheets the card already shows whole (both empty for every other
+    file).
 
     The description is the card without its caveats, its cut notice and its trailer, which
     are true sentences about Aura that every card shares. The card is stored and the
@@ -158,9 +159,10 @@ class Card:
     text: str
     description: str
     rows: list[rows.Row]
+    shown_whole: tuple[str, ...]
 
 
-_NO_CARD = Card(text="", description="", rows=[])
+_NO_CARD = Card(text="", description="", rows=[], shown_whole=())
 
 
 def _card(path: str, file_name: str) -> Card:
@@ -196,6 +198,7 @@ def _card(path: str, file_name: str) -> Card:
         text=rendered["card"], description=rendered["description"],
         rows=[rows.Row(sheet=row["sheet"], number=row["row"], text=row["text"])
               for row in rendered["rows"]],
+        shown_whole=tuple(rendered["shown_whole"]),
     )
 
 
@@ -241,13 +244,14 @@ def _text_fingerprint(text: str) -> str:
 @dataclasses.dataclass(frozen=True, slots=True)
 class Extracted:
     """What one file says: its text, its card, the card's description, where its sections start
-    and, for a workbook, its rows."""
+    and, for a workbook, its rows and the sheets its card shows whole."""
 
     text: str
     card: str
     description: str
     anchors: list[outline.Anchor]
     rows: list[rows.Row]
+    shown_whole: tuple[str, ...]
 
 
 @coco.fn(memo=True)
@@ -288,7 +292,7 @@ def _extract(content: bytes, suffix: str, file_name: str, content_type: str | No
             anchors = outline.anchors_in(text, outline.titles_of(ready))
             card = _card(ready, _card_name(file_name, ready))
     return Extracted(text=text, card=card.text, description=card.description, anchors=list(anchors),
-                     rows=card.rows)
+                     rows=card.rows, shown_whole=card.shown_whole)
 
 
 @coco.fn(memo=True)
@@ -324,12 +328,16 @@ async def index_object(
 ) -> None:
     """Chunk, embed and declare one object's records, every vector stamped with embed.SPACE.
 
-    A workbook has no extracted text (media.index_text), so its passages are its rows.
+    A workbook has no extracted text (media.index_text), so its passages are its rows, except
+    the rows of a sheet its card shows whole: the card already answers for that sheet, and
+    its rows only crowd look-alike workbooks (spec 2026-10-17, decision 3). A workbook whose
+    every sheet is shown whole has no passages and keeps passage_count 0.
     """
     source_kind = "s3"
     search_document_id = identity.search_document_id(identity_id, source_kind, key)
     if extracted.rows:
-        pieces = rows.group(extracted.rows, file_name)
+        pieces = rows.group([row for row in extracted.rows if row.sheet not in extracted.shown_whole],
+                            file_name)
     else:
         # document_budget(), not the bare ceiling: embed sends EMBED_DOC_PREFIX + text, so a
         # chunk sized to the full ceiling overflows by the prefix and the request 500s.

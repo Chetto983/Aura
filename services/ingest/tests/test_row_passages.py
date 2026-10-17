@@ -19,7 +19,12 @@ from ingest.tests import disposable
 
 WORKBOOK = "/eval/complex_corpus/magazzino_ricambi_2026.xlsx"
 NAME = "magazzino_ricambi_2026.xlsx"
+BUDGET = "/eval/complex_corpus/budget_consolidato_2026.xlsx"
+BUDGET_NAME = "budget_consolidato_2026.xlsx"
+INVOICE = "/eval/corpus/fattura_2026_001.xlsx"
+INVOICE_NAME = "fattura_2026_001.xlsx"
 DATABASE = "aura_t_row_passages"
+SHOWN_WHOLE_DATABASE = "aura_t_row_whole"
 REWRITE_DATABASE = "aura_t_row_rewrite"
 _PASSAGES = ("SELECT passage_key, ordinal, text, heading_path, char_start, char_end FROM Passage "
              "WHERE source_key = :key ORDER BY ordinal")
@@ -39,6 +44,18 @@ def workbook(tmp_path_factory):
         yield DATABASE
     finally:
         disposable.drop(DATABASE)
+
+
+@pytest.fixture(scope="module")
+def shown_whole(tmp_path_factory):
+    disposable.drop(SHOWN_WHOLE_DATABASE)
+    try:
+        disposable.space_driver_pass(
+            SHOWN_WHOLE_DATABASE, [f"{BUDGET_NAME}=@{BUDGET}", f"{INVOICE_NAME}=@{INVOICE}"],
+            tmp_path_factory.mktemp("whole") / "coco.db")
+        yield SHOWN_WHOLE_DATABASE
+    finally:
+        disposable.drop(SHOWN_WHOLE_DATABASE)
 
 
 @pytest.fixture
@@ -67,6 +84,33 @@ def test_a_workbook_gets_row_passages_without_a_span(workbook):
         assert sheet in rows_per_sheet
         assert passage["heading_path"] == [sheet]
         assert passage.get("char_start") is None and passage.get("char_end") is None
+
+
+def test_a_sheet_the_card_shows_whole_gets_no_row_passages(shown_whole):
+    card = app._card(BUDGET, BUDGET_NAME)
+    assert set(card.shown_whole) == {"Ipotesi", "Ricavi", "Consolidato"}
+    kept = collections.Counter(row.sheet for row in card.rows if row.sheet not in card.shown_whole)
+    assert set(kept) == {"Costi"}
+
+    passages = disposable.query(shown_whole, _PASSAGES, {"key": BUDGET_NAME})
+    (document,) = disposable.query(shown_whole, "SELECT passage_count FROM IndexedDocument "
+                                   "WHERE source_key = :key", {"key": BUDGET_NAME})
+
+    assert document["passage_count"] == sum(map(_groups, kept.values())) == len(passages)
+    assert all(passage["heading_path"] == ["Costi"] for passage in passages)
+
+
+def test_a_workbook_shown_whole_keeps_passage_count_zero(shown_whole):
+    card = app._card(INVOICE, INVOICE_NAME)
+    assert card.rows and {row.sheet for row in card.rows} == set(card.shown_whole)
+
+    passages = disposable.query(shown_whole, _PASSAGES, {"key": INVOICE_NAME})
+    (document,) = disposable.query(shown_whole, "SELECT passage_count, card FROM IndexedDocument "
+                                   "WHERE source_key = :key", {"key": INVOICE_NAME})
+
+    assert passages == []
+    assert document["passage_count"] == 0
+    assert document["card"]
 
 
 def test_a_span_does_not_survive_a_rewrite_without_one(rewrite_database, tmp_path):

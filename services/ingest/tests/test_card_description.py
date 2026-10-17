@@ -47,3 +47,24 @@ def test_a_silent_filecard_failure_still_says_why_the_card_is_missing(monkeypatc
 
     assert (card.text, card.description) == ("", "")
     assert "[card] fornitori.txt: aura-filecard exited 137" in capsys.readouterr().out
+
+
+def test_the_sheets_the_card_shows_whole_come_with_its_rows(monkeypatch, tmp_path):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    stub = bin_dir / "aura-filecard"
+    stub.write_text(
+        "#!/bin/sh\n"
+        "echo '{\"card\":\"c\",\"description\":\"d\",\"shown_whole\":[\"Ricavi\"],"
+        "\"rows\":[{\"sheet\":\"Ricavi\",\"row\":2,\"text\":\"Voce: A\"}]}'\n")
+    stub.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
+
+    card = app._card(str(tmp_path / "budget.xlsx"), "budget.xlsx")
+
+    assert list(card.shown_whole) == ["Ricavi"]
+    assert [(row.sheet, row.number) for row in card.rows] == [("Ricavi", 2)]
+
+
+def test_a_file_without_a_card_shows_nothing_whole(tmp_path):
+    assert app._card(str(tmp_path / "sparito.xlsx"), "sparito.xlsx").shown_whole == ()
