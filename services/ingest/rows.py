@@ -26,6 +26,11 @@ class Row:
     text: str
 
 
+# No memo's key covers these passages: group and index_object are plain functions, and a plain
+# function is not part of a memo's key (media.py, above extract_media). So a change to the
+# grouping or to the "File: — Foglio:" line here reaches only new or changed files unless
+# process_file's memo is versioned in the same change. filecard's row output is held one memo
+# further in, with the card in _extract's: a change there needs _extract versioned as well.
 def group(rows: Sequence[Row], file_name: str) -> list[chunk.Chunk]:
     """The passages of a workbook's rows, sheet by sheet, each opening with "File: <file> — Foglio: <sheet>".
 
