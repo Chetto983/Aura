@@ -89,6 +89,32 @@ SEVERE line, and the users file reset to its defaults.
 | `FROM latest-native`, `COPY --chown=1000:1000` of `config/` and of new empty dirs, `USER 1000:1000` | the image keeps `home/arcadedb/config/` at `0/0`, because the existing directory keeps its owner. Exit 1: `AccessDeniedException: ./config/server-users.jsonl….tmp` |
 | `FROM scratch`: `/etc/ssl`, then `/tmp` and `/home/arcadedb` with `--chown=1000:1000`, the upstream `WORKDIR`, `VOLUME`s and `ENTRYPOINT`, and `USER 1000:1000` | ready in 2 s, and `create database` answers `ok`. After a stop, 0 of 8 files are owned by anyone but 1000 |
 
+**ArcadeDB's own documented non-root example fails the same way.**
+- `docs/native-image.md` at `15958b48f`, "Running the container", lines 320 to 331, says the UID
+  you choose "should own the host-side `databases` bind mount". With `databases` created and
+  `chown 1000:1000`, the example was run verbatim on `arcadedata/arcadedb:latest-native`:
+  ```
+  docker run --rm -p 2480:2480 -p 5432:5432 \
+    --user 1000:1000 \
+    -v "$(pwd)/databases:/home/arcadedb/databases" \
+    arcadedata/arcadedb:latest-native \
+    -Darcadedb.server.rootPassword=PlayWithData123!
+  ```
+  Exit code 1, after:
+  ```
+  Exception in thread "main" com.arcadedb.server.ServerException …
+  java.nio.file.AccessDeniedException: ./log/arcadedb.log.0.lck
+  java.io.FileNotFoundException: ./log/server-event-log-….jsonl (Permission denied)
+  ```
+- **The cause is in `native/src/main/docker/Dockerfile.native.scratch`.**
+  - Its `dirs` stage creates `databases`, `backups`, `replication` and `log` and runs
+    `chown -R 0:0`.
+  - `config/` is copied without `--chown`.
+  - All five are declared `VOLUME`. So every directory that is not bind-mounted becomes a
+    root-owned anonymous volume, and UID 1000 cannot write `log/` or `config/`.
+  - The arm64 Dockerfile chowns the same directories to 65532 and runs as that user, so only amd64
+    is affected.
+
 **Why it matters for a JVM rollback.**
 - The upstream native image ran as root on a directory owned by 1000 and created database
   `rootmade`. The database directory came out `root(0):root 755`, and its `schema.json`
