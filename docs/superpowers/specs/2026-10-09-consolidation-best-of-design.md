@@ -129,7 +129,6 @@ the same as above: behaviours, never code.
 |---|---|---|---|---|---|---|
 | D1 | Read what the question names first, rank second. When a question's identifier names a document (its title or card), search that document's own passages for the rest of the question | FDA post: crowding by related labels hid the named drug's own boxed warning; "look up the names first" took false reassurances from 5 to 0 | Identifiers first ranks a document only if its title, card or *returned* passages carry every identifier. For "FX300 … A119" no document qualifies, because the FX300's A119 passage is not returned (`2026-10-17-answers-read-by-a-model.md`) | `rankDocuments` plus one full-text query restricted to the named document | the PDF look-alikes `fx300-alarm-A119` and `fx300-chains`, then every set | not measured |
 | D2 | Code chunked by its syntax | fintech post: "AST worked better than plain text chunking" | `chunk.chunk` calls CocoIndex's `RecursiveSplitter` with no `language`, so source files split as prose. The installed 1.0.25 already takes `language=` (tree-sitter) and offers `detect_code_language(filename=)` | `services/ingest/chunk.py`, from the file name | the English, Italian and find-by-name code sets, the lowest today (r@8 0.833 English, 0.667 Italian, prd.md §11 "The card's vector") | not measured |
-| D3 | One document superseding another, across two files | fintech post: with policy v3 and v4 both indexed, "your RAG can very accurately retrieve the wrong policy" | **A changed file is already handled:** CocoIndex reconciles a key's new bytes over its old passages, and removes a document's passages with its object (`index_object`). The workbook-row upgrades of 2026-10-17 showed it, no old span surviving a rewrite. **Two files that are two versions of one document are not:** they are two keys, and nothing marks the older one superseded. The 2025/2026 budgets are the harmless case | a field of D5 (an effective date, or "superseded by") set by the operator, not a mechanism of its own | a measured failure on a corpus holding two versions of one document | open question |
 | D4 | Questions over every document ("which contracts have a change-of-control clause", "which expire in two months") | FDA post: every search-based setup listed under 1 in 10 of 282 contracts; looking at every document found 88% | no sweep; the agent can only open documents one at a time | outside retrieval: an agent or batch path over the card catalog | a question set of that kind | not measured |
 
 Already in Aura, no action:
@@ -172,9 +171,15 @@ Shared by the operator on 2026-10-17: `github.com/paperless-ngx/paperless-ngx`, 
 | D5 | Document fields the operator owns (type, counterparty, dates, typed custom fields), used as **filters** by `document_search`. They are assigned by rules first, then by a classifier trained on the operator's own corrections, and by an LLM only as a last resort | Paperless's data model, matching rules and "Auto" classifier | `CandidateFilter` filters by document, key or prefix only. filecard drops an invoice's header rows ("Data emissione", "Cliente"), which are exactly those fields. Free LLM tags would add little: the words are already in the text, the name and the card | `IndexedDocument` properties, a filter in `document_search`, extraction in filecard/the ingest | a question set of "which documents…" (office q09 and q18 are two of them today) and BASELINE OR DROP for the classifier against the rules alone | not measured |
 | D6 | An LLM summary per file, beside the card, never in its place | discussed with the operator 2026-10-17; Paperless's AI suggestions | the card is deterministic and its description is the document vector (prd.md §11, "The card's vector") | the ingest, memoized on the file's bytes like the billed media calls | the English and Italian code sets, against the card alone, with summaries for every file of the library and the cost per file on the appliance's local LLM | not measured |
 
-Paperless's root-plus-versions model is not taken. Its job, search on a file's latest content,
-is already CocoIndex's reconciliation. What D3 keeps is supersession across two files, which
-becomes a field of D5 (operator, 2026-10-17).
+Not taken, with the reason:
+
+- **Document versioning (formerly D3), and Paperless's root-plus-versions model.** The operator
+  dropped it on 2026-10-17: it brings only complexity.
+  - A changed file is already reconciled by CocoIndex over its old passages, and a removed file
+    takes its passages with it.
+  - What stays unhandled is two files that are two versions of one document, such as a v3 and a
+    v4 of the same policy. They are two keys, and both are searched. No failure of that kind has
+    been measured on Aura's corpora; the 2025 and 2026 budgets are both valid documents.
 
 ## Process, taken now
 
