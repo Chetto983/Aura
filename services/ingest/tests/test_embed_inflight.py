@@ -22,7 +22,7 @@ from ingest.tests import fake_embedder
 
 LINE = re.compile(
     r"^\[embed\] (?P<time>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+00:00) "
-    r"inflight=(?P<inflight>\d+) (?P<chunks>\d+) chunk\(s\) in one request$"
+    r"inflight=(?P<inflight>\d+) waiting=(?P<waiting>\d+) (?P<chunks>\d+) chunk\(s\) in one request$"
 )
 
 
@@ -71,7 +71,22 @@ def test_a_lone_request_counts_itself(fake, capsys):
 
     embed._embed_batch(["a"])
 
-    assert LINE.match(capsys.readouterr().out.strip())["inflight"] == "1"
+    line = LINE.match(capsys.readouterr().out.strip())
+    assert (line["inflight"], line["waiting"]) == ("1", "0")
+
+
+def test_requests_queued_for_the_one_slot_are_counted_as_waiting(fake, capsys):
+    """With one slot, in flight reads 1 however many requests are queued behind it, so only
+    the waiting count can show a burst."""
+    fake.install(props=_slots(1), hold_s=0.3)
+
+    _all_at_once(embed._embed_batch, [([f"chunk {i}"],) for i in range(4)])
+
+    lines = [LINE.match(line) for line in capsys.readouterr().out.splitlines() if line.startswith("[embed]")]
+    assert all(lines) and len(lines) == 4, "an [embed] line does not match the format"
+    assert {m["inflight"] for m in lines} == {"1"}
+    assert max(int(m["waiting"]) for m in lines) >= 1
+    assert embed._waiting == 0
 
 
 def test_a_failed_request_raises_and_leaves_the_count_where_it_found_it(fake, monkeypatch):
@@ -81,7 +96,7 @@ def test_a_failed_request_raises_and_leaves_the_count_where_it_found_it(fake, mo
     with pytest.raises(embed.EmbedRequestError):
         embed._embed_batch([fake_embedder.REFUSED])
 
-    assert embed._inflight == 0
+    assert (embed._inflight, embed._waiting) == (0, 0)
 
 
 @pytest.mark.parametrize("slots", [1, 2])

@@ -218,19 +218,37 @@ def _to_width(vector: list[float]) -> list[float]:
 
 
 # CocoIndex runs the sync _embed_texts off the event loop, so several threads send at once.
+# Against one slot, in flight is always 1 and only the waiting count shows a burst.
 _inflight = 0
+_waiting = 0
 _inflight_lock = threading.Lock()
 
 
 @contextlib.contextmanager
+def _counted_wait(permit):
+    """Hold `permit`, counted among the requests waiting for one until it is acquired."""
+    global _waiting
+    with _inflight_lock:
+        _waiting += 1
+    with contextlib.ExitStack() as held:
+        try:
+            held.enter_context(permit)
+        finally:
+            with _inflight_lock:
+                _waiting -= 1
+        yield
+
+
+@contextlib.contextmanager
 def _counted_in_flight():
-    """Yield how many embedding requests are in the air, this one included."""
+    """Yield how many embedding requests are in the air, this one included, and how many are
+    still waiting for a permit."""
     global _inflight
     with _inflight_lock:
         _inflight += 1
-        count = _inflight
+        counts = (_inflight, _waiting)
     try:
-        yield count
+        yield counts
     finally:
         with _inflight_lock:
             _inflight -= 1
@@ -303,13 +321,13 @@ def _embed_batch(texts: list[str]) -> list[list[float]]:
         body["dimensions"] = DIMENSIONS
         headers["Authorization"] = f"Bearer {_API_KEY}"
     req = urllib.request.Request(_endpoint(BASE_URL), data=json.dumps(body).encode(), headers=headers)
-    with _slot(), _counted_in_flight() as inflight:
+    with _counted_wait(_slot()), _counted_in_flight() as (inflight, waiting):
         # Whether batching is actually happening is otherwise invisible: the vectors look the
         # same either way, and the only symptom of it silently degrading to one chunk per
-        # request is a slow cloud ingest nobody can explain. The time and the count answer
+        # request is a slow cloud ingest nobody can explain. The time and the counts answer
         # the other question, whether a timeout came from one slow request or from a burst.
         now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")
-        print(f"[embed] {now} inflight={inflight} {len(texts)} chunk(s) in one request", flush=True)
+        print(f"[embed] {now} inflight={inflight} waiting={waiting} {len(texts)} chunk(s) in one request", flush=True)
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:
                 data = json.loads(resp.read())["data"]
