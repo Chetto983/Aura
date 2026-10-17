@@ -8,6 +8,7 @@ SPACE, which app.py stamps beside it.
 
 import contextlib
 import datetime
+import http.client
 import json
 import math
 import os
@@ -235,6 +236,53 @@ def _counted_in_flight():
             _inflight -= 1
 
 
+# llama.cpp tools/server/README.md at b11146, the pinned server-v0.5.0: "`total_slots` - the
+# total number of slots for process requests (defined by `--parallel` option)". A request past
+# them queues INSIDE the server with its 120 s already running: reproduced 2026-10-17, 16 were
+# in flight against one slot, answered one every ~9 s, and 19 timed out. Queued here instead, a
+# request starts its deadline when a slot is free. --parallel is fixed for the sidecar's life,
+# so /props is read once, best-effort, as Go reads it (internal/llm/llamacpp_caps.go).
+_PROPS_TIMEOUT_S = 2.0
+_bound: threading.BoundedSemaphore | None = None
+_bound_lock = threading.Lock()
+
+
+def _total_slots() -> int:
+    """The sidecar's total_slots, or 1 when it does not say: one slot is the appliance's shape,
+    and never wrong for it."""
+    # fetchLlamaCppProps' rule: /props hangs off the server root, not off /v1.
+    url = BASE_URL.strip().rstrip("/").removesuffix("/v1") + "/props"
+    headers = {"Authorization": f"Bearer {_API_KEY}"} if _API_KEY else {}
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=_PROPS_TIMEOUT_S) as resp:
+            slots = json.loads(resp.read())["total_slots"]
+    except (OSError, http.client.HTTPException, ValueError, KeyError, TypeError) as exc:
+        reason = f"{type(exc).__name__}: {exc}"
+    else:
+        # bool is an int in Python, and true is not a slot count.
+        if type(slots) is int and slots > 0:
+            return slots
+        reason = f"total_slots={slots!r}"
+    print(f"[embed] {url} gave no usable total_slots ({reason}); one embedding request at a time", flush=True)
+    return 1
+
+
+def _inflight_bound() -> threading.BoundedSemaphore:
+    """One permit per sidecar slot, sized on first use."""
+    global _bound
+    if _bound is None:
+        with _bound_lock:
+            if _bound is None:
+                _bound = threading.BoundedSemaphore(_total_slots())
+    return _bound
+
+
+def _slot():
+    """A local request's permit. A hosted provider sets its own limits, and a 429 there is not a
+    queue timeout, so that route is not bounded and never asks for /props."""
+    return contextlib.nullcontext() if MODEL else _inflight_bound()
+
+
 def _embed_batch(texts: list[str]) -> list[list[float]]:
     """One request for several chunks, restored to the caller's order.
 
@@ -250,7 +298,7 @@ def _embed_batch(texts: list[str]) -> list[list[float]]:
         body["dimensions"] = DIMENSIONS
         headers["Authorization"] = f"Bearer {_API_KEY}"
     req = urllib.request.Request(_endpoint(BASE_URL), data=json.dumps(body).encode(), headers=headers)
-    with _counted_in_flight() as inflight:
+    with _slot(), _counted_in_flight() as inflight:
         # Whether batching is actually happening is otherwise invisible: the vectors look the
         # same either way, and the only symptom of it silently degrading to one chunk per
         # request is a slow cloud ingest nobody can explain. The time and the count answer

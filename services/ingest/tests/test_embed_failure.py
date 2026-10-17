@@ -199,9 +199,12 @@ def test_a_failure_that_is_not_an_overflow_is_raised_rather_than_retried(monkeyp
     """Sending less does not fix a server that is restarting, and retrying would hide it."""
     calls = 0
 
-    def urlopen(*_args, **_kwargs):
+    # Counted on /v1/embeddings alone: the failure detail asks the tokenizer and the bound asks
+    # /props through the same urlopen, so counting every call made this pass only after an
+    # earlier test had already spent both.
+    def urlopen(req, *_args, **_kwargs):
         nonlocal calls
-        calls += 1
+        calls += req.full_url.endswith("/v1/embeddings")
         raise http_error(503, b"model is loading")
 
     monkeypatch.setattr(embed.urllib.request, "urlopen", urlopen)
