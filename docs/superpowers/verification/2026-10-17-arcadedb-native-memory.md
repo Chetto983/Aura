@@ -4,6 +4,10 @@ Date: 2026-10-17. The operator proposed switching to the native image ("Io passe
 più lenta ma di poco, ma consuma molta meno RAM"). This file measures both halves of that sentence
 before any spec is written.
 
+`2026-10-14-arcadedb-native-image-and-go-driver.md` already measured the native image on the lab
+VM: idle RAM, start time, size, and the 26.10.1-native smoke failures. This file adds memory
+under load, latency, the schema rewrite on disk, and 26.10.2-native.
+
 **Verdict:**
 - **The native image uses far less memory.** On the 7,798-passage library it holds 30 MiB idle
   and peaks at 610 MiB under the variant bench. Aura's compose JVM holds 2.10 GiB idle and peaks

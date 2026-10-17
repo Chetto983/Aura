@@ -99,3 +99,31 @@ on four things that endpoint does not offer:
 - the driver wraps the server commands with typed errors;
 - it reaches a release that promises compatibility;
 - a measured need appears that its streaming or `BatchLoad` would answer.
+
+## Re-inventory, 2026-10-17: Go driver v0.3.0
+
+Roberto Franchini reported v0.3.0 as released "con delle implementazioni dei tuoi feedback". The
+module proxy lists `v0.2.0` and `v0.3.0`, published 2026-10-16 at `aebfa54`. Read from the module
+zip, not executed.
+
+The three conditions above, one by one:
+- **Server commands with typed errors: met.**
+  - `Server.CreateDatabase` and `DropDatabase` refuse a name the server would trim
+    (`ErrInvalidName`) and answer a non-2xx as `*ArcadeDBError`.
+  - `CreateUser`, `UpdateUser`, `DropUser` and `ListUsers` use the dedicated
+    `/api/v1/server/users` endpoints with a structured body. A duplicate is a 409.
+  - `SQLScript` is now a language constant.
+- **A release that promises compatibility: not met.** The README pins one server version per
+  driver version (0.2.0 to 26.10.1, 0.3.0 to 26.10.2), and calls any other "not tested or
+  supported". Aura's pin is 26.10.1, so v0.3.0 is off its contract until the pin moves.
+  Roberto called the drivers beta on 2026-10-14, "per questo le versioni sono 0.x".
+- **A measured need for streaming or `BatchLoad`: not met.** None has appeared.
+
+**What it would cost:**
+- 3,323 lines of facade, plus 42,196 generated;
+- the dependencies `coder/websocket`, `oapi-codegen/runtime`, `go-jsonmerge` and `google/uuid`.
+
+It would replace `client.go`, `admin.go` and the session plumbing, and nothing else.
+
+**Decision unchanged: keep Aura's transport.** Two of the three conditions are still open.
+Re-read it when the pin moves to 26.11.1, against the driver that targets that release.
