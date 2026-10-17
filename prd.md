@@ -1589,6 +1589,12 @@ is within the first 8.
   - **Answers.** Read blind by a fresh agent: 54 of 54 correct. 49 came from the search response,
     5 needed `document_open` (two aggregates and two PDF look-alikes among them), and none needed
     a second search.
+- **A format change reaches only new or changed files.** No memo's key covers the row passages:
+  `rows.group` and `index_object` are plain functions, and a plain function is not part of a
+  memo's key (`services/ingest/media.py`, cocoindex `_compute_logic_fingerprint`). A change to
+  the grouping or the file-and-sheet line needs `process_file`'s memo versioned in the same
+  change; a change to filecard's row output needs `_extract`'s, which holds the rows with the
+  card. No version mechanism ships with this.
 
 The design is [the spec](docs/superpowers/specs/2026-10-17-workbook-row-passages-design.md); the
 records are [the spike](docs/superpowers/verification/2026-10-16-rag-full-version-techniques-spike.md)
