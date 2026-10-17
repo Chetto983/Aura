@@ -75,6 +75,9 @@ type Card struct {
 	// Caveats state what the card does NOT contain. A degraded card must say it
 	// is degraded rather than look complete.
 	Caveats []string
+	// Rows are a workbook's data rows, whole, in sheet order. They are not rendered: the
+	// ingest turns them into the passages that find a value living only in one row.
+	Rows []Row
 }
 
 // Sheet is one tabular surface: a worksheet, or the single table in a CSV.

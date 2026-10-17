@@ -55,7 +55,7 @@ func buildXLSX(req Request, card Card) (Card, error) {
 		if file == nil {
 			continue
 		}
-		built, capped, err := readWorksheet(file, sheet.name, shared)
+		built, rows, capped, err := readWorksheet(file, sheet.name, shared)
 		if err != nil {
 			card.Caveats = append(card.Caveats, fmt.Sprintf("Sheet %q could not be read (%v).", sheet.name, err))
 			continue
@@ -68,6 +68,7 @@ func buildXLSX(req Request, card Card) (Card, error) {
 		}
 		card.Caveats = append(card.Caveats, tableCaveats(built)...)
 		card.Sheets = append(card.Sheets, built)
+		card.Rows = append(card.Rows, rows...)
 	}
 	if len(card.Sheets) == 1 && len(card.Sheets[0].Columns) > 0 {
 		card.Facts = append(card.Facts, fmt.Sprintf("%d rows x %d columns",
@@ -216,7 +217,8 @@ func readSharedStrings(reader *zip.Reader) []string {
 				current.Reset()
 			}
 		case xml.CharData:
-			if inItem && current.Len() < maxValueRunes*4 {
+			// A formatted string arrives as several runs, and every run is part of the value.
+			if inItem {
 				current.Write(element)
 			}
 		case xml.EndElement:
@@ -228,17 +230,18 @@ func readSharedStrings(reader *zip.Reader) []string {
 	}
 }
 
-// readWorksheet streams one worksheet into a table card. It reports whether the
-// row cap bit, so the card can say the sheet was sampled instead of implying it
-// was read whole.
-func readWorksheet(file *zip.File, name string, shared []string) (Sheet, bool, error) {
+// readWorksheet streams one worksheet into a table card and its data rows. It
+// reports whether the row cap bit, so the card can say the sheet was sampled
+// instead of implying it was read whole.
+func readWorksheet(file *zip.File, name string, shared []string) (Sheet, []Row, bool, error) {
 	body, err := zipEntryReader(file)
 	if err != nil {
-		return Sheet{}, false, err
+		return Sheet{}, nil, false, err
 	}
 	defer func() { _ = body.Close() }()
 
 	table := newTable(name)
+	table.keepRows = true
 	decoder := xml.NewDecoder(body)
 	declaredRows := int64(0)
 	physicalRow := int64(0)
@@ -279,7 +282,7 @@ func readWorksheet(file *zip.File, name string, shared []string) (Sheet, bool, e
 		}
 	}
 	sheet := table.done(declaredRows)
-	return sheet, capped && sheet.Rows > int64(sheet.RowsScanned), nil
+	return sheet, table.rows, capped && sheet.Rows > int64(sheet.RowsScanned), nil
 }
 
 func worksheetRowPosition(element xml.StartElement, fallback int64) int64 {

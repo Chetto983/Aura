@@ -42,6 +42,11 @@ type tableBuilder struct {
 	candidates [][]string
 	stride     int
 	sinceKept  int
+
+	// keepRows is set by the worksheet reader only. A delimited file is extracted as
+	// text by the ingest, and its rows must not reach the index a second time.
+	keepRows bool
+	rows     []Row
 }
 
 func newTable(name string) *tableBuilder {
@@ -66,7 +71,7 @@ func (t *tableBuilder) addRowAt(values []string, position int64) {
 		}
 		return
 	}
-	t.consume(values)
+	t.consume(values, position)
 }
 
 // done resolves a header that was never confirmed (a file shorter than the
@@ -138,7 +143,7 @@ func (t *tableBuilder) resolveHeader() {
 			t.rowsSkipped++
 			continue
 		}
-		t.consume(row)
+		t.consume(row, t.probePositions[i])
 	}
 	t.probe = nil
 	t.probePositions = nil
@@ -153,8 +158,11 @@ func (t *tableBuilder) setHeaders(row []string) {
 	}
 }
 
-func (t *tableBuilder) consume(values []string) {
+func (t *tableBuilder) consume(values []string, position int64) {
 	t.rowsScanned++
+	if t.keepRows {
+		t.rows = append(t.rows, Row{Sheet: t.name, Number: position, Text: rowText(t.headers, values)})
+	}
 	for i, value := range values {
 		if i >= maxColumnsScanned {
 			break
