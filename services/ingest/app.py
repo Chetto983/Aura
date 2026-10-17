@@ -329,7 +329,7 @@ async def index_object(
     source_kind = "s3"
     search_document_id = identity.search_document_id(identity_id, source_kind, key)
     if extracted.rows:
-        pieces = rows.group(extracted.rows)
+        pieces = rows.group(extracted.rows, file_name)
     else:
         # document_budget(), not the bare ceiling: embed sends EMBED_DOC_PREFIX + text, so a
         # chunk sized to the full ceiling overflows by the prefix and the request 500s.

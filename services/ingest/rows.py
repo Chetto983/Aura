@@ -3,7 +3,8 @@
 filecard reads the workbook (aura-filecard -json): the headers, the cached values and the caps
 are its own, so the card and the passages agree on what a column is called. This module only
 groups what it hands over, 15 rows to a group with 2 of them shared with the next, and heads
-each group with its sheet, which a row's own text does not name (spec, decision 2; prd.md §11).
+each group with its file and sheet, which a row's own text does not name: two look-alike
+workbooks (a 2025 and a 2026 budget) would otherwise crowd each other (spec, decision 2; prd.md §11).
 """
 
 import dataclasses
@@ -25,16 +26,16 @@ class Row:
     text: str
 
 
-def group(rows: Sequence[Row]) -> list[chunk.Chunk]:
-    """The passages of a workbook's rows, sheet by sheet, each opening with "Foglio: <sheet>".
+def group(rows: Sequence[Row], file_name: str) -> list[chunk.Chunk]:
+    """The passages of a workbook's rows, sheet by sheet, each opening with "File: <file> — Foglio: <sheet>".
 
     filecard emits a workbook's rows in sheet order, so each sheet's rows are one run. A group
-    past the embedding budget is split by chunk.chunk and the sheet line heads every piece.
+    past the embedding budget is split by chunk.chunk and the file and sheet line heads every piece.
     """
     budget = chunk.document_budget()
     pieces: list[chunk.Chunk] = []
     for sheet, sheet_rows in itertools.groupby(rows, key=lambda row: row.sheet):
-        header = f"Foglio: {sheet}\n"
+        header = f"File: {file_name} — Foglio: {sheet}\n"
         for window in _windows(list(sheet_rows)):
             body = "\n".join(f"Riga {row.number}: {row.text}" for row in window)
             if chunk.count_tokens(header + body) <= budget:

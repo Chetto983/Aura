@@ -62,7 +62,8 @@ def test_a_workbook_gets_row_passages_without_a_span(workbook):
     assert document["normalized_text_sha256"] == ""
     assert [passage["ordinal"] for passage in passages] == list(range(len(passages)))
     for passage in passages:
-        sheet = passage["text"].splitlines()[0].removeprefix("Foglio: ")
+        file_line, sheet = passage["text"].splitlines()[0].split(" — Foglio: ")
+        assert file_line == f"File: {NAME}"
         assert sheet in rows_per_sheet
         assert passage["heading_path"] == [sheet]
         assert passage.get("char_start") is None and passage.get("char_end") is None
@@ -79,7 +80,7 @@ def test_a_span_does_not_survive_a_rewrite_without_one(rewrite_database, tmp_pat
     after = disposable.query(rewrite_database, _PASSAGES, {"key": NAME})[0]
 
     assert after["passage_key"] == before["passage_key"]
-    assert after["text"].startswith("Foglio: Giacenze\n")
+    assert after["text"].startswith(f"File: {NAME} — Foglio: Giacenze\n")
     assert after.get("char_start") is None and after.get("char_end") is None, (
         f"a stale span survived the rewrite: {after}")
 
