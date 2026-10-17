@@ -64,6 +64,20 @@ com.arcadedb.serializer.json.JSONException: Invalid JSON object format: {
 Caused by: com.google.gson.JsonSyntaxException: java.io.EOFException: End of input at line 1 column 2 path $.
 ```
 
+**The exact command sent to Roberto, run as written.**
+- The image is `arcadedata/arcadedb:latest-native`, pulled from Docker Hub, digest
+  `sha256:357caaf9381f…`, the same as the mirror copy above.
+- `/tmp/dbs` did not exist before the first run.
+
+```
+docker run --rm -v /tmp/dbs:/home/arcadedb/databases arcadedata/arcadedb:latest-native -Darcadedb.server.rootPassword=prova12345 '-Darcadedb.server.defaultDatabases=test[]'
+```
+
+| Run | Log | SEVERE lines |
+|---|---|---|
+| 1 | `Creating default database 'test'...`, server started | 0 |
+| 2, the same command after a stop | server started; the SEVERE above, with `SecurityUserFileRepository.load` | 1 |
+
 After the fallback, root logs in (HTTP 200) and the default database exists. So the cost is the
 SEVERE line, and the users file reset to its defaults.
 
