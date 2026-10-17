@@ -127,3 +127,60 @@ It would replace `client.go`, `admin.go` and the session plumbing, and nothing e
 
 **Decision unchanged: keep Aura's transport.** Two of the three conditions are still open.
 Re-read it when the pin moves to 26.11.1, against the driver that targets that release.
+
+### Driver v0.3.0 run against a live server, 2026-10-17
+
+The operator asked whether the driver has everything Aura needs ("Proviamo il driver nuovo se ha
+tutto quello che ci serve").
+- **The program.** A throwaway program in a separate module drove the driver through every
+  capability `internal/arcadedb`'s transport uses: `client.go`, `admin.go` and `transaction.go`.
+  It lived in this session's scratchpad, not in the repo.
+- **The servers.** Two, each started clean:
+  - the JVM 26.10.1, Aura's pin;
+  - `latest-native`, 26.11.1-SNAPSHOT `15958b48f`.
+- **The driver's own contract is 26.10.2,** which was not run.
+
+**Covered: 24 checks, identical on both servers.**
+
+| Aura's transport | What the driver did |
+|---|---|
+| `ServerVersion`, `VerifySecureVersion` | `ServerInfo().Version`: `"26.10.1 (build …)"` and `"26.11.1-SNAPSHOT (build …)"` |
+| `CreateDatabase`, `DropDatabase`, `DatabaseExists` | all three work. Exists is false after the drop, which is the erasure postcondition |
+| `CreateUser` with a databases map, `DropUser` | both work. A duplicate user is a typed error: 403 on 26.10.1, 409 on the snapshot |
+| `CredentialAccepted` | `Ready` with the tenant credential is true. After `DropUser` it is false with a typed 401/403, never mistaken for a server that is down |
+| tenant isolation | the tenant on another database gets a typed 403 `SecurityException` |
+| `Query`, `Command`, `Script` | SQL with named and list parameters, DDL, and `sqlscript` with named parameters |
+| `Read`, `Write` | Cypher with `$param`, read and write |
+| sessions: begin, own writes, commit, rollback | `Transaction` commits (its own write visible inside, durable after) and rolls back on an error |
+| retryable write conflict | 8 racing read-then-update transactions: the conflicts arrive as typed 503 `ConcurrentModificationException`, and the commit count equals the final value (6 and 6, 5 and 5) |
+| `ServerError` matching | `Status`, `Exception` and `Detail` carry what Aura matches on, for example `SchemaException` with "Type with name 'NoSuchType' was not found". `Kind` is the driver's `ErrorMessage` |
+| the 20,000-row cap on reads | `Query(…, WithLimit(-1))` returned 25,002 of 25,002, `truncated=false` |
+
+**Not covered by the facade: two gaps.**
+1. **No row limit on `Command`.** It never sends one, by design ("Command does not accept it").
+   - A command returning 25,002 rows came back with 20,000 and `truncated=true` on both servers.
+   - Aura sends `limit: -1` on every request, commands included (`client.go`, the comment at
+     `executeSession`).
+   - The driver at least reports the truncation, which the bare HTTP answer also does.
+2. **No isolation level on `Transaction`.** `readRepeatable` (3 callers) opens its session with
+   `{"isolationLevel":"REPEATABLE_READ"}`. The driver's begin sends no body
+   (`transaction.go:145`), and no `TransactionOption` sets one.
+
+**Both gaps can be closed through `Raw()`, measured.**
+- `ExecuteCommandWithResponse` with `CommandRequest{Limit: -1}` returned 25,000 of 25,000.
+- `BeginTransactionWithResponse` with a `RequestEditorFn` that sets the body opened a session (204,
+  `AS-…`). An invalid level answered 400, so the body is read. A query ran in that session.
+- But `Raw()` never turns a non-2xx into an error, and its session cannot be handed to the
+  facade's `Database`. Aura would keep its own error decoding and session plumbing for those
+  paths, which is part of what the driver was to replace.
+
+**What this changes in the decision.** Nothing yet: the transport stays. It closes the coverage
+question down to two facade options, both small and both upstream: `WithLimit` as a
+`CommandOption`, and an isolation-level `TransactionOption`. With both, the driver would cover
+every transport path measured here.
+
+**Not shown:**
+- the driver under Aura's own test suites;
+- latency or allocation against the current transport;
+- 26.10.2, the driver's declared target;
+- whether any of Aura's 37 `Command` call sites ever returns more than 20,000 rows.
