@@ -1451,7 +1451,9 @@ A filename match is a diagnostic, not the answer-quality oracle.
 
 **The reserved place (measured 2026-10-16).** One place, right behind the best hit, is held
 for a file that has no passage at all: a spreadsheet, answered from the file itself, whose card
-cannot outscore the documents that merely mention its subject (measured 2026-09-09).
+cannot outscore the documents that merely mention its subject (measured 2026-09-09). A workbook
+with row passages leaves the place, since its `passage_count` is no longer 0. That is the
+configuration the 2026-10-16 spike measured ("Workbook rows as passages", below).
 
 The place used to go to any document the query retrieved no passage of. Over Aura's own sources
 that promoted files found by their name alone, such as a `.service` unit, or a skill reference
@@ -1532,6 +1534,58 @@ This does not prove:
 - media cards. No image, audio or video was in any corpus;
 - large libraries on one topic. The PDF corpus is 30 short, distinct files;
 - anything beyond sets of 6 to 38 questions written by one agent.
+
+**Workbook rows as passages (proposed 2026-10-17, spiked 2026-10-16).** A value that lives only
+in a workbook's rows cannot be searched: a workbook has no passages, its card answers for it, and
+`document_open` reads it. A spike over copies of the 2026-10-16 indexes gave each sheet groups of
+15 rows, 2 shared with the next, headed by the sheet's name, each row written as
+"Riga N: Header: value; …". `TestCodingAgentQuestions`, production arm at b0c264a:
+
+| Configuration | complex r@1 | MRR | office r@1 | MRR | MRR, all 54 |
+|---|---|---|---|---|---|
+| as shipped | 0.794 | 0.882 | 0.500 | 0.692 | 0.812 |
+| rows as passages | 0.912 | 0.951 | 0.700 | 0.794 | 0.893 |
+| rows and file name in the title slot | 0.971 | 0.985 | 0.650 | 0.757 | 0.900 |
+
+The file name in the title slot alone moved nothing (0.812). With rows, every gold of both sets
+is within the first 8.
+
+- **What rows broke.** A row's text does not say which file it is in. The 2026 budget lost
+  places to the 2025 one (`budget-centro-2026` 2 → 3, `budget-top-centre` 1 → 2). Fourteen
+  near-identical invoices, each with a row naming its client, pushed the answering files from
+  first to fourth on office q12 and q15. The title slot fixed the budgets and cost office q13,
+  1 → 6.
+- **The operator's constraint (2026-10-17).** Every row passage names its file and its sheet in
+  its own text, because a row does not say whose it is. Read by a model, `fx300-alarm-A119` was
+  answered from the FX200's row. On 2 of 22 PDF questions the asked document ranked first
+  without its answering passage, and retrieval counts both as first place
+  ([the verification](docs/superpowers/verification/2026-10-17-answers-read-by-a-model.md)).
+- **The 2026-09-09 decision is narrowed, not reversed.** A spreadsheet is still queried, not
+  read (`services/ingest/media.py`). Generic text chunking still does not apply to a workbook:
+  it put the Caraglio row in a 2,114-character chunk beside fourteen other municipalities, with
+  no header to name a value's column. Aggregates still go to `document_open`. What changes, if an
+  arm ships, is key-value row passages from filecard, with the header repeated in every row.
+- **Three arms, measured through the real ingest before anything ships.** A: rows with the sheet
+  line only, which must reproduce the spike within one question per set. B: A plus the file name
+  in that line, the operator's constraint. C: B, without row passages for a sheet its card
+  already shows whole. An arm ships only if it beats as shipped on MRR on complex and office and
+  loses no more than one question on the English, Italian and find-by-name code sets. If none
+  does, nothing ships and this paragraph records the drop (BASELINE OR DROP).
+
+The design is [the spec](docs/superpowers/specs/2026-10-17-workbook-row-passages-design.md); the
+record is [the spike](docs/superpowers/verification/2026-10-16-rag-full-version-techniques-spike.md).
+
+This does not prove:
+- the ingest. The spike wrote rows over copies of the indexes: 54 questions written by the
+  corpora's own generator and the office fixture's author, one run per configuration;
+- arms B and C. The file name in the text and the whole-sheet rule are unmeasured;
+- anything on the code sets, which were not run;
+- the appliance's embedding rate and storage. On this host's CPU the spike embedded 962 row
+  passages in about 10 minutes, 385 of them from one 5,000-row ledger;
+- an exact lookup by vector. A 15-row group embeds as one averaged vector, so an exact lookup
+  rides on the full-text leg and on identifiers-first;
+- aggregates. Rows do not answer them, and the retrieval gold counts a lookup and an aggregate
+  the same.
 
 **A billed media call runs once per file content (measured 2026-10-16).** The ingest's `_extract`
 writes a file's bytes to a random temporary path. The vision and speech-to-text calls inside it
