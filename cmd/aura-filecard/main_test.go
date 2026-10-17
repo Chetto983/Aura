@@ -72,3 +72,59 @@ func TestAMissingPathIsAUsageError(t *testing.T) {
 		t.Fatalf("exit %d, want 2", code)
 	}
 }
+
+func complexCorpus(name string) string {
+	return filepath.Join("..", "..", "scripts", "fixtures", "document_retrieval_eval", "complex_corpus", name)
+}
+
+type jsonOutput struct {
+	Rows []struct {
+		Sheet string `json:"sheet"`
+		Row   int64  `json:"row"`
+		Text  string `json:"text"`
+	} `json:"rows"`
+	ShownWhole []string `json:"shown_whole"`
+}
+
+func renderJSON(t *testing.T, path string) (jsonOutput, map[string]json.RawMessage) {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-json", path}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr.String())
+	}
+	var got jsonOutput
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("decode %q: %v", stdout.String(), err)
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	return got, raw
+}
+
+func TestJSONCarriesRowsAndShownWhole(t *testing.T) {
+	got, _ := renderJSON(t, complexCorpus("budget_consolidato_2026.xlsx"))
+
+	found := false
+	for _, row := range got.Rows {
+		if row.Sheet == "Ricavi" && row.Row == 6 {
+			found = strings.HasPrefix(row.Text, "Area: Centro; T1: 1972; ")
+		}
+	}
+	if !found {
+		t.Errorf("rows = %+v, want Ricavi row 6 to be Centro", got.Rows)
+	}
+	if !slices.Contains(got.ShownWhole, "Ricavi") || slices.Contains(got.ShownWhole, "Costi") {
+		t.Errorf("shown_whole = %q, want Ricavi and not Costi", got.ShownWhole)
+	}
+}
+
+func TestJSONOmitsRowsForAPDF(t *testing.T) {
+	_, raw := renderJSON(t, complexCorpus("report_qualita_Q3_2026.pdf"))
+	for _, field := range []string{"rows", "shown_whole"} {
+		if string(raw[field]) != "[]" {
+			t.Errorf("%s = %s, want an empty list", field, raw[field])
+		}
+	}
+}

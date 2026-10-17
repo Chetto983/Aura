@@ -33,7 +33,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("aura-filecard", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	name := flags.String("name", "", "file name to describe the document as (defaults to the path's base name)")
-	asJSON := flags.Bool("json", false, "emit {\"card\":...,\"description\":...} instead of the rendered text")
+	asJSON := flags.Bool("json", false,
+		"emit {\"card\",\"description\",\"rows\",\"shown_whole\"} as JSON instead of the rendered text")
 	sources := flags.Bool("source-extensions", false, "print the source-file extensions as a JSON list and exit")
 	parseErr := flags.Parse(args)
 	wantArgs := 1
@@ -72,10 +73,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintf(stderr, "aura-filecard: %s: %v\n", fileName, buildErr)
 	}
 	if *asJSON {
-		// The ingest stores the card and embeds the description (prd.md §11, 2026-10-16).
-		err = json.NewEncoder(stdout).Encode(map[string]string{
-			"card": card.Render(), "description": card.Description(),
-		})
+		err = json.NewEncoder(stdout).Encode(rendered(card))
 	} else {
 		_, err = fmt.Fprint(stdout, card.Render())
 	}
@@ -83,6 +81,24 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return failed(stderr, err)
 	}
 	return 0
+}
+
+// rendered is what the ingest reads (prd.md §11): it stores the card, embeds the description
+// (2026-10-16), and turns a workbook's rows into passages; shown_whole names the sheets whose
+// every row the card already shows. Both lists are empty rather than null, so a reader never
+// has to tell the two apart.
+func rendered(card filecard.Card) map[string]any {
+	rows := append([]filecard.Row{}, card.Rows...)
+	shownWhole := []string{}
+	for _, sheet := range card.Sheets {
+		if card.ShownWhole(sheet.Name) {
+			shownWhole = append(shownWhole, sheet.Name)
+		}
+	}
+	return map[string]any{
+		"card": card.Render(), "description": card.Description(),
+		"rows": rows, "shown_whole": shownWhole,
+	}
 }
 
 func failed(stderr io.Writer, err error) int {
