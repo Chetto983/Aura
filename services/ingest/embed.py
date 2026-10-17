@@ -6,9 +6,12 @@ a space: the environment names both, and every vector this module returns was pr
 SPACE, which app.py stamps beside it.
 """
 
+import contextlib
+import datetime
 import json
 import math
 import os
+import threading
 import urllib.error
 import urllib.request
 
@@ -213,6 +216,25 @@ def _to_width(vector: list[float]) -> list[float]:
     return [value / norm for value in head]
 
 
+# CocoIndex runs the sync _embed_texts off the event loop, so several threads send at once.
+_inflight = 0
+_inflight_lock = threading.Lock()
+
+
+@contextlib.contextmanager
+def _counted_in_flight():
+    """Yield how many embedding requests are in the air, this one included."""
+    global _inflight
+    with _inflight_lock:
+        _inflight += 1
+        count = _inflight
+    try:
+        yield count
+    finally:
+        with _inflight_lock:
+            _inflight -= 1
+
+
 def _embed_batch(texts: list[str]) -> list[list[float]]:
     """One request for several chunks, restored to the caller's order.
 
@@ -220,10 +242,6 @@ def _embed_batch(texts: list[str]) -> list[list[float]]:
     because the order is not promised, and trusting arrival order would attach each vector
     to the wrong passage -- silently, since every vector is well-formed.
     """
-    # Whether batching is actually happening is otherwise invisible: the vectors look the
-    # same either way, and the only symptom of it silently degrading to one chunk per
-    # request is a slow cloud ingest nobody can explain.
-    print(f"[embed] {len(texts)} chunk(s) in one request", flush=True)
     body = {"input": [chunk.EMBED_DOC_PREFIX + text for text in texts], "model": MODEL or "embeddinggemma"}
     headers = {"Content-Type": "application/json"}
     if MODEL:
@@ -232,12 +250,19 @@ def _embed_batch(texts: list[str]) -> list[list[float]]:
         body["dimensions"] = DIMENSIONS
         headers["Authorization"] = f"Bearer {_API_KEY}"
     req = urllib.request.Request(_endpoint(BASE_URL), data=json.dumps(body).encode(), headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            data = json.loads(resp.read())["data"]
-    except urllib.error.HTTPError as exc:
-        # The longest input is the one a size-related failure is about.
-        raise EmbedRequestError(_embed_failure_detail(exc, max(texts, key=len)), exc.code) from exc
+    with _counted_in_flight() as inflight:
+        # Whether batching is actually happening is otherwise invisible: the vectors look the
+        # same either way, and the only symptom of it silently degrading to one chunk per
+        # request is a slow cloud ingest nobody can explain. The time and the count answer
+        # the other question, whether a timeout came from one slow request or from a burst.
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")
+        print(f"[embed] {now} inflight={inflight} {len(texts)} chunk(s) in one request", flush=True)
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                data = json.loads(resp.read())["data"]
+        except urllib.error.HTTPError as exc:
+            # The longest input is the one a size-related failure is about.
+            raise EmbedRequestError(_embed_failure_detail(exc, max(texts, key=len)), exc.code) from exc
     if len(data) != len(texts):
         raise EmbedRequestError(f"embedding endpoint returned {len(data)} vectors for {len(texts)} inputs")
     out: list[list[float] | None] = [None] * len(texts)
