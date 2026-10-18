@@ -593,7 +593,7 @@ writes beside its code.
   `internal/docfields`.
 - [x] **Step 5. Final review** by one fresh reviewer, on the range, this plan, the spec and the
   Review Focus. Fix its findings test-first.
-- [ ] **Step 6. Push. Merge to master** on the operator's word.
+- [x] **Step 6. Push. Merge to master** on the operator's word.
 - [ ] **Step 7. The lab VM.** The real agent answers the set through `document_search` with
   filters, after the operator reviewed the library in the view. The score must be above 9.8, with
   the dated file. The operator runs it.
