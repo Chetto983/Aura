@@ -35,13 +35,6 @@ func (s *Service) FinalizeUnprocessed(ctx context.Context, identityID, assetID s
 	return s.accept(ctx, identityID, assetID, modality)
 }
 
-// FinalizeMedia accepts an editor source: a picture, a clip or a sound the operator will cut.
-// Same checks as Finalize and no processing. For audio the processor is speech-to-text, and a
-// music bed transcribed on the appliance's CPU on every upload says nothing to anyone.
-func (s *Service) FinalizeMedia(ctx context.Context, identityID, assetID string) (Asset, error) {
-	return s.accept(ctx, identityID, assetID, ModalityImage, ModalityVideo, ModalityAudio)
-}
-
 // storedSizeMatchesUpload compares the object the store actually holds with the size the upload
 // declared. A presigned PUT that never carried its body leaves a 0-byte object the browser
 // believes it uploaded, and finalize used to accept it: a broken tile in the Studio picker and a

@@ -94,12 +94,12 @@ func AssetKey(assetID, fileName string, folder AssetFolder) string {
 	return folderPrefix(folder) + assetID + assetExtension(fileName)
 }
 
-// StudioProjectSuffix ends the name of a Video Studio project file
-// (web/src/videoStudio/projectStore.ts PROJECT_FILE_EXTENSION). It is the one compound
-// extension a key keeps whole: a project is the editor's state, not a document anyone
-// searches, and the ingest sidecar skips it by path (services/ingest/source.py
-// STUDIO_PROJECT_PATTERN) because the key is all its matcher sees. Like ".pdf", it names a
-// kind of file and never the file.
+// StudioProjectSuffix ends the name of a project file the Video Studio saved before it was
+// removed (docs/superpowers/specs/2026-10-18-craft-mcp-design.md); operators' buckets still hold
+// them. It is the one compound extension a key keeps whole: a project is an editor's state, not
+// a document anyone searches, and the ingest sidecar skips it by path
+// (services/ingest/source.py STUDIO_PROJECT_PATTERN) because the key is all its matcher sees.
+// Like ".pdf", it names a kind of file and never the file.
 const StudioProjectSuffix = ".aura-video.json"
 
 // assetExtension returns the lowercase extension a key keeps: StudioProjectSuffix whole for a

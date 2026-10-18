@@ -150,80 +150,19 @@ func storeUpload(t *testing.T, svc *Service, req PresignRequest, body string) As
 	return resp.Asset
 }
 
-// presignAndStore is storeUpload for a chat attachment of thread-1.
-func presignAndStore(t *testing.T, svc *Service, fileName, mimeType, body string) Asset {
-	t.Helper()
-	return storeUpload(t, svc, PresignRequest{ThreadID: "thread-1", FileName: fileName, MIMEType: mimeType}, body)
-}
-
-// An editor source is accepted and left alone. The plain finalize would run the modality's
-// processor, and for audio that is speech-to-text over a music bed.
-func TestServiceFinalizeMediaAcceptsMediaWithoutProcessing(t *testing.T) {
-	for _, tc := range []struct {
-		name     string
-		fileName string
-		mimeType string
-		want     Modality
-	}{
-		{name: "a sound", fileName: "bed.wav", mimeType: "audio/wav", want: ModalityAudio},
-		{name: "a clip", fileName: "clip.mp4", mimeType: "video/mp4", want: ModalityVideo},
-		{name: "a picture", fileName: "panel.png", mimeType: "image/png", want: ModalityImage},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			svc, _ := newAssetServiceTestRig(t, Limits{
-				MaxDocumentBytes: 100, MaxImageBytes: 100, MaxAudioBytes: 100, MaxVideoBytes: 100,
-			})
-			queue := &recordingProcessingQueue{}
-			svc.ProcessingJobs = queue
-			presigned := presignAndStore(t, svc, tc.fileName, tc.mimeType, "RIFFxxxx")
-
-			accepted, err := svc.FinalizeMedia(context.Background(), serviceIdentityID, presigned.ID)
-			if err != nil {
-				t.Fatalf("FinalizeMedia() error = %v", err)
-			}
-			if accepted.Status != StatusAccepted || accepted.Modality != tc.want {
-				t.Fatalf("accepted = status %q modality %q, want %q %q", accepted.Status, accepted.Modality, StatusAccepted, tc.want)
-			}
-			if queue.calls != 0 {
-				t.Fatalf("processing enqueued %d times, want none", queue.calls)
-			}
-		})
-	}
-}
-
-// A document through the editor's door is refused before a byte is read, and nothing is queued:
-// the door must not become a way to file a PDF without the index knowing.
-func TestServiceFinalizeMediaRefusesADocument(t *testing.T) {
-	svc, store := newAssetServiceTestRig(t, Limits{MaxDocumentBytes: 100, MaxImageBytes: 100, MaxAudioBytes: 100})
-	queue := &recordingProcessingQueue{}
-	svc.ProcessingJobs = queue
-	presigned := presignAndStore(t, svc, "manual.pdf", "application/pdf", "%PDF test")
-
-	_, err := svc.FinalizeMedia(context.Background(), serviceIdentityID, presigned.ID)
-	if !errors.Is(err, ErrWrongModality) {
-		t.Fatalf("FinalizeMedia() error = %v, want ErrWrongModality", err)
-	}
-	if got := store.assets[presigned.ID].Status; got == StatusAccepted {
-		t.Fatalf("status = %q, want the document left unaccepted", got)
-	}
-	if queue.calls != 0 {
-		t.Fatalf("processing enqueued %d times, want none", queue.calls)
-	}
-}
-
 // The hint is the client's word; the name is what the ingest walker reads. A document presigned
-// as a sound would be filed under media/, accepted unprocessed, and indexed anyway.
-func TestServiceFinalizeMediaRefusesADocumentHintedAsMedia(t *testing.T) {
+// as a picture would be filed under media/, accepted unprocessed, and indexed anyway.
+func TestFinalizeUnprocessedRefusesADocumentHintedAsAPicture(t *testing.T) {
 	svc, store := newAssetServiceTestRig(t, Limits{MaxDocumentBytes: 100, MaxImageBytes: 100, MaxAudioBytes: 100})
 	queue := &recordingProcessingQueue{}
 	svc.ProcessingJobs = queue
 	hinted := storeUpload(t, svc, PresignRequest{
-		ThreadID: "thread-1", FileName: "manual.pdf", MIMEType: "audio/wav", ModalityHint: ModalityAudio,
+		ThreadID: "thread-1", FileName: "manual.pdf", MIMEType: "image/png", ModalityHint: ModalityImage,
 	}, "%PDF test")
 
-	_, err := svc.FinalizeMedia(context.Background(), serviceIdentityID, hinted.ID)
+	_, err := svc.FinalizeUnprocessed(context.Background(), serviceIdentityID, hinted.ID, ModalityImage)
 	if !errors.Is(err, ErrWrongModality) {
-		t.Fatalf("FinalizeMedia() error = %v, want ErrWrongModality", err)
+		t.Fatalf("FinalizeUnprocessed() error = %v, want ErrWrongModality", err)
 	}
 	if got := store.assets[hinted.ID].Status; got == StatusAccepted {
 		t.Fatalf("status = %q, want the document left unaccepted", got)

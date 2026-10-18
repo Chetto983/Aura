@@ -27,36 +27,22 @@ func TestAssetKeyKeepsTheStudioProjectSuffixWhole(t *testing.T) {
 	}
 }
 
-// The suffix is spelled three times in three languages: here, in the cockpit that names the
-// file, and in the ingest pattern that skips it. A drift in any one of them silently indexes
-// every project saved after it, so the other two are read and compared, the way
-// internal/embeddings/prefix_parity_test.go holds the ingest's document prefix to Go's.
-func TestStudioProjectSuffixMatchesTheCockpitAndTheIngest(t *testing.T) {
-	for _, spelling := range []struct {
-		file    string
-		pattern string
-		dot     string
-	}{
-		{
-			file:    filepath.Join("..", "..", "web", "src", "videoStudio", "projectStore.ts"),
-			pattern: `(?m)^export const PROJECT_FILE_EXTENSION = '([^']*)';\s*$`,
-			dot:     ".",
-		},
-		{
-			file:    filepath.Join("..", "..", "services", "ingest", "source.py"),
-			pattern: `(?m)^STUDIO_PROJECT_PATTERN = "\*\*/\*([^"]*)"\s*$`,
-		},
-	} {
-		source, err := os.ReadFile(spelling.file)
-		if err != nil {
-			t.Fatalf("read %s: %v", spelling.file, err)
-		}
-		match := regexp.MustCompile(spelling.pattern).FindSubmatch(source)
-		if match == nil {
-			t.Fatalf("%s no longer declares the suffix on one line matching %s", spelling.file, spelling.pattern)
-		}
-		if got := spelling.dot + string(match[1]); got != StudioProjectSuffix {
-			t.Errorf("%s spells the suffix %q; StudioProjectSuffix is %q", spelling.file, got, StudioProjectSuffix)
-		}
+// The suffix is spelled twice in two languages: here, and in the ingest pattern that skips the
+// projects the removed Video Studio saved. A drift silently indexes every one of them, so the
+// ingest's is read and compared, the way internal/embeddings/prefix_parity_test.go holds the
+// ingest's document prefix to Go's.
+func TestStudioProjectSuffixMatchesTheIngest(t *testing.T) {
+	file := filepath.Join("..", "..", "services", "ingest", "source.py")
+	source, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("read %s: %v", file, err)
+	}
+	pattern := `(?m)^STUDIO_PROJECT_PATTERN = "\*\*/\*([^"]*)"\s*$`
+	match := regexp.MustCompile(pattern).FindSubmatch(source)
+	if match == nil {
+		t.Fatalf("%s no longer declares the suffix on one line matching %s", file, pattern)
+	}
+	if got := string(match[1]); got != StudioProjectSuffix {
+		t.Errorf("%s spells the suffix %q; StudioProjectSuffix is %q", file, got, StudioProjectSuffix)
 	}
 }

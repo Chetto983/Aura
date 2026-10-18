@@ -3,7 +3,6 @@ package agui
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -121,19 +120,9 @@ func decodeAssetPresignBody(w http.ResponseWriter, r *http.Request) (assetPresig
 	return body, err
 }
 
-// handleAssetFinalize accepts an upload. `?use=media` is the editor's door: a source the operator
-// will cut is accepted and left alone, where the plain call runs the modality's processor.
 func (s *Server) handleAssetFinalize(w http.ResponseWriter, r *http.Request) {
-	use := r.URL.Query().Get("use")
 	asset, ok := s.callAssetMutation(w, r, func(ctx context.Context, identityID, id string) (assets.Asset, error) {
-		switch use {
-		case "":
-			return s.assets.Finalize(ctx, identityID, id)
-		case "media":
-			return s.assets.FinalizeMedia(ctx, identityID, id)
-		default:
-			return assets.Asset{}, fmt.Errorf("unknown finalize use %q", use)
-		}
+		return s.assets.Finalize(ctx, identityID, id)
 	})
 	if !ok {
 		return
