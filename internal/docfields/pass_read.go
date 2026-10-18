@@ -12,6 +12,9 @@ import (
 // through over several passes rather than in one long one.
 const passBatch = 200
 
+// passagePage bounds the passages one response of the passage read holds.
+const passagePage = 256
+
 const documentTextColumns = "source_key, file_name, card, header_pairs, indexed_at"
 
 // passCursor is how far the last pass got: the last document it read, by indexed_at and then by
@@ -97,29 +100,103 @@ func readDocuments(ctx context.Context, c *arcadedb.Client, where string, params
 	return docs, readPassages(ctx, c, docs, byKey)
 }
 
-// readPassages fills each document's text with its passages, in order, in one request.
+// readPassages fills each document's text with its passages, in order. No response holds more
+// than passagePage passages: the documents are packed into requests by their passage counts, and
+// one longer than a page is read alone, a page at a time, until it has the text the pass matches.
+// 200 manuals of 600 KB in one response would be about 120 MB, past the client's timeout, and the
+// pass would retry that batch for good.
 func readPassages(ctx context.Context, c *arcadedb.Client, docs []DocumentText, byKey map[string]int) error {
 	keys := make([]string, 0, len(docs))
 	for _, doc := range docs {
 		keys = append(keys, doc.SourceKey)
 	}
-	rows, err := c.Query(ctx, "SELECT source_key, text FROM Passage WHERE source_key IN :keys ORDER BY source_key, ordinal",
-		map[string]any{"keys": keys})
+	counts, err := passageCounts(ctx, c, keys)
 	if err != nil {
-		return fmt.Errorf("read passages: %w", err)
+		return err
 	}
 	texts := make([][]string, len(docs))
 	sizes := make([]int, len(docs))
-	for _, row := range rows {
-		i, ok := byKey[str(row["source_key"])]
-		if !ok || sizes[i] >= maxPassText {
+	take := func(rows []map[string]any) {
+		for _, row := range rows {
+			i, ok := byKey[str(row["source_key"])]
+			if !ok || sizes[i] >= maxPassText {
+				continue
+			}
+			text := str(row["text"])
+			texts[i], sizes[i] = append(texts[i], text), sizes[i]+len(text)+1
+		}
+	}
+	var group []string
+	packed := 0
+	flush := func() error {
+		if len(group) == 0 {
+			return nil
+		}
+		rows, err := c.Query(ctx, "SELECT source_key, text FROM Passage WHERE source_key IN :keys ORDER BY source_key, ordinal",
+			map[string]any{"keys": group})
+		if err != nil {
+			return fmt.Errorf("read passages: %w", err)
+		}
+		take(rows)
+		group, packed = nil, 0
+		return nil
+	}
+	for _, key := range keys {
+		n := counts[key]
+		if n == 0 {
 			continue
 		}
-		text := str(row["text"])
-		texts[i], sizes[i] = append(texts[i], text), sizes[i]+len(text)+1
+		if n > passagePage {
+			if err := readLongPassages(ctx, c, key, func() bool { return sizes[byKey[key]] >= maxPassText }, take); err != nil {
+				return err
+			}
+			continue
+		}
+		if packed+n > passagePage {
+			if err := flush(); err != nil {
+				return err
+			}
+		}
+		group, packed = append(group, key), packed+n
+	}
+	if err := flush(); err != nil {
+		return err
 	}
 	for i := range docs {
 		docs[i].Text = strings.Join(texts[i], "\n")
+	}
+	return nil
+}
+
+func passageCounts(ctx context.Context, c *arcadedb.Client, keys []string) (map[string]int, error) {
+	rows, err := c.Query(ctx, "SELECT source_key, count(*) AS n FROM Passage WHERE source_key IN :keys GROUP BY source_key",
+		map[string]any{"keys": keys})
+	if err != nil {
+		return nil, fmt.Errorf("count passages: %w", err)
+	}
+	counts := make(map[string]int, len(rows))
+	for _, row := range rows {
+		n, _ := row["n"].(float64)
+		counts[str(row["source_key"])] = int(n)
+	}
+	return counts, nil
+}
+
+// readLongPassages reads one document's passages a page at a time, by ordinal, until full says the
+// document has the text the pass matches or none is left.
+func readLongPassages(ctx context.Context, c *arcadedb.Client, key string, full func() bool, take func([]map[string]any)) error {
+	after := any(-1)
+	for !full() {
+		rows, err := c.Query(ctx, fmt.Sprintf("SELECT source_key, ordinal, text FROM Passage WHERE source_key = :k AND ordinal > :from_ordinal "+
+			"ORDER BY ordinal LIMIT %d", passagePage), map[string]any{"k": key, "from_ordinal": after})
+		if err != nil {
+			return fmt.Errorf("read passages of %s: %w", key, err)
+		}
+		take(rows)
+		if len(rows) < passagePage {
+			return nil
+		}
+		after = rows[len(rows)-1]["ordinal"]
 	}
 	return nil
 }
