@@ -257,7 +257,8 @@ func TestMemoryDefaultOn_RespectsProfileExclusion(t *testing.T) {
 // with `paired: true` on the bridge and ZERO WhatsApp tools in the agent, with no error on
 // either side to explain it. Calendar had the identical gap.
 func TestSidecarRecipesContainerDefaultOn(t *testing.T) {
-	for _, name := range []string{"calendar", "whatsapp"} {
+	// The Craft servers ship in the box image every identity runs, as agent-browser does.
+	for _, name := range append([]string{"calendar", "whatsapp"}, mcp.CraftServers...) {
 		t.Run(name, func(t *testing.T) {
 			clearMCPEnv(t)
 			t.Setenv("AURA_IN_CONTAINER", "1")

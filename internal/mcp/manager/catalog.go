@@ -177,6 +177,7 @@ func BuiltInCatalog() []CatalogEntry {
 			},
 		},
 	}
+	entries = append(entries, craftCatalogEntries()...)
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
 	return entries
 }

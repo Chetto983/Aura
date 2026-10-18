@@ -22,7 +22,9 @@ func TestCatalogIncludesTrustedRecipesAndCalendarHTTPRecipe(t *testing.T) {
 	// /root/.cache/uv, which is seeded once and never refreshed — so no later image could
 	// reach its own warm cache. See BuiltInCatalog.
 	// browser is agent-browser's MCP server, run in each identity's box (prd.md §12).
-	wantNames := []string{"browser", "calendar", "memory", "whatsapp"}
+	// The six Craft servers run in each identity's box too (docs/superpowers/specs/2026-10-18-craft-mcp-design.md).
+	wantNames := []string{"browser", "calendar", "deckcraft", "filmcraft", "gridcraft", "memory", "pdfcraft", "photocraft",
+		"whatsapp", "wordcraft"}
 	if !reflect.DeepEqual(names, wantNames) {
 		t.Fatalf("catalog names = %#v, want %#v", names, wantNames)
 	}
@@ -259,6 +261,40 @@ func TestNoRecipeDependsOnABuildTimeUVCache(t *testing.T) {
 		if slices.Contains(entry.Server.Env, "UV_OFFLINE=1") {
 			t.Fatalf("recipe %q sets UV_OFFLINE=1, so it can only resolve from a build-time uv cache — "+
 				"which the /root/.cache/uv volume shadows on every image after the first", entry.Name)
+		}
+	}
+}
+
+// Each Craft recipe launches its CLI's MCP server in the identity's box. The four servers that can be
+// confined to a folder are confined to /workspace; GridCraft and FilmCraft have no such flags, and the box
+// is their fence. PdfCraft serves its compact surface: 17 tools, the rest through its own tool_search.
+func TestCraftRecipesRunInTheBox(t *testing.T) {
+	roots := []string{"--automation-read-root", "/workspace", "--automation-write-root", "/workspace"}
+	want := map[string][]string{
+		"gridcraft":  {"mcp"},
+		"filmcraft":  {"mcp"},
+		"pdfcraft":   append([]string{"mcp", "--compact"}, roots...),
+		"wordcraft":  append([]string{"mcp"}, roots...),
+		"deckcraft":  append([]string{"mcp"}, roots...),
+		"photocraft": append([]string{"mcp"}, roots...),
+	}
+	for _, name := range mcp.CraftServers {
+		entry, ok := LookupCatalog(name)
+		if !ok {
+			t.Fatalf("%s recipe missing", name)
+		}
+		server := entry.Server
+		if entry.Runtime != mcp.RuntimeKindBox || server.Runtime.Kind != mcp.RuntimeKindBox {
+			t.Errorf("%s runs %q/%q, want the box", name, entry.Runtime, server.Runtime.Kind)
+		}
+		if entry.TrustClass != mcp.TrustTrustedRecipe || server.Trust.Class != mcp.TrustTrustedRecipe {
+			t.Errorf("%s trust %q/%q, want %q", name, entry.TrustClass, server.Trust.Class, mcp.TrustTrustedRecipe)
+		}
+		if source := mcp.CraftRecipeSource(name); entry.Source != source || server.Source != source {
+			t.Errorf("%s source %q/%q, want %q", name, entry.Source, server.Source, source)
+		}
+		if server.Command != name+"-cli" || !reflect.DeepEqual(server.Args, want[name]) {
+			t.Errorf("%s launches %q %v, want %q %v", name, server.Command, server.Args, name+"-cli", want[name])
 		}
 	}
 }

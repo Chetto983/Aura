@@ -43,9 +43,11 @@ const BrowserRecipeSource = mcp.BrowserRecipeSource
 // Being on the list does not force them: an explicit `aura mcp disable whatsapp` still
 // wins, and a missing sidecar fail-softs to a WARN drop at mount like any other server.
 //
-// browser: the appliance runs every identity's sandbox box from the same image, which ships
-// agent-browser, so its MCP server is always there to start.
-var containerDefaultOnRecipes = []string{calendarRecipeName, whatsappRecipeName, browserRecipeName}
+// browser and the Craft servers: the appliance runs every identity's sandbox box from the same
+// image, which ships agent-browser and the six Craft CLIs, so their MCP servers are always there to
+// start.
+var containerDefaultOnRecipes = append([]string{calendarRecipeName, whatsappRecipeName, browserRecipeName},
+	mcp.CraftServers...)
 
 // RuntimeSet composes what this host will actually mount from `managed`: the runnable
 // server configs plus the policy map (the managed recipes an operator may enable/disable).
