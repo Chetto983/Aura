@@ -120,8 +120,10 @@ func (b *Browser) transferAll(
 // where it was, which is the only recoverable way round. A move takes the asset rows of the
 // keys it relocates between the two, so no row ever names a key without bytes; a failure
 // there leaves the sources and their rows as they were, and the copies without a row. name,
-// when not empty, is the renamed file's new name, which its row takes too. A copy gets no
-// row: it is a new file, not a new upload, and is listed by its key like any other.
+// when not empty, is the renamed file's new name, which its row and its object's metadata
+// take too. A copy gets no row: it is a new file, not a new upload, and is listed by its key
+// like any other. The document fields follow before any source goes, for the same reason the
+// rows do.
 func (b *Browser) transfer(
 	ctx context.Context, identityID, source, destination string, removeSource bool, name string,
 ) (string, error) {
@@ -158,17 +160,21 @@ func (b *Browser) transfer(
 	for _, move := range moves {
 		if err := store.Copy(ctx,
 			objectstore.ObjectRef{Bucket: bucket, Key: move.From},
-			objectstore.ObjectRef{Bucket: bucket, Key: move.To}); err != nil {
+			objectstore.ObjectRef{Bucket: bucket, Key: move.To},
+			objectstore.CopyOptions{FileName: move.Name}); err != nil {
 			return "", fmt.Errorf("copy %s: %w", move.From, err)
 		}
 	}
-	if !removeSource {
-		return "/" + destination, nil
-	}
-	if b.Rows != nil {
+	if removeSource && b.Rows != nil {
 		if err := b.Rows.Relocate(ctx, identityID, bucket, moves); err != nil {
 			return "", fmt.Errorf("move the asset rows: %w", err)
 		}
+	}
+	if err := b.carryFields(ctx, identityID, moves, removeSource); err != nil {
+		return "", err
+	}
+	if !removeSource {
+		return "/" + destination, nil
 	}
 	for _, move := range moves {
 		if err := store.Delete(ctx, objectstore.ObjectRef{Bucket: bucket, Key: move.From}); err != nil {
@@ -176,6 +182,27 @@ func (b *Browser) transfer(
 		}
 	}
 	return "/" + destination, nil
+}
+
+// carryFields moves, or for a copy copies, the document fields of every relocated file to its
+// new key. A folder marker is no document.
+func (b *Browser) carryFields(ctx context.Context, identityID string, moves []KeyMove, removeSource bool) error {
+	if b.Fields == nil {
+		return nil
+	}
+	carry := b.Fields.CopyRecord
+	if removeSource {
+		carry = b.Fields.Move
+	}
+	for _, move := range moves {
+		if strings.HasSuffix(move.From, folderMarkerSuffix) {
+			continue
+		}
+		if err := carry(ctx, identityID, move.From, move.To); err != nil {
+			return fmt.Errorf("carry the document fields of %s: %w", move.From, err)
+		}
+	}
+	return nil
 }
 
 // refuseHeldDestinations fails before anything is copied when an asset row holds a key the

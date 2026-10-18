@@ -104,7 +104,14 @@ type Store interface {
 	// Copy duplicates one object inside the store. It exists so a file manager's move and
 	// rename -- which S3 has no primitive for, both being copy-then-delete -- do not have to
 	// stream every byte out through the daemon and back.
-	Copy(ctx context.Context, src, dst ObjectRef) error
+	Copy(ctx context.Context, src, dst ObjectRef, opts CopyOptions) error
+}
+
+// CopyOptions changes what a copy carries. FileName, when set, is the copy's new name: a rename
+// is a copy, and the index reads the name from the object's metadata, so a copy that kept the
+// source's showed the old name under the new key.
+type CopyOptions struct {
+	FileName string
 }
 
 // ShareSnapshotKey returns the object-store key for a share's redacted

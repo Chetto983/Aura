@@ -251,9 +251,19 @@ on 26.10.1:
 ### Task 4: rename and move carry the fields, and the new name
 
 **Files:**
-- Modify: `internal/objectstore/s3.go:286-294` (`Copy`) and the interface it implements;
-- Modify: `internal/assets/filemanager_ops.go:120-180`;
+- Modify: `internal/objectstore/s3.go:286-294` (`Copy`) and the interface it implements, with
+  `fake.go`, `filesystem.go` and `asset_placement.go` (`withFileName`);
+- Modify: `internal/assets/filemanager_ops.go:120-180` and `browser.go` (`BrowserFields`);
+- Modify: `cmd/aura/file_browser_wiring.go`, and `document_index_wiring.go`, whose tenant
+  resolver the fields store shares;
 - Tests: beside each.
+
+**Measured while writing it:**
+- Garage's `REPLACE` takes the destination's metadata from the request alone (`src/api/s3/copy.rs`
+  at v2.4.1, `extract_metadata_headers`; its manual is silent). The copy reads the source with
+  HEAD and sends back the type and every user entry, with `filename` replaced.
+- `FilesystemStore.Put` dropped `PutOptions.Metadata`, and its `Copy` dropped it again: on that
+  store no name survived an upload. Fixed on touch.
 
 **Interfaces:**
 - Consumes `docfields.Store.Move` and `docfields.Store.CopyRecord` (Task 2).
@@ -261,14 +271,14 @@ on 26.10.1:
   `MetadataDirective: REPLACE` with `filename` set and the other user metadata preserved.
 
 **Steps:**
-- [ ] **Step 1. RED.**
+- [x] **Step 1. RED.**
   - `TestRenameReplacesFilenameMetadata`: after a rename, HEAD on the new key returns the new
     `filename`. Today it returns the old one (the bug the spec records).
   - `TestRenameMovesDocumentRecord` and `TestCopyCopiesDocumentRecord`.
-- [ ] **Step 2. GREEN.** Rename passes the new name. The ops call `Move`, or `CopyRecord` for a
+- [x] **Step 2. GREEN.** Rename passes the new name. The ops call `Move`, or `CopyRecord` for a
   copy, after the object operation succeeds, and in the same flow as `RelocateAsset`.
-- [ ] **Step 3. Run with `-race`.**
-- [ ] **Step 4. Commit:** `fix(assets): a rename writes the new name and moves the document's fields`.
+- [x] **Step 3. Run with `-race`.**
+- [x] **Step 4. Commit:** `fix(assets): a rename writes the new name and moves the document's fields`.
 
 ### Task 5: filecard keeps the invoice header pairs, and the ingest carries them
 

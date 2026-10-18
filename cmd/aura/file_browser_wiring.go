@@ -1,8 +1,12 @@
 package main
 
 import (
+	"log/slog"
+	"strings"
+
 	"github.com/chetto1983/aura/internal/assets"
 	"github.com/chetto1983/aura/internal/config"
+	"github.com/chetto1983/aura/internal/docfields"
 	"github.com/chetto1983/aura/internal/objectstore"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -16,6 +20,11 @@ import (
 //
 // Rows lets a delete retire the asset row of each key it removes. Without a pool there is no
 // asset store, and Rows stays a nil interface rather than a Store with nothing to query.
+//
+// Fields carries a document's fields to the key a move, rename or copy gives it. Without
+// ArcadeDB there is no fields store, so no document has any and Fields stays nil. A missing
+// identity database is provisioned, as for retrieval: a rename must not fail because the
+// identity has not indexed anything yet.
 func buildFileBrowser(cfg *config.Config, pool *pgxpool.Pool, objects objectstore.Store) *assets.Browser {
 	browser := &assets.Browser{
 		Objects:      objects,
@@ -25,6 +34,15 @@ func buildFileBrowser(cfg *config.Config, pool *pgxpool.Pool, objects objectstor
 	if pool != nil {
 		browser.Rows = assets.NewStore(pool)
 	}
+	if strings.TrimSpace(cfg.ArcadeDB.BaseURL) == "" {
+		return browser
+	}
+	tenants, err := newRuntimeDocumentTenants(cfg, true)
+	if err != nil {
+		slog.Warn("file manager: document fields unavailable, a move will not carry them", "err", err)
+		return browser
+	}
+	browser.Fields = docfields.New(tenants)
 	return browser
 }
 

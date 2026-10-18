@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net/url"
 	"slices"
 	"strings"
@@ -170,7 +171,7 @@ func (s *FakeStore) Delete(ctx context.Context, ref ObjectRef) error {
 	return nil
 }
 
-func (s *FakeStore) Copy(ctx context.Context, src, dst ObjectRef) error {
+func (s *FakeStore) Copy(ctx context.Context, src, dst ObjectRef, opts CopyOptions) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -179,6 +180,10 @@ func (s *FakeStore) Copy(ctx context.Context, src, dst ObjectRef) error {
 	object, ok := s.objects[src]
 	if !ok {
 		return fs.ErrNotExist
+	}
+	object.attrs.Metadata = maps.Clone(object.attrs.Metadata)
+	if opts.FileName != "" {
+		object.attrs.Metadata = withFileName(object.attrs.Metadata, opts.FileName)
 	}
 	s.objects[dst] = object
 	return nil

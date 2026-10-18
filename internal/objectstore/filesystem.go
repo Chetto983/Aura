@@ -84,6 +84,7 @@ func (s *FilesystemStore) Put(ctx context.Context, ref ObjectRef, body io.Reader
 		SizeBytes: size,
 		ETag:      h.ETag(),
 		MIMEType:  opts.MIMEType,
+		Metadata:  opts.Metadata,
 	}
 	if err := writeMetadata(p, attrs); err != nil {
 		return Attrs{}, err
@@ -227,13 +228,17 @@ func (s *FilesystemStore) List(ctx context.Context, req ListRequest) ([]ObjectIn
 
 // Copy reads and rewrites. A filesystem has no server-side copy to delegate to, and this
 // store backs tests and single-node deployments where that cost is not the constraint.
-func (s *FilesystemStore) Copy(ctx context.Context, src, dst ObjectRef) error {
+func (s *FilesystemStore) Copy(ctx context.Context, src, dst ObjectRef, opts CopyOptions) error {
 	body, attrs, err := s.Get(ctx, src)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = body.Close() }()
-	_, err = s.Put(ctx, dst, body, PutOptions{MIMEType: attrs.MIMEType, Size: attrs.SizeBytes})
+	metadata := attrs.Metadata
+	if opts.FileName != "" {
+		metadata = withFileName(metadata, opts.FileName)
+	}
+	_, err = s.Put(ctx, dst, body, PutOptions{MIMEType: attrs.MIMEType, Size: attrs.SizeBytes, Metadata: metadata})
 	return err
 }
 

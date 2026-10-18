@@ -1,6 +1,7 @@
 package objectstore
 
 import (
+	"maps"
 	"net/url"
 	"path"
 	"strings"
@@ -135,6 +136,17 @@ func baseName(name string) string {
 // Python's urllib.parse.unquote is its exact inverse -- the sidecar needs no code of ours to
 // read this. It never emits '+', which unquote would leave alone and unquote_plus would turn
 // into a space; that ambiguity is why QueryEscape is not used here.
+// withFileName is metadata with its filename replaced and every other entry kept: what a
+// renamed copy carries.
+func withFileName(metadata map[string]string, fileName string) map[string]string {
+	out := maps.Clone(metadata)
+	if out == nil {
+		out = map[string]string{}
+	}
+	out[MetadataFileName] = encodeFileName(fileName)
+	return out
+}
+
 func encodeFileName(name string) string {
 	name = baseName(name)
 	// Truncate on the DECODED name so a cut never lands inside a rune or inside a percent
