@@ -93,3 +93,59 @@ func TestACraftMountBridgesNoDesktopOnlyTool(t *testing.T) {
 		t.Fatalf("bridged %d tools, want the 9 that work headless", len(bridged))
 	}
 }
+
+// Every tool a Craft server offers in the box has a class in Aura's table, and the table names nothing the
+// pinned version does not offer.
+func TestEveryVisibleCraftToolHasAnAction(t *testing.T) {
+	for _, server := range mcp.CraftServers {
+		source := mcp.CraftRecipeSource(server)
+		actions := craftRecipeActions[source]
+		visible := toolNames(visibleTools(source, pinnedCraftTools(t, server)))
+		for _, name := range visible {
+			if _, ok := actions[name]; !ok {
+				t.Errorf("%s: %q has no action", server, name)
+			}
+		}
+		for name := range actions {
+			if !slices.Contains(visible, name) {
+				t.Errorf("%s: the table names %q, which the box does not offer", server, name)
+			}
+		}
+	}
+}
+
+// Their writes only touch files in the identity's box, so none stops the turn for an approval, whatever the
+// server declares: FilmCraft, PdfCraft and PhotoCraft mark doc_save, command_run and even jobs_list
+// destructive.
+func TestCraftWritesAreReversibleWhateverTheServerDeclares(t *testing.T) {
+	for _, server := range mcp.CraftServers {
+		policy := bridgePolicy{recipeSource: mcp.CraftRecipeSource(server)}
+		for _, tool := range visibleTools(policy.recipeSource, pinnedCraftTools(t, server)) {
+			mutating, destructive := mcpToolRisk(policy, tool)
+			if destructive {
+				t.Errorf("%s: %s is destructive", server, tool.Name)
+			}
+			if read := craftRecipeActions[policy.recipeSource][tool.Name] == MCPActionRead; mutating == read {
+				t.Errorf("%s: %s mutating=%v, its action is %v", server, tool.Name, mutating, craftRecipeActions[policy.recipeSource][tool.Name])
+			}
+		}
+	}
+}
+
+// A tool an upgrade adds is neither in the table nor trusted by its annotations: it fails closed.
+func TestAToolTheCraftTableDoesNotKnowFailsClosed(t *testing.T) {
+	readOnly := &sdkmcp.ToolAnnotations{ReadOnlyHint: true}
+	mutating, destructive := mcpToolRisk(bridgePolicy{recipeSource: mcp.CraftRecipeSource("gridcraft")}, mustTool("brand_new", "", nil, readOnly))
+	if !mutating || !destructive {
+		t.Fatalf("an unknown Craft tool is mutating=%v destructive=%v, want both", mutating, destructive)
+	}
+}
+
+// The other recipes still honour a server's destructive hint.
+func TestOtherRecipesStillHonourADestructiveHint(t *testing.T) {
+	yes := true
+	_, destructive := mcpToolRisk(bridgePolicy{recipeSource: calendarRecipeSource}, mustTool("list_accounts", "", nil, &sdkmcp.ToolAnnotations{DestructiveHint: &yes}))
+	if !destructive {
+		t.Fatal("a calendar tool declared destructive was not")
+	}
+}

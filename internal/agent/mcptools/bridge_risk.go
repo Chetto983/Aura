@@ -195,6 +195,9 @@ func mcpToolRisk(policy bridgePolicy, t *sdkmcp.Tool) (mutating, destructive boo
 // internal/gateway's per-action classifier (not this function) is what actually
 // grades each call by its `action` argument (D-21).
 func classifyToolRisk(policy bridgePolicy, t *sdkmcp.Tool) (mutating, destructive bool) {
+	if actions, ok := craftRecipeActions[policy.recipeSource]; ok {
+		return craftToolRisk(actions, t.Name)
+	}
 	if actions := trustedRecipeActions[policy.recipeSource]; actions != nil {
 		if action, ok := actions[t.Name]; ok {
 			if explicitDestructive(t.Annotations) {
