@@ -577,21 +577,21 @@ writes beside its code.
 
 ### Task 13: measure, verify, review, push
 
-- [ ] **Step 1. The question set.** Run Task 1's set, first with today's search, then with
+- [x] **Step 1. The question set.** Run Task 1's set, first with today's search, then with
   filters on a library the operator, or the test harness standing in, has reviewed.
   - Record set recall both ways in `docs/superpowers/verification/2026-10-18-document-fields.md`.
   - **The gate:** recall up, and no gold lost that an unfiltered retry would not recover.
-- [ ] **Step 2. Survival and isolation, live.**
+- [x] **Step 2. Survival and isolation, live.**
   - A rename, a move, a re-ingest and a byte edit from the cockpit keep the values and the
     history.
   - After a rename, the index shows the new name.
   - A second identity sees nothing, through the API, the search and both databases.
-- [ ] **Step 3. Playwright** `web/e2e/documents.spec.ts`: list, filter, bulk edit with its
+- [x] **Step 3. Playwright** `web/e2e/documents.spec.ts`: list, filter, bulk edit with its
   confirmation, and review with "salva e avanti". The evidence goes through `testInfo.attach`.
-- [ ] **Step 4. The gates.** `make quality`, and the coverage gate through
+- [x] **Step 4. The gates.** `make quality`, and the coverage gate through
   `bash scripts/coverage_docker.sh`: the package policy, including a policy entry for
   `internal/docfields`.
-- [ ] **Step 5. Final review** by one fresh reviewer, on the range, this plan, the spec and the
+- [x] **Step 5. Final review** by one fresh reviewer, on the range, this plan, the spec and the
   Review Focus. Fix its findings test-first.
 - [ ] **Step 6. Push. Merge to master** on the operator's word.
 - [ ] **Step 7. The lab VM.** The real agent answers the set through `document_search` with

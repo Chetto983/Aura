@@ -132,6 +132,24 @@ operator's approval before the run.
   - In the detail an invoice opens in it on both viewports, with no console error.
   - The Documenti view now loads as its own chunk: the shell's test lost a race with it.
 
+## After the run: the final review's fixes
+
+The final review (one fresh reviewer, on the whole range) found seven defects the run above did not
+reach. Each was fixed test-first after the run; the live specs were not run again.
+
+| defect | test that failed first |
+|---|---|
+| a file with no fields moved or copied over a labelled key, and a deleted file, left the old record on the key | `TestDocfieldsARecordGoesWithItsBytes` (live), `TestDeleteRemovesTheDocumentRecord` |
+| a move whose fields failed left the asset rows moved, and the retry was refused | `TestAMoveWhoseFieldsFailLeavesTheRowsWhereTheyWere`, `TestARowThatCannotFollowTakesTheFieldsBack` |
+| after a rename the old key's indexed rows kept the moved values until the next scan | `TestDocfieldsWritesReachThePassages` (live) |
+| a fuzzy rule's pattern had no bound: 40 words cost 4.5 s per MB of text | `TestCompileBoundsAFuzzyPattern` |
+| the operator removing a value they set recorded no rejection (spec decision 3.1) | `TestApplyOperatorRemovingTheirOwnValueRejectsIt` |
+| one pass batch read every passage of its 200 documents in one response | `TestPassReadsPassagesAPageAtATime` (live, through a proxy measuring each response) |
+| the xlsx preview never fell back when GridCraft did not start | `XlsxPreview` "offers the file when GridCraft does not start" |
+
+The survival table's "until the scan, the old key's row stays in the index" still holds, but the
+row now carries no fields from the moment of the move.
+
 ## Isolation (acceptance 5)
 
 - **Measured at the database level only.** The stack's other tenant database holds none of the
