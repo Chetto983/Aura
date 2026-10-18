@@ -80,24 +80,28 @@ same fields. Every value records who set it.
 **Files:** `docs/superpowers/verification/2026-10-18-document-fields-mirror.md` (new). No product
 code.
 
-- [ ] **Step 1. Build the mirror on a copy.** On a disposable copy of the 7,798-passage library
+- [x] **Step 1. Build the mirror on a copy.** On a disposable copy of the 7,798-passage library
   (`scratchpad/adb2610`, ArcadeDB 26.10.1), create:
   `CREATE DOCUMENT TYPE DocumentFields; CREATE PROPERTY DocumentFields.source_key STRING;
   CREATE INDEX ON DocumentFields (source_key) UNIQUE`.
   Insert one row per `IndexedDocument.source_key`, with `type` set on one fifth of them.
-- [ ] **Step 2. Measure the cost of the filter.** Run `TestFusedQueryVariants` with an added
+- [x] **Step 2. Measure the cost of the filter.** Run `TestFusedQueryVariants` with an added
   variant whose `candidateWhere` carries
   `AND source_key IN (SELECT source_key FROM DocumentFields WHERE type = :type)`.
   Record its median against "shipped".
   - **Expected:** within 2× the shipped median.
   - **If not:** stop and report. The filter then moves to a document-id prefilter computed in Go,
     and the spec is amended.
-- [ ] **Step 3. Check that CocoIndex leaves the mirror alone.** On the fixture corpus, run an
+- [x] **Step 3. Check that CocoIndex leaves the mirror alone.** On the fixture corpus, run an
   ingest catch-up, rename one object, and run a second catch-up.
   - **Expected:** the `DocumentFields` row count is unchanged, and so is the renamed object's old
     row, which only Go deletes.
-- [ ] **Step 4. Record and commit.** Write the verification file with both results and what they
+- [x] **Step 4. Record and commit.** Write the verification file with both results and what they
   do not prove. Commit: `docs(verification): measure the DocumentFields mirror before building it`.
+- **Result (2026-10-18):** the subquery failed the gate (2.9× at 325 documents, 14.6× at 4,027). A `Passage`
+  property and a Go key list both passed at every width. ArcadeDB triggers kept the property on
+  CocoIndex's rows. The operator moved the fields into ArcadeDB. See
+  `docs/superpowers/verification/2026-10-18-document-fields-mirror.md`; Tasks 2, 3 and 6 change accordingly.
 
 ### Task 1: the PRD amendment and the question set, before the code
 
