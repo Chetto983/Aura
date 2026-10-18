@@ -28,28 +28,19 @@ import { documentsWords } from './documentsLocale';
 import { FilterBar } from './FilterBar';
 import { ListsPage } from './ListsPage';
 import { useBulkEdit } from './useBulkEdit';
+import { readShownFields, readWidths, saveShownFields, saveWidth } from './documentsPrefs';
 import { useDocumentLists } from './useDocumentLists';
 import { useWideView } from './useWideView';
 import { Button } from '@/components/ui/button';
 import { useThemeMode } from '@/theme/useThemeMode';
 
 const PAGE_SIZE = 50;
-const SHOWN_FIELDS_KEY = 'aura.documents.fields';
 
 /** The columns a header click sorts, each by the API's own sort key. */
 const SORTABLE: Readonly<Record<string, string>> = {
   file_name: 'file_name',
   document_date: 'document_date',
 };
-
-function readShownFields(): readonly string[] {
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(SHOWN_FIELDS_KEY) ?? '[]');
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
-  } catch {
-    return [];
-  }
-}
 
 const NO_ROWS: readonly DocumentRow[] = [];
 const NO_FACETS: Facets = {};
@@ -69,6 +60,7 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
   const [sort, setSort] = useState('');
   const [offset, setOffset] = useState(0);
   const [shownFields, setShownFieldsState] = useState(readShownFields);
+  const [widths, setWidths] = useState(readWidths);
   const [openId, setOpenId] = useState<string | null>(null);
   const [listsOpen, setListsOpen] = useState(false);
   const wide = useWideView();
@@ -79,11 +71,7 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
   }, []);
   const setShownFields = useCallback((ids: readonly string[]) => {
     setShownFieldsState(ids);
-    try {
-      localStorage.setItem(SHOWN_FIELDS_KEY, JSON.stringify(ids));
-    } catch {
-      // Storage is optional; the columns still change.
-    }
+    saveShownFields(ids);
   }, []);
 
   const { lists, names, customFields } = useDocumentLists();
@@ -108,8 +96,8 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
   };
 
   const columns = useMemo(
-    () => documentColumns(t, customFields, shownFields, wide),
-    [t, customFields, shownFields, wide],
+    () => documentColumns(t, customFields, shownFields, wide, widths),
+    [t, customFields, shownFields, wide, widths],
   );
 
   // The library is sorted on the server, a page at a time: a header click becomes the query's
@@ -122,6 +110,13 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
         setOffset(0);
       }
       return false;
+    });
+    // A column dragged to a new width keeps it, here and on the next visit; the drag itself
+    // stays the grid's until the operator lets go.
+    api.on('resize-column', (ev) => {
+      const width = ev.width;
+      if (ev.inProgress === true || width === undefined) return;
+      setWidths((current) => saveWidth(current, String(ev.id), width));
     });
   }, []);
   const sortMarks = useMemo(() => {

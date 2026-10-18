@@ -122,6 +122,20 @@ test.describe('the Documenti view, live', () => {
             .locator('.wx-header .wx-cell', { hasText: 'Nome' })
             .evaluate((cell) => cell.getBoundingClientRect().width);
           expect(nameWidth, 'the name column keeps a readable width').toBeGreaterThanOrEqual(150);
+          if (!device.isMobile) {
+            // The operator drags a column's edge, and the list keeps the width it was left at.
+            const header = list.locator('.wx-header .wx-cell', { hasText: 'Nome' });
+            const grip = await header.locator('.wx-grip').boundingBox();
+            if (grip === null) throw new Error('the name column has no resize grip');
+            await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+            await page.mouse.down();
+            await page.mouse.move(grip.x - 150, grip.y + grip.height / 2, { steps: 10 });
+            await page.mouse.up();
+            const dragged = await header.evaluate((cell) => cell.getBoundingClientRect().width);
+            expect(dragged, 'the dragged column narrows').toBeLessThan(nameWidth - 100);
+            const kept = await page.evaluate(() => localStorage.getItem('aura.documents.widths'));
+            expect(kept, 'the width is remembered').toContain('file_name');
+          }
           await shot(page, testInfo, `${device.name}-01-elenco`);
 
           await list.getByRole('button', { name: 'Tipo', exact: true }).click();
