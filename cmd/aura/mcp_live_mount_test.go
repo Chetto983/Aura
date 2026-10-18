@@ -82,7 +82,8 @@ func newTestLiveMount() *liveMCPMount {
 func dyingStdioServer(t *testing.T) (mcp.ManagedServer, func() int) {
 	t.Helper()
 	log := filepath.Join(t.TempDir(), "starts")
-	server := mcp.ManagedServer{Command: "sh", Args: []string{"-c", "echo start >> " + log + "; exit 1"}}
+	// sh reads a backslash as an escape, so a Windows path reaches it with forward slashes.
+	server := mcp.ManagedServer{Command: "sh", Args: []string{"-c", "echo start >> " + filepath.ToSlash(log) + "; exit 1"}}
 	return server, func() int {
 		raw, err := os.ReadFile(log)
 		if err != nil {
