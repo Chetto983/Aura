@@ -58,6 +58,19 @@ func TestIsSupportedDocument(t *testing.T) {
 		{"Motor.scl", true},
 		{"run-speed.mjs", true},
 		{"Makefile", false},
+		// The ingest indexes these as text too (services/ingest/extract.py _TEXTUAL): the legacy
+		// and OpenDocument formats through LibreOffice, and two plain-text ones. Refusing them
+		// at upload, while the ingest indexes the same file dropped in the bucket, is the drift
+		// this allowlist exists to prevent (measured 2026-10-18: seven fixtures refused).
+		{"memo.doc", true},
+		{"sheet.xls", true},
+		{"slides.ppt", true},
+		{"memo.odt", true},
+		{"sheet.ods", true},
+		{"slides.odp", true},
+		{"letter.rtf", true},
+		{"table.tsv", true},
+		{"guide.rst", true},
 		// Case-insensitive over the extension.
 		{"REPORT.PDF", true},
 		{"Slides.Pptx", true},

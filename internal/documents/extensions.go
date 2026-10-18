@@ -23,11 +23,24 @@ var supportedDocumentExt = withSourceFiles(map[string]struct{}{
 	".json":     {},
 	".xml":      {},
 	".epub":     {},
-	".png":      {},
-	".jpg":      {},
-	".jpeg":     {},
-	".gif":      {},
-	".webp":     {},
+	// The rest of the ingest's _TEXTUAL set (services/ingest/extract.py): LibreOffice turns the
+	// legacy and OpenDocument formats into OOXML before extraction, and document_open hands the
+	// original to a box that has soffice. Refused here, they were indexed when dropped in the
+	// bucket and refused when uploaded (2026-10-18).
+	".doc":  {},
+	".xls":  {},
+	".ppt":  {},
+	".odt":  {},
+	".ods":  {},
+	".odp":  {},
+	".rtf":  {},
+	".tsv":  {},
+	".rst":  {},
+	".png":  {},
+	".jpg":  {},
+	".jpeg": {},
+	".gif":  {},
+	".webp": {},
 })
 
 func withSourceFiles(set map[string]struct{}) map[string]struct{} {
