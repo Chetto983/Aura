@@ -1,0 +1,201 @@
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { api, documentsNamed, ensureLabel, openDocuments, type LiveRow } from './documentsLive';
+
+// The Documenti view on the live stack (Task 13 step 3 of
+// docs/superpowers/plans/2026-10-18-document-fields.md): the list, a filter, a bulk edit with its
+// confirmation, and a review with "Rivisto, salva e avanti", at a desktop and a phone width, with
+// a screenshot of every view attached. It runs against the dev stack's library, whose generated
+// invoices fattura_2026_0323, _0386 and _0267 a rule of the run's own picks out. Everything the
+// run writes is taken back at its end.
+//
+//   AURA_E2E_ORIGIN=https://localhost AURA_E2E_LIVE_DOCUMENTS=1 \
+//     npx playwright test e2e/documents-live.spec.ts --project=chrome
+
+const live = process.env.AURA_E2E_LIVE_DOCUMENTS === '1';
+
+const INVOICES = [
+  'fattura_2026_0323.xlsx',
+  'fattura_2026_0386.xlsx',
+  'fattura_2026_0267.xlsx',
+] as const;
+
+const VIEWPORTS = [
+  { name: 'desktop', viewport: { width: 1440, height: 900 }, isMobile: false },
+  { name: 'mobile', viewport: { width: 390, height: 844 }, isMobile: true },
+] as const;
+
+async function shot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
+  const path = testInfo.outputPath(`${name}.png`);
+  await page.screenshot({ path, animations: 'disabled' });
+  await testInfo.attach(name, { path, contentType: 'image/png' });
+}
+
+/** The labels a run of this spec names, so a run that died before its clean-up is taken back by
+ * the next one. */
+const RUN_LABEL = /^(Verifica |e2e-)(desktop|mobile)-[0-9a-z]+$/;
+
+async function staleLabels(page: Page): Promise<Record<string, string>[]> {
+  const out: Record<string, string>[] = [];
+  for (const [kind, param] of [
+    ['type', 'type'],
+    ['tag', 'tags'],
+  ] as const) {
+    const { labels } = await api<{ labels: readonly { id: string; name: string }[] }>(
+      page,
+      'GET',
+      `/api/documents/labels?kind=${kind}`,
+    );
+    for (const label of labels.filter((l) => RUN_LABEL.test(l.name))) {
+      out.push({ [param]: label.id });
+    }
+  }
+  return out;
+}
+
+/** takeBack removes every value the run's labels left on a document, then the labels. */
+async function takeBack(page: Page, labels: Readonly<Record<string, string>>): Promise<void> {
+  for (const [param, id] of Object.entries(labels)) {
+    const { rows } = await api<{ rows: readonly LiveRow[] }>(
+      page,
+      'GET',
+      `/api/documents?${param}=${encodeURIComponent(id)}&limit=50`,
+    );
+    for (const row of rows) {
+      const remove = row.values
+        .filter((v) => v.value_key === id)
+        .map((v) => ({ field: v.field, value_key: v.value_key }));
+      await api(page, 'PATCH', `/api/documents/${encodeURIComponent(row.id)}`, {
+        set: [],
+        remove,
+      });
+    }
+    await api(page, 'DELETE', `/api/documents/labels/${encodeURIComponent(id)}`);
+  }
+}
+
+test.describe('the Documenti view, live', () => {
+  test.skip(
+    !live,
+    'set AURA_E2E_LIVE_DOCUMENTS=1 against a rebuilt Aura holding the bench library',
+  );
+  test.describe.configure({ mode: 'serial' });
+
+  for (const device of VIEWPORTS) {
+    test.describe(device.name, () => {
+      test.use({
+        viewport: device.viewport,
+        isMobile: device.isMobile,
+        hasTouch: device.isMobile,
+        actionTimeout: 20_000,
+      });
+
+      test('list, filter, bulk edit and review, as the operator', async ({ page }, testInfo) => {
+        test.setTimeout(5 * 60_000);
+        const run = `${device.name}-${Date.now().toString(36)}`;
+        const typeName = `Verifica ${run}`;
+        const tagName = `e2e-${run}`;
+        await openDocuments(page);
+        for (const stale of await staleLabels(page)) await takeBack(page, stale);
+        const labels: Record<string, string> = {};
+        try {
+          labels.type = await ensureLabel(page, 'type', typeName, {
+            match_algorithm: 'regex',
+            match_pattern: 'fattura_2026_0(323|386|267)\\.xlsx',
+          });
+          labels.tags = await ensureLabel(page, 'tag', tagName);
+          await page.reload();
+
+          const list = page.getByRole('region', { name: 'Documenti' });
+          await expect(list.getByRole('heading', { name: 'Documenti' })).toBeVisible();
+          await expect(list.locator('.wx-row').first()).toBeVisible();
+          // The grid scrolls inside the room left to it, rather than growing past the page and
+          // taking the rows below the fold and the pager with it.
+          const fits = await list.evaluate((region) => {
+            const grid = region.querySelector('.wx-grid');
+            return (
+              grid !== null &&
+              grid.getBoundingClientRect().bottom <= region.getBoundingClientRect().bottom + 1
+            );
+          });
+          expect(fits, 'the grid stays inside the view').toBe(true);
+          const nameWidth = await list
+            .locator('.wx-header .wx-cell', { hasText: 'Nome' })
+            .evaluate((cell) => cell.getBoundingClientRect().width);
+          expect(nameWidth, 'the name column keeps a readable width').toBeGreaterThanOrEqual(150);
+          await shot(page, testInfo, `${device.name}-01-elenco`);
+
+          await list.getByRole('button', { name: 'Tipo', exact: true }).click();
+          const menu = page.getByRole('dialog', { name: 'Tipo' });
+          await menu.getByRole('checkbox', { name: new RegExp(typeName) }).click();
+          for (const name of INVOICES) {
+            await expect(list.getByRole('button', { name, exact: true })).toBeVisible();
+          }
+          await shot(page, testInfo, `${device.name}-02-filtro-tipo`);
+          await page.keyboard.press('Escape');
+          await shot(page, testInfo, `${device.name}-03-filtrato`);
+
+          await list.getByRole('checkbox', { name: `Seleziona ${INVOICES[0]}` }).click();
+          await list.getByRole('checkbox', { name: `Seleziona ${INVOICES[1]}` }).click();
+          const bar = page.getByRole('toolbar', { name: 'Modifica in blocco' });
+          await bar.getByRole('button', { name: 'Tag', exact: true }).click();
+          const tags = page.getByRole('dialog', { name: 'Tag, sui 2 selezionati' });
+          await tags.getByRole('button', { name: new RegExp(tagName) }).click();
+          await shot(page, testInfo, `${device.name}-04-modifica-in-blocco`);
+          // On a phone the open menu covers the bar's last row, where Applica sits: the menu
+          // closes first, as a tap outside it would.
+          await page.keyboard.press('Escape');
+          await bar.getByRole('button', { name: 'Applica' }).click();
+          const confirm = page.getByRole('dialog', { name: 'Confermi la modifica?' });
+          await expect(confirm).toContainText('2 documenti');
+          await shot(page, testInfo, `${device.name}-05-conferma`);
+          await confirm.getByRole('button', { name: 'Conferma' }).click();
+          await expect(bar).toBeHidden();
+          for (const name of INVOICES.slice(0, 2)) {
+            const [doc] = await documentsNamed(page, name);
+            expect(doc?.values.some((v) => v.value_key === labels.tags)).toBe(true);
+          }
+          await shot(page, testInfo, `${device.name}-06-applicato`);
+
+          await list.getByRole('button', { name: INVOICES[2], exact: true }).click();
+          await expect(page.getByRole('heading', { name: INVOICES[2] })).toBeVisible();
+          const use = page.getByRole('button', { name: `Usa il suggerimento ${typeName}` });
+          await expect(use).toBeVisible();
+          await expect(page.getByText(/Caricamento anteprima/)).toBeHidden({ timeout: 30_000 });
+          await shot(page, testInfo, `${device.name}-07-dettaglio`);
+          await use.click();
+          await expect(page.getByRole('button', { name: 'Salva', exact: true })).toBeEnabled();
+          await shot(page, testInfo, `${device.name}-08-dettaglio-modificato`);
+          // The detail is the section holding its review button: the shell's own navigation
+          // carries a "Documenti" too.
+          const detail = page
+            .locator('section')
+            .filter({ has: page.getByRole('button', { name: 'Rivisto, salva e avanti' }) });
+          await detail.getByRole('button', { name: 'Rivisto, salva e avanti' }).click();
+          await expect(page.getByRole('heading', { name: INVOICES[2] })).toBeHidden();
+          await expect(detail.getByRole('heading', { level: 1 })).toBeVisible();
+          const [reviewed] = await documentsNamed(page, INVOICES[2]);
+          expect(reviewed?.needs_review).toBe(false);
+          expect(reviewed?.values.some((v) => v.value_key === labels.type && v.accepted)).toBe(
+            true,
+          );
+          await shot(page, testInfo, `${device.name}-09-avanti`);
+
+          await detail.getByRole('button', { name: 'Documenti', exact: true }).click();
+          await list.getByRole('button', { name: 'Liste e regole' }).click();
+          await expect(page.getByRole('heading', { name: 'Liste e regole' })).toBeVisible();
+          await expect(page.getByRole('heading', { name: typeName, level: 3 })).toBeVisible();
+          await expect(page.getByText(/^\d+ document[oi]$/).first()).toBeVisible();
+          await shot(page, testInfo, `${device.name}-10-liste`);
+          await page.getByRole('button', { name: `Modifica ${typeName}` }).click();
+          await expect(page.getByRole('form', { name: `Modifica ${typeName}` })).toBeVisible();
+          await shot(page, testInfo, `${device.name}-11-regola`);
+          await page.getByRole('button', { name: 'Annulla' }).click();
+          await page.getByRole('tab', { name: 'Campi personalizzati' }).click();
+          await shot(page, testInfo, `${device.name}-12-campi`);
+        } finally {
+          await takeBack(page, labels);
+        }
+      });
+    });
+  }
+});
