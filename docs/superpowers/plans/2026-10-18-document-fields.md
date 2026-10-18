@@ -1,0 +1,474 @@
+# Document fields implementation plan
+
+**Status (2026-10-18):** written, not started. The operator approved the spec, decision 2
+included ("Approvata, scrivi il piano").
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
+> (recommended) or superpowers:executing-plans to implement this plan task by task, with
+> test-driven-development. Steps use checkbox (`- [ ]`) syntax for tracking. This plan runs on
+> branch `claude/github-abuse-review-0o3kqw`.
+
+**Goal:** the operator sees, filters, corrects and reviews type, counterparty, date, tags and
+custom fields on every document in a Documenti view. The agent's `document_search` filters by the
+same fields. Every value records who set it.
+
+**Architecture:**
+- **Postgres is the truth.** New `aura.*` tables with the fail-closed RLS pair hold the lists, one
+  record per `(identity_id, object_key)`, the values with provenance, the rejections and the event
+  history, behind a `internal/docfields` Store in the `internal/board` shape.
+- **ArcadeDB gets a Go-owned mirror.** Go writes a `DocumentFields` document type in the
+  identity's database in the same request. `candidateWhere` filters through a subquery on it.
+- **Suggestions come from Go.** A Go pass applies rules on the labels, and the invoice header
+  pairs filecard now keeps (carried on `IndexedDocument` by the ingest), as suggestions.
+- **The cockpit** adds a Documenti view on `@svar-ui/react-grid` beside the file manager.
+
+**Tech Stack:**
+- Go 1.27, sqlc, golang-migrate, Postgres 18;
+- ArcadeDB 26.10.1 over HTTP;
+- Python 3.12 with cocoindex 1.0.25;
+- React 18, `@svar-ui/react-grid` 2.7.0, vitest, Playwright.
+
+**Spec:** `docs/superpowers/specs/2026-10-18-document-fields-design.md` (approved 2026-10-18).
+
+## Global Constraints
+
+- **No new environment variable.**
+- **The migration number is `ls internal/db/migrations/ | tail -1` plus one.** It is 0142 if
+  nothing lands first. Never copy the number from this plan.
+- **Every new table carries the fail-closed RLS pair** of `0141_work_board.up.sql`: an
+  `*_owner_isolation` policy and an `*_require_identity` RESTRICTIVE policy. Grants go to
+  `aura_app` and `aura_migrate`.
+- **The identity comes from the principal** (`principalIdentityID(r)`), never a request parameter.
+- **`set_by` takes exactly these values:** `operator`, `rule:<label id>`, `extractor`, `copied`.
+  `classifier` and `llm` are reserved for phases 2 and 3; the CHECK admits them and no code
+  writes them.
+- **Nothing below the operator changes an operator value.** A rejected value is never
+  re-suggested for that document.
+- **Names match case-insensitively and exactly, after trimming.** They are unique per identity
+  and kind.
+- **`document_search` gets exactly seven new optional arguments:** `type`, `counterparty`,
+  `tags`, `tags_mode` (`any`|`all`), `date_from`, `date_to`, `include_unreviewed` (default
+  `true`). Unknown fields stay refused.
+- **The agent filters on fixed fields and tags only.**
+- **The lists start empty.** No seed outside tests.
+- **`@svar-ui/react-grid` is pinned exactly at `2.7.0`.**
+- **Paperless is GPL-3.0.** Its behaviours are the reference; no code, styles or strings.
+- **No file over 600 lines;** refactor on touch.
+- **Every Go edit:** `go vet ./...`, `go build ./...`, `go test -race` on the touched packages.
+  Every web edit: `npm run lint`, `npm run typecheck`, `npm test`.
+- **Python:** the ingest suite through `scratchpad/harness/ingest-pytest.sh` and `ruff check`.
+
+## Review Focus
+
+1. **A name typed differently** ("gialli import ", "GIALLI IMPORT") matches the stored
+   "Gialli Import" in filters, in rules and in bulk edit. An unknown name returns the closest
+   names, never an empty silent result. Test in Task 6.
+2. **"Select all in the filter", then Apply, after the result changed** (a new document indexed in
+   between). Apply re-evaluates the filter minus exclusions, and refuses with the new count when
+   it differs from the count the operator confirmed. Test in Task 8.
+3. **A rename onto a key that already has a record.** The moved record replaces the target's, and
+   the replaced record's values end with a `removed` event. Test in Task 4.
+4. **The operator removes a value, then the pass runs again.** The value comes back neither from
+   its rule nor from the extractor. Test in Task 7.
+5. **An invalid regex rule.** It is refused at save with the parse error, and a pass never panics
+   or stalls on any pattern; Go's RE2 is linear. Test in Task 7.
+
+---
+
+### Task 0: measure the mirror before building it
+
+**Files:** `docs/superpowers/verification/2026-10-18-document-fields-mirror.md` (new). No product
+code.
+
+- [ ] **Step 1. Build the mirror on a copy.** On a disposable copy of the 7,798-passage library
+  (`scratchpad/adb2610`, ArcadeDB 26.10.1), create:
+  `CREATE DOCUMENT TYPE DocumentFields; CREATE PROPERTY DocumentFields.source_key STRING;
+  CREATE INDEX ON DocumentFields (source_key) UNIQUE`.
+  Insert one row per `IndexedDocument.source_key`, with `type` set on one fifth of them.
+- [ ] **Step 2. Measure the cost of the filter.** Run `TestFusedQueryVariants` with an added
+  variant whose `candidateWhere` carries
+  `AND source_key IN (SELECT source_key FROM DocumentFields WHERE type = :type)`.
+  Record its median against "shipped".
+  - **Expected:** within 2× the shipped median.
+  - **If not:** stop and report. The filter then moves to a document-id prefilter computed in Go,
+    and the spec is amended.
+- [ ] **Step 3. Check that CocoIndex leaves the mirror alone.** On the fixture corpus, run an
+  ingest catch-up, rename one object, and run a second catch-up.
+  - **Expected:** the `DocumentFields` row count is unchanged, and so is the renamed object's old
+    row, which only Go deletes.
+- [ ] **Step 4. Record and commit.** Write the verification file with both results and what they
+  do not prove. Commit: `docs(verification): measure the DocumentFields mirror before building it`.
+
+### Task 1: the PRD amendment and the question set, before the code
+
+**Files:**
+- Modify: `prd.md` §11;
+- Create: `scripts/fixtures/document_retrieval_eval/document_filter_questions.json`.
+
+- [ ] **Step 1. The amendment.**
+  - It covers the fields, provenance, review state, the Postgres tables plus the `DocumentFields`
+    mirror, and the seven arguments.
+  - It records the reversal of 0098's sentence "anything richer has to live in S3 object
+    metadata", with the spec's four reasons and Task 0's number.
+  - It ends with what the amendment does not prove.
+- [ ] **Step 2. The question set.**
+  - At least 20 questions over the office corpus, each answerable with type, counterparty, date
+    and tags only. It extends q03, q09 and q18; q08 stays out.
+  - Each entry: `{"qid","query","filters":{…},"gold_docs":[…],"answer"}`. `gold_docs` holds the
+    answer documents themselves: the invoices, not `contabilita_2026.xlsx`.
+  - Read the values from `spikes/document-routing-benchmark/generate_corpus.py`.
+- [ ] **Step 3. Commit:** `docs(prd): operator-owned document fields, and the question set that
+  gates them`.
+
+### Task 2: the tables and the store
+
+**Files:**
+- Create: `internal/db/migrations/<next>_document_fields.up.sql` and `.down.sql`;
+- Create: `internal/db/queries/document_fields.sql`;
+- Create: `internal/docfields/docfields.go`, `labels.go`, `records.go`, `values.go`, `events.go`;
+- Create: `internal/docfields/rules/match.go`, `match_test.go`: the five matchers (the Interfaces of Task 7), here because `SaveLabel` validates with them;
+- Test: `internal/docfields/docfields_test.go`, `store_integration_test.go` (`//go:build db_integration`).
+
+**The tables** (names and CHECKs fixed here; the columns are as listed):
+- `aura.document_labels`:
+  - `id uuid PK`, `identity_id`, `kind CHECK (kind IN ('type','counterparty','tag'))`, `name`;
+  - `match_algorithm CHECK (IN ('none','any','all','exact','regex','fuzzy'))` default `none`;
+  - `match_pattern text default ''`, `case_insensitive bool default true`, timestamps;
+  - `UNIQUE (identity_id, kind, lower(btrim(name)))`.
+- `aura.document_custom_fields`: `id`, `identity_id`, `name`,
+  `data_type CHECK (IN ('date','monetary','integer','text','select'))`, `options jsonb default '[]'`,
+  `UNIQUE (identity_id, lower(btrim(name)))`.
+- `aura.document_records`: `id uuid PK`, `identity_id`, `object_key`, `reviewed_at`,
+  `reviewed_by text CHECK (IN ('operator'))`, timestamps, `UNIQUE (identity_id, object_key)`.
+- `aura.document_values`:
+  - `record_id → document_records ON DELETE CASCADE`, `identity_id`;
+  - `field text`: `type|counterparty|document_date|tag|custom:<uuid>`;
+  - `value_key text`: the label id, ISO date, or the value's canonical text;
+  - `value jsonb`;
+  - `set_by CHECK (set_by IN ('operator','extractor','copied','classifier','llm') OR set_by LIKE 'rule:%')`;
+  - `accepted bool default false`, `evidence text default ''`, `set_at`;
+  - `PRIMARY KEY (record_id, field, value_key)`.
+- `aura.document_rejections`: `record_id`, `identity_id`, `field`, `value_key`, `rejected_at`,
+  `PRIMARY KEY (record_id, field, value_key)`.
+- `aura.document_field_events`: `id bigserial`, `identity_id`, `record_id`, `field`, `value_key`,
+  `action CHECK (IN ('set','accepted','rejected','removed','reviewed','moved'))`, `actor`, `before jsonb`,
+  `after jsonb`, `at`.
+
+**Interfaces, produced:**
+- `func New(pool *pgxpool.Pool) *Store`.
+- Labels: `(s *Store) Labels(ctx, identityID string, kind Kind) ([]Label, error)`, and
+  `SaveLabel(ctx, identityID string, in Label) (Label, error)`, which validates the pattern
+  through `rules.Compile`. Also `DeleteLabel(ctx, identityID, id string) error`.
+- `(s *Store) Record(ctx, identityID, objectKey string) (Record, error)`, which creates on first
+  use.
+- `(s *Store) ApplyDiff(ctx, identityID string, recordIDs []string, d Diff, actor string) error`,
+  where `Diff{Set []Value; Remove []ValueRef}`. It writes events, records rejections when the
+  operator removes a non-operator value, and never overwrites `set_by=operator` unless the actor
+  is the operator.
+- `(s *Store) Suggest(ctx, identityID, recordID string, vs []Value) (int, error)`. It skips
+  rejected values and fields that already hold an operator value.
+- `(s *Store) MarkReviewed(ctx, identityID string, recordIDs []string) error`.
+- `(s *Store) Move(ctx, identityID, fromKey, toKey string) error` and
+  `(s *Store) CopyRecord(ctx, identityID, fromKey, toKey string) error`.
+- `var ErrNotFound, ErrInvalid` as in `internal/board`.
+
+**Steps:**
+- [ ] **Step 1. RED.** The matcher table test for all five algorithms, with case folding,
+  accents and `TestInvalidRegexRefused` (Review Focus 5). Then the integration tests
+  `TestDocfieldsOperatorWins`, `TestDocfieldsRejectionSticks`,
+  `TestDocfieldsMoveOntoExistingKey` (Review Focus 3), `TestDocfieldsIsolation` (a second identity
+  reads `ErrNotFound`) and `TestDocfieldsNameCaseInsensitiveUnique`.
+- [ ] **Step 2. Run them:** `bash scripts/coverage_docker.sh` style env, then
+  `go test -tags db_integration -run TestDocfields ./internal/docfields/`. They fail on the
+  missing package.
+- [ ] **Step 3. GREEN.** The migration, the sqlc queries (`make sqlc`), then the Store.
+- [ ] **Step 4. Run them again, plus `go test -race ./internal/docfields/`;** all pass.
+- [ ] **Step 5. Commit:** `feat(docfields): store operator-owned document fields with provenance`.
+
+### Task 3: the ArcadeDB mirror
+
+**Files:** `internal/arcadedb/document_fields.go` (new), `document_fields_test.go`, and an
+`arcadedb_integration` test.
+
+**Interfaces, produced:**
+- `type FieldsMirror struct{ SourceKey, Type, Counterparty string; DocumentDate string; Tags []string; Reviewed map[string]bool }`.
+- `(c *Client) EnsureDocumentFieldsSchema(ctx) error`: the type and the `source_key` UNIQUE
+  index, `IF NOT EXISTS`.
+- `(c *Client) PutDocumentFields(ctx, m FieldsMirror) error`, an upsert by `source_key`.
+- `(c *Client) MoveDocumentFields(ctx, from, to string) error` and
+  `(c *Client) DeleteDocumentFields(ctx, sourceKey string) error`.
+- In `internal/docfields`:
+  - `type Mirror interface{ Put(ctx, identityID string, m arcadedb.FieldsMirror) error; Move(…); Delete(…) }`;
+  - the Store takes it through `WithMirror(m Mirror)`;
+  - every write runs Postgres, then the mirror, and a mirror error fails the call.
+  - `(s *Store) RepairMirror(ctx, identityID string) (int, error)` rewrites the mirror from
+    Postgres.
+
+**Steps:**
+- [ ] **Step 1. RED.** Unit tests on the generated statements. Integration
+  `TestDocumentFieldsMirrorSurvivesReconcile` runs Task 0's step 3 as a test.
+- [ ] **Step 2. GREEN.**
+- [ ] **Step 3. Run the touched packages with `-race`, and the integration test.**
+- [ ] **Step 4. Commit:** `feat(arcadedb): a Go-owned DocumentFields mirror`.
+
+### Task 4: rename and move carry the fields, and the new name
+
+**Files:**
+- Modify: `internal/objectstore/s3.go:286-294` (`Copy`) and the interface it implements;
+- Modify: `internal/assets/filemanager_ops.go:120-180`;
+- Tests: beside each.
+
+**Interfaces:**
+- Consumes `docfields.Store.Move` and `docfields.Store.CopyRecord` (Task 2).
+- Produces `objectstore.CopyOptions{FileName string}` on `Copy`. A non-empty `FileName` sends
+  `MetadataDirective: REPLACE` with `filename` set and the other user metadata preserved.
+
+**Steps:**
+- [ ] **Step 1. RED.**
+  - `TestRenameReplacesFilenameMetadata`: after a rename, HEAD on the new key returns the new
+    `filename`. Today it returns the old one (the bug the spec records).
+  - `TestRenameMovesDocumentRecord` and `TestCopyCopiesDocumentRecord`.
+- [ ] **Step 2. GREEN.** Rename passes the new name. The ops call `Move`, or `CopyRecord` for a
+  copy, after the object operation succeeds, and in the same flow as `RelocateAsset`.
+- [ ] **Step 3. Run with `-race`.**
+- [ ] **Step 4. Commit:** `fix(assets): a rename writes the new name and moves the document's fields`.
+
+### Task 5: filecard keeps the invoice header pairs, and the ingest carries them
+
+**Files:**
+- Modify: `internal/documents/filecard/table.go:108-145` and `card.go:60-81`;
+- Modify: `cmd/aura-filecard/main.go`;
+- Modify: `services/ingest/app.py`, `arcade.py`;
+- Tests: `internal/documents/filecard/header_test.go` (new), `services/ingest/tests/test_header_pairs.py`
+  (new).
+
+**Interfaces, produced:**
+- `type HeaderPair struct{ Sheet, Key, Value string }` and `Card.Header []HeaderPair`.
+- `-json` emits `"header": [...]`, always a list.
+- `IndexedDocument.header_pairs`: `LIST OF STRING`, each `"<Key>: <Value>"`.
+
+**Steps:**
+- [ ] **Step 1. RED, Go.** `TestInvoiceHeaderPairsKept` reads a workbook built like
+  `generate_corpus.py:123-139`. It asserts the five pairs (`Fattura n.`, `Cliente`, `Partita IVA`,
+  `Data emissione`, `Stato`) with their values, and that rows and columns are unchanged.
+- [ ] **Step 2. GREEN.** In `resolveHeader`'s skip loop, collect 2-cell rows with a label in
+  their first cell as `HeaderPair`s.
+- [ ] **Step 3. RED, Python.** `test_header_pairs_reach_indexed_document`.
+- [ ] **Step 4. GREEN.**
+  - `Extracted.header`, then `IndexedDocument.header_pairs`.
+  - The DDL property in `_document_ddl`.
+  - `process_file` and `_extract` carry `version=` bumps with a WHY comment, so the memo
+    re-extracts (the memo-fingerprint caveat of 2026-10-17).
+- [ ] **Step 5. Run** the filecard and cmd tests with `-race`, the ingest suite and ruff.
+- [ ] **Step 6. Commit:** `feat(filecard): keep an invoice's header pairs for the document fields`.
+
+### Task 6: `document_search` filters
+
+**Files:**
+- Modify: `internal/arcadedb/document_retrieval.go:51-57, 225-330`;
+- Modify: `internal/documents/retrieval.go:70-82`, `retrieval_cards.go`;
+- Modify: `internal/agent/tools/document_search.go`;
+- Tests: beside each, plus `document_retrieval_floor_test.go`.
+
+**Interfaces:**
+- `arcadedb.FieldFilter{Types, Counterparties, Tags []string; TagsAll bool; DateFrom, DateTo string; IncludeUnreviewed bool}`
+  on `CandidateFilter.Fields *FieldFilter`.
+- `candidateWhere` appends `AND source_key IN (SELECT source_key FROM DocumentFields WHERE …)`.
+  Every leg built on it inherits the filter: dense, full-text, lexical (`document_lexical.go:96`)
+  and card.
+- **Names arrive as label names.** The tool resolves them through a
+  `docfields.Store.ResolveNames(ctx, identityID string, kind Kind, names []string) (ids []string, unknown map[string][]string, err error)`.
+  `unknown` maps each unmatched name to up to 3 closest names, by edit distance over the lowered
+  names.
+- **The result gains `filters`:**
+  `[{name, values, admitted_documents, rests_on_suggestions bool, unknown_names: {…}}]`.
+
+**Steps:**
+- [ ] **Step 1. RED.**
+  - `TestCandidateWhereFieldFilter`, clause by clause.
+  - `TestDocumentSearchSevenArgumentsStrict`: unknown fields are still refused.
+  - `TestResolveNamesTrimsAndFolds` (Review Focus 1).
+  - `TestUnknownNameReturnsClosest`.
+  - `TestIncludeUnreviewedFalseMatchesOperatorValuesOnly`.
+- [ ] **Step 2. GREEN.** The dense filter and `denseSpaceFilter` stay as they are, so
+  `document_retrieval_floor_test.go` must pass unchanged.
+- [ ] **Step 3. Run `go test -race` on the three packages.**
+- [ ] **Step 4. Commit:** `feat(document_search): filter by type, counterparty, date and tags`.
+
+### Task 7: rules and the suggestion pass
+
+**Files:**
+- Create: `internal/docfields/pass.go`, `pass_test.go`. The matchers already exist from Task 2;
+- Modify: the serve wiring beside `cmd/aura/serve_agui.go:131`.
+
+**Interfaces:**
+- `rules.Compile(alg Algorithm, pattern string, caseInsensitive bool) (Matcher, error)` and
+  `Matcher.Match(text string) bool`. The algorithms:
+  - `any`: some word;
+  - `all`: every word;
+  - `exact`: the phrase;
+  - `regex`: RE2;
+  - `fuzzy`: a token-set ratio of at least 0.8 against any window of the pattern's length.
+- `(s *Store) RunPass(ctx, identityID string, reader DocumentReader) (PassResult, error)`.
+  - `DocumentReader` lists `IndexedDocument`s with `indexed_at` above a watermark kept in
+    `aura.document_rule_passes(identity_id PK, watermark timestamptz)`. Add it to Task 2's
+    migration if Task 2 has not landed; otherwise use the next migration.
+  - It returns `file_name`, `card` and `header_pairs`.
+- **The extractor mapping:**
+  - `Data emissione` (dd/mm/yyyy or ISO) goes to `document_date`;
+  - `Cliente` and `Fornitore` go to `counterparty`, matched against the list or proposed new;
+  - `Fattura n.` and `Stato` go to a custom field of that name when one exists;
+  - `set_by=extractor`, with the pair as evidence.
+- **Saving a rule** calls `RunRule(ctx, identityID, labelID string)` over all documents.
+- **The pass runs per identity** on the existing serve loop's cadence, with no new interval or
+  env.
+
+**Steps:**
+- [ ] **Step 1. RED.**
+  - `TestPassNeverStallsOnPathologicalPattern`: a pass over a 1 MB text with the patterns of
+    Task 2's table finishes within 1 s (Review Focus 5).
+  - `TestPassNeverResuggestsRejected` (Review Focus 4).
+  - `TestPassExtractsOfficeInvoiceHeaders` on the five pairs.
+  - `TestPassNeverTouchesOperatorValue`.
+- [ ] **Step 2. GREEN.**
+- [ ] **Step 3. Run `-race`.**
+- [ ] **Step 4. Commit:** `feat(docfields): rules on the label and header-pair suggestions`.
+
+### Task 8: the HTTP API
+
+**Files:** `internal/agui/documents_api.go`, `documents_bulk_api.go`, `documents_labels_api.go`
+(new), with tests. Wiring: `SetDocumentFieldsStore`, beside `SetBoardStore`.
+
+**Routes**, base `/api/documents`, behind `RequireAuth`:
+- `GET /api/documents?…filters…&sort=&page=`: rows with values, `set_by` and review state, plus
+  `facets` (a count per label in the current result) and `total`;
+- `GET /api/documents/{id}`: the record, its suggestions, its history;
+- `PATCH /api/documents/{id}`: a `Diff`;
+- `POST /api/documents/{id}/review`;
+- `POST /api/documents/bulk`: `{selection: {ids} | {filter, exclude, expected_count}, diff}`.
+  When `expected_count` differs from the filter's count at apply time, it answers 409 with the
+  new count (Review Focus 2);
+- `GET|POST|PUT|DELETE /api/documents/labels`, the same for `/custom-fields`;
+- `POST /api/documents/labels/{id}/run`.
+
+**Steps:**
+- [ ] **Step 1. RED.** Handler tests: identity from the principal only, the 409 on a count
+  mismatch, the diff semantics, and another identity's id answering 404.
+- [ ] **Step 2. GREEN.**
+- [ ] **Step 3. Run `-race`.**
+- [ ] **Step 4. Commit:** `feat(agui): the documents API`.
+
+### Task 9: the Documenti view, list and filters
+
+**Files:**
+- Create: `web/src/documents/DocumentsWorkspace.tsx`, `documentsApi.ts`, `FilterBar.tsx`,
+  `documentsLocale.ts`, with tests;
+- Modify: `web/src/AppShell.tsx:377-378` for the Cartelle/Documenti toggle, remembered like the
+  surface;
+- Modify: `web/package.json`: `"@svar-ui/react-grid": "2.7.0"`.
+
+**Steps:**
+- [ ] **Step 1. RED, vitest:**
+  - columns and source marks rendered from API rows;
+  - facet counts, Include, Exclude and "Non assegnata";
+  - a click on a value adds its filter;
+  - Reset;
+  - the "da rivedere" counter.
+- [ ] **Step 2. GREEN,** following mockup 1. The grid uses `cell` components for values and
+  marks; the bar sits outside the grid.
+- [ ] **Step 3. `npm run lint && npm run typecheck && npm test`.**
+- [ ] **Step 4. Commit:** `feat(web): the Documenti view with filters`.
+
+### Task 10: bulk edit and its confirmation
+
+**Files:** `web/src/documents/BulkBar.tsx`, `BulkConfirmDialog.tsx`, with tests.
+
+- [ ] **Step 1. RED:**
+  - three states per value;
+  - Apply sends only the diff;
+  - the confirmation names the change and N;
+  - "tutti i N del filtro" sends `{filter, exclude, expected_count}`;
+  - a 409 shows the new count and asks again.
+- [ ] **Step 2. GREEN,** following mockup 2.
+- [ ] **Step 3. The web gates.**
+- [ ] **Step 4. Commit:** `feat(web): bulk edit documents by difference`.
+
+### Task 11: detail, suggestions and review
+
+**Files:** `web/src/documents/DocumentDetail.tsx`, `SuggestionChip.tsx`, `DocumentHistory.tsx`, with
+tests.
+
+- [ ] **Step 1. RED:**
+  - a suggestion shows its source and evidence;
+  - a click puts it in the form, unsaved;
+  - × records a rejection;
+  - Save sends only the changed fields;
+  - "Rivisto, salva e avanti" opens the next "da rivedere" document;
+  - closing with unsaved changes asks first.
+- [ ] **Step 2. GREEN,** following mockup 3.
+- [ ] **Step 3. The web gates.**
+- [ ] **Step 4. Commit:** `feat(web): document detail with suggestions and review`.
+
+### Task 12: the lists and their rules
+
+**Files:** `web/src/documents/LabelsAdmin.tsx`, `CustomFieldsAdmin.tsx`, with tests.
+
+- [ ] **Step 1. RED:**
+  - a list with its name, the rule in words, a count, and "filtra documenti";
+  - the pattern box only for any, all, exact, regex and fuzzy;
+  - an invalid regex shows the server's message.
+- [ ] **Step 2. GREEN.**
+- [ ] **Step 3. The web gates.**
+- [ ] **Step 4. Commit:** `feat(web): document lists and matching rules`.
+
+### Task 13: measure, verify, review, push
+
+- [ ] **Step 1. The question set.** Run Task 1's set, first with today's search, then with
+  filters on a library the operator, or the test harness standing in, has reviewed.
+  - Record set recall both ways in `docs/superpowers/verification/2026-10-18-document-fields.md`.
+  - **The gate:** recall up, and no gold lost that an unfiltered retry would not recover.
+- [ ] **Step 2. Survival and isolation, live.**
+  - A rename, a move, a re-ingest and a byte edit from the cockpit keep the values and the
+    history.
+  - After a rename, the index shows the new name.
+  - A second identity sees nothing, through the API, the search and both databases.
+- [ ] **Step 3. Playwright** `web/e2e/documents.spec.ts`: list, filter, bulk edit with its
+  confirmation, and review with "salva e avanti". The evidence goes through `testInfo.attach`.
+- [ ] **Step 4. The gates.** `make quality`, and the coverage gate through
+  `bash scripts/coverage_docker.sh`: the package policy, including a policy entry for
+  `internal/docfields`.
+- [ ] **Step 5. Final review** by one fresh reviewer, on the range, this plan, the spec and the
+  Review Focus. Fix its findings test-first.
+- [ ] **Step 6. Push. Merge to master** on the operator's word.
+- [ ] **Step 7. The lab VM.** The real agent answers the set through `document_search` with
+  filters, after the operator reviewed the library in the view. The score must be above 9.8, with
+  the dated file. The operator runs it.
+
+## Decisions taken while writing this plan
+
+- **Ruling: the mirror's filter is a `source_key IN (subquery)` on `candidateWhere`,** so every leg
+  inherits it from one clause. Cost if wrong: Task 0 says so before any code, and the filter
+  becomes a Go-side id prefilter.
+- **Ruling: one migration holds every table,** the pass watermark included. Cost if wrong: one
+  more migration.
+- **Ruling: fuzzy is a token-set ratio of at least 0.8.** Paperless's own fuzzy threshold is not
+  copied, because its code is GPL. Cost if wrong: a constant, tuned on the office set.
+- **Ruling: the extractor maps only the five header keys of the office invoices,** in Italian.
+  Other layouts wait for a measured need.
+- **Ruling: bulk "all" re-evaluates at apply time and refuses on a count change.** It never applies
+  silently to a different set.
+
+## File structure
+
+| Files | Responsibility |
+|---|---|
+| `internal/db/migrations/<next>_document_fields.*`, `internal/db/queries/document_fields.sql` | the tables, RLS, queries |
+| `internal/docfields/` | the store, diff semantics, provenance, events, the mirror port, the pass |
+| `internal/docfields/rules/` | the five matchers |
+| `internal/arcadedb/document_fields.go` | the `DocumentFields` mirror |
+| `internal/arcadedb/document_retrieval.go`, `internal/documents/retrieval*.go`, `internal/agent/tools/document_search.go` | the filters |
+| `internal/objectstore/s3.go`, `internal/assets/filemanager_ops.go` | rename and move carry the name and the fields |
+| `internal/documents/filecard/`, `cmd/aura-filecard/`, `services/ingest/` | header pairs to `IndexedDocument` |
+| `internal/agui/documents_*api.go` | the HTTP API |
+| `web/src/documents/` | the view, the bars, the detail, the lists |
+| `prd.md` §11, `docs/superpowers/verification/` | the amendment and the records |
