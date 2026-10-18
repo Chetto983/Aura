@@ -62,6 +62,9 @@ const (
 	// nothing through, which is the only way a vector index can ever answer "no" --
 	// vector.neighbors returns its k nearest however far away they are.
 	AbstainedNoQualifiedPassage = "no_qualified_passage"
+	// AbstainedFilterAdmitsNothing says a field filter the caller asked for admits no document of
+	// the library, so nothing was searched: the filter, not the library, is what is empty.
+	AbstainedFilterAdmitsNothing = "filter_admits_nothing"
 )
 
 // RetrievalRequest is the query envelope. IdentityID is deliberately not decodable from JSON:
@@ -79,6 +82,9 @@ type RetrievalRequest struct {
 	// NOT match, so no rephrasing of the query reaches it and the only escape is opening
 	// the whole file. Zero, the default, costs nothing.
 	Neighbours int `json:"neighbours,omitempty"`
+	// Fields narrows every leg by the document fields, as label ids the tool resolved from the
+	// names it was given. Not decodable, like IdentityID: the ids are this identity's own.
+	Fields *arcadedb.FieldFilter `json:"-"`
 }
 
 // RetrievalResponse reports which production legs ran and what they returned.
@@ -320,7 +326,7 @@ func (r *HostRetriever) Retrieve(ctx context.Context, request RetrievalRequest) 
 	}
 	cards, err := r.routeCards(ctx, CardQuery{
 		IdentityID: request.IdentityID, Query: request.Query, DocumentIDs: scope,
-		SourceScopes: request.SourceScopes, Limit: cfg.CandidateLimit,
+		SourceScopes: request.SourceScopes, Fields: request.Fields, Limit: cfg.CandidateLimit,
 	}, dense)
 	if err != nil {
 		return RetrievalResponse{}, fmt.Errorf("documents: route document cards: %w", err)
@@ -335,7 +341,7 @@ func (r *HostRetriever) Retrieve(ctx context.Context, request RetrievalRequest) 
 	sourceKeys, sourcePrefixes := ArcadeSourceFilters(request.SourceScopes)
 	fused, err := r.passages(ctx, arcadedb.CandidateFilter{
 		IdentityID: request.IdentityID, Limit: cfg.CandidateLimit, DocumentIDs: scope,
-		SourceKeys: sourceKeys, SourcePrefixes: sourcePrefixes,
+		SourceKeys: sourceKeys, SourcePrefixes: sourcePrefixes, Fields: request.Fields,
 	}, request.Query, dense, cfg.FusionStrategy)
 	if err != nil {
 		response.Status, response.DegradationReason = RetrievalCardOnly, DegradationArcade

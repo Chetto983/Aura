@@ -218,7 +218,11 @@ func buildBaseRegistryWithHandles(
 	// loudly at call time rather than being silently absent, which is how the
 	// upload->chat regression happened once already.
 	handles.Documents = newDocumentLibrary(taskStorePool(ts), cfg)
-	reg.Register(&tools.DocumentSearch{Library: handles.Documents})
+	documentSearch := &tools.DocumentSearch{Library: handles.Documents}
+	if fields := newRuntimeDocumentFields(cfg, "document_search"); fields != nil {
+		documentSearch.Fields = fields
+	}
+	reg.Register(documentSearch)
 	// shell_exec is the full terminal — THE execution surface — and it runs inside the caller's
 	// per-identity box, never on the host. No tool below is given the HOST workspace root: every one
 	// of them resolves against the box's own /workspace, which is where the agent's files live.

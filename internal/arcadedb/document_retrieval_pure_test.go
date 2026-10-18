@@ -137,9 +137,9 @@ func TestNormalizeSourceFilters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := normalizeSourceFilters(tt.kind, tt.values, tt.limit)
+			got, err := normalizeFilterValues(tt.kind, tt.values, tt.limit)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("normalizeSourceFilters(%q, %v, %d) error = %v, wantErr %v",
+				t.Errorf("normalizeFilterValues(%q, %v, %d) error = %v, wantErr %v",
 					tt.kind, tt.values, tt.limit, err, tt.wantErr)
 				return
 			}
@@ -147,12 +147,12 @@ func TestNormalizeSourceFilters(t *testing.T) {
 				return
 			}
 			if len(got) != len(tt.want) {
-				t.Errorf("normalizeSourceFilters() returned %d items, want %d", len(got), len(tt.want))
+				t.Errorf("normalizeFilterValues() returned %d items, want %d", len(got), len(tt.want))
 				return
 			}
 			for i, v := range got {
 				if v != tt.want[i] {
-					t.Errorf("normalizeSourceFilters()[%d] = %v, want %v", i, v, tt.want[i])
+					t.Errorf("normalizeFilterValues()[%d] = %v, want %v", i, v, tt.want[i])
 				}
 			}
 		})

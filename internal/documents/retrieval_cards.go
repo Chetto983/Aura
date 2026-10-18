@@ -51,6 +51,7 @@ type CardQuery struct {
 	Space        string
 	DocumentIDs  []string
 	SourceScopes []SourceScope
+	Fields       *arcadedb.FieldFilter
 	Limit        int
 }
 
@@ -58,7 +59,7 @@ func (q CardQuery) filter() arcadedb.CandidateFilter {
 	sourceKeys, sourcePrefixes := ArcadeSourceFilters(q.SourceScopes)
 	return arcadedb.CandidateFilter{
 		IdentityID: q.IdentityID, Limit: q.Limit, DocumentIDs: q.DocumentIDs,
-		SourceKeys: sourceKeys, SourcePrefixes: sourcePrefixes,
+		SourceKeys: sourceKeys, SourcePrefixes: sourcePrefixes, Fields: q.Fields,
 	}
 }
 

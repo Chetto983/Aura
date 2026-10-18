@@ -54,6 +54,8 @@ type CandidateFilter struct {
 	DocumentIDs    []string
 	SourceKeys     []string
 	SourcePrefixes []string
+	// Fields narrows by the document fields (document_retrieval_fields.go). Nil filters nothing.
+	Fields *FieldFilter
 }
 
 // FusedCandidateQuery searches both indexes and fuses them server-side, in one query.
@@ -257,15 +259,15 @@ func (d *DocumentIndex) normalizeCandidateFilter(filter CandidateFilter) (Candid
 	}
 	sort.Strings(documentIDs)
 	filter.DocumentIDs = documentIDs
-	sourceKeys, err := normalizeSourceFilters(
-		"key", filter.SourceKeys, d.config.MaxDocumentFilters,
+	sourceKeys, err := normalizeFilterValues(
+		"document source key", filter.SourceKeys, d.config.MaxDocumentFilters,
 	)
 	if err != nil {
 		return CandidateFilter{}, err
 	}
 	filter.SourceKeys = sourceKeys
-	sourcePrefixes, err := normalizeSourceFilters(
-		"prefix", filter.SourcePrefixes, d.config.MaxDocumentFilters,
+	sourcePrefixes, err := normalizeFilterValues(
+		"document source prefix", filter.SourcePrefixes, d.config.MaxDocumentFilters,
 	)
 	if err != nil {
 		return CandidateFilter{}, err
@@ -277,19 +279,24 @@ func (d *DocumentIndex) normalizeCandidateFilter(filter CandidateFilter) (Candid
 			len(filter.SourceKeys)+len(filter.SourcePrefixes), d.config.MaxDocumentFilters,
 		)
 	}
+	if filter.Fields, err = normalizeFieldFilter(filter.Fields, d.config.MaxDocumentFilters); err != nil {
+		return CandidateFilter{}, err
+	}
 	return filter, nil
 }
 
-func normalizeSourceFilters(kind string, values []string, limit int) ([]string, error) {
+// normalizeFilterValues trims, deduplicates and sorts the values one filter names, refusing a blank
+// one and more than limit. what names them in the error.
+func normalizeFilterValues(what string, values []string, limit int) ([]string, error) {
 	seen := make(map[string]struct{}, len(values))
 	normalized := make([]string, 0, len(values))
 	for _, value := range values {
 		value = strings.TrimSpace(value)
 		if value == "" || strings.ContainsRune(value, '\x00') {
-			return nil, fmt.Errorf("arcadedb: document source %s must be non-empty", kind)
+			return nil, fmt.Errorf("arcadedb: %s must be non-empty", what)
 		}
 		if utf8.RuneCountInString(value) > 2048 {
-			return nil, fmt.Errorf("arcadedb: document source %s exceeds 2048 characters", kind)
+			return nil, fmt.Errorf("arcadedb: %s exceeds 2048 characters", what)
 		}
 		if _, duplicate := seen[value]; duplicate {
 			continue
@@ -298,9 +305,7 @@ func normalizeSourceFilters(kind string, values []string, limit int) ([]string, 
 		normalized = append(normalized, value)
 	}
 	if len(normalized) > limit {
-		return nil, fmt.Errorf(
-			"arcadedb: document source %s count %d exceeds maximum %d", kind, len(normalized), limit,
-		)
+		return nil, fmt.Errorf("arcadedb: %s count %d exceeds maximum %d", what, len(normalized), limit)
 	}
 	sort.Strings(normalized)
 	return normalized, nil
@@ -325,6 +330,13 @@ func candidateWhere(filter CandidateFilter) (string, map[string]any) {
 			params[name] = escapeLikePrefix(prefix)
 		}
 		where += " AND (" + strings.Join(parts, " OR ") + ")"
+	}
+	if filter.Fields != nil {
+		predicates := []string{where}
+		for _, clause := range fieldClauses(filter.Fields, !filter.Fields.IncludeUnreviewed, params) {
+			predicates = append(predicates, clause.predicate)
+		}
+		where = strings.Join(predicates, " AND ")
 	}
 	return where, params
 }

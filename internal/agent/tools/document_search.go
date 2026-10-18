@@ -22,6 +22,8 @@ type DocumentLibrary interface {
 // documents, returning passages that carry their own provenance.
 type DocumentSearch struct {
 	Library DocumentLibrary
+	// Fields resolves and counts the field filters. Nil refuses them: there is no store to read.
+	Fields DocumentFieldFilters
 }
 
 type documentSearchArgs struct {
@@ -29,6 +31,13 @@ type documentSearchArgs struct {
 	Limit       int      `json:"limit"`
 	DocumentIDs []string `json:"document_ids"`
 	Neighbours  int      `json:"neighbours"`
+	documentFieldArgs
+}
+
+// documentSearchResult is the retrieval answer plus what each field filter did.
+type documentSearchResult struct {
+	documents.RetrievalResponse
+	Filters []documentFilterReport `json:"filters,omitempty"`
 }
 
 func (t *DocumentSearch) Spec() Spec {
@@ -66,6 +75,12 @@ func (t *DocumentSearch) Spec() Spec {
 			"the real file into /workspace, and uploaded documents are not otherwise on the filesystem. " +
 			"query is required and may be a question, a topic, an entity, an exact identifier or a filename; " +
 			"document_ids optionally narrows the search to ids already returned to this operator. " +
+			"type, counterparty and tags narrow it to documents whose fields hold those names, from the " +
+			"operator's own lists (case-insensitive, exact); tags_mode all asks for every tag; date_from and " +
+			"date_to bound the document's date (YYYY-MM-DD); include_unreviewed false keeps only values the " +
+			"operator set or accepted. filters in the result says what each admitted, whether a match rests on " +
+			"suggestions, and the closest names on the list when one matched nothing -- correct the name or drop " +
+			"the filter. " +
 			"Files YOU created live under /workspace: read those with read_file/search_files instead. " +
 			"Example: {\"query\":\"customer code for WPT SRL\",\"document_ids\":[\"doc_9f2c\"]}.",
 		Parameters: json.RawMessage(`{
@@ -74,7 +89,14 @@ func (t *DocumentSearch) Spec() Spec {
     "query": {"type": "string", "minLength": 1, "description": "Natural-language question, fact, topic, or filename."},
     "limit": {"type": "integer", "minimum": 1, "maximum": 50, "description": "Maximum documents to return. Default 8."},
     "document_ids": {"type": "array", "maxItems": 100, "items": {"type": "string", "minLength": 1}, "description": "Optional owner-scoped document ids."},
-    "neighbours": {"type": "integer", "minimum": 0, "maximum": 3, "description": "Also return this many passages either side of every hit. Default 0."}
+    "neighbours": {"type": "integer", "minimum": 0, "maximum": 3, "description": "Also return this many passages either side of every hit. Default 0."},
+    "type": {"type": "array", "maxItems": 20, "items": {"type": "string", "minLength": 1}, "description": "Document type names, e.g. Fattura."},
+    "counterparty": {"type": "array", "maxItems": 20, "items": {"type": "string", "minLength": 1}, "description": "Counterparty names."},
+    "tags": {"type": "array", "maxItems": 20, "items": {"type": "string", "minLength": 1}, "description": "Tag names."},
+    "tags_mode": {"type": "string", "enum": ["any", "all"], "description": "any (default) or all of tags."},
+    "date_from": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "description": "Earliest document date, YYYY-MM-DD."},
+    "date_to": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "description": "Latest document date, YYYY-MM-DD."},
+    "include_unreviewed": {"type": "boolean", "description": "Match suggested values too. Default true."}
   },
   "required": ["query"]
 }`),
@@ -105,15 +127,23 @@ func (t *DocumentSearch) Execute(ctx context.Context, raw json.RawMessage) (Tool
 		)
 	}
 
-	response, err := t.Library.Retrieve(ctx, documents.RetrievalRequest{
-		IdentityID: ownerFromContext(ctx), Query: args.Query,
-		Limit: effectiveDocumentLimit(args.Limit), DocumentIDs: args.DocumentIDs,
-		Neighbours: args.Neighbours, SourceScopes: documents.SourceScopesFromContext(ctx),
-	})
+	owner := ownerFromContext(ctx)
+	fields, filters, err := t.fieldFilter(ctx, owner, args.documentFieldArgs)
 	if err != nil {
 		return ToolResult{}, fmt.Errorf("document_search: %w", err)
 	}
-	out, err := json.Marshal(response)
+	response := filterAbstention(args.Query)
+	if !admitsNothing(filters) {
+		response, err = t.Library.Retrieve(ctx, documents.RetrievalRequest{
+			IdentityID: owner, Query: args.Query,
+			Limit: effectiveDocumentLimit(args.Limit), DocumentIDs: args.DocumentIDs,
+			Neighbours: args.Neighbours, SourceScopes: documents.SourceScopesFromContext(ctx), Fields: fields,
+		})
+		if err != nil {
+			return ToolResult{}, fmt.Errorf("document_search: %w", err)
+		}
+	}
+	out, err := json.Marshal(documentSearchResult{RetrievalResponse: response, Filters: filters})
 	if err != nil {
 		return ToolResult{}, fmt.Errorf("document_search: marshal results: %w", err)
 	}

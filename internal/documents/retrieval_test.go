@@ -36,10 +36,11 @@ type fakeRetrievalControl struct {
 	gateSpace string
 	// lexicalQuery is the query the lexical card leg was asked.
 	lexicalQuery string
+	cardFields   *arcadedb.FieldFilter
 }
 
 func (f *fakeRetrievalControl) LexicalDocumentCards(_ context.Context, query CardQuery) ([]RetrievalCard, error) {
-	f.lexicalQuery = query.Query
+	f.lexicalQuery, f.cardFields = query.Query, query.Fields
 	f.cardDocumentScope = append([]string(nil), query.DocumentIDs...)
 	f.cardSourceScope = append([]SourceScope(nil), query.SourceScopes...)
 	if f.err != nil {
@@ -75,7 +76,7 @@ func (f *fakeRetrievalControl) ResolveDocumentScope(
 
 func (f *fakeRetrievalControl) RouteDocumentCards(_ context.Context, query CardQuery) ([]RetrievalCard, error) {
 	f.cardEmbedding = append([]float64(nil), query.Vector...)
-	f.cardSpace = query.Space
+	f.cardSpace, f.cardFields = query.Space, query.Fields
 	f.cardDocumentScope = append([]string(nil), query.DocumentIDs...)
 	f.cardSourceScope = append([]SourceScope(nil), query.SourceScopes...)
 	if f.err != nil {

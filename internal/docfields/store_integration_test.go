@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -389,5 +390,27 @@ func assertPassage(t *testing.T, c *arcadedb.Client, key, want string) {
 	}
 	if got := fmt.Sprint(rows[0]["df_type"], " ", rows[0]["df_tags"], " ", rows[0]["df_tags_ok"]); got != want {
 		t.Fatalf("passage %s carries %q, want %q", key, got, want)
+	}
+}
+
+// A filtered search resolves names against the identity's own lists, and counts nothing in a
+// library nothing has been indexed into yet.
+func TestDocfieldsResolveAndAdmitBeforeAnyIngest(t *testing.T) {
+	s, ctx := liveStore(t)
+	id := uuid.NewString()
+	acme, err := s.SaveLabel(ctx, id, Label{Kind: KindCounterparty, Name: "ACME SpA"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, unknown, err := s.ResolveNames(ctx, id, KindCounterparty, []string{" acme spa ", "Acme"})
+	if err != nil || !slices.Equal(ids, []string{acme.ID}) || !slices.Equal(unknown["Acme"], []string{"ACME SpA"}) {
+		t.Fatalf("ids %v, unknown %v, err %v", ids, unknown, err)
+	}
+	admissions, err := s.Admissions(ctx, id, arcadedb.FieldFilter{Counterparties: ids, IncludeUnreviewed: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []arcadedb.FieldAdmission{{Dimension: arcadedb.FieldCounterparty}}; !slices.Equal(admissions, want) {
+		t.Fatalf("admissions = %+v, want %+v", admissions, want)
 	}
 }

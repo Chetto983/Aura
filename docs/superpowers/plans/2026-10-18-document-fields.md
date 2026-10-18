@@ -346,18 +346,30 @@ on 26.10.1:
   names.
 - **The result gains `filters`:**
   `[{name, values, admitted_documents, rests_on_suggestions bool, unknown_names: {…}}]`.
+  `name` is `type`, `counterparty`, `tags` or `date`; a date's values read `>= 2026-01-01`.
+- **A filter that admits nothing is not searched under.** The admissions are counted first
+  (`arcadedb.Client.FieldAdmissions`, through `docfields.Store.Admissions`); when one is zero,
+  including a name on no list, the answer abstains with `filter_admits_nothing` and the report,
+  without running the search. A named filter with no resolved id is reported, never dropped:
+  dropping it would widen the search.
+
+**Measured while writing it** (2026-10-18, the bench library of 4,045 documents, through the
+identity's own credential): the lexical leg under `type = fattura` returned 20 candidates, all of
+that type, in 12 ms; the admission count took 16 ms and reported 434 admitted, 0 reviewed, so
+`rests_on_suggestions` would be true there. `CONTAINSANY` and `CONTAINSALL` on a bound list
+behave as the clauses expect, live on 26.10.1.
 
 **Steps:**
-- [ ] **Step 1. RED.**
+- [x] **Step 1. RED.**
   - `TestCandidateWhereFieldFilter`, clause by clause.
   - `TestDocumentSearchSevenArgumentsStrict`: unknown fields are still refused.
   - `TestResolveNamesTrimsAndFolds` (Review Focus 1).
   - `TestUnknownNameReturnsClosest`.
   - `TestIncludeUnreviewedFalseMatchesOperatorValuesOnly`.
-- [ ] **Step 2. GREEN.** The dense filter and `denseSpaceFilter` stay as they are, so
+- [x] **Step 2. GREEN.** The dense filter and `denseSpaceFilter` stay as they are, so
   `document_retrieval_floor_test.go` must pass unchanged.
-- [ ] **Step 3. Run `go test -race` on the three packages.**
-- [ ] **Step 4. Commit:** `feat(document_search): filter by type, counterparty, date and tags`.
+- [x] **Step 3. Run `go test -race` on the three packages.**
+- [x] **Step 4. Commit:** `feat(document_search): filter by type, counterparty, date and tags`.
 
 ### Task 7: rules and the suggestion pass
 

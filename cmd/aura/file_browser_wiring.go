@@ -22,9 +22,7 @@ import (
 // asset store, and Rows stays a nil interface rather than a Store with nothing to query.
 //
 // Fields carries a document's fields to the key a move, rename or copy gives it. Without
-// ArcadeDB there is no fields store, so no document has any and Fields stays nil. A missing
-// identity database is provisioned, as for retrieval: a rename must not fail because the
-// identity has not indexed anything yet.
+// ArcadeDB there is no fields store, so no document has any and Fields stays nil.
 func buildFileBrowser(cfg *config.Config, pool *pgxpool.Pool, objects objectstore.Store) *assets.Browser {
 	browser := &assets.Browser{
 		Objects:      objects,
@@ -34,16 +32,27 @@ func buildFileBrowser(cfg *config.Config, pool *pgxpool.Pool, objects objectstor
 	if pool != nil {
 		browser.Rows = assets.NewStore(pool)
 	}
+	if fields := newRuntimeDocumentFields(cfg, "file manager"); fields != nil {
+		browser.Fields = fields
+	}
+	return browser
+}
+
+// newRuntimeDocumentFields is the identity's document fields store, or nil when there is no
+// ArcadeDB to hold any. A missing identity database is provisioned, as for retrieval: a rename
+// or a filtered search must not fail because the identity has not indexed anything yet. The
+// caller assigns it only when non-nil, so its interface field stays nil rather than holding a
+// nil pointer.
+func newRuntimeDocumentFields(cfg *config.Config, consumer string) *docfields.Store {
 	if strings.TrimSpace(cfg.ArcadeDB.BaseURL) == "" {
-		return browser
+		return nil
 	}
 	tenants, err := newRuntimeDocumentTenants(cfg, true)
 	if err != nil {
-		slog.Warn("file manager: document fields unavailable, a move will not carry them", "err", err)
-		return browser
+		slog.Warn(consumer+": document fields unavailable", "err", err)
+		return nil
 	}
-	browser.Fields = docfields.New(tenants)
-	return browser
+	return docfields.New(tenants)
 }
 
 // buildFileObjectAccess backs the file manager's download and upload with the SAME
