@@ -1,4 +1,4 @@
-import { getJSON, httpErrorFrom, sendJSON } from '@/api/json';
+import { getJSON, HttpError, httpErrorFrom, sendJSON } from '@/api/json';
 
 /**
  * The Documenti view's client (internal/agui/documents_api.go): the library with the fields the
@@ -320,4 +320,42 @@ export async function fetchNextToReview(after: string): Promise<string | null> {
 export async function createLabel(kind: LabelKind, name: string): Promise<Label> {
   const out = await sendJSON<{ label: Label }>('POST', `${documentsBase}/labels`, { kind, name });
   return out.label;
+}
+
+/** A label as the operator writes it: no id for a new one. */
+export type LabelInput = Omit<Label, 'id'>;
+
+/** saveLabel creates a label, or updates the one id names. A label with a rule runs it over the
+ * library before the answer, which says how many documents it suggested. */
+export function saveLabel(
+  label: LabelInput,
+  id?: string,
+): Promise<{ readonly label: Label; readonly suggested: number }> {
+  return id === undefined
+    ? sendJSON('POST', `${documentsBase}/labels`, label)
+    : sendJSON('PUT', `${documentsBase}/labels/${encodeURIComponent(id)}`, label);
+}
+
+/** deleteLabel removes a label; the values naming it read as an unknown label. */
+export async function deleteLabel(id: string): Promise<void> {
+  await sendJSON('DELETE', `${documentsBase}/labels/${encodeURIComponent(id)}`);
+}
+
+export type CustomFieldInput = Omit<CustomField, 'id'>;
+
+export function saveCustomField(field: CustomFieldInput, id?: string): Promise<CustomField> {
+  return id === undefined
+    ? sendJSON('POST', `${documentsBase}/custom-fields`, field)
+    : sendJSON('PUT', `${documentsBase}/custom-fields/${encodeURIComponent(id)}`, field);
+}
+
+export async function deleteCustomField(id: string): Promise<void> {
+  await sendJSON('DELETE', `${documentsBase}/custom-fields/${encodeURIComponent(id)}`);
+}
+
+/** errorMessage is what the operator reads of a failed write: the server's own sentence when it
+ * sent one (writeDocumentsError puts it beside the code). */
+export function errorMessage(err: unknown): string {
+  if (err instanceof HttpError && err.detail !== '') return err.detail;
+  return err instanceof Error ? err.message : String(err);
 }

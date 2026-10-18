@@ -22,6 +22,7 @@ import {
 } from './documentsApi';
 import { KIND_OF, LIST_OF, PROPOSED_PREFIX } from './documentsModel';
 import { useDocumentLists, type DocumentLists } from './useDocumentLists';
+import { useWrite } from './useWrite';
 import { previewKind } from '@/chat/artifacts/artifactMeta';
 import { AssetSourceContext } from '@/chat/artifacts/renderers/assetSourceContext';
 import { PreviewLoading } from '@/chat/artifacts/renderers/PreviewStatus';
@@ -101,8 +102,7 @@ function DetailPage({ doc, lists: operatorLists, onClose, onOpen }: DetailPagePr
   });
   // The operator's edits, over the document as last read; null is the document unchanged.
   const [edits, setEdits] = useState<DetailForm | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const { busy, error, run } = useWrite('documents.detail.failed');
   const [asking, setAsking] = useState(false);
 
   const form = edits ?? formOf(doc);
@@ -131,19 +131,6 @@ function DetailPage({ doc, lists: operatorLists, onClose, onOpen }: DetailPagePr
   const save = async () => {
     if (dirty) await patchDocument(doc.id, await withLabels(diff));
   };
-  const run = (work: () => Promise<void>) => {
-    setBusy(true);
-    setError('');
-    work()
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
-        setError(t('documents.detail.failed', { message }));
-      })
-      .finally(() => {
-        setBusy(false);
-      });
-  };
-
   const onSave = () => {
     run(async () => {
       await save();

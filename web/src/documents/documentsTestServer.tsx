@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 import { DocumentDetail } from './DocumentDetail';
 import DocumentsWorkspace from './DocumentsWorkspace';
 import type {
+  CustomField,
   DocumentDetail as Detail,
   DocumentRow,
   DocumentsPage,
@@ -16,8 +17,15 @@ import type {
 
 export const LABELS: Readonly<Record<string, readonly Partial<Label>[]>> = {
   type: [
-    { id: 't-fattura', kind: 'type', name: 'Fattura' },
-    { id: 't-contratto', kind: 'type', name: 'Contratto' },
+    {
+      id: 't-fattura',
+      kind: 'type',
+      name: 'Fattura',
+      match_algorithm: 'any',
+      match_pattern: 'FATTURA',
+      case_insensitive: true,
+    },
+    { id: 't-contratto', kind: 'type', name: 'Contratto', match_algorithm: 'none' },
   ],
   counterparty: [
     { id: 'c-gialli', kind: 'counterparty', name: 'Gialli Import' },
@@ -25,6 +33,11 @@ export const LABELS: Readonly<Record<string, readonly Partial<Label>[]>> = {
   ],
   tag: [{ id: 'g-ricambi', kind: 'tag', name: 'ricambi' }],
 };
+
+export const CUSTOM_FIELDS: readonly CustomField[] = [
+  { id: 'cf-numero', name: 'Numero fattura', data_type: 'text' },
+  { id: 'cf-stato', name: 'Stato', data_type: 'select', options: ['aperta', 'pagata'] },
+];
 
 function row(
   id: string,
@@ -154,11 +167,12 @@ const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
 
 /** stubServer answers the documents API, records every list request's query, every bulk
- * request's body and every other write, and answers the bulk route with the given responses in
- * turn. */
+ * request's body and every other write, answers the bulk route with the given responses in turn,
+ * and every other write with refuse when one is given. */
 export function stubServer(
   reviewCount = 7,
   bulk: readonly BulkAnswer[] = [{ status: 200, body: { applied: 1 } }],
+  refuse?: BulkAnswer,
 ) {
   const lists: URLSearchParams[] = [];
   const posts: unknown[] = [];
@@ -176,15 +190,19 @@ export function stubServer(
       }
       if (method !== 'GET') {
         writes.push({ method, path: url.pathname, body });
-        if (url.pathname === '/api/documents/labels') {
-          return json({ label: { id: 'c-verdi', ...(body as object) }, suggested: 0 });
+        if (refuse !== undefined) return json(refuse.body, refuse.status);
+        if (url.pathname.startsWith('/api/documents/labels') && method !== 'DELETE') {
+          return json({ label: { id: 'c-verdi', ...(body as object) }, suggested: 3 });
+        }
+        if (url.pathname.startsWith('/api/documents/custom-fields') && method !== 'DELETE') {
+          return json({ id: 'cf-new', ...(body as object) });
         }
         return json({ ok: true });
       }
       if (url.pathname === '/api/documents/labels') {
         return json({ labels: LABELS[url.searchParams.get('kind') ?? ''] ?? [] });
       }
-      if (url.pathname === '/api/documents/custom-fields') return json({ fields: [] });
+      if (url.pathname === '/api/documents/custom-fields') return json({ fields: CUSTOM_FIELDS });
       if (url.pathname.startsWith('/api/documents/')) {
         const id = url.pathname.slice('/api/documents/'.length);
         return id in DETAILS ? json(DETAILS[id]) : json({ error: 'not_found' }, 404);

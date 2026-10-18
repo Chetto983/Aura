@@ -13,6 +13,7 @@ import {
 import {
   bulkApply,
   CountChangedError,
+  errorMessage,
   isEmptyDiff,
   type DocumentRow,
   type DocumentsFilter,
@@ -150,7 +151,7 @@ export function useBulkEdit({ rows, total, filter, facets }: BulkEditInput) {
         });
         return;
       }
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       setConfirm((c) => ({ ...c, busy: false, error: t('documents.bulk.failed', { message }) }));
     }
   }

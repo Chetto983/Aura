@@ -558,13 +558,22 @@ mockup's "2 di 7" reads "N da rivedere", and its "+ Campo" belongs to Task 12.
 
 **Files:** `web/src/documents/LabelsAdmin.tsx`, `CustomFieldsAdmin.tsx`, with tests.
 
-- [ ] **Step 1. RED:**
+**As built** (2026-10-18): "Liste e regole" in the Documenti header opens `ListsPage.tsx` in place
+of the list, a tab per list. A value's count is the documents of the whole library holding it, read
+from the unfiltered list's facets; "Filtra documenti" goes back to the list filtered on that value
+alone. Custom fields have neither count nor filter: the list filters on type, counterparty and tags
+only. `adminParts.tsx` holds the entry, the editor's frame, the radio choice and the delete
+confirmation both pages share, and `useWrite.ts` the busy and failure state the detail shares too.
+The server's sentence reaches the page as `HttpError.detail`, the `{message}` writeDocumentsError
+writes beside its code.
+
+- [x] **Step 1. RED:**
   - a list with its name, the rule in words, a count, and "filtra documenti";
   - the pattern box only for any, all, exact, regex and fuzzy;
   - an invalid regex shows the server's message.
-- [ ] **Step 2. GREEN.**
-- [ ] **Step 3. The web gates.**
-- [ ] **Step 4. Commit:** `feat(web): document lists and matching rules`.
+- [x] **Step 2. GREEN.**
+- [x] **Step 3. The web gates.**
+- [x] **Step 4. Commit:** `feat(web): document lists and matching rules`.
 
 ### Task 13: measure, verify, review, push
 

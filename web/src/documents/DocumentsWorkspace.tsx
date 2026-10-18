@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { ListTree } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Grid, Willow, WillowDark, type IApi, type IColumnConfig } from '@svar-ui/react-grid';
 import { Locale, Pager } from '@svar-ui/react-core';
@@ -25,6 +26,7 @@ import {
 import { DocumentDetail } from './DocumentDetail';
 import { documentsWords } from './documentsLocale';
 import { FilterBar } from './FilterBar';
+import { ListsPage } from './ListsPage';
 import { SelectCell, SelectPageCell } from './SelectionCells';
 import { useBulkEdit } from './useBulkEdit';
 import { useDocumentLists } from './useDocumentLists';
@@ -68,6 +70,7 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
   const [offset, setOffset] = useState(0);
   const [shownFields, setShownFieldsState] = useState(readShownFields);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [listsOpen, setListsOpen] = useState(false);
 
   const setFilter = useCallback((next: DocumentsFilter) => {
     setFilterState(next);
@@ -170,6 +173,19 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
       />
     );
   }
+  if (listsOpen) {
+    return (
+      <ListsPage
+        onClose={() => {
+          setListsOpen(false);
+        }}
+        onFilter={(field, id) => {
+          setListsOpen(false);
+          changeFilter(withField(EMPTY_FILTER, 'include', field, id));
+        }}
+      />
+    );
+  }
   return (
     <section
       aria-label={t('documents.title')}
@@ -182,9 +198,21 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
         <Button
           type="button"
           size="sm"
+          variant="ghost"
+          className="ml-auto gap-2"
+          onClick={() => {
+            setListsOpen(true);
+          }}
+        >
+          <ListTree aria-hidden="true" />
+          {t('documents.lists.open')}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
           variant={filter.needsReview ? 'default' : 'outline'}
           aria-pressed={filter.needsReview}
-          className="ml-auto gap-2"
+          className="gap-2"
           onClick={() => {
             changeFilter({ ...filter, needsReview: !filter.needsReview });
           }}
