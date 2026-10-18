@@ -111,19 +111,19 @@ code.
   `prd.md` amendment, the operator's standing rule; the spec records the ArcadeDB decision instead);
 - Create: `scripts/fixtures/document_retrieval_eval/document_filter_questions.json`.
 
-- [ ] **Step 1. The spec amendment** (it replaces decision 2 and the filter of decision 5).
+- [x] **Step 1. The spec amendment** (it replaces decision 2 and the filter of decision 5).
   - It covers the fields, provenance, review state, the ArcadeDB types and triggers, and the
     seven arguments.
   - It records why the fields left Postgres for the identity's ArcadeDB database, citing Task 0's
     numbers, and that 0098's object-metadata sentence still does not hold, for the spec's reasons.
   - It ends with what the amendment does not prove.
-- [ ] **Step 2. The question set.**
+- [x] **Step 2. The question set.**
   - At least 20 questions over the office corpus, each answerable with type, counterparty, date
     and tags only. It extends q03, q09 and q18; q08 stays out.
   - Each entry: `{"qid","query","filters":{…},"gold_docs":[…],"answer"}`. `gold_docs` holds the
     answer documents themselves: the invoices, not `contabilita_2026.xlsx`.
   - Read the values from `spikes/document-routing-benchmark/generate_corpus.py`.
-- [ ] **Step 3. Commit:** `docs(spec): document fields live in ArcadeDB, and the question set that
+- [x] **Step 3. Commit:** `docs(spec): document fields live in ArcadeDB, and the question set that
   gates them`.
 
 ### Task 2: the ArcadeDB types and the store
