@@ -64,7 +64,8 @@ waiting time is trimmed.</sub>
 - **Per-identity sandbox** — a full-capability box per operator (opt-in `sandbox` profile; runc, behind an egress floor), with deliverables handed back over the channel (`send_file`), never as a path.
 - **Multi-user** — Authula sign-in (password, plus a TOTP step for accounts enrolled in it), one isolated ArcadeDB database per identity enforced by the server, capability grants, and an admin audit view.
 - **Multi-channel** — CLI REPL, Telegram (voice/photo/docs/HITL), and a web cockpit over AG-UI/SSE with mid-turn steering, approvals, voice input/output, and live settings.
-- **Studio** — image and video generation, photo and video editing, and a multi-track video editor, all in the cockpit ([docs/STUDIO.md](docs/STUDIO.md)).
+- **Studio** — image and video generation in the cockpit ([docs/STUDIO.md](docs/STUDIO.md)).
+- **Documents, photos and video** — the agent edits spreadsheets, Word documents, decks, PDFs, photos and video sequences through the Craft apps' MCP servers, run in the identity's box and fenced to its workspace.
 - **Bundled integrations** — calendar/e-mail (PIM MCP, OAuth providers), WhatsApp (unofficial client), web search through a bundled SearXNG, snapshot share links to a conversation, and Cloudflare remote access.
 
 Where Aura sits next to Open WebUI and LibreChat: [docs/COMPARISON.md](docs/COMPARISON.md).

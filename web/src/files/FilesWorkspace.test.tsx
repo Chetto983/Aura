@@ -89,34 +89,10 @@ describe('FilesWorkspace', () => {
     });
     // The widget links a preconnect + an icon stylesheet, and sources one SVG per file type,
     // from cdn.svar.dev unless it is told otherwise. Nothing may leave this origin: the
-    // appliance answers offline, and web/e2e/video-studio.spec.ts fails the run over it —
-    // from the media picker, which mounts this component (GarageMediaPicker).
+    // appliance answers offline, and web/e2e/svar-origin.spec.ts fails the run over it.
     const remote = [...document.querySelectorAll('link[href], img[src], script[src]')].filter(
       (node) => (node.getAttribute('href') ?? node.getAttribute('src') ?? '').startsWith('http'),
     );
     expect(remote.map((node) => node.getAttribute('href') ?? node.getAttribute('src'))).toEqual([]);
-  });
-
-  it('hands an opened file to a picker instead of opening a browser tab', async () => {
-    const opened = vi.spyOn(window, 'open').mockImplementation(() => null);
-    const onOpenFile = vi.fn();
-    const { container } = render(<FilesWorkspace onOpenFile={onOpenFile} />);
-
-    const card = await waitFor(() => {
-      const found = container.querySelector('[data-id=":/clip.mp4"]');
-      if (found === null) throw new Error('file card not rendered');
-      return found;
-    });
-    // The double-click is repeated until the widget answers it. SVAR can drop one delivered in
-    // the same tick the card first paints: measured 2026-09-27, 1 run in 43, and in that run no
-    // open-file reached the bus at all. That instant is the widget's, not what this test claims.
-    await waitFor(() => {
-      fireEvent.doubleClick(card);
-      expect(onOpenFile).toHaveBeenCalledWith(
-        expect.objectContaining({ id: '/clip.mp4', name: 'clip.mp4', size: 4 }),
-      );
-    });
-    expect(opened).not.toHaveBeenCalled();
-    opened.mockRestore();
   });
 });

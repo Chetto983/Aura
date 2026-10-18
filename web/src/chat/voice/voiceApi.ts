@@ -4,8 +4,6 @@
 // per-message speaker and the hands-free voice overlay all go through here, so the
 // wire shape — same-origin cookie, the `audio` multipart field name the Go handler
 // reads, the truncation header — has one definition instead of three that drift.
-// The Video Studio's Text to speech takes the bytes themselves (`synthesizeSpeechAudio`)
-// and stores them as a sound.
 //
 // Both throw on a non-2xx. An EMPTY transcript is NOT an error: /api/stt answers a
 // clean 200 {"text":""} when the clip held no speech, and the caller decides what that
@@ -45,7 +43,7 @@ interface SpokenAudio {
   readonly truncated: boolean;
 }
 
-/** POST text to /api/tts and answer the audio/mpeg body: the Video Studio stores it as a sound. */
+/** POST text to /api/tts and answer the audio/mpeg body. */
 export async function synthesizeSpeechAudio(
   text: string,
   signal?: AbortSignal,

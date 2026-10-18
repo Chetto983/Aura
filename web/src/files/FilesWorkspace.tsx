@@ -28,7 +28,6 @@ import { useThemeMode } from '@/theme/useThemeMode';
 
 interface FilesWorkspaceProps {
   readonly mobileMenu?: ReactNode;
-  readonly onOpenFile?: (file: IParsedEntity) => void;
 }
 
 /**
@@ -41,7 +40,7 @@ interface FilesWorkspaceProps {
  * only ever had rows for documents uploaded through it, so a file reconciled from the
  * bucket was invisible here no matter that it was fully indexed and answerable.
  */
-export default function FilesWorkspace({ mobileMenu, onOpenFile }: FilesWorkspaceProps) {
+export default function FilesWorkspace({ mobileMenu }: FilesWorkspaceProps) {
   const { t, i18n } = useTranslation();
   const [data, setData] = useState<IEntity[]>([]);
   const [error, setError] = useState('');
@@ -148,17 +147,13 @@ export default function FilesWorkspace({ mobileMenu, onOpenFile }: FilesWorkspac
       // cockpit's own preview, whose save goes through the share sheet.
       api.on('open-file', ({ id }: { id: string }) => {
         const file = api.getFile(id);
-        if (onOpenFile !== undefined && file !== null) {
-          onOpenFile(file);
-          return;
-        }
         if (!previewInApp(file)) window.open(directURL(id, false), '_blank', 'noopener,noreferrer');
       });
       api.on('download-file', ({ id }: { id: string }) => {
         if (!previewInApp(api.getFile(id))) void saveFiles([id]);
       });
     },
-    [onOpenFile, previewInApp, provider, selection],
+    [previewInApp, provider, selection],
   );
 
   const requestData = useCallback(

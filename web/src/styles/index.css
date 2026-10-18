@@ -8,10 +8,5 @@
 @import './skeleton.css';
 @import './responsive-containers.css';
 @import './studio.css';
-@import './media-edit.css';
-@import './video-studio.css';
-@import './video-studio-controls.css';
-@import './video-studio-audio.css';
-@import './video-studio-mobile.css';
 @import './voice.css';
 @import './update.css';

@@ -28,11 +28,6 @@ export async function finalizeAsset(id: string): Promise<Asset> {
   return postFinalize(id, '');
 }
 
-/** Finalizes an editor source: accepted and left alone, never transcribed or summarized. */
-export async function finalizeMediaAsset(id: string): Promise<Asset> {
-  return postFinalize(id, '?use=media');
-}
-
 export async function getAsset(id: string): Promise<Asset> {
   const res = await fetch(assetURL(id), {
     method: 'GET',

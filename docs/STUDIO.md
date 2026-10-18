@@ -8,16 +8,7 @@ The cockpit's creative workspace, per identity.
   ratio, seed, and duration and sound for video; advanced inputs take a start frame, an
   end frame and reference images from your library. Every generation lands in a
   searchable history you can reuse or download. Generation needs the OpenRouter route.
-- **Edit photos and clips** in the browser: a photo editor (Filerobot) and a quick video
-  editor (trim, crop, rotate, audio) for any image or clip in a chat or in the Garage
-  library.
-- **Multi-track video editor**:
-  - a video lane plus overlay lanes for titles and images, with transitions between clips;
-  - per-clip transform (fill, fit, crop, flip, rotate), adjustments (opacity, brightness,
-    contrast, saturation, hue, blur), animations and speed;
-  - audio lanes for an uploaded sound, a recorded voice, a text read aloud, or the sound
-    extracted from a clip, with noise reduction, fades and automatic ducking under speech;
-  - undo and redo, saved projects, a mobile layout, and an export rendered in the browser
-    (video, or the audio alone as WAV).
 
-  A generated video opens in the editor with one click.
+Editing is the agent's: photos through PhotoCraft and video through FilmCraft, two of the Craft
+MCP servers that run in the identity's box (docs/superpowers/specs/2026-10-18-craft-mcp-design.md).
+The browser editors the Studio had before were removed with that change.

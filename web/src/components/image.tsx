@@ -110,15 +110,12 @@ export function ImageActions({
   fileName,
   labels,
   className,
-  extra,
 }: {
   readonly src: string;
   readonly downloadHref: string;
   readonly fileName: string;
   readonly labels: ImageActionsLabels;
   readonly className?: string;
-  /** A caller's own action, placed before Download. */
-  readonly extra?: ReactNode;
 }) {
   const [copyState, setCopyState] = useState<'idle' | 'pending' | 'copied' | 'error'>('idle');
   async function copy() {
@@ -137,7 +134,6 @@ export function ImageActions({
           {labels.copyFailed}
         </span>
       ) : null}
-      {extra}
       <a
         href={downloadHref}
         download={fileName}

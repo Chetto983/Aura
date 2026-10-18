@@ -40,26 +40,19 @@ export interface AssetSource {
    *  regression. Giving the share tiers their own render route is what would let this become
    *  required. */
   readonly renderUrl?: (assetId: string) => string;
-  /** Present only on the identity-scoped tier: the in-browser editors (web/src/mediaEdit) may
-   *  open this source's images and clips. A share tier leaves it out, so a public page never
-   *  offers editing — the same optional-capability pattern as `renderUrl`. */
-  readonly editable?: true;
   /** Present only where a renderer may write back, the file manager's tier: the spreadsheet
    *  preview saves an edited workbook over the file (`saveAs` absent) or as a new file of that
    *  name beside it. A tier without it keeps edits in the preview and says so. */
   readonly save?: (assetId: string, bytes: ArrayBuffer, saveAs?: string) => Promise<void>;
 }
 
-/** The identity-scoped tier, exported as a VALUE as well as being this context's default: a
- *  module that is not a component — `videoStudio/projectStore.ts` reads a saved project file —
- *  cannot call `useAssetSource()`, and spelling the same two routes a second time is how the two
- *  copies drift. A share tier still overrides it through the provider. */
+/** The identity-scoped tier, this context's default. A share tier overrides it through the
+ *  provider. */
 export const IDENTITY_SCOPED: AssetSource = {
   assetUrl: (assetId) => `/api/assets/${encodeURIComponent(assetId)}/download`,
   streamUrl: (assetId) => `/api/assets/${encodeURIComponent(assetId)}/stream`,
   credentials: 'same-origin',
   renderUrl: (assetId) => `/api/assets/${encodeURIComponent(assetId)}/render`,
-  editable: true,
 };
 
 // No explicit generic type argument on createContext here: IDENTITY_SCOPED is already typed

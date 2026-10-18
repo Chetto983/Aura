@@ -1,7 +1,6 @@
 import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileDown } from 'lucide-react';
-import { EditMediaButton } from '../../mediaEdit/EditMediaButton';
 import type { Asset } from '../attachments/types';
 import { previewKind } from './artifactMeta';
 import { SaveFileLink } from './SaveFileLink';
@@ -74,8 +73,6 @@ function DownloadCard({ active }: { active: PreviewTarget }) {
 export function PreviewModal({ active, onClose }: PreviewModalProps) {
   const { t } = useTranslation();
   const { assetUrl } = useAssetSource();
-  const editKind =
-    active === undefined ? undefined : previewKind(active.mime_type, active.file_name);
   return (
     <Dialog
       open={active !== undefined}
@@ -90,17 +87,6 @@ export function PreviewModal({ active, onClose }: PreviewModalProps) {
               <DialogTitle className="min-w-0 flex-1 truncate font-mono text-[15px] font-medium">
                 {active.file_name}
               </DialogTitle>
-              {/* onOpen closes this modal first: its focus trap would swallow an editor
-                  opened on top of it (MediaEditorProvider). */}
-              {editKind === 'image' || editKind === 'video' ? (
-                <EditMediaButton
-                  assetId={active.id}
-                  kind={editKind}
-                  mimeType={active.mime_type}
-                  fileName={active.file_name}
-                  onOpen={onClose}
-                />
-              ) : null}
               <SaveFileLink
                 href={assetUrl(active.id)}
                 fileName={active.file_name}

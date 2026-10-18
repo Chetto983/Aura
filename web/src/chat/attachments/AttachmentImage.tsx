@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useObjectUrl } from '@/mediaEdit/useObjectUrl';
+import { useObjectUrl } from '@/lib/useObjectUrl';
 
 // The picture itself, for the two places an image attachment is shown.
 //

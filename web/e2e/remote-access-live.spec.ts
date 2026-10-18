@@ -43,7 +43,7 @@ test.describe('attended named-tunnel acceptance', () => {
   });
   test.describe.configure({ retries: 0, mode: 'serial' });
 
-  test('OTP, Authula, SSE, Garage, Studio, Gateway, rotation, recovery and owned cleanup', async ({
+  test('OTP, Authula, SSE, Garage, Gateway, rotation, recovery and owned cleanup', async ({
     browser,
   }, info) => {
     test.setTimeout(60 * 60 * 1000);
@@ -263,35 +263,10 @@ test.describe('attended named-tunnel acceptance', () => {
       );
       const asset = await uploadAndDownload(
         publicPage,
-        readFileSync('e2e/fixtures/media-edit/photo.png').toString('base64'),
+        readFileSync('e2e/fixtures/media/photo.png').toString('base64'),
         `${run}.png`,
       );
       evidence.garage = asset;
-      const finalized = publicPage.waitForResponse(
-        (response) =>
-          response.url().startsWith(`${origin}/api/studio/uploads/`) &&
-          response.url().endsWith('/finalize') &&
-          response.request().method() === 'POST',
-        { timeout: 900_000 },
-      );
-      await checkpoint(
-        'In the public cockpit open the uploaded image from Documents, choose Edit, apply Sepia, and Save to library. Keep the browser open, then continue.',
-      );
-      const saved = await finalized;
-      expect(saved.ok()).toBe(true);
-      const edited = (await saved.json()) as { id: string };
-      expect(edited.id).not.toBe(asset);
-      const library = await auraJSON<{ assets: { id: string }[] }>(
-        publicPage,
-        '/api/studio/library',
-      );
-      expect(library.assets.some((row) => row.id === edited.id)).toBe(true);
-      const download = await external.request.get(`${origin}/api/assets/${edited.id}/download`);
-      expect(download.ok()).toBe(true);
-      expect(
-        (await download.body()).equals(readFileSync('e2e/fixtures/media-edit/photo.png')),
-      ).toBe(false);
-      evidence.studio = edited.id;
 
       for (const enrolled of [false, true]) {
         await checkpoint(

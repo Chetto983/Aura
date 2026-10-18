@@ -24,14 +24,12 @@ import { governanceEn, governanceIt } from './resources.governance';
 import { graphEn, graphIt } from './resources.graph';
 import { loginEn, loginIt } from './resources.login';
 import { mediaEn, mediaIt } from './resources.media';
-import { mediaEditEn, mediaEditIt } from './resources.mediaEdit';
 import { onboardingEn, onboardingIt } from './resources.onboarding';
 import { profileEn, profileIt, settingsEn, settingsIt } from './resources.settings';
 import { embeddingRouteEn, embeddingRouteIt } from './resources.embeddingRoute';
 import { remoteAccessEn, remoteAccessIt } from './resources.remoteAccess';
 import { shareEn, shareIt } from './resources.share';
 import { studioEn, studioIt } from './resources.studio';
-import { videoStudioEn, videoStudioIt } from './resources.videoStudio';
 import { chatTurnNoticesEn, chatTurnNoticesIt } from './resources.turnnotices';
 import { updateEn, updateIt } from './resources.update';
 import { questionCardEn, questionCardIt } from './resources.questions';
@@ -194,8 +192,6 @@ export const resources = {
       ...browserLiveEn,
       ...mediaEn,
       ...studioEn,
-      ...mediaEditEn,
-      ...videoStudioEn,
       ...shareEn,
       ...filesEn,
       ...documentsEn,
@@ -416,8 +412,6 @@ export const resources = {
       ...browserLiveIt,
       ...mediaIt,
       ...studioIt,
-      ...mediaEditIt,
-      ...videoStudioIt,
       ...shareIt,
       ...filesIt,
       ...documentsIt,

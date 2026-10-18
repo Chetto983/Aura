@@ -1,6 +1,6 @@
 /* SVAR's wxi icon font, vendored. The widget's theme wrapper links this stylesheet and a
    preconnect from cdn.svar.dev unless it is told `fonts={false}`, and an appliance that must
-   answer offline cannot depend on a CDN -- web/e2e/video-studio.spec.ts fails the run when a
+   answer offline cannot depend on a CDN -- web/e2e/svar-origin.spec.ts fails the run when a
    request leaves the origin. Font + codepoints copied from https://cdn.svar.dev/fonts/wxi/
    on 2026-09-21; the source is svar-widgets/wxi-font (MIT), whose committed dist/ is older
    than the CDN copy, so the pair here comes from the CDN to keep glyphs and codepoints in
@@ -340,7 +340,7 @@ i[class*=' wxi-']:before {
    name is only a name, so the six faces the package declares against the CDN are redeclared
    here against a file this origin serves. Whatever still asks for "Open Sans" or Roboto -- a
    portal, a rule not found, a package upgrade -- resolves same-origin instead of leaving the
-   appliance. Same move as public/fonts/noto-sans-alias.css makes for the video renderer.
+   appliance.
    Descriptors match the package's exactly (Roboto 400/500, Open Sans 400/500/600/700): a face
    overrides an earlier one only when family, style and weight all agree. */
 @font-face {

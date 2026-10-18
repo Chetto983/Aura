@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { EditMediaButton } from '../../../mediaEdit/EditMediaButton';
 import { useBlobPreview } from '../useBlobPreview';
 import { useAssetSource } from './assetSourceContext';
 import { PreviewErrorWithDownload, PreviewLoading, type RendererProps } from './PreviewStatus';
@@ -59,15 +58,6 @@ export default function GeneratedImagePreview({ assetId, mimeType, fileName }: R
             copied: t('media.image.copied'),
             copyFailed: t('media.image.copyFailed'),
           }}
-          extra={
-            <EditMediaButton
-              assetId={assetId}
-              kind="image"
-              mimeType={mimeType}
-              fileName={fileName}
-              compact
-            />
-          }
         />
       </div>
     </ImageRoot>

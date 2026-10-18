@@ -297,7 +297,7 @@ test('two selected files go to one share sheet in the iOS home-screen app', asyn
 // The direct route answers a byte range from the live store: iOS plays no <video> from a server
 // that does not, and a clip opened from the Documents page streams from this route.
 test('a clip in the Documents bucket is served by byte range', async ({ page, scratch }) => {
-  const clip = readFileSync(resolve(process.cwd(), 'e2e/fixtures/media-edit/clip.mp4'));
+  const clip = readFileSync(resolve(process.cwd(), 'e2e/fixtures/media/clip.mp4'));
   const answer = await page.evaluate(
     async ({ dir, base64 }) => {
       const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));

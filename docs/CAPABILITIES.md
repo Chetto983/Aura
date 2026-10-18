@@ -17,7 +17,8 @@ Release evidence is governed by [Release readiness](release-readiness.md).
 | Delegation | Bounded foreground/background workers, status and durable outcomes | Results belong to their originating conversation; external delivery is explicit |
 | Scheduler | Reminders, agent jobs and maintenance; operator inspection and control | Job approval and notification behavior depend on the job and owning route |
 | Voice | Spoken input and spoken replies in the web cockpit; Telegram voice notes | Local faster-whisper STT and Kokoro TTS sidecars by default; a configured OpenRouter speech model replaces either |
-| Studio | Image and video generation over OpenRouter media models, photo/video editors and a multi-track video editor, saving to the per-identity library | Generation is billed by the provider; edits are processed in the browser |
+| Studio | Image and video generation over OpenRouter media models, saving to the per-identity library | Generation is billed by the provider |
+| Documents, photos and video | Spreadsheets, Word documents, decks, PDFs, photos and video sequences edited through the GridCraft, WordCraft, DeckCraft, PdfCraft, PhotoCraft and FilmCraft MCP servers | They run in the identity's box, write only in its workspace (landrun), and the result reaches the library through `send_file` |
 | Cockpit | Chat, Studio, documents, memory graph, scheduler, settings, approvals, integrations and skills | Administrative actions require the corresponding capabilities |
 
 ## Knowledge and memory

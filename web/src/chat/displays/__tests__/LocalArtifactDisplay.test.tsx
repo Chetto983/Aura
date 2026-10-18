@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '../../../i18n/i18n'; // side-effect: initialise i18next so t() resolves keys
-import { OpenEditorContext } from '../../../mediaEdit/mediaEditorContext';
 import { LocalArtifactDisplay } from '../LocalArtifactDisplay';
 import type { DisplayArtifact, DisplayPayload } from '../types';
 
@@ -193,20 +192,6 @@ describe('LocalArtifactDisplay', () => {
         screen.getByRole('link', { name: 'Download recording.mp3' }).getAttribute('href'),
       ).toBe('/api/assets/aud-1/download');
       expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    it('hands a delivered clip to the editor from its caption', () => {
-      stubAssetBytes();
-      const open = vi.fn();
-      render(
-        <OpenEditorContext.Provider value={open}>
-          <LocalArtifactDisplay
-            payload={payload({ asset_id: 'v1', filename: 'clip.mp4', mime_type: 'video/mp4' })}
-          />
-        </OpenEditorContext.Provider>,
-      );
-      fireEvent.click(screen.getByRole('button', { name: 'Edit clip.mp4' }));
-      expect(open).toHaveBeenCalledWith({ assetId: 'v1', kind: 'video' });
     });
 
     it('keeps an SVG as a download card: no <img>, no <video>, download link kept', () => {

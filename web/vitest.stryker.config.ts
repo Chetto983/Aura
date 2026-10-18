@@ -79,18 +79,6 @@ const mutationTests = [
   'src/update/__tests__/updateModel.test.ts',
   'src/update/__tests__/updateTime.test.ts',
   'src/update/__tests__/useSystemUpdate.test.tsx',
-  // Video Studio audio core (spec 2026-09-27): the lane rules, the audio commands, the volume
-  // curve and the audio compile.
-  'src/videoStudio/__tests__/audioLane.test.ts',
-  'src/videoStudio/__tests__/commands_audio.test.ts',
-  'src/videoStudio/__tests__/volumeCurve.test.ts',
-  'src/videoStudio/__tests__/sourceClock.test.ts',
-  'src/videoStudio/__tests__/videoflow_audio.test.ts',
-  // aura-video-mcp Plan A: the fade compile, read through the renderer's own runtime layers.
-  'src/videoStudio/__tests__/videoflow_keyframes.test.ts',
-  // aura-video-mcp Plan A: an export's media, once per source, and the sound-only export.
-  'src/videoStudio/__tests__/videoflow_export.test.ts',
-  'src/videoStudio/__tests__/videoflow_exportAudio.test.ts',
   // Conversation search: the snippet that shows where a word matched (prd.md §7).
   'src/conversations/__tests__/SearchPanel.test.tsx',
   // A search hit opens its thread on the matched turn, at the seq every caller agrees on.

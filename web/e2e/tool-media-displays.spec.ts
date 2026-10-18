@@ -5,9 +5,9 @@ import { gotoAuthenticated } from './auth';
 import { emulateIOSHomeScreen, sharedFiles } from './iosHomeScreen';
 
 const CONV_ID = '77777777-7777-7777-7777-777777777777';
-const image = readFileSync(resolve(process.cwd(), 'e2e/fixtures/media-edit/photo.png'));
-const video = readFileSync(resolve(process.cwd(), 'e2e/fixtures/media-edit/clip.mp4'));
-const audio = readFileSync(resolve(process.cwd(), 'e2e/fixtures/video-studio/audio/music.wav'));
+const image = readFileSync(resolve(process.cwd(), 'e2e/fixtures/media/photo.png'));
+const video = readFileSync(resolve(process.cwd(), 'e2e/fixtures/media/clip.mp4'));
+const audio = readFileSync(resolve(process.cwd(), 'e2e/fixtures/media/music.wav'));
 const pdf = readFileSync(resolve(process.cwd(), 'e2e/fixtures/documents/Appunti.pdf'));
 
 function artifactCall(id: string, filename: string, mimeType: string) {

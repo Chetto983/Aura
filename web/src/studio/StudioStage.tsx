@@ -4,8 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { GenerationFrame } from '../chat/generation/GenerationFrame';
 import { PreviewLoading } from '../chat/artifacts/renderers/PreviewStatus';
 import { PreviewByKind } from '../chat/artifacts/renderers/previewDispatch';
-import { EditMediaButton } from '../mediaEdit/EditMediaButton';
-import { GarageMediaPicker } from '../mediaEdit/GarageMediaPicker';
 import { assetDownloadUrl, type StudioRecord } from './studioApi';
 import { studioErrorSentence } from './studioErrors';
 import { isActive } from './studioForm';
@@ -45,7 +43,6 @@ export function StudioStage({ record, onReuse, reuseState }: StudioStageProps) {
           {t('studio.stage.headline')}
         </h1>
         <p className="max-w-md text-sm text-text-muted">{t('studio.stage.idle')}</p>
-        <GarageMediaPicker />
       </div>
     );
   }
@@ -138,17 +135,13 @@ function StageActions({
         </span>
       ) : null}
       {record.asset_id === undefined ? null : (
-        <>
-          <Button asChild size="sm" variant="ghost" className="min-h-8 gap-1.5 py-1 text-xs">
-            <a href={assetDownloadUrl(record.asset_id)} download>
-              <Download aria-hidden="true" className="size-3.5" />
-              {t('studio.history.download')}
-            </a>
-          </Button>
-          <EditMediaButton assetId={record.asset_id} kind={record.kind} className="py-1 text-xs" />
-        </>
+        <Button asChild size="sm" variant="ghost" className="min-h-8 gap-1.5 py-1 text-xs">
+          <a href={assetDownloadUrl(record.asset_id)} download>
+            <Download aria-hidden="true" className="size-3.5" />
+            {t('studio.history.download')}
+          </a>
+        </Button>
       )}
-      <GarageMediaPicker />
       {reuseState === 'forbidden' ? null : (
         <Button
           size="sm"
