@@ -49,7 +49,9 @@ export class FileManagerProvider extends RestDataProvider {
     const carriesJSON = data != null && !(data instanceof FormData);
     const response = await fetch(`${this._url}/${url}`, {
       method,
-      headers: carriesJSON ? { 'Content-Type': 'application/json', ...customHeaders } : { ...customHeaders },
+      headers: carriesJSON
+        ? { 'Content-Type': 'application/json', ...customHeaders }
+        : { ...customHeaders },
       body: (data ?? null) as BodyInit | null,
     });
     const body = (await response.json().catch(() => ({}))) as { error?: string };

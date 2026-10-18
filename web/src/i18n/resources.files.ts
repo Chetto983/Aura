@@ -16,7 +16,8 @@ export const filesIt = {
     title: 'Documenti',
     loading: 'Caricamento dei file...',
     loadFailed: 'Impossibile caricare i file.',
-    writeFailed: 'La modifica non è andata a buon fine: {{message}}. La cartella mostra cosa è salvato davvero.',
+    writeFailed:
+      'La modifica non è andata a buon fine: {{message}}. La cartella mostra cosa è salvato davvero.',
     saveCount_one: '{{count}} file',
     saveCount_other: '{{count}} file',
   },
