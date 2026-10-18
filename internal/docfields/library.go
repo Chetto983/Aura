@@ -44,15 +44,25 @@ type DocumentDetail struct {
 	History    []Event    `json:"history"`
 }
 
-// ListQuery filters, orders and pages the library. Fields holds label ids; Sort is a column of
-// sortColumns, descending with a leading "-".
+// ListQuery filters, orders and pages the library. Fields holds the label ids a document must
+// hold, Exclude the ones it must not (its types, counterparties and tags), and Unassigned the
+// fields that must hold nothing: "type", "counterparty", "tags". Fields.IncludeUnreviewed decides,
+// for all three, whether suggestions count. Search matches part of the file name, in any case.
+// Sort is a column of sortColumns, descending with a leading "-".
 type ListQuery struct {
 	Fields      arcadedb.FieldFilter
+	Exclude     arcadedb.FieldFilter
+	Unassigned  []string
+	Search      string
 	NeedsReview bool
 	Sort        string
 	Offset      int
 	Limit       int
 }
+
+// unassignable maps a field a filter may ask to be empty to its stamped property; tags are empty
+// when the list is.
+var unassignable = map[string]string{"type": "df_type", "counterparty": "df_counterparty", "tags": "df_tags"}
 
 // Facets counts, per field, how many documents of a result hold each value.
 type Facets map[string]map[string]int
@@ -82,7 +92,7 @@ func (s *Store) List(ctx context.Context, identityID string, q ListQuery) (ListR
 	if err != nil {
 		return ListResult{}, err
 	}
-	result := ListResult{Rows: []DocumentRow{}, Facets: Facets{"type": {}, "counterparty": {}, "tags": {}}}
+	result := ListResult{Rows: []DocumentRow{}, Facets: Facets{"type": {}, "counterparty": {}, "tags": {}, "unassigned": {}}}
 	all, err := c.Query(ctx, "SELECT df_type, df_counterparty, df_tags FROM IndexedDocument WHERE "+where, params)
 	if arcadedb.IsMissingType(err, arcadedb.IndexedDocumentType) {
 		return result, nil
@@ -94,8 +104,14 @@ func (s *Store) List(ctx context.Context, identityID string, q ListQuery) (ListR
 	for _, row := range all {
 		countFacet(result.Facets["type"], row["df_type"])
 		countFacet(result.Facets["counterparty"], row["df_counterparty"])
-		for _, tag := range listOf(row["df_tags"]) {
+		tags := listOf(row["df_tags"])
+		for _, tag := range tags {
 			countFacet(result.Facets["tags"], tag)
+		}
+		for field, empty := range map[string]bool{"type": str(row["df_type"]) == "", "counterparty": str(row["df_counterparty"]) == "", "tags": len(tags) == 0} {
+			if empty {
+				result.Facets["unassigned"][field]++
+			}
 		}
 	}
 	page, err := c.Query(ctx, fmt.Sprintf("SELECT %s FROM IndexedDocument WHERE %s ORDER BY %s SKIP %d LIMIT %d",
@@ -191,12 +207,60 @@ func (s *Store) libraryScope(ctx context.Context, identityID string, q ListQuery
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
-	if q.NeedsReview {
-		where += " AND df_needs_review = true"
+	extra, err := libraryPredicates(q, params)
+	if err != nil {
+		return nil, "", nil, err
 	}
 	c, err := s.client(ctx, identityID)
-	return c, where, params, err
+	return c, strings.Join(append([]string{where}, extra...), " AND "), params, err
 }
+
+// libraryPredicates are the list's own filters beside the search's: exclusions, empty fields, the
+// name search and the review state. A document holding no value passes an exclusion.
+func libraryPredicates(q ListQuery, params map[string]any) ([]string, error) {
+	property := func(name string) string {
+		if q.Fields.IncludeUnreviewed {
+			return name
+		}
+		return name + "_ok"
+	}
+	var out []string
+	for _, excluded := range []struct {
+		property, param string
+		ids             []string
+	}{{"df_type", "not_types", q.Exclude.Types}, {"df_counterparty", "not_counterparties", q.Exclude.Counterparties}} {
+		if len(excluded.ids) > 0 {
+			params[excluded.param] = excluded.ids
+			out = append(out, fmt.Sprintf("(%[1]s IS NULL OR %[1]s NOT IN :%[2]s)", property(excluded.property), excluded.param))
+		}
+	}
+	if len(q.Exclude.Tags) > 0 {
+		params["not_tags"] = q.Exclude.Tags
+		out = append(out, fmt.Sprintf("(%[1]s IS NULL OR NOT (%[1]s CONTAINSANY :not_tags))", property("df_tags")))
+	}
+	for _, field := range q.Unassigned {
+		name, ok := unassignable[field]
+		if !ok {
+			return nil, invalid("unknown field %q to find unassigned", field)
+		}
+		if field == "tags" {
+			out = append(out, fmt.Sprintf("(%[1]s IS NULL OR %[1]s.size() = 0)", property(name)))
+		} else {
+			out = append(out, property(name)+" IS NULL")
+		}
+	}
+	if search := strings.TrimSpace(q.Search); search != "" {
+		params["search"] = "%" + likeLiteral.Replace(strings.ToLower(search)) + "%"
+		out = append(out, "file_name.toLowerCase() LIKE :search")
+	}
+	if q.NeedsReview {
+		out = append(out, "df_needs_review = true")
+	}
+	return out, nil
+}
+
+// likeLiteral keeps a search's own characters literal: ArcadeDB's LIKE wildcards are % and ?.
+var likeLiteral = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `?`, `\?`)
 
 // documentRecords is the record id of each named document, in order, created for those that have
 // none: one script for every missing record. A name that is no document of this identity's is

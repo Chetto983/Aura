@@ -287,3 +287,22 @@ func TestDocumentsStoreErrorsAnswerByKind(t *testing.T) {
 		}
 	}
 }
+
+// Exclude, "Non assegnata" and the search box ride the same filter, in the list's query and in a
+// bulk selection's body alike.
+func TestDocumentsFilterCarriesExclusionsAndSearch(t *testing.T) {
+	store := &fakeDocumentsStore{}
+	s := documentsServer(store)
+	documentsRequest(t, s, http.MethodGet, "/api/documents?type_not=t9&counterparty_not=c9&tags_not=g9&unassigned=tags&unassigned=type&q=fattura", "")
+	q := store.query
+	if !slices.Equal(q.Exclude.Types, []string{"t9"}) || !slices.Equal(q.Exclude.Counterparties, []string{"c9"}) ||
+		!slices.Equal(q.Exclude.Tags, []string{"g9"}) || !slices.Equal(q.Unassigned, []string{"tags", "type"}) || q.Search != "fattura" {
+		t.Fatalf("query = %+v", q)
+	}
+	store.selection = []string{"d1"}
+	documentsRequest(t, s, http.MethodPost, "/api/documents/bulk",
+		`{"selection":{"filter":{"tags_not":["g9"],"unassigned":["type"],"q":"nota"},"expected_count":1},"diff":{}}`)
+	if q := store.query; !slices.Equal(q.Exclude.Tags, []string{"g9"}) || !slices.Equal(q.Unassigned, []string{"type"}) || q.Search != "nota" {
+		t.Fatalf("bulk query = %+v", q)
+	}
+}

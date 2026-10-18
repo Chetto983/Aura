@@ -151,3 +151,35 @@ func TestCustomFieldLifecycle(t *testing.T) {
 		t.Fatalf("second delete: err = %v, want ErrNotFound", err)
 	}
 }
+
+// The filter bar's Exclude and "Non assegnata", the facets' unassigned counts, and the search box
+// over file names.
+func TestLibraryListExcludesUnassignedAndSearches(t *testing.T) {
+	s, ctx, id, fattura := officeLibrary(t)
+	excluded, err := s.List(ctx, id, ListQuery{Exclude: arcadedb.FieldFilter{Types: []string{fattura.ID}}, Fields: arcadedb.FieldFilter{IncludeUnreviewed: true}})
+	if err != nil || !slices.Equal(keysOf(excluded.Rows), []string{"chat/c.txt"}) {
+		t.Fatalf("excluding Fattura = %v, %v", keysOf(excluded.Rows), err)
+	}
+	untagged, err := s.List(ctx, id, ListQuery{Unassigned: []string{"tags"}, Fields: arcadedb.FieldFilter{IncludeUnreviewed: true}, Sort: "file_name"})
+	if err != nil || !slices.Equal(keysOf(untagged.Rows), []string{"chat/a.pdf", "chat/c.txt"}) {
+		t.Fatalf("untagged = %v, %v", keysOf(untagged.Rows), err)
+	}
+	notUrgent, err := s.List(ctx, id, ListQuery{Exclude: arcadedb.FieldFilter{Tags: []string{"lbl-urgente"}}, Fields: arcadedb.FieldFilter{IncludeUnreviewed: true}, Sort: "file_name"})
+	if err != nil || !slices.Equal(keysOf(notUrgent.Rows), []string{"chat/a.pdf", "chat/c.txt"}) {
+		t.Fatalf("not urgent = %v, %v", keysOf(notUrgent.Rows), err)
+	}
+	found, err := s.List(ctx, id, ListQuery{Search: "B.XL", Fields: arcadedb.FieldFilter{IncludeUnreviewed: true}})
+	if err != nil || !slices.Equal(keysOf(found.Rows), []string{"chat/b.xlsx"}) {
+		t.Fatalf("search = %v, %v", keysOf(found.Rows), err)
+	}
+	if literal, err := s.List(ctx, id, ListQuery{Search: "%"}); err != nil || literal.Total != 0 {
+		t.Fatalf("a %% in the search matched as a wildcard: %v, %v", keysOf(literal.Rows), err)
+	}
+	all, err := s.List(ctx, id, ListQuery{Fields: arcadedb.FieldFilter{IncludeUnreviewed: true}})
+	if err != nil || all.Facets["unassigned"]["type"] != 1 || all.Facets["unassigned"]["tags"] != 2 || all.Facets["unassigned"]["counterparty"] != 3 {
+		t.Fatalf("unassigned facets = %v, %v", all.Facets["unassigned"], err)
+	}
+	if _, err := s.List(ctx, id, ListQuery{Unassigned: []string{"colour"}}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("an unknown unassigned field: err = %v, want ErrInvalid", err)
+	}
+}

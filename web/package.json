@@ -48,6 +48,7 @@
     "@svar-ui/kanban-locales": "^2.6.0",
     "@svar-ui/react-core": "2.6.1",
     "@svar-ui/react-filemanager": "^2.6.0",
+    "@svar-ui/react-grid": "2.7.6",
     "@svar-ui/react-kanban": "^2.6.0",
     "@tanstack/react-query": "^5.104.1",
     "@tiptap/pm": "^3.31.4",

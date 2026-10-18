@@ -64,29 +64,42 @@ func (s *Server) documentsRoute(h documentsHandler) http.HandlerFunc {
 }
 
 // documentsFilter is the library filter, as the list's query parameters carry it and as a bulk
-// selection's body does. Values are label ids: the view picks them from the operator's lists.
+// selection's body does. Values are label ids: the view picks them from the operator's lists. The
+// _not lists exclude, and unassigned names the fields that must hold nothing.
 type documentsFilter struct {
 	Type              []string `json:"type"`
 	Counterparty      []string `json:"counterparty"`
 	Tags              []string `json:"tags"`
+	TypeNot           []string `json:"type_not"`
+	CounterpartyNot   []string `json:"counterparty_not"`
+	TagsNot           []string `json:"tags_not"`
+	Unassigned        []string `json:"unassigned"`
 	TagsMode          string   `json:"tags_mode"`
 	DateFrom          string   `json:"date_from"`
 	DateTo            string   `json:"date_to"`
+	Search            string   `json:"q"`
 	IncludeUnreviewed *bool    `json:"include_unreviewed"`
 	NeedsReview       bool     `json:"needs_review"`
 }
 
 func (f documentsFilter) query() docfields.ListQuery {
-	q := docfields.ListQuery{NeedsReview: f.NeedsReview, Fields: arcadedb.FieldFilter{
-		Types: f.Type, Counterparties: f.Counterparty, Tags: f.Tags, TagsAll: f.TagsMode == "all",
-		DateFrom: f.DateFrom, DateTo: f.DateTo, IncludeUnreviewed: f.IncludeUnreviewed == nil || *f.IncludeUnreviewed,
-	}}
-	return q
+	return docfields.ListQuery{
+		Fields: arcadedb.FieldFilter{
+			Types: f.Type, Counterparties: f.Counterparty, Tags: f.Tags, TagsAll: f.TagsMode == "all",
+			DateFrom: f.DateFrom, DateTo: f.DateTo, IncludeUnreviewed: f.IncludeUnreviewed == nil || *f.IncludeUnreviewed,
+		},
+		Exclude:     arcadedb.FieldFilter{Types: f.TypeNot, Counterparties: f.CounterpartyNot, Tags: f.TagsNot},
+		Unassigned:  f.Unassigned,
+		Search:      f.Search,
+		NeedsReview: f.NeedsReview,
+	}
 }
 
 func filterFromQuery(values url.Values) (documentsFilter, error) {
 	f := documentsFilter{Type: values["type"], Counterparty: values["counterparty"], Tags: values["tags"],
-		TagsMode: values.Get("tags_mode"), DateFrom: values.Get("date_from"), DateTo: values.Get("date_to")}
+		TypeNot: values["type_not"], CounterpartyNot: values["counterparty_not"], TagsNot: values["tags_not"],
+		Unassigned: values["unassigned"], TagsMode: values.Get("tags_mode"), DateFrom: values.Get("date_from"),
+		DateTo: values.Get("date_to"), Search: values.Get("q")}
 	needsReview, err := queryBool(values, "needs_review")
 	if err != nil {
 		return documentsFilter{}, err
