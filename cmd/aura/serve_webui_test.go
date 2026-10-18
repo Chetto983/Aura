@@ -304,11 +304,12 @@ func TestServeWebui(t *testing.T) {
 		}
 	})
 
-	// The file manager and the work board read and write JSON. A route missing from THIS mux
-	// does not 404 cleanly — it falls through to the embedded SPA, which answers with an HTML
-	// shell, and the component reports "Unexpected non-whitespace character after JSON". That
-	// is what the live cockpit showed, so every verb either widget uses is asserted here.
-	t.Run("/api/filemanager and /api/board -> AG-UI handler (never the SPA shell)", func(t *testing.T) {
+	// The file manager, the work board and the Documenti view read and write JSON. A route
+	// missing from THIS mux does not 404 cleanly — it falls through to the embedded SPA, which
+	// answers with an HTML shell, and the component reports "Unexpected non-whitespace character
+	// after JSON". That is what the live cockpit showed, so every verb each view uses is asserted
+	// here. The Documenti view's were missing until its live E2E (2026-10-18).
+	t.Run("/api/filemanager, /api/board and /api/documents -> AG-UI handler (never the SPA shell)", func(t *testing.T) {
 		for _, probe := range []struct{ method, route string }{
 			{http.MethodGet, "/api/filemanager/files"},
 			{http.MethodGet, "/api/filemanager/files/%2Fcontabilita"},
@@ -328,6 +329,20 @@ func TestServeWebui(t *testing.T) {
 			{http.MethodGet, "/api/board/views"},
 			{http.MethodPut, "/api/board/views"},
 			{http.MethodDelete, "/api/board/views/v1"},
+			{http.MethodGet, "/api/documents"},
+			{http.MethodPost, "/api/documents/bulk"},
+			{http.MethodGet, "/api/documents/d1"},
+			{http.MethodPatch, "/api/documents/d1"},
+			{http.MethodPost, "/api/documents/d1/review"},
+			{http.MethodGet, "/api/documents/labels"},
+			{http.MethodPost, "/api/documents/labels"},
+			{http.MethodPut, "/api/documents/labels/l1"},
+			{http.MethodDelete, "/api/documents/labels/l1"},
+			{http.MethodPost, "/api/documents/labels/l1/run"},
+			{http.MethodGet, "/api/documents/custom-fields"},
+			{http.MethodPost, "/api/documents/custom-fields"},
+			{http.MethodPut, "/api/documents/custom-fields/f1"},
+			{http.MethodDelete, "/api/documents/custom-fields/f1"},
 		} {
 			aguiHits = nil
 			req, err := http.NewRequest(probe.method, srv.URL+probe.route, strings.NewReader("{}"))

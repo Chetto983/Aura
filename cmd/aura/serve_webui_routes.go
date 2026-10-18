@@ -364,6 +364,10 @@ const fileManagerSubtreeRoute = "/api/filemanager/"
 const boardRoutePrefix = "/api/board"
 const boardSubtreeRoute = "/api/board/"
 
+// The Documenti view (internal/agui/documents_api.go) too: the library is the principal's own.
+const documentsRoutePrefix = "/api/documents"
+const documentsSubtreeRoute = "/api/documents/"
+
 const (
 	assetsPresignRoute  = "POST /api/assets/presign"
 	assetsFinalizeRoute = "POST /api/assets/{id}/finalize"
