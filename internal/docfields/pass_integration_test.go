@@ -35,6 +35,9 @@ func indexedLibrary(t *testing.T) (*Store, context.Context, string, *arcadedb.Cl
 	return s, ctx, id, c
 }
 
+// docID is the search_document_id a test document is indexed under.
+func docID(key string) string { return "doc:" + key }
+
 // indexDocument writes a document and its passage the way the ingest leaves them.
 func indexDocument(t *testing.T, c *arcadedb.Client, key, at, text string, pairs ...string) {
 	t.Helper()
@@ -42,8 +45,9 @@ func indexDocument(t *testing.T, c *arcadedb.Client, key, at, text string, pairs
 		pairs = []string{}
 	}
 	if _, err := c.Script(context.Background(), "DELETE FROM IndexedDocument WHERE source_key = :k;\n"+
-		"INSERT INTO IndexedDocument SET source_key = :k, file_name = :k, card = :k, header_pairs = :pairs, indexed_at = :at",
-		map[string]any{"k": key, "pairs": pairs, "at": at}); err != nil {
+		"INSERT INTO IndexedDocument SET search_document_id = :id, source_key = :k, file_name = :k, card = :k, "+
+		"size_bytes = 1024, header_pairs = :pairs, indexed_at = :at",
+		map[string]any{"id": docID(key), "k": key, "pairs": pairs, "at": at}); err != nil {
 		t.Fatal(err)
 	}
 	mergePassage(t, c, key+"#0", key)

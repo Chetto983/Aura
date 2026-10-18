@@ -150,7 +150,7 @@ func (d *DocumentIndex) FusedCandidates(
 	params["candidates"] = min(max(filter.Limit*4, 20), d.config.MaxRetrievalCandidates)
 	rows, err := client.Query(ctx, fusedStatement(where, strategy, filter.Limit), params)
 	if err != nil {
-		if missingIngestType(err, documentPassageType) {
+		if IsMissingType(err, documentPassageType) {
 			return nil, nil // nothing ingested yet — an empty library, not a failure
 		}
 		return nil, fmt.Errorf("arcadedb: fused document candidates: %w", err)

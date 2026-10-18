@@ -149,6 +149,17 @@ func TestProjection(t *testing.T) {
 		got.DocumentDateOK != want.DocumentDateOK || !slices.Equal(got.Tags, want.Tags) || !slices.Equal(got.TagsOK, want.TagsOK) {
 		t.Fatalf("projection = %+v, want %+v", got, want)
 	}
+	if !got.NeedsReview {
+		t.Fatal("a document holding suggestions does not need review")
+	}
+	reviewed := Fields{Values: []Value{operator(FieldType, "lbl-fattura"), {Field: FieldTag, ValueKey: "lbl-b", SetBy: "rule:lbl-b", Accepted: true}}}
+	if reviewed.projection().NeedsReview || (&Fields{}).projection().NeedsReview {
+		t.Fatal("a document with every value reviewed, or none, needs review")
+	}
+	proposed := Fields{Values: []Value{{Field: FieldCounterparty, ValueKey: proposedPrefix + "Rossi SRL", SetBy: SetByExtractor}}}
+	if !proposed.projection().NeedsReview {
+		t.Fatal("a proposed name awaits the operator, so the document needs review")
+	}
 }
 
 func actions(events []Event) string {

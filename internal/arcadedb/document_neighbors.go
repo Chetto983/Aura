@@ -71,7 +71,7 @@ func (d *DocumentIndex) PassagesAt(
 		map[string]any{"passage_keys": keys},
 	)
 	if err != nil {
-		if missingIngestType(err, documentPassageType) {
+		if IsMissingType(err, documentPassageType) {
 			return nil, nil // nothing ingested yet — an empty library, not a failure
 		}
 		return nil, fmt.Errorf("arcadedb: passages at ordinal: %w", err)

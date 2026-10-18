@@ -17,6 +17,7 @@ var documentFieldsProjection = []struct{ stamped, column string }{
 	{"df_counterparty", "counterparty"}, {"df_counterparty_ok", "counterparty_ok"},
 	{"df_date", "document_date"}, {"df_date_ok", "document_date_ok"},
 	{"df_tags", "tags"}, {"df_tags_ok", "tags_ok"},
+	{"df_needs_review", "needs_review"},
 }
 
 // documentFieldsTargets are the indexed types the projection is kept on.

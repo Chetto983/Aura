@@ -45,6 +45,7 @@ func (s *script) writeFields(f *Fields, now time.Time) {
 		", counterparty = " + s.bind(orNil(p.Counterparty)) + ", counterparty_ok = " + s.bind(orNil(p.CounterpartyOK)) +
 		", document_date = " + s.bind(orNil(p.DocumentDate)) + ", document_date_ok = " + s.bind(orNil(p.DocumentDateOK)) +
 		", tags = " + s.bind(orEmpty(p.Tags)) + ", tags_ok = " + s.bind(orEmpty(p.TagsOK)) +
+		", needs_review = " + s.bind(p.NeedsReview) +
 		", updated_at = " + s.bind(now.Format(timeLayout)) +
 		" WHERE record_id = " + s.bind(f.RecordID))
 }

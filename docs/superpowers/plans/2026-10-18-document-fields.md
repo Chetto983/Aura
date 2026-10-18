@@ -447,12 +447,28 @@ behave as the clauses expect, live on 26.10.1.
 - `GET|POST|PUT|DELETE /api/documents/labels`, the same for `/custom-fields`;
 - `POST /api/documents/labels/{id}/run`.
 
+**As built** (2026-10-18):
+- `{id}` is the document's `IndexedDocument.search_document_id`, the `document_id` that
+  `document_search` returns too: every indexed document has one, labelled or not, and its record
+  is created on its first write (`docfields.Store.ApplyToDocuments`, one script for every missing
+  record).
+- "Da rivedere" is a stamped projection, `needs_review` → `df_needs_review`: a document holding a
+  value the operator has not set or accepted, a proposed name included. The list, its filters and
+  its facets read one type, `IndexedDocument`, with the same predicate the search applies
+  (`arcadedb.FieldPredicate`).
+- Saving a label that carries a rule runs it over the library before answering, and the answer
+  says how many values it suggested.
+- Measured on a disposable database of 4,000 documents and 8,000 passages, through the store: the
+  list with its total and facets 47 ms, filtered 25 ms, at offset 3,000 51 ms; a bulk tag on 100
+  documents 93 ms, on 1,000 2.3 s and on 4,000 5.3 s, creating the records; the type on 4,000
+  documents whose records exist 1.6 s, and the cascade stamped all 8,000 passages.
+
 **Steps:**
-- [ ] **Step 1. RED.** Handler tests: identity from the principal only, the 409 on a count
+- [x] **Step 1. RED.** Handler tests: identity from the principal only, the 409 on a count
   mismatch, the diff semantics, and another identity's id answering 404.
-- [ ] **Step 2. GREEN.**
-- [ ] **Step 3. Run `-race`.**
-- [ ] **Step 4. Commit:** `feat(agui): the documents API`.
+- [x] **Step 2. GREEN.**
+- [x] **Step 3. Run `-race`.**
+- [x] **Step 4. Commit:** `feat(agui): the documents API`.
 
 ### Task 9: the Documenti view, list and filters
 

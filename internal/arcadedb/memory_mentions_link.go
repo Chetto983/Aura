@@ -280,7 +280,7 @@ func sortedMentionEdges(edges map[mentionEdge]struct{}) []mentionEdge {
 // the type, but a client that has not run it yet must still be able to report
 // zero rather than an error.
 //
-// It delegates to missingIngestType (document_cards.go) rather than matching the phrase
+// It delegates to IsMissingType (document_cards.go) rather than matching the phrase
 // "was not found" anywhere in any error, which is what it did until 2026-09-06. That
 // substring appears in errors this sweep must NOT swallow — a record, a bucket, an index
 // that is not there — and it survives wrapping, so a failure from any layer below could
@@ -293,5 +293,5 @@ func sortedMentionEdges(edges map[mentionEdge]struct{}) []mentionEdge {
 // "com.arcadedb.exception.SchemaException", detail "Type with name 'NOSUCHEDGE' was not
 // found". The narrow predicate matches that.
 func isMissingTypeError(err error) bool {
-	return missingIngestType(err, mentionsEdgeType)
+	return IsMissingType(err, mentionsEdgeType)
 }

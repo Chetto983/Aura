@@ -67,23 +67,23 @@ type Diff struct {
 
 // Event is one entry of a document's history, and phase 2's training data.
 type Event struct {
-	RecordID string
-	Field    string
-	ValueKey string
-	Action   Action
-	Actor    string
-	Before   *Value
-	After    *Value
-	At       time.Time
+	RecordID string    `json:"record_id"`
+	Field    string    `json:"field"`
+	ValueKey string    `json:"value_key"`
+	Action   Action    `json:"action"`
+	Actor    string    `json:"actor"`
+	Before   *Value    `json:"before,omitempty"`
+	After    *Value    `json:"after,omitempty"`
+	At       time.Time `json:"at"`
 }
 
 // Fields is one document's fields, as stored in DocumentFields.
 type Fields struct {
-	RecordID   string
-	SourceKey  string
-	Values     []Value
-	Rejections []ValueRef
-	ReviewedAt *time.Time
+	RecordID   string     `json:"record_id"`
+	SourceKey  string     `json:"source_key"`
+	Values     []Value    `json:"values"`
+	Rejections []ValueRef `json:"rejections"`
+	ReviewedAt *time.Time `json:"reviewed_at,omitempty"`
 }
 
 // Projection is what the triggers copy onto the indexed rows. The OK columns hold only what the
@@ -93,6 +93,9 @@ type Projection struct {
 	Counterparty, CounterpartyOK string
 	DocumentDate, DocumentDateOK string
 	Tags, TagsOK                 []string
+	// NeedsReview is a document holding a value the operator has not set or accepted: the
+	// Documenti view's "da rivedere".
+	NeedsReview bool
 }
 
 func singleValued(field string) bool { return field != FieldTag }
@@ -221,6 +224,7 @@ func (f *Fields) markReviewed(now time.Time) []Event {
 func (f *Fields) projection() Projection {
 	var p Projection
 	for _, v := range f.Values {
+		p.NeedsReview = p.NeedsReview || !v.reviewed()
 		if strings.HasPrefix(v.ValueKey, proposedPrefix) {
 			continue
 		}

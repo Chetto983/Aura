@@ -6,9 +6,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/google/uuid"
-
-	"github.com/chetto1983/aura/internal/arcadedb"
 	"github.com/chetto1983/aura/internal/docfields/rules"
 )
 
@@ -81,30 +78,13 @@ func (s *Store) SaveLabel(ctx context.Context, identityID string, in Label) (Lab
 	if err != nil {
 		return Label{}, err
 	}
-	params := map[string]any{
-		"kind": string(in.Kind), "name": in.Name, "name_key": NameKey(in.Name),
-		"algorithm": string(in.Algorithm), "pattern": in.Pattern, "ci": in.CaseInsensitive,
-		"now": s.now().Format(timeLayout),
-	}
-	if in.ID == "" {
-		in.ID = uuid.NewString()
-		params["id"] = in.ID
-		_, err = c.Command(ctx, "INSERT INTO DocumentLabel SET id = :id, kind = :kind, name = :name, name_key = :name_key, "+
-			"match_algorithm = :algorithm, match_pattern = :pattern, case_insensitive = :ci, created_at = :now, updated_at = :now", params)
-	} else {
-		params["id"] = in.ID
-		var rows []map[string]any
-		rows, err = c.Command(ctx, "UPDATE DocumentLabel SET kind = :kind, name = :name, name_key = :name_key, "+
-			"match_algorithm = :algorithm, match_pattern = :pattern, case_insensitive = :ci, updated_at = :now WHERE id = :id", params)
-		if err == nil && affected(rows) == 0 {
-			return Label{}, fmt.Errorf("%w: label %s", ErrNotFound, in.ID)
-		}
-	}
-	if arcadedb.IsDuplicateKey(err) {
-		return Label{}, invalid("a %s named %q already exists", in.Kind, in.Name)
-	}
+	in.ID, err = saveNamed(ctx, c, "DocumentLabel", in.ID,
+		"kind = :kind, name = :name, name_key = :name_key, match_algorithm = :algorithm, match_pattern = :pattern, case_insensitive = :ci",
+		map[string]any{"kind": string(in.Kind), "name": in.Name, "name_key": NameKey(in.Name),
+			"algorithm": string(in.Algorithm), "pattern": in.Pattern, "ci": in.CaseInsensitive},
+		s.now().Format(timeLayout), fmt.Sprintf("a %s named %q already exists", in.Kind, in.Name))
 	if err != nil {
-		return Label{}, fmt.Errorf("save label: %w", err)
+		return Label{}, err
 	}
 	return in, nil
 }
@@ -115,14 +95,7 @@ func (s *Store) DeleteLabel(ctx context.Context, identityID, id string) error {
 	if err != nil {
 		return err
 	}
-	rows, err := c.Command(ctx, "DELETE FROM DocumentLabel WHERE id = :id", map[string]any{"id": id})
-	if err != nil {
-		return fmt.Errorf("delete label: %w", err)
-	}
-	if affected(rows) == 0 {
-		return fmt.Errorf("%w: label %s", ErrNotFound, id)
-	}
-	return nil
+	return deleteNamed(ctx, c, "DocumentLabel", id)
 }
 
 func decodeLabel(row map[string]any) Label {
@@ -131,15 +104,4 @@ func decodeLabel(row map[string]any) Label {
 		Algorithm: rules.Algorithm(str(row["match_algorithm"])), Pattern: str(row["match_pattern"]),
 		CaseInsensitive: row["case_insensitive"] == true,
 	}
-}
-
-// affected reads the count ArcadeDB answers an UPDATE or DELETE with.
-func affected(rows []map[string]any) int {
-	if len(rows) == 0 {
-		return 0
-	}
-	if n, ok := rows[0]["count"].(float64); ok {
-		return int(n)
-	}
-	return 0
 }

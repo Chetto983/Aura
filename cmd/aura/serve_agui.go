@@ -129,6 +129,10 @@ func wireAGUIServer(ctx context.Context, chat *chatEnv, store *cron.Store, sched
 	aguiServer.SetPolicyTools(chat.reg)
 	// The work board the cockpit and the agent's `board` tool share (prd.md §16).
 	aguiServer.SetBoardStore(board.New(chat.pool))
+	// The Documenti view: the library with the fields the operator keeps on each document.
+	if fields := newRuntimeDocumentFields(chat.cfg, "documents API"); fields != nil {
+		aguiServer.SetDocumentFieldsStore(fields)
+	}
 	// Wire the DISP-05/D-09 image-proxy fetcher: a fresh web.Client reusing the SAME
 	// SSRF-hardened transport web_search/web_fetch use (hostname blocklist → DNS-pin →
 	// classify → image content-type allowlist + size cap). Without this the

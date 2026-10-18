@@ -87,3 +87,22 @@ func TestFieldDimensionsNameEachAppliedFilter(t *testing.T) {
 		t.Fatalf("dimensions = %v, want %v", got, want)
 	}
 }
+
+// The Documenti list runs its own query over IndexedDocument with the same filter the search
+// applies, so the two never disagree about what a filter admits.
+func TestFieldPredicateForTheCallersOwnQuery(t *testing.T) {
+	params := map[string]any{}
+	where, err := FieldPredicate(FieldFilter{Types: []string{" t1 "}, DateTo: "2026-03-31"}, params)
+	if err != nil || where != "df_type_ok IN :field_types AND df_date_ok <= :field_date_to" {
+		t.Fatalf("where = %q, err %v", where, err)
+	}
+	if got, _ := params["field_types"].([]string); !slices.Equal(got, []string{"t1"}) {
+		t.Fatalf("types bound as %v", params["field_types"])
+	}
+	if where, err := FieldPredicate(FieldFilter{IncludeUnreviewed: true}, map[string]any{}); err != nil || where != "1 = 1" {
+		t.Fatalf("an empty filter = %q, %v", where, err)
+	}
+	if _, err := FieldPredicate(FieldFilter{DateFrom: "ieri"}, map[string]any{}); err == nil {
+		t.Fatal("a date that is not ISO was accepted")
+	}
+}

@@ -13,7 +13,7 @@ import (
 // Its DDL lives in services/ingest/arcade.py, which mirrors document_schema.go.
 const IndexedDocumentType = "IndexedDocument"
 
-// missingIngestType reports whether err is ArcadeDB refusing a query because this tenant's
+// IsMissingType reports whether err is ArcadeDB refusing a query because this tenant's
 // database has no such type yet.
 //
 // That is not a fault, it is the empty library. The DDL for both ingestion types belongs to
@@ -33,7 +33,7 @@ const IndexedDocumentType = "IndexedDocument"
 //
 // The match is deliberately narrow -- the typed ServerError, ArcadeDB's own SchemaException
 // class, AND the quoted type name -- so a real schema fault still surfaces as one.
-func missingIngestType(err error, typeName string) bool {
+func IsMissingType(err error, typeName string) bool {
 	var serverErr *ServerError
 	if !errors.As(err, &serverErr) {
 		return false
@@ -42,9 +42,9 @@ func missingIngestType(err error, typeName string) bool {
 		strings.Contains(serverErr.Detail, "'"+typeName+"'")
 }
 
-// missingIndexedDocumentType is missingIngestType for the card leg's own type.
+// missingIndexedDocumentType is IsMissingType for the card leg's own type.
 func missingIndexedDocumentType(err error) bool {
-	return missingIngestType(err, IndexedDocumentType)
+	return IsMissingType(err, IndexedDocumentType)
 }
 
 // DocumentCard is one document's own description, as the reconciler recorded it.

@@ -98,7 +98,7 @@ func spaceParams(space string) map[string]any {
 func (c *Client) countRows(ctx context.Context, statement string, params map[string]any, typeName string) (int, int, error) {
 	rows, err := c.Query(ctx, statement, params)
 	if err != nil {
-		if missingIngestType(err, typeName) {
+		if IsMissingType(err, typeName) {
 			return 0, 0, nil
 		}
 		return 0, 0, fmt.Errorf("arcadedb: count %s: %w", typeName, err)
@@ -153,7 +153,7 @@ func (c *Client) SpaceReport(ctx context.Context, identityID, memorySpace, docum
 		report.Families = append(report.Families, state)
 	}
 	rows, err := c.Query(ctx, stuckDocumentsStatement, spaceParams(documentSpace))
-	if err != nil && !missingIngestType(err, IndexedDocumentType) {
+	if err != nil && !IsMissingType(err, IndexedDocumentType) {
 		return TenantSpaceReport{}, fmt.Errorf("arcadedb: stuck documents: %w", err)
 	}
 	for _, row := range rows {

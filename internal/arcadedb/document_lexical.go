@@ -114,7 +114,7 @@ func (d *DocumentIndex) LexicalCandidates(ctx context.Context, filter CandidateF
 	fetch := min(max(filter.Limit*4, 20), d.config.MaxRetrievalCandidates)
 	rows, err := client.Query(ctx, lexicalPassageStatement(where, fetch), params)
 	if err != nil {
-		if missingIngestType(err, documentPassageType) {
+		if IsMissingType(err, documentPassageType) {
 			return nil, nil // nothing ingested yet — an empty library, not a failure
 		}
 		return nil, fmt.Errorf("arcadedb: lexical document candidates: %w", err)

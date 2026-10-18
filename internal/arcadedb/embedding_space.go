@@ -161,7 +161,7 @@ func (c *Client) denseOpen(ctx context.Context, gate *spaceGate, counts []spaceC
 	for _, count := range counts {
 		rows, err := c.Query(ctx, count.statement, params)
 		if err != nil {
-			if count.ingested && missingIngestType(err, count.typeName) {
+			if count.ingested && IsMissingType(err, count.typeName) {
 				continue
 			}
 			return false, fmt.Errorf("arcadedb: count %s vectors outside the space: %w", count.typeName, err)

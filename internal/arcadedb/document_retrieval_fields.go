@@ -122,6 +122,22 @@ func normalizeFieldFilter(f *FieldFilter, limit int) (*FieldFilter, error) {
 	return &out, nil
 }
 
+// FieldPredicate is f's predicate for a query of the caller's own over Passage or
+// IndexedDocument, normalized as a search normalizes it and binding its values into params. A
+// filter that names nothing is "1 = 1".
+func FieldPredicate(f FieldFilter, params map[string]any) (string, error) {
+	normalized, err := normalizeFieldFilter(&f, defaultDocumentFilterCap)
+	if err != nil || normalized == nil {
+		return "1 = 1", err
+	}
+	clauses := fieldClauses(normalized, !normalized.IncludeUnreviewed, params)
+	predicates := make([]string, 0, len(clauses))
+	for _, clause := range clauses {
+		predicates = append(predicates, clause.predicate)
+	}
+	return strings.Join(predicates, " AND "), nil
+}
+
 // FieldAdmissions counts, for each filter f applies, the indexed documents it admits on its own:
 // what a search reports beside its answer, so a reader can tell a filter that matched nothing
 // from a library with nothing to say.

@@ -43,8 +43,8 @@ type DocumentText struct {
 
 // PassResult counts what a pass did.
 type PassResult struct {
-	Documents int
-	Suggested int
+	Documents int `json:"documents"`
+	Suggested int `json:"suggested"`
 }
 
 type rule struct {

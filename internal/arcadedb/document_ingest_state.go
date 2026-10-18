@@ -59,7 +59,7 @@ func (c *Client) ingestState(ctx context.Context, identityID string) (*IngestSta
 		map[string]any{"identity_id": strings.TrimSpace(identityID)},
 	)
 	if err != nil {
-		if missingIngestType(err, documentIngestStateType) {
+		if IsMissingType(err, documentIngestStateType) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("arcadedb: ingest state: %w", err)
