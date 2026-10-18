@@ -41,7 +41,8 @@ func New(tenants arcadedb.TenantClientResolver) *Store {
 	return &Store{tenants: tenants, now: func() time.Time { return time.Now().UTC() }, ensured: map[string]bool{}}
 }
 
-// client resolves the identity's database and ensures its schema once per Store.
+// client resolves the identity's database and ensures its schema, until the triggers are in place:
+// before the identity's first ingest they cannot be, and the next call asks again.
 func (s *Store) client(ctx context.Context, identityID string) (*arcadedb.Client, error) {
 	c, err := s.tenants.For(ctx, identityID)
 	if err != nil {
@@ -53,12 +54,15 @@ func (s *Store) client(ctx context.Context, identityID string) (*arcadedb.Client
 	if done {
 		return c, nil
 	}
-	if err := c.EnsureDocumentFieldsSchema(ctx); err != nil {
+	ready, err := c.EnsureDocumentFieldsSchema(ctx)
+	if err != nil {
 		return nil, err
 	}
-	s.mu.Lock()
-	s.ensured[identityID] = true
-	s.mu.Unlock()
+	if ready {
+		s.mu.Lock()
+		s.ensured[identityID] = true
+		s.mu.Unlock()
+	}
 	return c, nil
 }
 

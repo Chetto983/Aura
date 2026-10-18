@@ -157,7 +157,8 @@ code.
 - `DocumentRulePass`: the pass watermark on `IndexedDocument.indexed_at` (Task 7).
 
 **Interfaces, produced:**
-- `arcadedb.(*Client).EnsureDocumentFieldsSchema(ctx) error`: the types, indexes and triggers, idempotent.
+- `arcadedb.(*Client).EnsureDocumentFieldsSchema(ctx) (bool, error)`: the types, indexes and triggers,
+  idempotent; it reports whether the triggers are in place (Task 3).
 - `func New(tenants arcadedb.TenantClientResolver) *Store`. It ensures the schema once per identity.
 - Labels: `(s *Store) Labels(ctx, identityID string, kind Kind) ([]Label, error)`, and
   `SaveLabel(ctx, identityID string, in Label) (Label, error)`, which validates the pattern
@@ -205,7 +206,9 @@ code.
   - `WHERE @rid = $record.@rid AND df_stamped IS NULL AND source_key IS NOT NULL`.
   - CocoIndex's `MERGE … SET n += $props` lands on the update, not the create.
 - **The cascade:** `AFTER CREATE` and `AFTER UPDATE ON TYPE DocumentFields`, which write `df_*` on
-  both types `WHERE source_key = $record.source_key`.
+  both types `WHERE source_key = $record.source_key`, one trigger per type: on 26.10.1 a SQL
+  trigger body is one statement, and a second after `;` is a syntax error, though the manual
+  shows one (measured 2026-10-18).
 - **The clear:** `AFTER DELETE ON TYPE DocumentFields`, which sets `df_*` to null on both types.
 - **Not used, because they fail on 26.10.1:**
   - a `BEFORE CREATE` SQL trigger (`$record` has no RID yet);
@@ -213,20 +216,28 @@ code.
     not bound).
 - **A failing `BEFORE` trigger aborts CocoIndex's write silently.** These are `AFTER` only.
 
-**Interfaces, produced:** `(s *Store) Backfill(ctx, identityID string) (int, error)`. It fires the
-cascade for a library indexed before the triggers existed, as `UPDATE DocumentFields SET
-source_key = source_key`.
+**Interfaces, produced:** no `Backfill`. `EnsureDocumentFieldsSchema` does it, measured 2026-10-18
+on 26.10.1:
+- ArcadeDB refuses a trigger on a type that does not exist, so the triggers wait for ingest's
+  `Passage` and `IndexedDocument`. The ensure reports `false` until then, and the Store asks again on
+  its next call. Creating the types from Go would turn an empty library, which retrieval reads as
+  one, into a schema with none of ingest's indexes.
+- Each trigger converges on its body, read back from `SELECT FROM schema:triggers`
+  (`actionCode`): one that differs is dropped and created again.
+- When one is created or replaced, every indexed row is stamped again by lowering the sentinel
+  (`SET df_stamped = false`). `UPDATE DocumentFields SET source_key = source_key` fires nothing:
+  an UPDATE that changes nothing is not written.
 
 **Steps:**
-- [ ] **Step 1. RED.**
+- [x] **Step 1. RED.**
   - Unit tests on the generated DDL.
   - Integration `TestDocumentFieldsTriggersStampCocoIndexWrites` replays CocoIndex's
     `MERGE (n:Passage {passage_key: …}) SET n += $props` over openCypher.
   - It asserts that the stamp, the cascade, the clear and a rename move the values the way Task 0
     measured.
-- [ ] **Step 2. GREEN.**
-- [ ] **Step 3. Run the touched packages with `-race` in WSL, and the integration test.**
-- [ ] **Step 4. Commit:** `feat(arcadedb): triggers keep document fields on the indexed rows`.
+- [x] **Step 2. GREEN.**
+- [x] **Step 3. Run the touched packages with `-race` in WSL, and the integration test.**
+- [x] **Step 4. Commit:** `feat(arcadedb): triggers keep document fields on the indexed rows`.
 
 ### Task 4: rename and move carry the fields, and the new name
 

@@ -333,3 +333,61 @@ func TestDocfieldsCopyRecord(t *testing.T) {
 		t.Fatalf("moving a document nobody labelled: %v", err)
 	}
 }
+
+// The store's writes reach the passages the search scans, through the triggers: the operator's
+// values at once, a suggestion only once reviewed, and the fields follow a rename.
+func TestDocfieldsWritesReachThePassages(t *testing.T) {
+	s, ctx := liveStore(t)
+	id := uuid.NewString()
+	c, err := s.tenants.For(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ddl := range []string{"CREATE VERTEX TYPE Passage IF NOT EXISTS", "CREATE VERTEX TYPE IndexedDocument IF NOT EXISTS"} {
+		if _, err := c.Command(ctx, ddl, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mergePassage(t, c, "d#0", "chat/d.pdf")
+	rec, err := s.Record(ctx, id, "chat/d.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ApplyDiff(ctx, id, []string{rec.RecordID}, Diff{Set: []Value{{Field: FieldType, ValueKey: "lbl-fattura"}}}, SetByOperator); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Suggest(ctx, id, rec.RecordID, []Value{{Field: FieldTag, ValueKey: "lbl-urgente", SetBy: "rule:lbl-urgente"}}); err != nil {
+		t.Fatal(err)
+	}
+	assertPassage(t, c, "d#0", "lbl-fattura [lbl-urgente] []")
+	if err := s.MarkReviewed(ctx, id, []string{rec.RecordID}); err != nil {
+		t.Fatal(err)
+	}
+	assertPassage(t, c, "d#0", "lbl-fattura [lbl-urgente] [lbl-urgente]")
+	if err := s.Move(ctx, id, "chat/d.pdf", "chat/e.pdf"); err != nil {
+		t.Fatal(err)
+	}
+	mergePassage(t, c, "e#0", "chat/e.pdf")
+	assertPassage(t, c, "e#0", "lbl-fattura [lbl-urgente] [lbl-urgente]")
+}
+
+// mergePassage writes a passage the way CocoIndex does (connectors/neo4j/_cypher.py:95-104).
+func mergePassage(t *testing.T, c *arcadedb.Client, key, sourceKey string) {
+	t.Helper()
+	if _, err := c.Write(context.Background(), "MERGE (n:Passage {passage_key: $key_0}) SET n += $props",
+		map[string]any{"key_0": key, "props": map[string]any{"source_key": sourceKey, "text": "passage " + key}}); err != nil {
+		t.Fatalf("merge passage %s: %v", key, err)
+	}
+}
+
+func assertPassage(t *testing.T, c *arcadedb.Client, key, want string) {
+	t.Helper()
+	rows, err := c.Query(context.Background(), "SELECT df_type, df_tags, df_tags_ok FROM Passage WHERE passage_key = :k",
+		map[string]any{"k": key})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("passage %s: %v, %d rows", key, err, len(rows))
+	}
+	if got := fmt.Sprint(rows[0]["df_type"], " ", rows[0]["df_tags"], " ", rows[0]["df_tags_ok"]); got != want {
+		t.Fatalf("passage %s carries %q, want %q", key, got, want)
+	}
+}
