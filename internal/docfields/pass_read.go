@@ -14,47 +14,58 @@ const passBatch = 200
 
 const documentTextColumns = "source_key, file_name, card, header_pairs, indexed_at"
 
+// passCursor is how far the last pass got: the last document it read, by indexed_at and then by
+// key. The key is what tells apart the documents indexed in one millisecond, which a batch can
+// split: measured 2026-10-18, a re-ingest wrote three at one instant across a batch boundary,
+// and a cursor on indexed_at alone skipped them for good. indexed_at compares as the string
+// ArcadeDB returns it, to the millisecond (measured 2026-10-18 on 26.10.1).
+type passCursor struct {
+	At, Key string
+}
+
 // passState reads, in one request, whether anything is indexed yet and, from the
-// DocumentRulePass record, how far the last pass got. indexed_at compares as the string ArcadeDB
-// returns it, to the millisecond (measured 2026-10-18 on 26.10.1).
-func passState(ctx context.Context, c *arcadedb.Client) (bool, string, error) {
+// DocumentRulePass record, how far the last pass got.
+func passState(ctx context.Context, c *arcadedb.Client) (bool, passCursor, error) {
 	rows, err := c.Query(ctx, "SELECT name FROM schema:types WHERE name IN :names",
 		map[string]any{"names": []string{arcadedb.IndexedDocumentType, arcadedb.DocumentRulePassType}})
 	if err != nil {
-		return false, "", fmt.Errorf("read the pass state: %w", err)
+		return false, passCursor{}, fmt.Errorf("read the pass state: %w", err)
 	}
 	present := map[string]bool{}
 	for _, row := range rows {
 		present[str(row["name"])] = true
 	}
 	if !present[arcadedb.IndexedDocumentType] || !present[arcadedb.DocumentRulePassType] {
-		return present[arcadedb.IndexedDocumentType], "", nil
+		return present[arcadedb.IndexedDocumentType], passCursor{}, nil
 	}
-	rows, err = c.Query(ctx, "SELECT watermark FROM DocumentRulePass WHERE kind = 'pass'", nil)
+	rows, err = c.Query(ctx, "SELECT watermark, watermark_key FROM DocumentRulePass WHERE kind = 'pass'", nil)
 	if err != nil {
-		return false, "", fmt.Errorf("read the pass watermark: %w", err)
+		return false, passCursor{}, fmt.Errorf("read the pass watermark: %w", err)
 	}
 	if len(rows) == 0 {
-		return true, "", nil
+		return true, passCursor{}, nil
 	}
-	return true, str(rows[0]["watermark"]), nil
+	return true, passCursor{At: str(rows[0]["watermark"]), Key: str(rows[0]["watermark_key"])}, nil
 }
 
-func writeWatermark(ctx context.Context, c *arcadedb.Client, watermark string) error {
-	if _, err := c.Command(ctx, "UPDATE DocumentRulePass SET kind = 'pass', watermark = :w UPSERT WHERE kind = 'pass'",
-		map[string]any{"w": watermark}); err != nil {
+func writeWatermark(ctx context.Context, c *arcadedb.Client, cursor passCursor) error {
+	if _, err := c.Command(ctx, "UPDATE DocumentRulePass SET kind = 'pass', watermark = :w, watermark_key = :k UPSERT WHERE kind = 'pass'",
+		map[string]any{"w": cursor.At, "k": cursor.Key}); err != nil {
 		return fmt.Errorf("move the pass watermark: %w", err)
 	}
 	return nil
 }
 
-// documentsAfter reads the documents indexed after watermark, oldest first.
-func documentsAfter(ctx context.Context, c *arcadedb.Client, watermark string, limit int) ([]DocumentText, error) {
+// documentsAfter reads the documents indexed after the cursor, oldest first. The range on
+// indexed_at alone is what its index answers; the documents of the cursor's own instant that
+// the last pass already read are then left out by key.
+func documentsAfter(ctx context.Context, c *arcadedb.Client, cursor passCursor, limit int) ([]DocumentText, error) {
 	where, params := "indexed_at IS NOT NULL", map[string]any{}
-	if watermark != "" {
-		where, params["w"] = "indexed_at > :w", watermark
+	if cursor.At != "" {
+		where = "indexed_at >= :w AND NOT (indexed_at = :w AND source_key <= :from_key)"
+		params["w"], params["from_key"] = cursor.At, cursor.Key
 	}
-	return readDocuments(ctx, c, where, params, "indexed_at", limit)
+	return readDocuments(ctx, c, where, params, "indexed_at, source_key", limit)
 }
 
 // documentsFrom reads the documents whose key sorts after the given one: the whole library, a

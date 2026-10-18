@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -101,6 +102,37 @@ func TestPassRunsOverEachNewDocumentOnce(t *testing.T) {
 	indexDocument(t, c, "chat/f2.xlsx", "2026-10-18 10:00:00.001", "una nota")
 	if result, err := s.RunPass(ctx, id); err != nil || result.Documents != 1 || result.Suggested != 0 {
 		t.Fatalf("a pass over one new document: %+v, %v", result, err)
+	}
+}
+
+// A batch can end inside a group of documents indexed in the same millisecond, and the next pass
+// must still read the rest of the group. Measured 2026-10-18 on the dev stack: a re-ingest wrote
+// three documents at one instant across a batch boundary, and a watermark on indexed_at alone
+// skipped them for good, an invoice among them.
+func TestPassReadsEveryDocumentOfAnInstantABatchSplits(t *testing.T) {
+	s, ctx, id, c := indexedLibrary(t)
+	const total = passBatch + 2
+	var script strings.Builder
+	params := map[string]any{"at": "2026-10-18 10:00:00.000"}
+	for i := range total {
+		key := fmt.Sprintf("chat/same-instant-%03d.txt", i)
+		params[fmt.Sprintf("k%d", i)] = key
+		fmt.Fprintf(&script, "INSERT INTO IndexedDocument SET search_document_id = :k%[1]d, source_key = :k%[1]d, "+
+			"file_name = :k%[1]d, card = '', header_pairs = [], indexed_at = :at;\n", i)
+	}
+	if _, err := c.Script(ctx, script.String(), params); err != nil {
+		t.Fatal(err)
+	}
+	read := 0
+	for range 3 {
+		result, err := s.RunPass(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		read += result.Documents
+	}
+	if read != total {
+		t.Fatalf("the passes read %d documents, want every one of the %d indexed at one instant", read, total)
 	}
 }
 

@@ -162,11 +162,11 @@ func (s *Store) RunPass(ctx context.Context, identityID string) (PassResult, err
 	if err != nil {
 		return PassResult{}, fmt.Errorf("document fields pass for %s: %w", identityID, err)
 	}
-	indexed, watermark, err := passState(ctx, c)
+	indexed, cursor, err := passState(ctx, c)
 	if err != nil || !indexed {
 		return PassResult{}, err
 	}
-	docs, err := documentsAfter(ctx, c, watermark, passBatch)
+	docs, err := documentsAfter(ctx, c, cursor, passBatch)
 	if err != nil || len(docs) == 0 {
 		return PassResult{}, err
 	}
@@ -178,7 +178,8 @@ func (s *Store) RunPass(ctx context.Context, identityID string) (PassResult, err
 	if err != nil {
 		return result, err
 	}
-	return result, writeWatermark(ctx, c, docs[len(docs)-1].IndexedAt)
+	last := docs[len(docs)-1]
+	return result, writeWatermark(ctx, c, passCursor{At: last.IndexedAt, Key: last.SourceKey})
 }
 
 // RunRule runs one label's rule over every indexed document: what saving a rule does.
