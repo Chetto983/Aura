@@ -130,7 +130,8 @@ code.
 
 **Files:**
 - Create: `internal/arcadedb/document_fields_schema.go`, the types, indexes and triggers;
-- Create: `internal/docfields/docfields.go`, `labels.go`, `records.go`, `values.go`, `events.go`, `script.go`;
+- Create: `internal/docfields/docfields.go`, `labels.go`, `records.go`, `values.go` (the diff
+  semantics and the history entries), `script.go` (the sqlscript and the encoding);
 - Create: `internal/docfields/rules/match.go`, `match_test.go`, the five matchers (the Interfaces of
   Task 7), here because `SaveLabel` validates with them;
 - Test: `internal/docfields/docfields_test.go` (unit, no database) and
@@ -151,7 +152,8 @@ code.
   - **provenance,** `values`: a list of `{field, value_key, value, set_by, accepted, evidence, set_at}`;
   - **review,** `rejections`, `reviewed_at`, `reviewed_by`, timestamps.
 - `DocumentFieldEvent`: `record_id`, `field`, `value_key`,
-  `action` (`set|accepted|rejected|removed|reviewed|moved`), `actor`, `before`, `after`, `at`.
+  `action` (`set|accepted|rejected|removed|reviewed|moved`), `actor`, `value_before`, `value_after`,
+  `at`, `seq`. `BEFORE` and `AFTER` are reserved words of ArcadeDB SQL, refused as names in a `SET`.
 - `DocumentRulePass`: the pass watermark on `IndexedDocument.indexed_at` (Task 7).
 
 **Interfaces, produced:**
@@ -160,7 +162,8 @@ code.
 - Labels: `(s *Store) Labels(ctx, identityID string, kind Kind) ([]Label, error)`, and
   `SaveLabel(ctx, identityID string, in Label) (Label, error)`, which validates the pattern
   through `rules.Compile`. Also `DeleteLabel(ctx, identityID, id string) error`.
-- `(s *Store) Record(ctx, identityID, sourceKey string) (Record, error)`, which creates on first use.
+- `(s *Store) Record(ctx, identityID, sourceKey string) (Fields, error)`, which creates on first use.
+- `(s *Store) History(ctx, identityID, recordID string) ([]Event, error)`, oldest first.
 - `(s *Store) ApplyDiff(ctx, identityID string, recordIDs []string, d Diff, actor string) error`,
   where `Diff{Set []Value; Remove []ValueRef}`:
   - one `sqlscript` for every record;
@@ -174,7 +177,7 @@ code.
 - `var ErrNotFound, ErrInvalid` as in `internal/board`.
 
 **Steps:**
-- [ ] **Step 1. RED.**
+- [x] **Step 1. RED.**
   - The matcher table test for all five algorithms, with case folding, accents and
     `TestInvalidRegexRefused` (Review Focus 5).
   - Unit tests for the diff semantics and the generated script.
@@ -184,12 +187,12 @@ code.
     - `TestDocfieldsMoveOntoExistingKey` (Review Focus 3);
     - `TestDocfieldsIsolation`: a second identity's database has none of the first's records;
     - `TestDocfieldsNameCaseInsensitiveUnique`.
-- [ ] **Step 2. Run them** against the dev stack's ArcadeDB, with the `arcadedb_integration` env:
+- [x] **Step 2. Run them** against the dev stack's ArcadeDB, with the `arcadedb_integration` env:
   `go test -tags arcadedb_integration -run TestDocfields ./internal/docfields/`. They fail on the
   missing package.
-- [ ] **Step 3. GREEN.** The schema, then the Store.
-- [ ] **Step 4. Run them again, plus `go test -race ./internal/docfields/` in WSL;** all pass.
-- [ ] **Step 5. Commit:** `feat(docfields): store operator-owned document fields in the identity's ArcadeDB`.
+- [x] **Step 3. GREEN.** The schema, then the Store.
+- [x] **Step 4. Run them again, plus `go test -race ./internal/docfields/` in WSL;** all pass.
+- [x] **Step 5. Commit:** `feat(docfields): store operator-owned document fields in the identity's ArcadeDB`.
 
 ### Task 3: the triggers that keep the fields on the indexed rows
 
