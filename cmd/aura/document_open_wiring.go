@@ -127,7 +127,9 @@ func (o identityObjectOpener) OpenSeekable(
 }
 
 // PutObject stores an uploaded file in the owner's own bucket. Nothing is enqueued: the
-// ingest sidecar reconciles the bucket, so appearing in it IS the trigger.
+// ingest sidecar reconciles the bucket, so appearing in it IS the trigger. Writing over an
+// object keeps its metadata, the name among it: a chat document lives under chat/<id>.<ext>
+// and is known by that name, which a save from the cockpit's spreadsheet must not lose.
 func (o identityObjectOpener) PutObject(
 	ctx context.Context,
 	identityID, key, mimeType string,
@@ -138,7 +140,11 @@ func (o identityObjectOpener) PutObject(
 	if err != nil {
 		return err
 	}
-	_, err = store.Put(ctx, objectstore.ObjectRef{Bucket: bucket, Key: key}, body,
-		objectstore.PutOptions{MIMEType: mimeType, Size: size})
+	ref := objectstore.ObjectRef{Bucket: bucket, Key: key}
+	held, err := store.Head(ctx, ref)
+	if err != nil && !objectstore.IsNotFound(err) {
+		return fmt.Errorf("read the object a write replaces: %w", err)
+	}
+	_, err = store.Put(ctx, ref, body, objectstore.PutOptions{MIMEType: mimeType, Size: size, Metadata: held.Metadata})
 	return err
 }

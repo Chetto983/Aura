@@ -51,6 +51,13 @@ function iframeOf(container: HTMLElement): HTMLIFrameElement {
 
 const props = { assetId: 'asset-1', mimeType: 'application/octet-stream', fileName: 'report' };
 
+/** A source like the file manager's: the same routes, and a save the test provides. */
+const FILE_SOURCE: AssetSource = {
+  assetUrl: (id) => `/files/${id}`,
+  streamUrl: (id) => `/files/${id}`,
+  credentials: 'same-origin',
+};
+
 beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:mock');
   URL.revokeObjectURL = vi.fn();
@@ -330,6 +337,42 @@ describe('XlsxPreview', () => {
     const { container } = render(<XlsxPreview {...props} fileName="book.xlsx" />);
     gridcraft(iframeOf(container), { type: 'gridcraft:failed', error: 'no WebGL' });
     expect((await screen.findByRole('alert')).textContent).toContain('no WebGL');
+  });
+
+  it('saves over the file when GridCraft saves it under its own name', async () => {
+    stubFetch({ buffer: new ArrayBuffer(16) });
+    const save = vi.fn(() => Promise.resolve());
+    const source: AssetSource = { ...FILE_SOURCE, save };
+    const { container } = render(
+      <AssetSourceContext.Provider value={source}>
+        <XlsxPreview {...props} assetId="/chat/c5d7.xlsx" fileName="book.xlsx" />
+      </AssetSourceContext.Provider>,
+    );
+    const frame = iframeOf(container);
+    const saved = new ArrayBuffer(32);
+    gridcraft(frame, { type: 'gridcraft:save', name: 'book.xlsx', bytes: saved });
+    expect((await screen.findByRole('status')).textContent).toMatch(/Saved|Salvato/);
+    expect(save).toHaveBeenCalledWith('/chat/c5d7.xlsx', saved, undefined);
+    gridcraft(frame, { type: 'gridcraft:save', name: 'book.pdf', bytes: saved });
+    await waitFor(() => {
+      expect(save).toHaveBeenLastCalledWith('/chat/c5d7.xlsx', saved, 'book.pdf');
+    });
+  });
+
+  it('shows the error when a save is refused', async () => {
+    stubFetch({ buffer: new ArrayBuffer(16) });
+    const save = vi.fn(() => Promise.reject(new Error('HTTP 502')));
+    const { container } = render(
+      <AssetSourceContext.Provider value={{ ...FILE_SOURCE, save }}>
+        <XlsxPreview {...props} fileName="book.xlsx" />
+      </AssetSourceContext.Provider>,
+    );
+    gridcraft(iframeOf(container), {
+      type: 'gridcraft:save',
+      name: 'book.xlsx',
+      bytes: new ArrayBuffer(8),
+    });
+    expect((await screen.findByRole('alert')).textContent).toContain('HTTP 502');
   });
 
   it('says that changes made in the preview are not stored', async () => {

@@ -1,5 +1,6 @@
 import type { IEntity } from '@svar-ui/react-filemanager';
 import { RestDataProvider } from '@svar-ui/filemanager-data-provider';
+import { httpErrorFrom } from '@/api/json';
 import { downloadLinks } from '@/chat/artifacts/downloadAll';
 import type { AssetSource } from '@/chat/artifacts/renderers/assetSourceContext';
 
@@ -100,7 +101,26 @@ export const FILE_MANAGER_SOURCE: AssetSource = {
   assetUrl: (id) => directURL(id, false),
   streamUrl: (id) => directURL(id, false),
   credentials: 'same-origin',
+  save: (id, bytes, saveAs) => saveBeside(id, bytes, saveAs),
 };
+
+/**
+ * saveBeside writes what the spreadsheet preview saved into the folder of the file manager
+ * object `id`: over that object itself when `saveAs` is absent, which keeps the name it is
+ * known by, or as a new file named `saveAs` beside it (Save As, a PDF export). It goes through
+ * the upload route, so the ingest reads it again like any upload.
+ */
+export async function saveBeside(id: string, bytes: ArrayBuffer, saveAs?: string): Promise<void> {
+  const folder = id.slice(0, id.lastIndexOf('/') + 1);
+  const form = new FormData();
+  form.append('file', new File([bytes], saveAs ?? id.slice(folder.length)));
+  const res = await fetch(`${fileManagerBase}/upload?id=${encodeURIComponent(folder)}`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    body: form,
+  });
+  if (!res.ok) throw await httpErrorFrom(res);
+}
 
 /**
  * Saves files through the cockpit's one multi-download loop -- the one "Download all" uses,

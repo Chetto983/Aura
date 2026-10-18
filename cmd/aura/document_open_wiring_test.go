@@ -71,3 +71,34 @@ func TestOpenObjectAndOpenSeekableRefuseWhatTheyCannotResolve(t *testing.T) {
 		t.Fatal("OpenObject of a missing key succeeded")
 	}
 }
+
+// Writing an object the bucket already holds replaces its bytes and keeps its name: a chat
+// document lives under chat/<id>.<ext> and is known by the name in its metadata, and a save
+// from the cockpit's spreadsheet must not leave it known by its key. A new object carries none.
+func TestPutObjectKeepsTheNameOfTheObjectItReplaces(t *testing.T) {
+	ctx := context.Background()
+	opener := seededOpener(t)
+	if err := opener.PutObject(ctx, "identity-1", "chat/report.pdf", "application/pdf", 8, strings.NewReader("%PDF-2.0")); err != nil {
+		t.Fatalf("PutObject over an object: %v", err)
+	}
+	object, attrs, err := opener.OpenSeekable(ctx, "identity-1", "chat/report.pdf")
+	if err != nil {
+		t.Fatalf("OpenSeekable: %v", err)
+	}
+	body, _ := io.ReadAll(object)
+	_ = object.Close()
+	if string(body) != "%PDF-2.0" || attrs.FileName != "Relazione annuale.pdf" {
+		t.Fatalf("after the write: body %q, name %q; want the new bytes under the old name", body, attrs.FileName)
+	}
+	if err := opener.PutObject(ctx, "identity-1", "chat/nuovo.pdf", "application/pdf", 4, strings.NewReader("%PDF")); err != nil {
+		t.Fatalf("PutObject of a new object: %v", err)
+	}
+	object, attrs, err = opener.OpenSeekable(ctx, "identity-1", "chat/nuovo.pdf")
+	if err != nil {
+		t.Fatalf("OpenSeekable: %v", err)
+	}
+	_ = object.Close()
+	if attrs.FileName != "" {
+		t.Fatalf("a new object got the name %q", attrs.FileName)
+	}
+}

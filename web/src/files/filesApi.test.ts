@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createFileManagerProvider, parseDates, directURL } from './filesApi';
+import { createFileManagerProvider, parseDates, directURL, saveBeside } from './filesApi';
 
 /**
  * Captures what the provider actually put on the wire. The header is the whole subject
@@ -143,5 +143,41 @@ describe('wire helpers', () => {
       '/api/filemanager/direct?id=%2Fconta%20bilita%2Fa.txt',
     );
     expect(directURL('/a.txt', true)).toBe('/api/filemanager/direct?id=%2Fa.txt&download=true');
+  });
+});
+
+describe('saveBeside', () => {
+  function captureUpload(status = 200): { url: string; form: FormData | undefined } {
+    const seen = { url: '', form: undefined as FormData | undefined };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        seen.url = url;
+        seen.form = init?.body as FormData;
+        return Promise.resolve(new Response('{}', { status }));
+      }),
+    );
+    return seen;
+  }
+
+  it('writes over the object itself, under its own key', async () => {
+    const seen = captureUpload();
+    await saveBeside('/chat/c5d7.xlsx', new ArrayBuffer(4));
+    expect(seen.url).toBe('/api/filemanager/upload?id=%2Fchat%2F');
+    const file = seen.form?.get('file');
+    expect(file instanceof File ? file.name : file).toBe('c5d7.xlsx');
+  });
+
+  it('saves a new name as a new file beside it', async () => {
+    const seen = captureUpload();
+    await saveBeside('/Fatture/2026/fattura_003.xlsx', new ArrayBuffer(4), 'fattura_003.pdf');
+    expect(seen.url).toBe('/api/filemanager/upload?id=%2FFatture%2F2026%2F');
+    const file = seen.form?.get('file');
+    expect(file instanceof File ? file.name : file).toBe('fattura_003.pdf');
+  });
+
+  it('fails when the upload is refused', async () => {
+    captureUpload(502);
+    await expect(saveBeside('/chat/c5d7.xlsx', new ArrayBuffer(4))).rejects.toThrow('502');
   });
 });

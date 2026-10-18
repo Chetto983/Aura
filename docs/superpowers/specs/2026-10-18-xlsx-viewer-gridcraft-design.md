@@ -40,13 +40,19 @@ preview and the chat's artifacts.
    - On `gridcraft:ready` it sends `gridcraft:open { name, bytes }`, with the bytes read through
      `useAssetContent`, so the share page's token-scoped route works unchanged.
    - `gridcraft:failed` shows the preview's error.
-   - `gridcraft:dirty` and `gridcraft:save` show that changes made here are not stored: this is a
-     preview, and writing back is a later decision.
    - `read-excel-file` leaves the dependencies.
+5. **A save writes back where the source can write** (the operator's call, the same day).
+   - `gridcraft:save` goes through the asset source's optional `save`, which only the file
+     manager's tier has. That covers the file manager and the Documenti detail.
+   - A save under the opened name replaces the file at its own key. aura keeps the object's
+     metadata, so a chat document stays known by its name and not its key; the ingest reads the
+     new bytes, and the document's fields stay (acceptance 4 of the document-fields spec).
+   - Any other name (Save As, a PDF export) is a new file in the same folder.
+   - The chat's artifacts and the share page have no `save`. There an edit or a save shows that
+     nothing made here is stored.
 
 ## What this does not do
 
-- **No editing round trip.** GridCraft would hand a saved workbook back (`gridcraft:save`), and
-  storing it in the bucket is a separate decision, not taken here.
+- **No write-back for the chat's artifacts or the share page.** Their sources have no `save`.
 - **GridCraft draws its own light chrome** inside the dark cockpit.
 - **The first open downloads about 6 MB compressed**; the hashed files are cached after that.

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAssetSource } from './assetSourceContext';
 import { useAssetContent } from './useAssetContent';
 import { PreviewError, type RendererProps } from './PreviewStatus';
 
@@ -8,7 +9,9 @@ import { PreviewError, type RendererProps } from './PreviewStatus';
 // announces gridcraft:ready, and the workbook goes to it as bytes, read through the asset source
 // so the share page's token-scoped route works unchanged. The frame is same-origin because the
 // app answers only its own origin's parent, so only messages from THIS frame on THIS origin are
-// heard. What the operator changes inside is not stored: this is a preview.
+// heard. A save comes back as gridcraft:save: where the source can write (the file manager's),
+// it goes over the file under its own name, or beside it under a new one; elsewhere the preview
+// says that nothing made in it is stored.
 
 const GRIDCRAFT = '/apps/gridcraft/?host=parent';
 
@@ -16,7 +19,15 @@ interface GridcraftMessage {
   readonly type?: string;
   readonly error?: string;
   readonly dirty?: boolean;
+  readonly name?: string;
+  readonly bytes?: ArrayBuffer;
 }
+
+type SaveState =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'unsaved' }
+  | { readonly kind: 'saved' }
+  | { readonly kind: 'failed'; readonly message: string };
 
 export default function XlsxPreview({ assetId, fileName }: RendererProps) {
   const { t } = useTranslation();
@@ -24,7 +35,8 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
   const { data, error } = useAssetContent(assetId, 'arrayBuffer');
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<string>();
-  const [edited, setEdited] = useState(false);
+  const [saving, setSaving] = useState<SaveState>({ kind: 'none' });
+  const { save } = useAssetSource();
 
   useEffect(() => {
     const onMessage = (event: MessageEvent<GridcraftMessage | null>) => {
@@ -37,13 +49,31 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
       const message = event.data ?? {};
       if (message.type === 'gridcraft:ready') setReady(true);
       else if (message.type === 'gridcraft:failed') setFailed(message.error ?? '');
-      else if (message.type === 'gridcraft:save' || message.dirty === true) setEdited(true);
+      else if (message.type === 'gridcraft:save' && save !== undefined && message.bytes) {
+        const saveAs = message.name === fileName ? undefined : message.name;
+        save(assetId, message.bytes, saveAs).then(
+          () => {
+            setSaving({ kind: 'saved' });
+          },
+          (err: unknown) => {
+            setSaving({
+              kind: 'failed',
+              message: err instanceof Error ? err.message : String(err),
+            });
+          },
+        );
+      } else if (
+        save === undefined &&
+        (message.type === 'gridcraft:save' || message.dirty === true)
+      ) {
+        setSaving({ kind: 'unsaved' });
+      }
     };
     window.addEventListener('message', onMessage);
     return () => {
       window.removeEventListener('message', onMessage);
     };
-  }, []);
+  }, [assetId, fileName, save]);
 
   useEffect(() => {
     const target = frame.current?.contentWindow;
@@ -66,14 +96,21 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
         allow="clipboard-read; clipboard-write; fullscreen"
         className="h-full w-full border-0 bg-white"
       />
-      {edited && (
+      {saving.kind === 'failed' ? (
+        <p
+          role="alert"
+          className="absolute right-3 bottom-3 rounded-md bg-danger px-3 py-1.5 text-xs font-semibold text-bg shadow-lg"
+        >
+          {t('artifacts.preview.saveFailed', { message: saving.message })}
+        </p>
+      ) : saving.kind !== 'none' ? (
         <p
           role="status"
           className="absolute right-3 bottom-3 rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-bg shadow-lg"
         >
-          {t('artifacts.preview.notSaved')}
+          {t(saving.kind === 'saved' ? 'artifacts.preview.saved' : 'artifacts.preview.notSaved')}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

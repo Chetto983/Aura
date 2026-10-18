@@ -39,6 +39,8 @@ export const artifactsEn = {
     seek: 'Seek',
     downloadFallback: 'Download file',
     notSaved: 'Changes made here are not saved to the library.',
+    saved: 'Saved to the library.',
+    saveFailed: 'Not saved: {{message}}',
     download: 'Download {{name}}',
     description: 'Preview of {{name}}. Use the download button to save the original file.',
     unsupported: "This file type can't be previewed safely — download it to open.",
@@ -92,6 +94,8 @@ export const artifactsIt = {
     seek: 'Cerca',
     downloadFallback: 'Scarica il file',
     notSaved: "Le modifiche fatte qui non vengono salvate nell'archivio.",
+    saved: "Salvato nell'archivio.",
+    saveFailed: 'Non salvato: {{message}}',
     download: 'Scarica {{name}}',
     description:
       'Anteprima di {{name}}. Usa il pulsante di download per salvare il file originale.',

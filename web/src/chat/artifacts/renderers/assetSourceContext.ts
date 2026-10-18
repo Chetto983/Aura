@@ -44,6 +44,10 @@ export interface AssetSource {
    *  open this source's images and clips. A share tier leaves it out, so a public page never
    *  offers editing — the same optional-capability pattern as `renderUrl`. */
   readonly editable?: true;
+  /** Present only where a renderer may write back, the file manager's tier: the spreadsheet
+   *  preview saves an edited workbook over the file (`saveAs` absent) or as a new file of that
+   *  name beside it. A tier without it keeps edits in the preview and says so. */
+  readonly save?: (assetId: string, bytes: ArrayBuffer, saveAs?: string) => Promise<void>;
 }
 
 /** The identity-scoped tier, exported as a VALUE as well as being this context's default: a
