@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderAsync } from 'docx-preview';
 import '../../../i18n/i18n'; // side-effect: initialise i18next so preview t() keys resolve
 import ImagePreview from './ImagePreview';
@@ -388,5 +388,36 @@ describe('XlsxPreview', () => {
     stubFetch({ ok: false, status: 404 });
     render(<XlsxPreview {...props} fileName="book.xlsx" />);
     expect(await screen.findByRole('alert')).toBeTruthy();
+  });
+
+  // A frame that never starts (a 404 outside the image, a wasm the browser refuses) would stay
+  // blank for good: after a while the file is offered, and a GridCraft that starts late still wins.
+  it('offers the file when GridCraft does not start, and steps aside when it does', () => {
+    vi.useFakeTimers();
+    try {
+      stubFetch({ pending: true });
+      const { container } = render(
+        <AssetSourceContext.Provider value={FILE_SOURCE}>
+          <XlsxPreview {...props} fileName="book.xlsx" />
+        </AssetSourceContext.Provider>,
+      );
+      act(() => {
+        vi.advanceTimersByTime(14_000);
+      });
+      expect(screen.queryByRole('alert')).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(1_000);
+      });
+      expect(screen.getByRole('alert').textContent).toMatch(/did not start|non si è avviato/);
+      const link = screen.getByRole('link', { name: /book\.xlsx/ });
+      expect(link.getAttribute('href')).toBe('/files/asset-1');
+      expect(link.getAttribute('download')).toBe('book.xlsx');
+      act(() => {
+        gridcraft(iframeOf(container), { type: 'gridcraft:ready' });
+      });
+      expect(screen.queryByRole('alert')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

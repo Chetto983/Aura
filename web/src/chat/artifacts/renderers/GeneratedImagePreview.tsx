@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download } from 'lucide-react';
 import { EditMediaButton } from '../../../mediaEdit/EditMediaButton';
 import { useBlobPreview } from '../useBlobPreview';
 import { useAssetSource } from './assetSourceContext';
-import { PreviewError, PreviewLoading, type RendererProps } from './PreviewStatus';
+import { PreviewErrorWithDownload, PreviewLoading, type RendererProps } from './PreviewStatus';
 import { ImageActions, ImageFilename, ImageRoot, ImageZoom } from '@/components/image';
 import { ToolImage } from '@/components/tool-ui-image';
 
@@ -19,19 +18,11 @@ export default function GeneratedImagePreview({ assetId, mimeType, fileName }: R
   const [failedUrl, setFailedUrl] = useState<string>();
   if (error !== undefined || (url !== undefined && failedUrl === url)) {
     return (
-      <div className="flex flex-col gap-2">
-        <PreviewError {...(error === undefined ? {} : { detail: error })} />
-        <a
-          href={assetUrl(assetId)}
-          download={fileName}
-          data-required-touch-target
-          className="inline-flex min-h-11 min-w-11 w-fit items-center gap-2 rounded-[var(--radius-sm)] border border-border px-3 text-sm text-accent-text focus-visible:outline-2 focus-visible:outline-accent"
-          aria-label={t('artifacts.preview.download', { name: fileName })}
-        >
-          <Download aria-hidden className="size-4" />
-          {t('display.artifact.download')}
-        </a>
-      </div>
+      <PreviewErrorWithDownload
+        assetId={assetId}
+        fileName={fileName}
+        {...(error === undefined ? {} : { detail: error })}
+      />
     );
   }
   if (url === undefined) return <PreviewLoading />;

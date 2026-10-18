@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAssetSource } from './assetSourceContext';
 import { useAssetContent } from './useAssetContent';
-import { PreviewError, type RendererProps } from './PreviewStatus';
+import { PreviewError, PreviewErrorWithDownload, type RendererProps } from './PreviewStatus';
 
 // .xlsx: GridCraft (docs/superpowers/specs/2026-10-18-xlsx-viewer-gridcraft-design.md), an
 // Excel-style spreadsheet aura serves at /apps/gridcraft/ from the image. Framed in host mode it
@@ -11,9 +11,13 @@ import { PreviewError, type RendererProps } from './PreviewStatus';
 // app answers only its own origin's parent, so only messages from THIS frame on THIS origin are
 // heard. A save comes back as gridcraft:save: where the source can write (the file manager's),
 // it goes over the file under its own name, or beside it under a new one; elsewhere the preview
-// says that nothing made in it is stored.
+// says that nothing made in it is stored. A frame that has not said ready after a while (a 404
+// outside the image, a wasm the browser refuses) gets the original file offered over it; the
+// frame stays, so a GridCraft that starts late on a slow link still takes over.
 
 const GRIDCRAFT = '/apps/gridcraft/?host=parent';
+
+const READY_WITHIN_MS = 15_000;
 
 interface GridcraftMessage {
   readonly type?: string;
@@ -34,6 +38,7 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
   const frame = useRef<HTMLIFrameElement>(null);
   const { data, error } = useAssetContent(assetId, 'arrayBuffer');
   const [ready, setReady] = useState(false);
+  const [late, setLate] = useState(false);
   const [failed, setFailed] = useState<string>();
   const [saving, setSaving] = useState<SaveState>({ kind: 'none' });
   const { save } = useAssetSource();
@@ -76,6 +81,16 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
   }, [assetId, fileName, save]);
 
   useEffect(() => {
+    if (ready) return;
+    const timer = window.setTimeout(() => {
+      setLate(true);
+    }, READY_WITHIN_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [ready]);
+
+  useEffect(() => {
     const target = frame.current?.contentWindow;
     if (!ready || data === undefined || target === null || target === undefined) return;
     // The bytes are transferred, so the frame gets a copy and the fetched buffer stays whole.
@@ -96,6 +111,15 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
         allow="clipboard-read; clipboard-write; fullscreen"
         className="h-full w-full border-0 bg-white"
       />
+      {late && !ready ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-bg/90">
+          <PreviewErrorWithDownload
+            assetId={assetId}
+            fileName={fileName}
+            detail={t('artifacts.preview.notStarted')}
+          />
+        </div>
+      ) : null}
       {saving.kind === 'failed' ? (
         <p
           role="alert"
