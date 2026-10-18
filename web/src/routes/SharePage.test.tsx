@@ -10,17 +10,13 @@ import { SharePage } from './SharePage';
 // security assertions (null-origin iframe, SVG download-only, XSS-as-escaped-text,
 // the oracle-free 404/401) as the centrepiece, per the plan's own acceptance criteria.
 //
-// docx-preview/read-excel-file are MOCKED (mirrors renderers.test.tsx) purely to exercise
-// every previewKind branch in renderArtifactKind's switch without loading the real heavy
-// parsers — the security-critical kinds (html/svg/image) get full assertions above;
-// these two are presence-only, proving the dispatch wires up, not re-testing 37B.
+// docx-preview is MOCKED (mirrors renderers.test.tsx) purely to exercise every previewKind branch
+// in renderArtifactKind's switch without loading the real heavy parser — the security-critical
+// kinds (html/svg/image) get full assertions above; docx and xlsx are presence-only, proving the
+// dispatch wires up, not re-testing the renderers.
 vi.mock('docx-preview', () => ({
   renderAsync: vi.fn(() => Promise.resolve({})),
 }));
-vi.mock('read-excel-file/universal', () => ({
-  default: vi.fn(() => Promise.resolve([{ sheet: 'Sheet1', data: [[1]] }])),
-}));
-
 const baseSnapshot: Snapshot = {
   schema_version: 1,
   title: 'Weekend trip to Turin',
@@ -331,7 +327,7 @@ describe('SharePage — public tier (/s/:token)', () => {
     });
   });
 
-  it('renders an xlsx artifact through read-excel-file in an inert-sandbox iframe', async () => {
+  it('renders an xlsx artifact in the GridCraft frame, on the public page too', async () => {
     stubFetch({
       snapshot: {
         ...baseSnapshot,
@@ -347,7 +343,9 @@ describe('SharePage — public tier (/s/:token)', () => {
     });
     const { container } = renderShare('/s/tok-123');
     await waitFor(() => {
-      expect(container.querySelector('iframe')).not.toBeNull();
+      expect(container.querySelector('iframe')?.getAttribute('src')).toBe(
+        '/apps/gridcraft/?host=parent',
+      );
     });
   });
 

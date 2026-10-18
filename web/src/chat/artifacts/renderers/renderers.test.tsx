@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { renderAsync } from 'docx-preview';
-import readXlsxFile from 'read-excel-file/universal';
 import '../../../i18n/i18n'; // side-effect: initialise i18next so preview t() keys resolve
 import ImagePreview from './ImagePreview';
 import PdfPreview from './PdfPreview';
@@ -11,30 +10,14 @@ import { AssetSourceContext, type AssetSource } from './assetSourceContext';
 import DocxPreview from './DocxPreview';
 import XlsxPreview from './XlsxPreview';
 
-// The six lazy per-MIME renderers (D-07/D-08/D-09). docx-preview and read-excel-file are the
-// heavy deps confined to their own chunks — here they are MOCKED (vi.mock, hoisted above the
-// imports) so the suite asserts the wrapper calls them with the right args without loading
-// the real libraries (Pitfall 4, which would drag the 85% aggregate). The security-critical
-// surface is pinned directly: HtmlPreview's null-origin sandbox and XlsxPreview's empty
-// sandbox + escaped sheet name + escaped cell values (the escaping is OURS now — the library
-// returns raw values, unlike SheetJS's sheet_to_html).
+// The lazy per-MIME renderers (D-07/D-08/D-09). docx-preview is the heavy dep confined to its own
+// chunk — here it is MOCKED (vi.mock, hoisted above the imports) so the suite asserts the wrapper
+// calls it with the right args without loading the real library (Pitfall 4, which would drag the
+// 85% aggregate). The security-critical surface is pinned directly: HtmlPreview's null-origin
+// sandbox, and XlsxPreview's GridCraft frame, which hears only its own frame on this origin.
 vi.mock('docx-preview', () => ({
   renderAsync: vi.fn(() => Promise.resolve({})),
 }));
-vi.mock('read-excel-file/universal', () => ({
-  default: vi.fn(() =>
-    Promise.resolve([
-      {
-        sheet: 'Q1 <Ledger>',
-        data: [
-          ['<img src=x onerror=alert(1)>', 42, null],
-          [new Date('2026-02-03T00:00:00.000Z'), new Date('2026-02-03T04:05:06.000Z'), true],
-        ],
-      },
-    ]),
-  ),
-}));
-
 interface FetchShape {
   readonly ok?: boolean;
   readonly status?: number;
@@ -72,7 +55,6 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:mock');
   URL.revokeObjectURL = vi.fn();
   vi.mocked(renderAsync).mockClear();
-  vi.mocked(readXlsxFile).mockClear();
 });
 
 afterEach(() => {
@@ -297,55 +279,71 @@ describe('DocxPreview (D-08 / T-37B-12)', () => {
   });
 });
 
-describe('XlsxPreview (D-08 / T-37B-09)', () => {
-  it('parses with read-excel-file and renders an EMPTY-sandbox iframe with everything escaped', async () => {
-    stubFetch({ buffer: new ArrayBuffer(16) });
-    const { container } = render(<XlsxPreview {...props} fileName="book.xlsx" />);
+describe('XlsxPreview', () => {
+  /** gridcraft sends a message as the framed GridCraft does, from its window on this origin. */
+  function gridcraft(frame: HTMLIFrameElement, data: unknown, source = frame.contentWindow): void {
+    window.dispatchEvent(
+      new MessageEvent('message', { data, origin: window.location.origin, source }),
+    );
+  }
 
-    await waitFor(() => {
-      expect(container.querySelector('iframe')).not.toBeNull();
-    });
+  it('frames GridCraft in host mode, and opens the workbook in it once it is ready', async () => {
+    const workbook = new ArrayBuffer(16);
+    stubFetch({ buffer: workbook });
+    const { container } = render(<XlsxPreview {...props} fileName="book.xlsx" />);
     const frame = iframeOf(container);
-    expect(vi.mocked(readXlsxFile)).toHaveBeenCalledTimes(1);
-    expect(frame.getAttribute('sandbox')).toBe('');
-    const srcdoc = frame.getAttribute('srcdoc') ?? '';
-    // Sheet NAME and cell VALUES are escaped by us — a hostile cell must never survive as
-    // markup in the srcDoc, only as entities.
-    expect(srcdoc).toContain('Q1 &lt;Ledger&gt;');
-    expect(srcdoc).toContain('&lt;img src=x onerror=alert(1)&gt;');
-    expect(srcdoc).not.toContain('<img');
-    expect(srcdoc).toContain('<td>42</td>');
-    expect(srcdoc).toContain('<td></td>'); // null cell → empty
-    expect(srcdoc).toContain('<td>2026-02-03</td>'); // midnight-UTC date → date only
-    expect(srcdoc).toContain('<td>2026-02-03T04:05:06.000Z</td>'); // timed date → full ISO
-    expect(srcdoc).toContain('<td>true</td>');
-    expect(srcdoc).toContain('<table>');
+    expect(frame.getAttribute('src')).toBe('/apps/gridcraft/?host=parent');
+    expect(frame.getAttribute('title')).toBe('book.xlsx');
+    const target = frame.contentWindow;
+    if (target === null) throw new Error('the frame has no window');
+    const post = vi.spyOn(target, 'postMessage');
+    gridcraft(frame, { type: 'gridcraft:ready', version: '0.8.0' });
+    await waitFor(() => {
+      expect(post).toHaveBeenCalledTimes(1);
+    });
+    const [message, origin] = post.mock.calls[0] as [
+      { type: string; name: string; bytes: ArrayBuffer },
+      string,
+    ];
+    expect(message.type).toBe('gridcraft:open');
+    expect(message.name).toBe('book.xlsx');
+    expect(message.bytes.byteLength).toBe(16);
+    expect(origin).toBe(window.location.origin);
   });
 
-  it('shows the loading state while the fetch is in flight', () => {
-    stubFetch({ pending: true });
-    render(<XlsxPreview {...props} fileName="book.xlsx" />);
-    expect(screen.getByRole('status')).toBeTruthy();
-  });
-
-  it('emits a section without a table for a sheet with zero rows', async () => {
+  it('hears nothing from a window that is not its frame', async () => {
     stubFetch({ buffer: new ArrayBuffer(16) });
-    vi.mocked(readXlsxFile).mockResolvedValueOnce([{ sheet: 'Ghost', data: [] }]);
     const { container } = render(<XlsxPreview {...props} fileName="book.xlsx" />);
-    await waitFor(() => {
-      expect(container.querySelector('iframe')).not.toBeNull();
-    });
-    const srcdoc = iframeOf(container).getAttribute('srcdoc') ?? '';
-    expect(srcdoc).toContain('<h3>Ghost</h3>');
-    expect(srcdoc).not.toContain('<table>');
+    const frame = iframeOf(container);
+    const target = frame.contentWindow;
+    if (target === null) throw new Error('the frame has no window');
+    const post = vi.spyOn(target, 'postMessage');
+    gridcraft(frame, { type: 'gridcraft:ready' }, window);
+    gridcraft(frame, { type: 'gridcraft:failed', error: 'forged' }, window);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(post).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shows the error state when parsing rejects', async () => {
+  it('shows the error when GridCraft cannot start', async () => {
     stubFetch({ buffer: new ArrayBuffer(16) });
-    vi.mocked(readXlsxFile).mockRejectedValueOnce(new Error('corrupt workbook'));
+    const { container } = render(<XlsxPreview {...props} fileName="book.xlsx" />);
+    gridcraft(iframeOf(container), { type: 'gridcraft:failed', error: 'no WebGL' });
+    expect((await screen.findByRole('alert')).textContent).toContain('no WebGL');
+  });
+
+  it('says that changes made in the preview are not stored', async () => {
+    stubFetch({ buffer: new ArrayBuffer(16) });
+    const { container } = render(<XlsxPreview {...props} fileName="book.xlsx" />);
+    gridcraft(iframeOf(container), { type: 'gridcraft:dirty', dirty: true });
+    expect((await screen.findByRole('status')).textContent).toMatch(
+      /not saved|non vengono salvate/,
+    );
+  });
+
+  it('shows the error when the workbook cannot be read', async () => {
+    stubFetch({ ok: false, status: 404 });
     render(<XlsxPreview {...props} fileName="book.xlsx" />);
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeTruthy();
-    });
+    expect(await screen.findByRole('alert')).toBeTruthy();
   });
 });

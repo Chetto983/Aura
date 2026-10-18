@@ -1,87 +1,79 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAssetContent } from './useAssetContent';
-import { PreviewError, PreviewLoading, type RendererProps } from './PreviewStatus';
+import { PreviewError, type RendererProps } from './PreviewStatus';
 
-// Knip6 misclassifies this package without a root export as unused. Its explicit
-// dependency exception is backed by the real subpath import below and renderer tests.
-// .xlsx (D-07 / D-08 / T-37B-09): read-excel-file is DYNAMICALLY imported inside the effect,
-// so it lands ONLY in this lazy chunk. The /universal entry behaves identically in the
-// browser and in jsdom (no Web Worker spawn) and reads straight from the ArrayBuffer.
-// Unlike SheetJS's sheet_to_html there is NO library-side HTML escaping to lean on: every
-// cell value and sheet name goes through escapeHtml here, and the concatenated tables render
-// inside an EMPTY-sandbox iframe (sandbox="" — no allow-scripts, no allow-same-origin), so
-// even a missed escape cannot execute. Defense in depth: escaped values + escaped names +
-// inert frame.
+// .xlsx: GridCraft (docs/superpowers/specs/2026-10-18-xlsx-viewer-gridcraft-design.md), an
+// Excel-style spreadsheet aura serves at /apps/gridcraft/ from the image. Framed in host mode it
+// announces gridcraft:ready, and the workbook goes to it as bytes, read through the asset source
+// so the share page's token-scoped route works unchanged. The frame is same-origin because the
+// app answers only its own origin's parent, so only messages from THIS frame on THIS origin are
+// heard. What the operator changes inside is not stored: this is a preview.
 
-const SHEET_STYLE =
-  'body{font:13px system-ui,sans-serif;margin:0;padding:12px;color:#111}' +
-  'h3{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#555;margin:16px 0 6px}' +
-  'table{border-collapse:collapse;margin-bottom:8px}' +
-  'td,th{border:1px solid #d0d0d0;padding:3px 8px;white-space:nowrap}';
+const GRIDCRAFT = '/apps/gridcraft/?host=parent';
 
-/** Escape sheet names AND cell values before interpolation into the srcDoc. read-excel-file
- *  hands back raw values, so this escaping is load-bearing; the empty sandbox is the second
- *  layer, not the first. */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-// read-excel-file's d.ts types date cells as `typeof Date` (the constructor) but the runtime
-// hands back Date INSTANCES — Cell is the runtime-truthful shape the cast at the call site
-// restores.
-type Cell = string | number | boolean | Date | null;
-
-function cellText(value: Cell): string {
-  if (value === null) return '';
-  if (value instanceof Date) {
-    const iso = value.toISOString();
-    return iso.endsWith('T00:00:00.000Z') ? iso.slice(0, 10) : iso;
-  }
-  return String(value);
+interface GridcraftMessage {
+  readonly type?: string;
+  readonly error?: string;
+  readonly dirty?: boolean;
 }
 
 export default function XlsxPreview({ assetId, fileName }: RendererProps) {
-  const { data: buffer, error } = useAssetContent(assetId, 'arrayBuffer');
-  const [doc, setDoc] = useState<string>();
-  const [parseError, setParseError] = useState<string>();
+  const { t } = useTranslation();
+  const frame = useRef<HTMLIFrameElement>(null);
+  const { data, error } = useAssetContent(assetId, 'arrayBuffer');
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState<string>();
+  const [edited, setEdited] = useState(false);
 
   useEffect(() => {
-    if (buffer === undefined) return;
-    const controller = new AbortController();
-    void (async () => {
-      const { default: readXlsxFile } = await import('read-excel-file/universal');
-      const sheets = await readXlsxFile(buffer);
-      if (controller.signal.aborted) return;
-      const body = sheets
-        .map(({ sheet, data }) => {
-          const rows = data
-            .map(
-              (row) =>
-                `<tr>${row.map((cell) => `<td>${escapeHtml(cellText(cell as Cell))}</td>`).join('')}</tr>`,
-            )
-            .join('');
-          const table = rows === '' ? '' : `<table>${rows}</table>`;
-          return `<section><h3>${escapeHtml(sheet)}</h3>${table}</section>`;
-        })
-        .join('');
-      setDoc(`<!doctype html><meta charset="utf-8"><style>${SHEET_STYLE}</style>${body}`);
-    })().catch((e: unknown) => {
-      if (!controller.signal.aborted) setParseError(String(e));
-    });
-    return () => {
-      controller.abort();
+    const onMessage = (event: MessageEvent<GridcraftMessage | null>) => {
+      if (
+        event.source !== frame.current?.contentWindow ||
+        event.origin !== window.location.origin
+      ) {
+        return;
+      }
+      const message = event.data ?? {};
+      if (message.type === 'gridcraft:ready') setReady(true);
+      else if (message.type === 'gridcraft:failed') setFailed(message.error ?? '');
+      else if (message.type === 'gridcraft:save' || message.dirty === true) setEdited(true);
     };
-  }, [buffer]);
+    window.addEventListener('message', onMessage);
+    return () => {
+      window.removeEventListener('message', onMessage);
+    };
+  }, []);
 
-  if (error !== undefined) return <PreviewError detail={error} />;
-  if (parseError !== undefined) return <PreviewError detail={parseError} />;
-  if (doc === undefined) return <PreviewLoading />;
+  useEffect(() => {
+    const target = frame.current?.contentWindow;
+    if (!ready || data === undefined || target === null || target === undefined) return;
+    // The bytes are transferred, so the frame gets a copy and the fetched buffer stays whole.
+    const bytes = data.slice(0);
+    target.postMessage({ type: 'gridcraft:open', name: fileName, bytes }, window.location.origin, [
+      bytes,
+    ]);
+  }, [ready, data, fileName]);
+
+  const problem = error ?? failed;
+  if (problem !== undefined) return <PreviewError detail={problem} />;
   return (
-    <iframe srcDoc={doc} sandbox="" title={fileName} className="h-full w-full border-0 bg-white" />
+    <div className="relative h-full w-full">
+      <iframe
+        ref={frame}
+        src={GRIDCRAFT}
+        title={fileName}
+        allow="clipboard-read; clipboard-write; fullscreen"
+        className="h-full w-full border-0 bg-white"
+      />
+      {edited && (
+        <p
+          role="status"
+          className="absolute right-3 bottom-3 rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-bg shadow-lg"
+        >
+          {t('artifacts.preview.notSaved')}
+        </p>
+      )}
+    </div>
   );
 }
