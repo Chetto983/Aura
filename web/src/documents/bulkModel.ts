@@ -1,16 +1,5 @@
-import type { DocumentRow, Facets, FilterField } from './documentsApi';
-import { valuesFor } from './documentsModel';
-
-/** One value of a bulk diff, as the API's docfields.Diff carries it. */
-export interface BulkValue {
-  readonly field: string;
-  readonly value_key: string;
-}
-
-export interface BulkDiff {
-  readonly set: readonly BulkValue[];
-  readonly remove: readonly BulkValue[];
-}
+import type { DiffValue, DocumentRow, Facets, FieldsDiff, FilterField } from './documentsApi';
+import { VALUE_FIELD, valuesFor } from './documentsModel';
 
 /** What the operator touched in the edit bar. A single field holds the label id to set on every
  * document, or null to clear it; absent leaves it alone. Tags hold a change per tag. */
@@ -36,12 +25,6 @@ export function valueState(
   return { state, count };
 }
 
-const VALUE_FIELD: Readonly<Record<FilterField, string>> = {
-  type: 'type',
-  counterparty: 'counterparty',
-  tags: 'tag',
-};
-
 /** The values a selection holds on a field, which clearing the field removes. */
 export type HeldValues = (field: FilterField) => readonly string[];
 
@@ -60,9 +43,9 @@ export function heldInFacets(facets: Facets): HeldValues {
 
 /** bulkDiff is the difference the edit bar sends: only the fields the operator touched. Clearing
  * a single field removes every value the selection holds on it. */
-export function bulkDiff(pending: BulkPending, held: HeldValues): BulkDiff {
-  const set: BulkValue[] = [];
-  const remove: BulkValue[] = [];
+export function bulkDiff(pending: BulkPending, held: HeldValues): FieldsDiff {
+  const set: DiffValue[] = [];
+  const remove: DiffValue[] = [];
   for (const field of ['type', 'counterparty'] as const) {
     const target = pending[field];
     if (target === undefined) continue;
@@ -77,8 +60,4 @@ export function bulkDiff(pending: BulkPending, held: HeldValues): BulkDiff {
     (change === 'add' ? set : remove).push({ field: VALUE_FIELD.tags, value_key: tag });
   }
   return { set, remove };
-}
-
-export function isEmptyDiff(diff: BulkDiff): boolean {
-  return diff.set.length === 0 && diff.remove.length === 0;
 }

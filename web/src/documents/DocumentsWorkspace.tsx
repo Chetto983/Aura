@@ -6,16 +6,12 @@ import { Locale, Pager } from '@svar-ui/react-core';
 import '@/styles/svarWidgets';
 import {
   EMPTY_FILTER,
-  fetchCustomFields,
   fetchDocuments,
-  fetchLabels,
   fetchReviewCount,
   withField,
   type DocumentRow,
   type DocumentsFilter,
   type Facets,
-  type FilterField,
-  type Label,
 } from './documentsApi';
 import { BulkBar } from './BulkBar';
 import { BulkConfirmDialog } from './BulkConfirmDialog';
@@ -24,12 +20,14 @@ import {
   DocumentsCellContext,
   SelectionContext,
   type FilterValueEvent,
+  type OpenDocumentEvent,
 } from './documentsCellContext';
+import { DocumentDetail } from './DocumentDetail';
 import { documentsWords } from './documentsLocale';
-import { KIND_OF, labelNames } from './documentsModel';
 import { FilterBar } from './FilterBar';
 import { SelectCell, SelectPageCell } from './SelectionCells';
 import { useBulkEdit } from './useBulkEdit';
+import { useDocumentLists } from './useDocumentLists';
 import { Button } from '@/components/ui/button';
 import { useThemeMode } from '@/theme/useThemeMode';
 
@@ -51,14 +49,6 @@ function readShownFields(): readonly string[] {
   }
 }
 
-function useLabels(field: FilterField) {
-  return useQuery({
-    queryKey: ['documents-labels', KIND_OF[field]],
-    queryFn: ({ signal }) => fetchLabels(KIND_OF[field], signal),
-  });
-}
-
-const NO_LABELS: readonly Label[] = [];
 const NO_ROWS: readonly DocumentRow[] = [];
 const NO_FACETS: Facets = {};
 
@@ -77,6 +67,7 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
   const [sort, setSort] = useState('');
   const [offset, setOffset] = useState(0);
   const [shownFields, setShownFieldsState] = useState(readShownFields);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const setFilter = useCallback((next: DocumentsFilter) => {
     setFilterState(next);
@@ -91,13 +82,7 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
     }
   }, []);
 
-  const types = useLabels('type');
-  const counterparties = useLabels('counterparty');
-  const tags = useLabels('tags');
-  const customFields = useQuery({
-    queryKey: ['documents-custom-fields'],
-    queryFn: ({ signal }) => fetchCustomFields(signal),
-  });
+  const { lists, names, customFields } = useDocumentLists();
   const reviewCount = useQuery({
     queryKey: ['documents-review'],
     queryFn: ({ signal }) => fetchReviewCount(signal),
@@ -108,15 +93,6 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
     placeholderData: keepPreviousData,
   });
 
-  const lists = useMemo(
-    () => ({
-      type: types.data ?? NO_LABELS,
-      counterparty: counterparties.data ?? NO_LABELS,
-      tags: tags.data ?? NO_LABELS,
-    }),
-    [types.data, counterparties.data, tags.data],
-  );
-  const names = useMemo(() => labelNames(lists), [lists]);
   const total = page.data?.total ?? 0;
   const rows = page.data?.rows ?? NO_ROWS;
   const facets = page.data?.facets ?? NO_FACETS;
@@ -128,7 +104,7 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
   };
 
   const columns = useMemo<IColumnConfig[]>(() => {
-    const custom = (customFields.data ?? [])
+    const custom = customFields
       .filter((cf) => shownFields.includes(cf.id))
       .map((cf) => ({ id: `custom:${cf.id}`, header: cf.name, width: 150, cell: CustomCell }));
     return [
@@ -158,7 +134,7 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
       { id: 'tags', header: t('documents.columns.tags'), width: 200, cell: TagsCell },
       { id: 'status', header: t('documents.columns.status'), width: 140, cell: StatusCell },
     ];
-  }, [t, customFields.data, shownFields]);
+  }, [t, customFields, shownFields]);
 
   // The library is sorted on the server, a page at a time: a header click becomes the query's
   // sort, and the grid's own sort is stopped (an intercept that answers false ends the action).
@@ -183,6 +159,17 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
   const Theme = useThemeMode() === 'light' ? Willow : WillowDark;
   const review = reviewCount.data ?? 0;
 
+  if (openId !== null) {
+    return (
+      <DocumentDetail
+        id={openId}
+        onClose={() => {
+          setOpenId(null);
+        }}
+        onOpen={setOpenId}
+      />
+    );
+  }
   return (
     <section
       aria-label={t('documents.title')}
@@ -215,7 +202,7 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
           facets={facets}
           lists={lists}
           names={names}
-          customFields={customFields.data ?? []}
+          customFields={customFields}
           shownFields={shownFields}
           onShownFieldsChange={setShownFields}
         />
@@ -245,6 +232,9 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
                       select={false}
                       onFilterValue={(ev: FilterValueEvent) => {
                         changeFilter(withField(filter, 'include', ev.field, ev.id));
+                      }}
+                      onOpenDocument={(ev: OpenDocumentEvent) => {
+                        setOpenId(ev.id);
                       }}
                     />
                   </div>

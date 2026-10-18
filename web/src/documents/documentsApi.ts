@@ -1,4 +1,4 @@
-import { getJSON, httpErrorFrom } from '@/api/json';
+import { getJSON, httpErrorFrom, sendJSON } from '@/api/json';
 
 /**
  * The Documenti view's client (internal/agui/documents_api.go): the library with the fields the
@@ -141,6 +141,40 @@ export function withField(
   };
 }
 
+/** A value named without its provenance: what a diff sets or removes (docfields.ValueRef). */
+export interface DiffValue {
+  readonly field: string;
+  readonly value_key: string;
+}
+
+/** The change one write makes to documents (docfields.Diff): every value is the operator's. */
+export interface FieldsDiff {
+  readonly set: readonly DiffValue[];
+  readonly remove: readonly DiffValue[];
+}
+
+export function isEmptyDiff(diff: FieldsDiff): boolean {
+  return diff.set.length === 0 && diff.remove.length === 0;
+}
+
+/** One entry of a document's history (docfields.Event). */
+export interface HistoryEvent {
+  readonly field: string;
+  readonly value_key: string;
+  readonly action: 'set' | 'accepted' | 'rejected' | 'removed' | 'reviewed' | 'moved';
+  readonly actor: string;
+  readonly before?: FieldValue;
+  readonly after?: FieldValue;
+  readonly at: string;
+}
+
+/** One document as its detail reads it: its values, the suggestions the operator rejected, and
+ * its history. */
+export interface DocumentDetail extends DocumentRow {
+  readonly rejections: readonly DiffValue[];
+  readonly history: readonly HistoryEvent[];
+}
+
 export type ValueSource = 'rule' | 'extractor' | 'copied' | 'classifier' | 'llm';
 
 /** sourceOf names who set a value the operator did not: the mark beside it in the list. */
@@ -231,10 +265,7 @@ export class CountChangedError extends Error {
 
 /** bulkApply sends one diff to a selection. A 409 is a changed count, thrown as CountChangedError
  * so the view can ask again. */
-export async function bulkApply(
-  selection: BulkSelection,
-  diff: { readonly set: readonly unknown[]; readonly remove: readonly unknown[] },
-): Promise<number> {
+export async function bulkApply(selection: BulkSelection, diff: FieldsDiff): Promise<number> {
   const body =
     selection.kind === 'ids'
       ? { selection: { ids: selection.ids }, diff }
@@ -259,4 +290,34 @@ export async function bulkApply(
   if (!res.ok) throw await httpErrorFrom(res);
   const out = (await res.json()) as { applied: number };
   return out.applied;
+}
+
+const documentURL = (id: string) => `${documentsBase}/${encodeURIComponent(id)}`;
+
+export function fetchDocument(id: string, signal?: AbortSignal): Promise<DocumentDetail> {
+  return getJSON<DocumentDetail>(documentURL(id), signal);
+}
+
+/** patchDocument writes one document's diff. Removing a value the operator did not set rejects
+ * it: the server records the rejection and never suggests the value again. */
+export async function patchDocument(id: string, diff: FieldsDiff): Promise<void> {
+  await sendJSON('PATCH', documentURL(id), diff);
+}
+
+/** reviewDocument marks a document reviewed: every suggestion left on it counts as accepted. */
+export async function reviewDocument(id: string): Promise<void> {
+  await sendJSON('POST', `${documentURL(id)}/review`);
+}
+
+/** fetchNextToReview names the first document of the library still waiting for review, other
+ * than the one just left, or null when none is. */
+export async function fetchNextToReview(after: string): Promise<string | null> {
+  const page = await getJSON<DocumentsPage>(`${documentsBase}?needs_review=true&limit=2`);
+  return page.rows.find((row) => row.id !== after)?.id ?? null;
+}
+
+/** createLabel adds a value to one of the operator's lists, with no rule. */
+export async function createLabel(kind: LabelKind, name: string): Promise<Label> {
+  const out = await sendJSON<{ label: Label }>('POST', `${documentsBase}/labels`, { kind, name });
+  return out.label;
 }

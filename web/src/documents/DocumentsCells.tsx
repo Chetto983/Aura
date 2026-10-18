@@ -3,7 +3,11 @@ import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ICellProps } from '@svar-ui/react-grid';
 import { sourceOf, type DocumentRow, type FieldValue, type FilterField } from './documentsApi';
-import { DocumentsCellContext, FILTER_VALUE_ACTION } from './documentsCellContext';
+import {
+  DocumentsCellContext,
+  FILTER_VALUE_ACTION,
+  OPEN_DOCUMENT_ACTION,
+} from './documentsCellContext';
 import { displayDate, PROPOSED_PREFIX, valuesFor } from './documentsModel';
 
 type CellAction = ICellProps['onaction'];
@@ -67,9 +71,21 @@ function LabelValue({
   );
 }
 
-export function NameCell({ row }: ICellProps) {
+/** The document's name, which opens its detail. */
+export function NameCell(props: CellProps) {
+  const doc = props.row as unknown as DocumentRow;
+  const onaction = cellAction(props);
   return (
-    <span className="truncate font-semibold">{(row as unknown as DocumentRow).file_name}</span>
+    <button
+      type="button"
+      data-action="ignore-click"
+      className="truncate text-left font-semibold text-text underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+      onClick={() => {
+        onaction({ action: OPEN_DOCUMENT_ACTION, data: { id: doc.id } });
+      }}
+    >
+      {doc.file_name}
+    </button>
   );
 }
 

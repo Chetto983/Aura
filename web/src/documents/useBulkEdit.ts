@@ -5,7 +5,6 @@ import {
   bulkDiff,
   heldInFacets,
   heldInRows,
-  isEmptyDiff,
   NO_PENDING,
   valueState,
   type BulkPending,
@@ -14,6 +13,7 @@ import {
 import {
   bulkApply,
   CountChangedError,
+  isEmptyDiff,
   type DocumentRow,
   type DocumentsFilter,
   type Facets,

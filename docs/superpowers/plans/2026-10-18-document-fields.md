@@ -534,16 +534,25 @@ of the spec's behaviours and has no API: left out. The tests share `documentsTes
 **Files:** `web/src/documents/DocumentDetail.tsx`, `SuggestionChip.tsx`, `DocumentHistory.tsx`, with
 tests.
 
-- [ ] **Step 1. RED:**
+**As built** (2026-10-18): the name in the list opens the detail in place of the list. The form
+(`detailModel.ts`) holds only what the operator set or accepted, and Save sends `formDiff` against
+the document as last read, so a × written meanwhile keeps the unsaved edits. `DetailFields.tsx`
+holds the controls, `detailNames.ts` the field and value names, and `useDocumentLists.ts` the lists
+the list and the detail share through the query cache; the detail waits for them, so no label
+reads as unknown while they load. The preview reuses the chat's renderers over the file manager's
+direct route. A proposed name (`new:`) taken into the form becomes a label of its list on Save. The
+mockup's "2 di 7" reads "N da rivedere", and its "+ Campo" belongs to Task 12.
+
+- [x] **Step 1. RED:**
   - a suggestion shows its source and evidence;
   - a click puts it in the form, unsaved;
   - × records a rejection;
   - Save sends only the changed fields;
   - "Rivisto, salva e avanti" opens the next "da rivedere" document;
   - closing with unsaved changes asks first.
-- [ ] **Step 2. GREEN,** following mockup 3.
-- [ ] **Step 3. The web gates.**
-- [ ] **Step 4. Commit:** `feat(web): document detail with suggestions and review`.
+- [x] **Step 2. GREEN,** following mockup 3.
+- [x] **Step 3. The web gates.**
+- [x] **Step 4. Commit:** `feat(web): document detail with suggestions and review`.
 
 ### Task 12: the lists and their rules
 

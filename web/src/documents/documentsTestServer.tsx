@@ -1,8 +1,15 @@
 import { render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { vi } from 'vitest';
+import { DocumentDetail } from './DocumentDetail';
 import DocumentsWorkspace from './DocumentsWorkspace';
-import type { DocumentRow, DocumentsPage, Label } from './documentsApi';
+import type {
+  DocumentDetail as Detail,
+  DocumentRow,
+  DocumentsPage,
+  FieldValue,
+  Label,
+} from './documentsApi';
 
 // The documents API as the view's tests see it: two invoices, the operator's lists, and a server
 // that records what the view asks for.
@@ -38,12 +45,13 @@ function row(
   } as DocumentRow;
 }
 
-const value = (field: string, key: string, setBy: string) => ({
+const value = (field: string, key: string, setBy: string, evidence?: string): FieldValue => ({
   field,
   value_key: key,
   set_by: setBy,
   accepted: false,
   set_at: '2026-10-18T10:00:00Z',
+  ...(evidence === undefined ? {} : { evidence }),
 });
 
 export const PAGE: DocumentsPage = {
@@ -78,6 +86,51 @@ export const PAGE: DocumentsPage = {
   },
 };
 
+/** The documents as the detail reads them now: the second invoice has gained a counterparty the
+ * extractor read since the list was loaded, and a delivery note waits next in the review list. */
+export const DETAILS: Readonly<Record<string, Detail>> = {
+  d2: {
+    ...row(
+      'd2',
+      'fattura_2026_044.pdf',
+      [
+        value('type', 't-fattura', 'rule:t-fattura', 'any "FATTURA"'),
+        value('counterparty', 'c-gialli', 'extractor', 'Cliente | Gialli Import'),
+        value('document_date', '2026-04-14', 'extractor', 'Data emissione | 14/04/2026'),
+        value('tag', 'g-ricambi', 'operator'),
+      ],
+      true,
+    ),
+    rejections: [],
+    history: [
+      {
+        field: 'type',
+        value_key: 't-fattura',
+        action: 'set',
+        actor: 'rule:t-fattura',
+        at: '2026-10-18T10:00:00Z',
+      },
+      {
+        field: 'tag',
+        value_key: 'g-ricambi',
+        action: 'set',
+        actor: 'operator',
+        at: '2026-10-18T10:05:00Z',
+      },
+    ],
+  },
+  d3: {
+    ...row(
+      'd3',
+      'ddt_2026_118.pdf',
+      [value('counterparty', 'new:Verdi SpA', 'extractor', 'Fornitore | Verdi SpA')],
+      true,
+    ),
+    rejections: [],
+    history: [],
+  },
+};
+
 function urlOf(input: RequestInfo | URL): string {
   if (typeof input === 'string') return input;
   if (input instanceof URL) return input.href;
@@ -90,50 +143,85 @@ export interface BulkAnswer {
   readonly body: unknown;
 }
 
-/** stubServer answers the documents API, records every list request's query and every bulk
- * request's body, and answers the bulk route with the given responses in turn. */
+/** One write the detail sent: a PATCH of a document, its review, or a new label. */
+export interface Write {
+  readonly method: string;
+  readonly path: string;
+  readonly body: unknown;
+}
+
+const json = (body: unknown, status = 200) =>
+  Promise.resolve(new Response(JSON.stringify(body), { status }));
+
+/** stubServer answers the documents API, records every list request's query, every bulk
+ * request's body and every other write, and answers the bulk route with the given responses in
+ * turn. */
 export function stubServer(
   reviewCount = 7,
   bulk: readonly BulkAnswer[] = [{ status: 200, body: { applied: 1 } }],
 ) {
   const lists: URLSearchParams[] = [];
   const posts: unknown[] = [];
+  const writes: Write[] = [];
   vi.stubGlobal(
     'fetch',
     vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(urlOf(input), 'http://cockpit.test');
+      const method = init?.method ?? 'GET';
+      const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined;
       if (url.pathname === '/api/documents/bulk') {
-        posts.push(typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined);
+        posts.push(body);
         const answer = bulk[Math.min(posts.length, bulk.length) - 1] ?? { status: 200, body: {} };
-        return Promise.resolve(
-          new Response(JSON.stringify(answer.body), { status: answer.status }),
-        );
+        return json(answer.body, answer.status);
       }
-      let body: unknown;
+      if (method !== 'GET') {
+        writes.push({ method, path: url.pathname, body });
+        if (url.pathname === '/api/documents/labels') {
+          return json({ label: { id: 'c-verdi', ...(body as object) }, suggested: 0 });
+        }
+        return json({ ok: true });
+      }
       if (url.pathname === '/api/documents/labels') {
-        body = { labels: LABELS[url.searchParams.get('kind') ?? ''] ?? [] };
-      } else if (url.pathname === '/api/documents/custom-fields') {
-        body = { fields: [] };
-      } else if (
-        url.searchParams.get('needs_review') === 'true' &&
-        url.searchParams.get('limit') === '1'
-      ) {
-        body = { rows: [], total: reviewCount, facets: {} };
-      } else {
-        lists.push(url.searchParams);
-        body = PAGE;
+        return json({ labels: LABELS[url.searchParams.get('kind') ?? ''] ?? [] });
       }
-      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+      if (url.pathname === '/api/documents/custom-fields') return json({ fields: [] });
+      if (url.pathname.startsWith('/api/documents/')) {
+        const id = url.pathname.slice('/api/documents/'.length);
+        return id in DETAILS ? json(DETAILS[id]) : json({ error: 'not_found' }, 404);
+      }
+      if (url.pathname !== '/api/documents') return json({ error: 'not_found' }, 404);
+      if (url.searchParams.get('needs_review') === 'true') {
+        const limit = url.searchParams.get('limit');
+        if (limit === '1') return json({ rows: [], total: reviewCount, facets: {} });
+        if (limit === '2') return json({ rows: [DETAILS.d3], total: reviewCount - 1, facets: {} });
+      }
+      lists.push(url.searchParams);
+      return json(PAGE);
     }),
   );
-  return { lists, posts };
+  return { lists, posts, writes };
+}
+
+function newClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
 export function renderDocuments() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={client}>
+    <QueryClientProvider client={newClient()}>
       <DocumentsWorkspace />
     </QueryClientProvider>,
   );
+}
+
+/** renderDetail opens one document's detail on its own, with the callbacks it reports to. */
+export function renderDetail(id: string) {
+  const onClose = vi.fn();
+  const onOpen = vi.fn();
+  render(
+    <QueryClientProvider client={newClient()}>
+      <DocumentDetail id={id} onClose={onClose} onOpen={onOpen} />
+    </QueryClientProvider>,
+  );
+  return { onClose, onOpen };
 }

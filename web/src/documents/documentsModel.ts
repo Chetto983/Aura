@@ -19,10 +19,17 @@ export const KIND_OF: Readonly<Record<FilterField, LabelKind>> = {
 };
 
 /** The value field a filter field reads on a document. */
-const VALUE_FIELD: Readonly<Record<FilterField, string>> = {
+export const VALUE_FIELD: Readonly<Record<FilterField, string>> = {
   type: 'type',
   counterparty: 'counterparty',
   tags: 'tag',
+};
+
+/** The filter field, and so the list, behind a value field that holds label ids. */
+export const LIST_OF: Readonly<Partial<Record<string, FilterField>>> = {
+  type: 'type',
+  counterparty: 'counterparty',
+  tag: 'tags',
 };
 
 export type LabelNames = Readonly<Record<FilterField, ReadonlyMap<string, string>>>;

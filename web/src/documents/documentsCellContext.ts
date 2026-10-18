@@ -13,6 +13,13 @@ export interface FilterValueEvent {
   readonly id: string;
 }
 
+/** The grid action a document's name sends; the grid hands it to onOpenDocument. */
+export const OPEN_DOCUMENT_ACTION = 'open-document';
+
+export interface OpenDocumentEvent {
+  readonly id: string;
+}
+
 /** The selection, as the checkbox cells read and change it. */
 export interface SelectionApi {
   readonly isSelected: (id: string) => boolean;
