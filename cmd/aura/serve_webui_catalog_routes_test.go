@@ -27,7 +27,7 @@ func TestServeWebuiMountsEveryCatalogueRoute(t *testing.T) {
 		_, _ = io.WriteString(w, `{"agui":true}`)
 	})
 
-	handler, err := newServeHandler(aguiHandler, auth, &fakeAuthulaProvider{})
+	handler, err := newServeHandler(aguiHandler, auth, &fakeAuthulaProvider{}, "")
 	if err != nil {
 		t.Fatalf("newServeHandler: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestServeWebuiMountsTheEmbeddingRouteEndpoints(t *testing.T) {
 		hits = append(hits, r.Method+" "+r.URL.Path)
 		_, _ = io.WriteString(w, `{}`)
 	})
-	handler, err := newServeHandler(aguiHandler, auth, &fakeAuthulaProvider{})
+	handler, err := newServeHandler(aguiHandler, auth, &fakeAuthulaProvider{}, "")
 	if err != nil {
 		t.Fatalf("newServeHandler: %v", err)
 	}

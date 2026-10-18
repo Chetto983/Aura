@@ -17,7 +17,7 @@ func TestApprovalRoutesReachTheHandler(t *testing.T) {
 		hits++
 		_, _ = io.WriteString(w, `{}`)
 	})
-	handler, err := newServeHandler(aguiHandler, authulaTestDeps(localID, memberIdentities{id: localID}), &fakeAuthulaProvider{})
+	handler, err := newServeHandler(aguiHandler, authulaTestDeps(localID, memberIdentities{id: localID}), &fakeAuthulaProvider{}, "")
 	if err != nil {
 		t.Fatalf("newServeHandler: %v", err)
 	}

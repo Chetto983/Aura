@@ -9,8 +9,6 @@ package config
 
 import (
 	"fmt"
-	"net"
-	"net/url"
 	"os"
 	"time"
 
@@ -146,6 +144,9 @@ type Config struct {
 	// loader scans for skills. Empty disables per-identity skills — every identity then sees
 	// the deployment's own skills and nothing else, which is today's behaviour.
 	SkillsIdentityDir string // AURA_SKILLS_IDENTITY_DIR — per-identity skill root base
+	// GridcraftDir holds GridCraft's web build, which the cockpit serves at /apps/gridcraft/ and
+	// frames as its xlsx preview (docs/superpowers/specs/2026-10-18-xlsx-viewer-gridcraft-design.md).
+	GridcraftDir string // AURA_GRIDCRAFT_DIR — GridCraft's static web build; missing answers 404
 	// MCPEnvDir roots the prepared environments stdio MCP servers launch from (#211). An
 	// install materialises the server here once and stores an absolute path into it, so a
 	// mount runs a binary instead of re-resolving a package with egress it may not have.
@@ -466,6 +467,7 @@ func loadBase() *Config {
 		SkillExportDir:        envDefault("AURA_SKILL_EXPORT_DIR", defaultSkillExportDir()),
 		SkillsIdentityDir:     envDefault("AURA_SKILLS_IDENTITY_DIR", defaultSkillsIdentityDir()),
 		MCPEnvDir:             envDefault("AURA_MCP_ENV_DIR", defaultMCPEnvDir()),
+		GridcraftDir:          envDefault("AURA_GRIDCRAFT_DIR", "/usr/share/aura/gridcraft"),
 		SkillSnippetTTLDays:   envutil.IntDefault("AURA_SKILL_SNIPPET_TTL_DAYS", 90),
 
 		SkillInjectionBlocklist: envSliceDefault("AURA_SKILL_INJECTION_BLOCKLIST", defaultSkillInjectionBlocklist()),
@@ -573,26 +575,7 @@ func loadBase() *Config {
 	return cfg
 }
 
-// composeDSN returns "" when password is empty so callers can detect an
-// unconfigured DSN and fail-fast instead of dialing with a blank credential.
-func composeDSN(role, password, host, port, dbname, sslmode string) string {
-	if password == "" {
-		return ""
-	}
-	u := url.URL{
-		Scheme:  "postgres",
-		User:    url.UserPassword(role, password),
-		Host:    net.JoinHostPort(host, port),
-		Path:    "/" + dbname,
-		RawPath: "/" + url.PathEscape(dbname),
-	}
-	q := url.Values{}
-	q.Set("sslmode", sslmode)
-	u.RawQuery = q.Encode()
-	return u.String()
-}
-
 // Path-default + normalization helpers (absRunDir, defaultRunDir, auraHomeDir,
 // defaultSkillsDir, defaultWorkspaceDir, defaultSkillExportDir) live in
-// config_paths.go — split out so this file stays under the 600-LOC cap
-// (CLAUDE.md NO GOD CLASS), mirroring the config_sandbox.go precedent.
+// config_paths.go and composeDSN in config_dsn.go — split out so this file stays under the
+// 600-LOC cap (CLAUDE.md NO GOD CLASS), mirroring the config_sandbox.go precedent.

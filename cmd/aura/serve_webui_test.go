@@ -24,7 +24,7 @@ func TestServeWebui(t *testing.T) {
 
 	// A zero AuthDeps has SecretConfigured=false, so agui.RequireAuth is a no-op
 	// pass-through. Auth-active wiring is covered in serve_webui_auth_test.go.
-	handler, err := newServeHandler(aguiHandler, agui.AuthDeps{}, nil)
+	handler, err := newServeHandler(aguiHandler, agui.AuthDeps{}, nil, "")
 	if err != nil {
 		t.Fatalf("newServeHandler: %v", err)
 	}

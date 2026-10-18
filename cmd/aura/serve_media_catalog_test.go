@@ -162,7 +162,7 @@ func TestMediaModelRoutesRequireGovernanceWrite(t *testing.T) {
 		{"governance.write", wiringIdentities{id: mediaAdminIdentity}, http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			handler, err := newServeHandler(aguiHandler, authulaTestDeps(mediaAdminIdentity, tc.identities), &fakeAuthulaProvider{})
+			handler, err := newServeHandler(aguiHandler, authulaTestDeps(mediaAdminIdentity, tc.identities), &fakeAuthulaProvider{}, "")
 			if err != nil {
 				t.Fatalf("newServeHandler: %v", err)
 			}
@@ -267,7 +267,7 @@ func settingsDaemon(t *testing.T, principal string, store *mediaSettingsStore) (
 	server := agui.NewServer(nil, nil, agui.ServerConfig{})
 	server.SetSettingsStore(store)
 	server.SetIdentityAdmin(mediaSettingsAdmins{})
-	handler, err := newServeHandler(server.Mux(), authulaTestDeps(principal, wiringIdentities{id: principal}), &fakeAuthulaProvider{})
+	handler, err := newServeHandler(server.Mux(), authulaTestDeps(principal, wiringIdentities{id: principal}), &fakeAuthulaProvider{}, "")
 	if err != nil {
 		t.Fatalf("newServeHandler: %v", err)
 	}

@@ -64,7 +64,7 @@ func TestDeploymentControlRoutesRequireAnAdmin(t *testing.T) {
 				hits = append(hits, r.Method+" "+r.URL.Path)
 				_, _ = io.WriteString(w, `{}`)
 			})
-			handler, err := newServeHandler(aguiHandler, authulaTestDeps(localID, tc.identities), &fakeAuthulaProvider{})
+			handler, err := newServeHandler(aguiHandler, authulaTestDeps(localID, tc.identities), &fakeAuthulaProvider{}, "")
 			if err != nil {
 				t.Fatalf("newServeHandler: %v", err)
 			}
@@ -90,7 +90,7 @@ func TestMemberStillAuthorizesTheirOwnMCPAccount(t *testing.T) {
 		hits = append(hits, r.Method+" "+r.URL.Path)
 		_, _ = io.WriteString(w, `{}`)
 	})
-	handler, err := newServeHandler(aguiHandler, authulaTestDeps(localID, memberIdentities{id: localID}), &fakeAuthulaProvider{})
+	handler, err := newServeHandler(aguiHandler, authulaTestDeps(localID, memberIdentities{id: localID}), &fakeAuthulaProvider{}, "")
 	if err != nil {
 		t.Fatalf("newServeHandler: %v", err)
 	}

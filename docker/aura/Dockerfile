@@ -20,6 +20,15 @@ COPY internal/agui/testdata/golden-events.json /internal/agui/testdata/golden-ev
 COPY internal/assets/testdata/studio-project.json /internal/assets/testdata/studio-project.json
 RUN npm run build
 
+# GridCraft's web build, which the cockpit frames as its xlsx preview
+# (docs/superpowers/specs/2026-10-18-xlsx-viewer-gridcraft-design.md). The release zip is pinned
+# by version and by the SHA-256 the release itself publishes, so nothing is fetched at run time.
+# The wasm and its glue are gzipped here because nothing in front of aura compresses: aura sends
+# the .gz to a browser that accepts it (internal/staticapp).
+FROM alpine:3.22 AS gridcraft
+ADD --checksum=sha256:532966caa70bbd346bcd3c48a827d9d0118f83e50be7a0ca43fdb28bd48f1dd4     https://github.com/storytold/gridcraft/releases/download/v0.8.0/gridcraft-web-0.8.0.zip /tmp/gridcraft.zip
+RUN set -eu;     unzip -q /tmp/gridcraft.zip -d /tmp;     mv /tmp/gridcraft-web-0.8.0 /gridcraft;     rm -f /gridcraft/_headers /gridcraft/.htaccess;     gzip -9 -k /gridcraft/*.wasm /gridcraft/*.js
+
 # Keep in lockstep with the garage service pin in compose.yaml — the bootstrap
 # CLI talks native RPC to the server and Garage wants matched versions.
 FROM dxflrs/garage:v2.4.1 AS garagebin
@@ -174,6 +183,7 @@ RUN pip install --no-cache-dir --break-system-packages \
 ENV AURA_IN_CONTAINER=1
 
 COPY --from=payload /payload /usr/share/aura/payload
+COPY --from=gridcraft /gridcraft /usr/share/aura/gridcraft
 COPY --from=build /out/aura /usr/local/bin/aura
 COPY --from=garagebin /garage /usr/local/bin/garage
 COPY docker/aura/aura-garage-bootstrap.sh /usr/local/bin/aura-garage-bootstrap.sh

@@ -99,7 +99,7 @@ func TestServeWebuiAuthulaSubtreePublic(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	authula := &fakeAuthulaProvider{}
-	handler, err := newServeHandler(aguiHandler, auth, authula)
+	handler, err := newServeHandler(aguiHandler, auth, authula, "")
 	if err != nil {
 		t.Fatalf("newServeHandler: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestServeWebuiAuthConfigPublic(t *testing.T) {
 				aguiHits = append(aguiHits, r.URL.Path)
 				w.WriteHeader(http.StatusOK)
 			})
-			handler, err := newServeHandler(aguiHandler, auth, tc.authula)
+			handler, err := newServeHandler(aguiHandler, auth, tc.authula, "")
 			if err != nil {
 				t.Fatalf("newServeHandler: %v", err)
 			}
@@ -221,7 +221,7 @@ func TestServeWebuiAuthWiring(t *testing.T) {
 		_, _ = io.WriteString(w, `{"agui":true}`)
 	})
 
-	handler, err := newServeHandler(aguiHandler, auth, &fakeAuthulaProvider{})
+	handler, err := newServeHandler(aguiHandler, auth, &fakeAuthulaProvider{}, "")
 	if err != nil {
 		t.Fatalf("newServeHandler: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestServeWebuiAuthWiring(t *testing.T) {
 		legacySecretAuth.Secret = "operator-secret"
 		key := sha256.Sum256([]byte(legacySecretAuth.Secret))
 		legacySecretAuth.SigningKey = key[:]
-		legacyHandler, err := newServeHandler(aguiHandler, legacySecretAuth, &fakeAuthulaProvider{})
+		legacyHandler, err := newServeHandler(aguiHandler, legacySecretAuth, &fakeAuthulaProvider{}, "")
 		if err != nil {
 			t.Fatalf("newServeHandler with legacy secret: %v", err)
 		}
@@ -540,7 +540,7 @@ func TestServeWebuiApprovalsCapabilityGate(t *testing.T) {
 		_, _ = io.WriteString(w, `{"agui":true}`)
 	})
 
-	handler, err := newServeHandler(aguiHandler, auth, &fakeAuthulaProvider{})
+	handler, err := newServeHandler(aguiHandler, auth, &fakeAuthulaProvider{}, "")
 	if err != nil {
 		t.Fatalf("newServeHandler: %v", err)
 	}

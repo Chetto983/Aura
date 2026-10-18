@@ -152,7 +152,7 @@ func TestChatGPTLoginBrowserRoutesRequireAuthentication(t *testing.T) {
 				t.Fatal("login browser lost owner")
 			}
 			w.WriteHeader(http.StatusNoContent)
-		}), authulaTestDeps(restartTestIdentity, uncapableIdentities{id: restartTestIdentity}), nil)
+		}), authulaTestDeps(restartTestIdentity, uncapableIdentities{id: restartTestIdentity}), nil, "")
 		if err != nil {
 			t.Fatal(err)
 		}

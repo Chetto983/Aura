@@ -39,7 +39,7 @@ func TestWireRestartTriggerOnlyInsideTheContainer(t *testing.T) {
 			defer requestShutdown()
 			server := agui.NewServer(nil, nil, agui.ServerConfig{})
 			wireRestartTrigger(server, requestShutdown)
-			handler, err := newServeHandler(server.Mux(), authulaTestDeps(restartTestIdentity, adminIdentities{id: restartTestIdentity}), &fakeAuthulaProvider{})
+			handler, err := newServeHandler(server.Mux(), authulaTestDeps(restartTestIdentity, adminIdentities{id: restartTestIdentity}), &fakeAuthulaProvider{}, "")
 			if err != nil {
 				t.Fatalf("newServeHandler: %v", err)
 			}

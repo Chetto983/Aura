@@ -35,7 +35,7 @@ func TestBrowserLiveRoutesAreMountedBehindAgentRun(t *testing.T) {
 		for _, rq := range requests {
 			t.Run(tc.name+" "+rq.method, func(t *testing.T) {
 				hits = 0
-				handler, err := newServeHandler(aguiHandler, authulaTestDeps(restartTestIdentity, tc.identities), &fakeAuthulaProvider{})
+				handler, err := newServeHandler(aguiHandler, authulaTestDeps(restartTestIdentity, tc.identities), &fakeAuthulaProvider{}, "")
 				if err != nil {
 					t.Fatalf("newServeHandler: %v", err)
 				}

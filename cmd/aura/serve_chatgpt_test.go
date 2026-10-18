@@ -90,7 +90,7 @@ func TestChatGPTModelSaveUsesAccountCatalogAndClearsOtherKeys(t *testing.T) {
 
 func TestChatGPTSettingsRemainProtected(t *testing.T) {
 	server := &agui.Server{}
-	handler, err := newServeHandler(server.Mux(), agui.AuthDeps{SecretConfigured: true}, nil)
+	handler, err := newServeHandler(server.Mux(), agui.AuthDeps{SecretConfigured: true}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestChatGPTOwnerMayConnectWithoutSettingsAdministration(t *testing.T) {
 			t.Fatal("connection lost its authenticated owner")
 		}
 		w.WriteHeader(http.StatusOK)
-	}), auth, nil)
+	}), auth, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}

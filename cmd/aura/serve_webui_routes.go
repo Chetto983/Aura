@@ -368,6 +368,10 @@ const boardSubtreeRoute = "/api/board/"
 const documentsRoutePrefix = "/api/documents"
 const documentsSubtreeRoute = "/api/documents/"
 
+// GridCraft's web build, which the xlsx preview frames, served from AURA_GRIDCRAFT_DIR
+// (docs/superpowers/specs/2026-10-18-xlsx-viewer-gridcraft-design.md).
+const gridcraftRoute = "/apps/gridcraft/"
+
 const (
 	assetsPresignRoute  = "POST /api/assets/presign"
 	assetsFinalizeRoute = "POST /api/assets/{id}/finalize"
