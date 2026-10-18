@@ -270,6 +270,10 @@ func TestNoRecipeDependsOnABuildTimeUVCache(t *testing.T) {
 // is their fence. PdfCraft serves its compact surface: 17 tools, the rest through its own tool_search.
 func TestCraftRecipesRunInTheBox(t *testing.T) {
 	roots := []string{"--automation-read-root", "/workspace", "--automation-write-root", "/workspace"}
+	// Every server writes only in the workspace, whatever its own flags: GridCraft and FilmCraft
+	// have none, and saved to /tmp and /root until landrun fenced them (spikes/craft-mcp/escape.py).
+	fence := []string{"--best-effort", "--rox", "/", "--rw", "/workspace", "--rw", "/dev",
+		"--unrestricted-network", "--unrestricted-scoped", "--env", "HOME", "--env", "PATH", "--"}
 	want := map[string][]string{
 		"gridcraft":  {"mcp"},
 		"filmcraft":  {"mcp"},
@@ -293,8 +297,9 @@ func TestCraftRecipesRunInTheBox(t *testing.T) {
 		if source := mcp.CraftRecipeSource(name); entry.Source != source || server.Source != source {
 			t.Errorf("%s source %q/%q, want %q", name, entry.Source, server.Source, source)
 		}
-		if server.Command != name+"-cli" || !reflect.DeepEqual(server.Args, want[name]) {
-			t.Errorf("%s launches %q %v, want %q %v", name, server.Command, server.Args, name+"-cli", want[name])
+		args := append(append(slices.Clone(fence), name+"-cli"), want[name]...)
+		if server.Command != "landrun" || !reflect.DeepEqual(server.Args, args) {
+			t.Errorf("%s launches %q %v, want landrun %v", name, server.Command, server.Args, args)
 		}
 	}
 }

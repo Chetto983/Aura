@@ -28,9 +28,9 @@ type DocumentOpenBackend interface {
 // It exists because retrieval has a ceiling that tuning does not move. Measured
 // on a 5889-row customer spreadsheet: an exact lookup scores 100% (BM25), and
 // "how many customers in Torino" scores 0% at every k — the answer is a property
-// of the whole set and sits in no chunk. The box already carries LibreOffice,
-// openpyxl and pandas, so once the agent holds the file the question is
-// arithmetic rather than recall.
+// of the whole set and sits in no chunk. The box carries pandas and the gridcraft
+// server, so once the agent holds the file the question is arithmetic rather than
+// recall.
 //
 // The copy lands INSIDE the caller's per-identity box, through the same router
 // seam fs_write uses, and that is the whole reason Router is here. Writing it
@@ -59,8 +59,9 @@ func (t *DocumentOpen) Spec() Spec {
 		Summary: "Download an indexed document to /workspace as a real file you can open, convert, or compute on.",
 		// One description, shared with the MCP surface the same way document_search's is.
 		Description: "Get the ORIGINAL file of an indexed document written into /workspace/documents/, then " +
-			"work on it with shell_exec -- LibreOffice (soffice --headless), python with openpyxl/pandas, " +
-			"PyMuPDF and pdftotext are all installed. It returns the path, file name, size and the sha256 " +
+			"work on it with the MCP servers in your box -- gridcraft for a spreadsheet, pdfcraft for a PDF, " +
+			"wordcraft for Word, deckcraft for PowerPoint -- or compute over a table with pandas through " +
+			"shell_exec. It returns the path, file name, size and the sha256 " +
 			"measured off the written bytes. document_search finds WHICH document -- use the document_id from " +
 			"one of its hits; document_open hands over the file itself. " +
 			"Use it whenever a hit reports requires_open, whenever the answer needs the whole file rather than " +

@@ -1,10 +1,22 @@
 package manager
 
-import "github.com/chetto1983/aura/internal/mcp"
+import (
+	"slices"
 
-// craftRoots confines a Craft server's file access to the identity's workspace. GridCraft and FilmCraft have
-// no such flags: the box is their fence, as it is for shell_exec (spikes/craft-mcp/FINDINGS.md, verdict 11).
+	"github.com/chetto1983/aura/internal/mcp"
+)
+
+// craftRoots confines four Craft servers' automation to the identity's workspace. GridCraft and FilmCraft
+// have no such flags, and through their own save tools wrote to /tmp and /root (spikes/craft-mcp/escape.py).
 var craftRoots = []string{"--automation-read-root", "/workspace", "--automation-write-root", "/workspace"}
+
+// craftFence is landrun's Landlock ruleset around every Craft server: it writes only in the workspace and
+// /dev (/dev/null, shared memory), while reading, executing and the network stay as they were. landrun
+// passes no environment it is not named. --best-effort is what lets landrun, which asks for Landlock ABI
+// 10, run on the WSL2 kernel's ABI 7; the box image contract proves the fence holds
+// (scripts/sandbox_image_contract_test.sh).
+var craftFence = []string{"--best-effort", "--rox", "/", "--rw", "/workspace", "--rw", "/dev",
+	"--unrestricted-network", "--unrestricted-scoped", "--env", "HOME", "--env", "PATH", "--"}
 
 // craftArgs is each Craft CLI's MCP invocation. PdfCraft serves its compact surface: 17 tools, the other
 // ~150 through its own tool_search/tool_call.
@@ -40,8 +52,8 @@ func craftCatalogEntries() []CatalogEntry {
 			TrustClass: mcp.TrustTrustedRecipe,
 			Runtime:    mcp.RuntimeKindBox,
 			Server: mcp.ManagedServer{
-				Command: name + "-cli",
-				Args:    craftArgs[name],
+				Command: "landrun",
+				Args:    append(append(slices.Clone(craftFence), name+"-cli"), craftArgs[name]...),
 				Source:  source,
 				Trust:   mcp.ManagedTrust{Class: mcp.TrustTrustedRecipe},
 				Runtime: mcp.ManagedRuntime{Kind: mcp.RuntimeKindBox},

@@ -1,15 +1,20 @@
 ---
 name: find-skills-aura
-description: Discover agent skills from the open skills ecosystem (skills.sh), and install them when authorized, when current capabilities don't cover a task — file formats (xlsx, pdf, docx), integrations, or specialized workflows.
+description: Discover agent skills from the open skills ecosystem (skills.sh), and install them when authorized, when current capabilities don't cover a task — an uncommon file format, an integration, or a specialized workflow.
 ---
 
 # Find Skills
 
 You can extend yourself with skills from the open agent skills ecosystem. When a task
-needs a capability you don't have a battle-tested method for (file formats like
-xlsx/pdf/docx, integrations, specialized workflows), search the ecosystem BEFORE
+needs a capability you don't have a battle-tested method for (an uncommon file format,
+an integration, a specialized workflow), search the ecosystem BEFORE
 hand-coding the deliverable — a vetted skill ships tested instructions and bundled
 scripts that beat ad-hoc code.
+
+Office documents, PDFs, photos and video are already covered: the gridcraft, pdfcraft, wordcraft,
+deckcraft, photocraft and filmcraft servers in your box, each with its skill (gridcraft-aura, ...). Do
+not search for or install another skill for them: one that drives LibreOffice, pandoc or python-docx
+cannot run here, the box does not carry them.
 
 Having the underlying libraries installed (openpyxl, pandas, a node package) is NOT
 having a method: the skill is the battle-tested playbook for the format — conventions,
@@ -22,7 +27,7 @@ Run the skills CLI in your terminal — it only prints, it installs nothing:
 
     npx skills find <query>
 
-- Query by the artifact FORMAT or capability family ("xlsx", "pdf", "docx"), not the
+- Query by the artifact FORMAT or capability family ("dxf", "epub", "ics"), not the
   data topic — skills package capabilities; the data comes from your other tools.
 - Output lines look like `owner/repo@skill-name  N installs` followed by a
   skills.sh URL, ranked by installs.

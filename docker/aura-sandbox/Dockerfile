@@ -18,6 +18,22 @@
 # it did four times to aura-stt's whisper-server pin. The uv pin is a COPY --from, which
 # Dependabot does not parse; resolved 2026-07-27:
 #   ghcr.io/astral-sh/uv:0.11.32 -> sha256:df4cae8f3a96d175e2e5f992e597550000edbe78fdc2594d5cd8de1a217f504c
+#
+# landrun (MIT, github.com/zouuup/landrun) fences the Craft MCP servers' writes to /workspace with
+# Landlock (internal/mcp/manager/catalog_craft.go). It is built from its module, which the Go checksum
+# database verifies, and statically: the release binary needs glibc 2.38 and bookworm has 2.36. The
+# fetch is retried for the reason docker/aura/Dockerfile gives at its `go mod download`.
+FROM --platform=$BUILDPLATFORM golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61 AS landrun
+ARG TARGETARCH
+RUN set -e; \
+    for attempt in 1 2 3; do \
+      if CGO_ENABLED=0 GOOS=linux GOARCH="$TARGETARCH" GOBIN=/out \
+           go install -trimpath -ldflags="-s -w" github.com/zouuup/landrun/cmd/landrun@v0.1.17; then break; fi; \
+      if [ "$attempt" = 3 ]; then echo "landrun install failed after 3 attempts" >&2; exit 1; fi; \
+      sleep $((attempt * 5)); \
+    done; \
+    cp "$(go env GOMODCACHE)/github.com/zouuup/landrun@v0.1.17/LICENSE" /out/LICENSE
+
 FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
 
 # --- heavy runtime layer (cache-stable: ordered FIRST so a later tweak re-runs only the
@@ -83,31 +99,14 @@ ENV PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS=true
 # into the identity's warm-cache volume (D-13).
 COPY --from=ghcr.io/astral-sh/uv@sha256:df4cae8f3a96d175e2e5f992e597550000edbe78fdc2594d5cd8de1a217f504c /uv /uvx /usr/local/bin/
 
-# ↓↓ Document/office toolchain — MANDATORY parity with docker/aura/Dockerfile ↓↓
-# Under a strict profile the box, NOT the aura container, is where shell_exec and the skill
-# snippets run. Amendment #88/#88.1 pre-baked this toolchain into the aura image precisely so
-# document tasks stop reinstalling it per turn — and every one of those skills (docx/pptx/xlsx/
-# pdf) breaks the moment the router sends them here instead. Keep the three layers below in
-# lockstep with docker/aura/Dockerfile: a divergence is silent, and it only surfaces as a skill
-# failing on a hardened appliance while it works on a dev host.
-#
-# pandoc converts document formats; file/xxd sniff workspace artifacts. LibreOffice HEADLESS
-# modules only (-writer/-calc/-impress) — the shared `soffice` the skills drive via
-# scripts/office/soffice.py; the GUI suite/-base/-draw stay OUT to cap growth. poppler-utils =
-# pdftoppm/pdftotext, qpdf + pdftk-java = PDF manipulation, tesseract-ocr = pytesseract's
-# backend, fonts-liberation = Arial/Times-metric fonts for faithful render.
+# Documents, photos and video are the Craft MCP servers' work (installed below,
+# docs/superpowers/specs/2026-10-18-craft-mcp-design.md), not a shell toolchain's: LibreOffice,
+# pandoc, pdftk (and its Java), tesseract, qpdf and poppler left this image with the Python and Node
+# Office libraries. file/xxd sniff workspace artifacts; fonts-liberation is the Arial/Times-metric
+# family Chromium renders with.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        pandoc file xxd \
-        libreoffice-writer libreoffice-calc libreoffice-impress \
-        poppler-utils qpdf pdftk-java tesseract-ocr fonts-liberation \
+    && apt-get install -y --no-install-recommends file xxd fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
-
-# NodeSource Node 24 puts global modules under /usr/lib/node_modules; NODE_PATH must point
-# there so `require('docx')`/`require('pptxgenjs')` resolve from /workspace, not just from the
-# module root. pptxgenjs = the pptx skill's PowerPoint generator.
-RUN npm install -g docx pptxgenjs && npm cache clean --force
-ENV NODE_PATH=/usr/lib/node_modules
 
 # The agent installs into this Python at RUNTIME, and shell_exec's own description tells it
 # exactly how: "Pick ONE interpreter per task and install into it: `python3 -m pip install
@@ -130,12 +129,11 @@ RUN python3 -m pip install --no-cache-dir playwright==1.62.0 \
     && python3 -m playwright install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 
-# Python document/data stack, same set and same reason as docker/aura/Dockerfile.
-# markitdown[pptx] is quoted so /bin/sh does not glob the [].
+# The data stack: pandas computes over a table, openpyxl is how it reads an .xlsx (a spreadsheet is
+# EDITED by the gridcraft server), and defusedxml is what openpyxl's documentation asks for against
+# quadratic-blowup and billion-laughs XML. Pillow and lxml left with the Office libraries that needed them.
 RUN pip install --no-cache-dir --break-system-packages \
-        python-docx python-pptx openpyxl xlsxwriter pandas \
-        pypdf pdfplumber reportlab pdf2image pytesseract \
-        Pillow defusedxml lxml "markitdown[pptx]" \
+        openpyxl pandas defusedxml \
     && find /usr/lib/python3 /usr/local/lib -depth -type d -name __pycache__ -exec rm -rf {} +
 
 # Mount points (documented — the ACTUAL mounts are set by the usersandbox translator, not
@@ -200,6 +198,50 @@ RUN set -eu; \
 # died with a box recreate).
 ENV AURA_AGENT_BROWSER_HOME=/workspace/.agent-browser-home
 COPY --chmod=0755 docker/aura-sandbox/agent-browser.sh /usr/local/bin/agent-browser
+
+# The Craft apps' MCP servers, run in this box by the gridcraft, pdfcraft, wordcraft, deckcraft,
+# photocraft and filmcraft recipes (internal/mcp/manager/catalog_craft.go). Official, unmodified
+# release builds (the ArtCraft brand terms allow those as they are), each tarball pinned by the SHA-256
+# its GitHub release publishes; only the CLI leaves it, with its licenses and font notices. PdfCraft's
+# is its CLI-only package: no OCR models, which the agent does not need (it reads a rendered page).
+RUN set -eu; \
+    case "${TARGETARCH:-amd64}" in \
+        amd64) arch=x86_64 ;; \
+        arm64) arch=aarch64 ;; \
+        *) echo "craft: unsupported arch ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    craft() { \
+        app=$1; ver=$2; asset="$3-linux-$arch.tar.gz"; \
+        if [ "$arch" = x86_64 ]; then sha=$4; else sha=$5; fi; \
+        curl -fsSL -o /tmp/craft.tgz "https://github.com/storytold/$app/releases/download/v$ver/$asset"; \
+        echo "$sha  /tmp/craft.tgz" | sha256sum -c -; \
+        mkdir /tmp/craft && tar -xzf /tmp/craft.tgz -C /tmp/craft --strip-components 1; \
+        install -D -m 0755 "$(find /tmp/craft -type f -name "$app-cli" | head -1)" "/usr/local/bin/$app-cli"; \
+        mkdir -p "/usr/local/share/licenses/$app"; \
+        find /tmp/craft -type f \( -name 'LICENSE*' -o -name 'NOTICE*' -o -name 'OFL*' -o -name 'ATTRIBUTION*' \) \
+            -exec cp {} "/usr/local/share/licenses/$app/" \; ; \
+        rm -rf /tmp/craft /tmp/craft.tgz; \
+    }; \
+    craft gridcraft 0.8.0 gridcraft-0.8.0 \
+        4a029e20da86bad46706339ce4516a20445c131c0d82f6a114772208c5d831b3 \
+        0d4c882acdcfd4b5721a6dd1ec74c98ce0fb160d0231973a69475da6ec9e8e7d; \
+    craft pdfcraft 0.9.0 pdfcraft-cli-0.9.0 \
+        cdba2bec4d502d016dd78101a402d07845b708c49d77bc85e0ab640aca65372b \
+        6a5316da69300fc30cd7355cba1c5a9c307ceb741bcce91ba0c5c835350ca0a2; \
+    craft wordcraft 0.8.0 wordcraft-0.8.0 \
+        0ece07cf3d91b923dfd80f90310e04983bde66f0279c6b60ddce89596dde0ddf \
+        a862de2256e43c987dc8ea009ba52ac25db34091fd649b666133931ac68e02cc; \
+    craft deckcraft 0.8.0 deckcraft-0.8.0 \
+        227b8c9cdd2c06b7866807f995fe5d2d0675523a61208f9bc26cf2760fddcb8f \
+        7325c0277d5ecce335da2dabd5dbea4d90b704edccde4d23a6423189e0bcdcc4; \
+    craft photocraft 0.10.0 photocraft-0.10.0 \
+        c5d455785d9c2eaf695bf8e6327c4d6d23a39ddb956a6114f0c5b64326f984e1 \
+        829780d331e6443ddf1bada932ed07e0e9dc541b213b275f3c3a3209607bc7c7; \
+    craft filmcraft 0.9.0 filmcraft-0.9.0 \
+        ea67953cc754bfd8272e0e5fa940518e16068ae96f6b72a2dce566ed69a61632 \
+        ee0a54c2154ab34600a6d1c98a3348ac3bbcc5f44961dfa42c2c16b3a6f13c79
+COPY --from=landrun /out/landrun /usr/local/bin/landrun
+COPY --from=landrun /out/LICENSE /usr/local/share/licenses/landrun/LICENSE
 # Chrome must not sign itself in to the Google account a user logs into on the web. Measured
 # 2026-09-27 on the lab VM: after an operator signed in to YouTube through the live view, Chrome's
 # account consistency (DICE) opened chrome://signin-error and a new tab, and the session's daemon

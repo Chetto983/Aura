@@ -281,3 +281,19 @@ func TestPrompt_DocumentsDoctrine(t *testing.T) {
 		}
 	}
 }
+
+// Documents are the Craft servers' work (docs/superpowers/specs/2026-10-18-craft-mcp-design.md): the box no
+// longer carries LibreOffice, pandoc or the Python Office libraries, so a prompt that still sends the agent
+// there sends it to a command that is not found.
+func TestPrompt_DocumentsGoToTheCraftServers(t *testing.T) {
+	for _, gone := range []string{"LibreOffice", "soffice", "python-docx", "pandoc", "pdftotext", "PyMuPDF"} {
+		if strings.Contains(SystemPrompt, gone) {
+			t.Errorf("the prompt still names %q, which the box no longer has", gone)
+		}
+	}
+	for _, server := range []string{"gridcraft", "pdfcraft", "wordcraft", "deckcraft", "photocraft", "filmcraft"} {
+		if !strings.Contains(SystemPrompt, server) {
+			t.Errorf("the prompt does not name the %s server", server)
+		}
+	}
+}

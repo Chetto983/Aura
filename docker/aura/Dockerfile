@@ -130,55 +130,14 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.32 /uv /uvx /usr/local/bin/
 # (get/search/send) over MCP, so the standalone vendored mail-mcp bin is no longer
 # baked into this image.
 
-# Amendment #88 Task 2: pre-bake the document/data toolchain so document tasks
-# stop reinstalling docx/pandoc on every turn. pandoc converts between document
-# formats; file/xxd are used for content sniffing/hex inspection of workspace
-# artifacts. Dedicated layer (not folded into the earlier locked apt layers above)
-# so this stays independently cacheable and easy to diff/revert.
+# No document toolchain here: shell tools never run in this container (there is no host
+# execution path: internal/sandbox/usersandbox/router.go), and documents are the Craft MCP
+# servers' work in the box. poppler-utils stays for the Go code that runs here (pdftotext in
+# internal/pdftext, pdftoppm in cmd/aura-media-index), with the metric-compatible fonts it renders
+# a PDF's unembedded fonts in.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends pandoc file xxd \
+    && apt-get install -y --no-install-recommends poppler-utils fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
-
-# Amendment #88.1 Task 2b: office/pdf system toolchain for the installed
-# docx/pptx/xlsx/pdf skills (present in /var/lib/aura/skills). LibreOffice HEADLESS
-# modules only (-writer/-calc/-impress + auto-pulled -core/-common) — the shared
-# `soffice` the docx/pptx/xlsx skills drive via scripts/office/soffice.py for render,
-# formula-recalc, and Office<->PDF; the full GUI suite/-base/-draw stay OUT to cap
-# growth (Amendment #88.1). poppler-utils = pdftoppm/pdftotext (skill slide
-# thumbnails + text extract), qpdf + pdftk-java = PDF manipulation, tesseract-ocr =
-# OCR backend for pytesseract, fonts-liberation = Arial/Times-metric fonts for
-# faithful render. Dedicated layer (heavy, independently cacheable/revertible).
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        libreoffice-writer libreoffice-calc libreoffice-impress \
-        poppler-utils qpdf pdftk-java tesseract-ocr fonts-liberation \
-    && rm -rf /var/lib/apt/lists/*
-
-# NodeSource Node 24 (installed above) puts global npm modules under
-# /usr/lib/node_modules; NODE_PATH must point there so `require('docx')` /
-# `require('pptxgenjs')` resolve from any CWD (the agent runs JS skill snippets from
-# $AURA_WORKSPACE_DIR, not /usr/lib/node_modules). pptxgenjs = the pptx skill's
-# PowerPoint generator.
-# npm cache clean is in THIS layer for the same reason as the pycache sweep below: the build-time
-# download cache under /root/.npm is otherwise sealed into the image. At RUNTIME /root/.npm is
-# a retained volume (compose), so warm re-installs are unaffected.
-RUN npm install -g docx pptxgenjs && npm cache clean --force
-ENV NODE_PATH=/usr/lib/node_modules
-
-# Python document/data stack pre-baked so skill snippets don't pip install on every
-# invocation. --break-system-packages is required on this Debian image (PEP 668
-# externally-managed env).
-# python-docx (import `docx`), python-pptx, openpyxl, xlsxwriter, pandas = Office
-# read/write; pypdf/pdfplumber/reportlab/pdf2image/pytesseract = the pdf skill;
-# Pillow/defusedxml/lxml = shared skill helpers; markitdown[pptx] = the pptx skill's
-# reader (pulls python-pptx). markitdown[pptx] quoted so /bin/sh does not glob the [].
-# The trailing __pycache__ sweep runs INSIDE this layer, not as a later one: a `rm` in a
-# subsequent layer only writes a whiteout, it never shrinks the layer that wrote the bytes.
-RUN pip install --no-cache-dir --break-system-packages \
-        python-docx python-pptx openpyxl xlsxwriter pandas \
-        pypdf pdfplumber reportlab pdf2image pytesseract \
-        Pillow defusedxml lxml "markitdown[pptx]" \
-    && find /usr/lib/python3 /usr/local/lib -depth -type d -name __pycache__ -exec rm -rf {} +
 
 ENV AURA_IN_CONTAINER=1
 

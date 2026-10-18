@@ -365,3 +365,16 @@ func TestDocumentSearchPointsAtDocumentOpen(t *testing.T) {
 		t.Error("document_search no longer names document_open")
 	}
 }
+
+// The file document_open hands over is worked on by the Craft servers, not by tools the box no longer has.
+func TestDocumentOpenPointsToTheCraftServers(t *testing.T) {
+	desc := (&DocumentOpen{}).Spec().Description
+	for _, gone := range []string{"LibreOffice", "soffice", "PyMuPDF", "pdftotext"} {
+		if strings.Contains(desc, gone) {
+			t.Errorf("document_open still names %q", gone)
+		}
+	}
+	if !strings.Contains(desc, "gridcraft") || !strings.Contains(desc, "pdfcraft") {
+		t.Errorf("document_open does not point to the Craft servers: %s", desc)
+	}
+}

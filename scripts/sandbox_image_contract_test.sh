@@ -126,4 +126,47 @@ agent-browser --session kept close >/dev/null
 '
 echo "ok: agent-browser refuses without the Aura key, and with it runs Chromium offline without announcing automation or signing Chrome in, and keeps a session's cookies across restarts"
 
+# The Craft MCP servers the gridcraft, pdfcraft, wordcraft, deckcraft, photocraft and filmcraft recipes
+# launch (internal/mcp/manager/catalog_craft.go): each CLI answers an MCP initialize, offline. The office
+# toolchain they replaced must be gone, so nothing quietly keeps depending on it; pandas and openpyxl stay
+# to compute over a table.
+docker run --rm --network none --entrypoint bash "$img" -c '
+set -e
+init="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"contract\",\"version\":\"0\"}}}"
+for app in gridcraft pdfcraft wordcraft deckcraft photocraft filmcraft; do
+  reply="$(printf "%s\n" "$init" | timeout 20 "$app-cli" mcp | head -1)"
+  case "$reply" in *protocolVersion*) ;; *) echo "FAIL: $app-cli mcp did not initialize: $reply" >&2; exit 1 ;; esac
+done
+for gone in soffice pandoc pdftk tesseract qpdf pdftotext java; do
+  if command -v "$gone" >/dev/null; then echo "FAIL: $gone is still in the box" >&2; exit 1; fi
+done
+python3 -c "import pandas, openpyxl, defusedxml" || { echo "FAIL: pandas, openpyxl or defusedxml is missing" >&2; exit 1; }
+for gone in docx PIL lxml; do
+  if python3 -c "import $gone" 2>/dev/null; then echo "FAIL: python module $gone is still in the box" >&2; exit 1; fi
+done
+'
+echo "ok: the six Craft MCP servers initialize offline, and the office toolchain is gone"
+
+# The fence the recipes put around every Craft server (catalog_craft.go craftFence, the same flags):
+# GridCraft, which has no root flags of its own, saves in /workspace and is refused anywhere else.
+docker run --rm --network none --entrypoint bash "$img" -c '
+set -e
+mkdir -p /workspace && cd /workspace
+call() { printf "{\"jsonrpc\":\"2.0\",\"id\":%s,\"method\":\"tools/call\",\"params\":{\"name\":\"%s\",\"arguments\":%s}}\n" "$1" "$2" "$3"; }
+save() {
+  { printf "%s\n" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"contract\",\"version\":\"0\"}}}" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}"
+    call 2 new_workbook "{}"
+    call 3 save_workbook "{\"path\":\"$1\"}"
+  } | timeout 20 landrun --best-effort --rox / --rw /workspace --rw /dev --unrestricted-network \
+      --unrestricted-scoped --env HOME --env PATH -- gridcraft-cli mcp >/dev/null
+}
+save /workspace/fenced.xlsx; save /tmp/escape.xlsx; save /root/escape.xlsx
+[ -s /workspace/fenced.xlsx ] || { echo "FAIL: the fenced server could not save in /workspace" >&2; exit 1; }
+for escape in /tmp/escape.xlsx /root/escape.xlsx; do
+  if [ -e "$escape" ]; then echo "FAIL: the fenced server wrote $escape" >&2; exit 1; fi
+done
+'
+echo "ok: landrun fences a Craft server to /workspace"
+
 bash "$(dirname "$0")/artifact_toolchain_smoke.sh"
