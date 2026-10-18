@@ -113,6 +113,7 @@ func (s *Store) change(ctx context.Context, identityID string, recordIDs []strin
 	if err != nil {
 		return err
 	}
+	defer lockIdentity(identityID)()
 	records, err := load(ctx, c, recordIDs)
 	if err != nil {
 		return err
@@ -157,6 +158,7 @@ func (s *Store) carry(ctx context.Context, identityID, fromKey, toKey string, co
 	if err != nil {
 		return err
 	}
+	defer lockIdentity(identityID)()
 	source, found, err := byKey(ctx, c, fromKey)
 	if err != nil || !found {
 		return err

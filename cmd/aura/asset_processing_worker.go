@@ -45,6 +45,8 @@ type runtimeTenantIngestionProcessor struct {
 }
 
 type runtimeIngestionWorker struct {
+	// name says which loop failed, in the log.
+	name      string
 	processor runtimeIngestionProcessor
 	interval  time.Duration
 
@@ -82,9 +84,14 @@ func newRuntimeAssetProcessingWorker(
 	// a guarantee and #118 keeps it "in full", so erasure moving from a fenced, retrying,
 	// multi-store proof to eventual reconciliation has to be amended into the PRD and
 	// proven by #115's delete / Garage-absence / post-delete-non-recall checks.
-	return &runtimeProcessingWorkers{workers: []*runtimeIngestionWorker{
-		newRuntimeIngestionWorker(ingestion, runtimeIngestionPollInterval),
-	}}
+	workers := []*runtimeIngestionWorker{
+		newRuntimeIngestionWorker("asset processing worker", ingestion, runtimeIngestionPollInterval),
+	}
+	if fields := newRuntimeDocumentFields(cfg, "document fields pass"); fields != nil {
+		workers = append(workers, newRuntimeIngestionWorker("document fields pass",
+			documentFieldsPass{identities: identity.New(pool), fields: fields}, runtimeIngestionPollInterval))
+	}
+	return &runtimeProcessingWorkers{workers: workers}
 }
 
 // runtimeProcessingWorkers drives independent polling loops so a long-running pass in
@@ -211,8 +218,9 @@ func (p *runtimeTenantIngestionProcessor) ProcessOnce(ctx context.Context) (int,
 	return processed, errors.Join(errs...)
 }
 
-func newRuntimeIngestionWorker(processor runtimeIngestionProcessor, interval time.Duration) *runtimeIngestionWorker {
+func newRuntimeIngestionWorker(name string, processor runtimeIngestionProcessor, interval time.Duration) *runtimeIngestionWorker {
 	return &runtimeIngestionWorker{
+		name:      name,
 		processor: processor,
 		interval:  interval,
 		stop:      make(chan struct{}),
@@ -258,6 +266,6 @@ func (w *runtimeIngestionWorker) Stop() {
 
 func (w *runtimeIngestionWorker) processOnce(ctx context.Context) {
 	if _, err := w.processor.ProcessOnce(ctx); err != nil {
-		slog.Warn("aura serve: asset processing worker", "err", err)
+		slog.Warn("aura serve: "+w.name, "err", err)
 	}
 }

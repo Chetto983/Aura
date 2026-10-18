@@ -40,7 +40,7 @@ func TestMatchers(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Compile: %v", err)
 			}
-			if got := m.Match(tc.text); got != tc.want {
+			if got := m.Match(NewText(tc.text)); got != tc.want {
 				t.Fatalf("Match(%q) = %v, want %v", tc.text, got, tc.want)
 			}
 		})

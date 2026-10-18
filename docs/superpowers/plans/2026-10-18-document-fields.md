@@ -398,16 +398,37 @@ behave as the clauses expect, live on 26.10.1.
 - **The pass runs per identity** on the existing serve loop's cadence, with no new interval or
   env.
 
+**As built** (2026-10-18):
+- `RunPass(ctx, identityID)` reads the documents itself, through the identity's client: no
+  `DocumentReader` interface with a single implementation. It matches the rules against the file
+  name, the card, the header pairs and the passages (spec decision 2: "the card and the
+  passages"), bounded at 1 MB. `RunRule(ctx, identityID, labelID)` walks the library by
+  `source_key`, a page at a time.
+- The pass is a second loop beside the asset worker, at `runtimeIngestionPollInterval`, so a long
+  pass never starves the asset loop. An identity with nothing new costs one schema read and one
+  indexed query, about 3 ms once `IndexedDocument.indexed_at` is indexed (25-37 ms without).
+- `rules.Matcher.Match` takes a `*rules.Text`, which splits a document into words once per case
+  mode: tokenizing 1 MB cost 58 ms per rule. With that and a length bound on the fuzzy windows,
+  every rule of the table over 1 MB takes 0.30 s, from 0.87 s.
+- A counterparty on no list is proposed as `new:<name>`, left out of the filterable projection.
+- Writes to one identity's records are serialized in the process (`lockIdentity`): the pass and an
+  operator edit read, change and write a whole record.
+- Measured on 26.10.1: `UPDATE ... UPSERT` needs an index on its WHERE, so `DocumentRulePass.kind`
+  is UNIQUE; `after` is a reserved word as a parameter name too; two DDL passes over one database
+  at once fail inside ArcadeDB, so the Store prepares the types once and serializes the
+  preparation per identity.
+- On the bench library (4,045 documents) a pass of 200 documents takes about 95 ms.
+
 **Steps:**
-- [ ] **Step 1. RED.**
+- [x] **Step 1. RED.**
   - `TestPassNeverStallsOnPathologicalPattern`: a pass over a 1 MB text with the patterns of
     Task 2's table finishes within 1 s (Review Focus 5).
   - `TestPassNeverResuggestsRejected` (Review Focus 4).
   - `TestPassExtractsOfficeInvoiceHeaders` on the five pairs.
   - `TestPassNeverTouchesOperatorValue`.
-- [ ] **Step 2. GREEN.**
-- [ ] **Step 3. Run `-race`.**
-- [ ] **Step 4. Commit:** `feat(docfields): rules on the label and header-pair suggestions`.
+- [x] **Step 2. GREEN.**
+- [x] **Step 3. Run `-race`.**
+- [x] **Step 4. Commit:** `feat(docfields): rules on the label and header-pair suggestions`.
 
 ### Task 8: the HTTP API
 

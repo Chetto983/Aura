@@ -185,7 +185,7 @@ func TestRuntimeTenantIngestionProcessorPropagatesEnumerationAndWorkerErrors(t *
 
 func TestRuntimeIngestionWorkerStartStopProcesses(t *testing.T) {
 	processor := &recordingRuntimeIngestionProcessor{done: make(chan struct{})}
-	worker := newRuntimeIngestionWorker(processor, time.Hour)
+	worker := newRuntimeIngestionWorker("test", processor, time.Hour)
 	ctx := t.Context()
 
 	worker.Start(ctx)
@@ -294,8 +294,8 @@ func TestRuntimeProcessingWorkersDoNotStarveDeletion(t *testing.T) {
 	}
 	deletion := &recordingRuntimeIngestionProcessor{done: make(chan struct{})}
 	workers := &runtimeProcessingWorkers{workers: []*runtimeIngestionWorker{
-		newRuntimeIngestionWorker(ingestion, 10*time.Millisecond),
-		newRuntimeIngestionWorker(deletion, 10*time.Millisecond),
+		newRuntimeIngestionWorker("ingestion", ingestion, 10*time.Millisecond),
+		newRuntimeIngestionWorker("deletion", deletion, 10*time.Millisecond),
 	}}
 
 	workers.Start(t.Context())

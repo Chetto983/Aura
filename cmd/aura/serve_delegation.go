@@ -434,17 +434,17 @@ func newRuntimeDelegationWorker(chat *chatEnv, delivery *swarm.DelegationDeliver
 		},
 	}
 	return &runtimeProcessingWorkers{workers: []*runtimeIngestionWorker{
-		newRuntimeIngestionWorker(claimLoop, pollInterval),
-		newRuntimeIngestionWorker(resumeObserver, pollInterval),
-		newRuntimeIngestionWorker(&runtimeTenantIngestionProcessor{
+		newRuntimeIngestionWorker("delegation claim loop", claimLoop, pollInterval),
+		newRuntimeIngestionWorker("delegation resume observer", resumeObserver, pollInterval),
+		newRuntimeIngestionWorker("delegation coordinator", &runtimeTenantIngestionProcessor{
 			identities: identity.New(chat.pool), width: 1,
 			workerIDPrefix: runtimeDelegationWorkerIDPrefix + "-coordinator",
 			worker: func(owner, _ string) runtimeIngestionProcessor {
 				return delegationWakeProcessor{delivery: delivery, identityID: owner}
 			},
 		}, pollInterval),
-		newRuntimeIngestionWorker(&delegationNudgeProcessor{delivery: delivery}, pollInterval),
-		newRuntimeIngestionWorker(pauseSweep, approvalExpiryInterval(pauseTTL)),
+		newRuntimeIngestionWorker("delegation nudge", &delegationNudgeProcessor{delivery: delivery}, pollInterval),
+		newRuntimeIngestionWorker("worker pause sweep", pauseSweep, approvalExpiryInterval(pauseTTL)),
 	}}
 }
 

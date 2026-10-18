@@ -83,17 +83,22 @@ func documentFieldsStampVersion() string {
 
 // ensureDocumentFieldsTriggers converges each trigger on its current body, read back from
 // schema:triggers: one that differs is dropped and created again. The cascade finds a document's
-// rows by source_key, which ingest declares (services/ingest/arcade.py, the same STRING) but does
-// not index, so the indexes come first; an index needs its property declared.
+// rows by source_key, and the pass finds new documents by indexed_at; ingest declares both
+// (services/ingest/arcade.py, the same types) but indexes neither, so the indexes come first, and
+// an index needs its property declared.
 func (c *Client) ensureDocumentFieldsTriggers(ctx context.Context) error {
+	statements := []string{
+		"CREATE PROPERTY " + IndexedDocumentType + ".indexed_at IF NOT EXISTS DATETIME",
+		"CREATE INDEX IF NOT EXISTS ON " + IndexedDocumentType + " (indexed_at) NOTUNIQUE",
+	}
 	for _, target := range documentFieldsTargets {
-		for _, statement := range []string{
-			"CREATE PROPERTY " + target + ".source_key IF NOT EXISTS STRING",
-			"CREATE INDEX IF NOT EXISTS ON " + target + " (source_key) NOTUNIQUE",
-		} {
-			if _, err := c.Command(ctx, statement, nil); err != nil {
-				return fmt.Errorf("arcadedb: index %s.source_key: %w", target, err)
-			}
+		statements = append(statements,
+			"CREATE PROPERTY "+target+".source_key IF NOT EXISTS STRING",
+			"CREATE INDEX IF NOT EXISTS ON "+target+" (source_key) NOTUNIQUE")
+	}
+	for _, statement := range statements {
+		if _, err := c.Command(ctx, statement, nil); err != nil {
+			return fmt.Errorf("arcadedb: index for document fields: %w", err)
 		}
 	}
 	rows, err := c.Query(ctx, "SELECT name, actionCode FROM schema:triggers", nil)

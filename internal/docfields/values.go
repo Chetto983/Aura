@@ -221,6 +221,9 @@ func (f *Fields) markReviewed(now time.Time) []Event {
 func (f *Fields) projection() Projection {
 	var p Projection
 	for _, v := range f.Values {
+		if strings.HasPrefix(v.ValueKey, proposedPrefix) {
+			continue
+		}
 		ok := ""
 		if v.reviewed() {
 			ok = v.ValueKey

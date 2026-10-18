@@ -41,6 +41,10 @@ func documentFieldsSchemaStatements() []string {
 		"CREATE PROPERTY DocumentFieldEvent.record_id IF NOT EXISTS STRING",
 		"CREATE INDEX IF NOT EXISTS ON DocumentFieldEvent (record_id) NOTUNIQUE",
 		"CREATE DOCUMENT TYPE DocumentRulePass IF NOT EXISTS",
+		"CREATE PROPERTY DocumentRulePass.kind IF NOT EXISTS STRING",
+		// The watermark is written with UPDATE ... UPSERT, which ArcadeDB refuses without an
+		// index on its WHERE (measured 2026-10-18 on 26.10.1).
+		"CREATE INDEX IF NOT EXISTS ON DocumentRulePass (kind) UNIQUE",
 	}
 }
 
@@ -51,11 +55,27 @@ func documentFieldsSchemaStatements() []string {
 // asks again. Creating the types here instead would turn an empty library, which retrieval reads
 // as one, into a schema with none of ingest's indexes.
 func (c *Client) EnsureDocumentFieldsSchema(ctx context.Context) (bool, error) {
+	if err := c.EnsureDocumentFieldsTypes(ctx); err != nil {
+		return false, err
+	}
+	return c.EnsureDocumentFieldsTriggers(ctx)
+}
+
+// EnsureDocumentFieldsTypes creates the document fields types and indexes. Two DDL passes over
+// one database at once can fail inside ArcadeDB (an internal NullPointerException, measured
+// 2026-10-18 on 26.10.1), so a caller runs it once per database, not once per request.
+func (c *Client) EnsureDocumentFieldsTypes(ctx context.Context) error {
 	for _, statement := range documentFieldsSchemaStatements() {
 		if _, err := c.Command(ctx, statement, nil); err != nil {
-			return false, fmt.Errorf("arcadedb: ensure document fields schema: %w", err)
+			return fmt.Errorf("arcadedb: ensure document fields schema: %w", err)
 		}
 	}
+	return nil
+}
+
+// EnsureDocumentFieldsTriggers puts the triggers in place once ingest's types exist, and reports
+// whether they are.
+func (c *Client) EnsureDocumentFieldsTriggers(ctx context.Context) (bool, error) {
 	rows, err := c.Query(ctx, "SELECT name FROM schema:types WHERE name IN :names",
 		map[string]any{"names": documentFieldsTargets})
 	if err != nil {
