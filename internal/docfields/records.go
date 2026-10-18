@@ -206,6 +206,13 @@ func (s *Store) carry(ctx context.Context, identityID, fromKey, toKey string, co
 		default:
 			sc.add("UPDATE DocumentFields SET source_key = " + sc.bind(toKey) + ", updated_at = " + sc.bind(now.Format(timeLayout)) +
 				" WHERE record_id = " + sc.bind(source.RecordID))
+			// Before ingest's types exist no row carries fields, and the UPDATE would name a
+			// missing type.
+			if s.state(identityID) == schemaReady {
+				for _, clear := range arcadedb.ClearDocumentFields(sc.bind(fromKey)) {
+					sc.add(clear)
+				}
+			}
 			events = append(events, source.event(ValueRef{Field: "source_key", ValueKey: toKey}, ActionMoved, SetByOperator, nil, nil, now))
 		}
 	}

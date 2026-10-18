@@ -42,35 +42,50 @@ type documentFieldsTrigger struct{ name, event, onType, code string }
 // `$record.@rid`: `UPDATE <type> WHERE @rid = $record.@rid` scans the whole type, 11.6 ms against
 // 2.6 ms per row on 5,000 passages (measured 2026-10-18).
 func documentFieldsTriggers() []documentFieldsTrigger {
-	set := func(value func(column string) string) string {
-		items := make([]string, 0, len(documentFieldsProjection)+1)
-		for _, p := range documentFieldsProjection {
-			items = append(items, p.stamped+" = "+value(p.column))
-		}
-		return strings.Join(append(items, "df_stamped = true"), ", ")
-	}
 	fromFields := func(column string) string {
 		return "first((SELECT " + column + " FROM DocumentFields WHERE source_key = $record.source_key))." + column
 	}
 	copyFields := func(column string) string { return "$record." + column }
-	clearFields := func(string) string { return "null" }
-	stamp := "UPDATE $record.@rid SET " + set(fromFields) + " WHERE df_stamped IS NULL AND source_key IS NOT NULL"
+	stamp := "UPDATE $record.@rid SET " + projectionSet(fromFields) + " WHERE df_stamped IS NULL AND source_key IS NOT NULL"
 	var triggers []documentFieldsTrigger
 	for _, target := range documentFieldsTargets {
 		suffix := strings.ToLower(strings.TrimPrefix(target, "Indexed"))
-		cascade := func(value func(string) string) string {
-			return "UPDATE " + target + " SET " + set(value) + " WHERE source_key = $record.source_key"
-		}
 		triggers = append(triggers,
-			documentFieldsTrigger{"df_fields_create_" + suffix, "CREATE", DocumentFieldsType, cascade(copyFields)},
-			documentFieldsTrigger{"df_fields_delete_" + suffix, "DELETE", DocumentFieldsType, cascade(clearFields)},
-			documentFieldsTrigger{"df_fields_update_" + suffix, "UPDATE", DocumentFieldsType, cascade(copyFields)},
+			documentFieldsTrigger{"df_fields_create_" + suffix, "CREATE", DocumentFieldsType, projectionUpdate(target, copyFields, "$record.source_key")},
+			documentFieldsTrigger{"df_fields_delete_" + suffix, "DELETE", DocumentFieldsType, projectionUpdate(target, clearedField, "$record.source_key")},
+			documentFieldsTrigger{"df_fields_update_" + suffix, "UPDATE", DocumentFieldsType, projectionUpdate(target, copyFields, "$record.source_key")},
 			documentFieldsTrigger{"df_stamp_" + suffix, "UPDATE", target, stamp},
 		)
 	}
 	slices.SortFunc(triggers, func(a, b documentFieldsTrigger) int { return strings.Compare(a.name, b.name) })
 	return triggers
 }
+
+// ClearDocumentFields returns the statements that clear the projection from the indexed rows of
+// a source key, key being its expression (a script placeholder). A record's UPDATE stamps only
+// the rows of its new key: after a move the old key's rows would keep the moved values until the
+// ingest drops them, and a filtered search would find a key whose object is gone.
+func ClearDocumentFields(key string) []string {
+	out := make([]string, 0, len(documentFieldsTargets))
+	for _, target := range documentFieldsTargets {
+		out = append(out, projectionUpdate(target, clearedField, key))
+	}
+	return out
+}
+
+func projectionUpdate(target string, value func(column string) string, key string) string {
+	return "UPDATE " + target + " SET " + projectionSet(value) + " WHERE source_key = " + key
+}
+
+func projectionSet(value func(column string) string) string {
+	items := make([]string, 0, len(documentFieldsProjection)+1)
+	for _, p := range documentFieldsProjection {
+		items = append(items, p.stamped+" = "+value(p.column))
+	}
+	return strings.Join(append(items, "df_stamped = true"), ", ")
+}
+
+func clearedField(string) string { return "null" }
 
 // documentFieldsStampVersion names the trigger bodies: a record stamped under other bodies is
 // stamped again.

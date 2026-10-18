@@ -336,7 +336,8 @@ func TestDocfieldsCopyRecord(t *testing.T) {
 }
 
 // The store's writes reach the passages the search scans, through the triggers: the operator's
-// values at once, a suggestion only once reviewed, and the fields follow a rename.
+// values at once, a suggestion only once reviewed, and the fields follow a rename, leaving the old
+// key's rows, which the ingest drops only at its next scan, with none.
 func TestDocfieldsWritesReachThePassages(t *testing.T) {
 	s, ctx := liveStore(t)
 	id := uuid.NewString()
@@ -350,6 +351,9 @@ func TestDocfieldsWritesReachThePassages(t *testing.T) {
 		}
 	}
 	mergePassage(t, c, "d#0", "chat/d.pdf")
+	if _, err := c.Command(ctx, "INSERT INTO IndexedDocument SET source_key = 'chat/d.pdf'", nil); err != nil {
+		t.Fatal(err)
+	}
 	rec, err := s.Record(ctx, id, "chat/d.pdf")
 	if err != nil {
 		t.Fatal(err)
@@ -370,6 +374,11 @@ func TestDocfieldsWritesReachThePassages(t *testing.T) {
 	}
 	mergePassage(t, c, "e#0", "chat/e.pdf")
 	assertPassage(t, c, "e#0", "lbl-fattura [lbl-urgente] [lbl-urgente]")
+	assertPassage(t, c, "d#0", "<nil> <nil> <nil>")
+	rows, err := c.Query(ctx, "SELECT df_type FROM IndexedDocument WHERE source_key = 'chat/d.pdf'", nil)
+	if err != nil || len(rows) != 1 || rows[0]["df_type"] != nil {
+		t.Fatalf("the old key's document = %v (err %v), want no type", rows, err)
+	}
 }
 
 // mergePassage writes a passage the way CocoIndex does (connectors/neo4j/_cypher.py:95-104).
