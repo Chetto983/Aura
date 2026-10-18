@@ -16,10 +16,10 @@ describe('DocumentsSurface', () => {
     const first = render(<DocumentsSurface />);
     expect(screen.getByText('file manager')).toBeTruthy();
     fireEvent.click(screen.getByRole('radio', { name: 'Documenti' }));
-    expect(screen.getByText('documents list')).toBeTruthy();
+    expect(await screen.findByText('documents list')).toBeTruthy();
     first.unmount();
     render(<DocumentsSurface />);
-    expect(screen.getByText('documents list')).toBeTruthy();
+    expect(await screen.findByText('documents list')).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Documenti' }).getAttribute('aria-checked')).toBe(
       'true',
     );

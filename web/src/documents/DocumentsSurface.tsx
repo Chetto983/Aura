@@ -1,12 +1,15 @@
-import { useState, type ReactNode } from 'react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import DocumentsWorkspace from './DocumentsWorkspace';
 import FilesWorkspace from '@/files/FilesWorkspace';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 type DocumentsView = 'folders' | 'documents';
 
 const VIEW_KEY = 'aura.documents.view';
+
+// The Documenti view is its own chunk: the surface opens on the file manager, and the list, the
+// detail and the lists pages load only when the operator switches to them.
+const DocumentsWorkspace = lazy(() => import('./DocumentsWorkspace'));
 
 function readView(): DocumentsView {
   try {
@@ -55,7 +58,9 @@ export default function DocumentsSurface({ mobileMenu }: { readonly mobileMenu?:
         {view === 'folders' ? (
           <FilesWorkspace mobileMenu={mobileMenu} />
         ) : (
-          <DocumentsWorkspace mobileMenu={mobileMenu} />
+          <Suspense fallback={null}>
+            <DocumentsWorkspace mobileMenu={mobileMenu} />
+          </Suspense>
         )}
       </div>
     </div>
