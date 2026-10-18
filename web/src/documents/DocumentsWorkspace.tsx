@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ListTree } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Grid, Willow, WillowDark, type IApi, type IColumnConfig } from '@svar-ui/react-grid';
+import { Grid, Willow, WillowDark, type IApi } from '@svar-ui/react-grid';
 import { Locale, Pager } from '@svar-ui/react-core';
 import '@/styles/svarWidgets';
 import {
@@ -16,7 +16,6 @@ import {
 } from './documentsApi';
 import { BulkBar } from './BulkBar';
 import { BulkConfirmDialog } from './BulkConfirmDialog';
-import { CustomCell, DateCell, FieldCell, NameCell, StatusCell, TagsCell } from './DocumentsCells';
 import {
   DocumentsCellContext,
   SelectionContext,
@@ -24,12 +23,13 @@ import {
   type OpenDocumentEvent,
 } from './documentsCellContext';
 import { DocumentDetail } from './DocumentDetail';
+import { documentColumns } from './documentsColumns';
 import { documentsWords } from './documentsLocale';
 import { FilterBar } from './FilterBar';
 import { ListsPage } from './ListsPage';
-import { SelectCell, SelectPageCell } from './SelectionCells';
 import { useBulkEdit } from './useBulkEdit';
 import { useDocumentLists } from './useDocumentLists';
+import { useWideView } from './useWideView';
 import { Button } from '@/components/ui/button';
 import { useThemeMode } from '@/theme/useThemeMode';
 
@@ -71,6 +71,7 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
   const [shownFields, setShownFieldsState] = useState(readShownFields);
   const [openId, setOpenId] = useState<string | null>(null);
   const [listsOpen, setListsOpen] = useState(false);
+  const wide = useWideView();
 
   const setFilter = useCallback((next: DocumentsFilter) => {
     setFilterState(next);
@@ -106,38 +107,10 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
     setFilter(next);
   };
 
-  const columns = useMemo<IColumnConfig[]>(() => {
-    const custom = customFields
-      .filter((cf) => shownFields.includes(cf.id))
-      .map((cf) => ({ id: `custom:${cf.id}`, header: cf.name, width: 150, cell: CustomCell }));
-    return [
-      { id: 'select', header: [{ cell: SelectPageCell }], width: 52, cell: SelectCell },
-      {
-        id: 'file_name',
-        header: t('documents.columns.name'),
-        flexgrow: 2,
-        sort: true,
-        cell: NameCell,
-      },
-      { id: 'type', header: t('documents.columns.type'), width: 170, cell: FieldCell },
-      {
-        id: 'counterparty',
-        header: t('documents.columns.counterparty'),
-        width: 200,
-        cell: FieldCell,
-      },
-      {
-        id: 'document_date',
-        header: t('documents.columns.date'),
-        width: 130,
-        sort: true,
-        cell: DateCell,
-      },
-      ...custom,
-      { id: 'tags', header: t('documents.columns.tags'), width: 200, cell: TagsCell },
-      { id: 'status', header: t('documents.columns.status'), width: 140, cell: StatusCell },
-    ];
-  }, [t, customFields, shownFields]);
+  const columns = useMemo(
+    () => documentColumns(t, customFields, shownFields, wide),
+    [t, customFields, shownFields, wide],
+  );
 
   // The library is sorted on the server, a page at a time: a header click becomes the query's
   // sort, and the grid's own sort is stopped (an intercept that answers false ends the action).
