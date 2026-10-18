@@ -14,10 +14,6 @@ import (
 // operator saves a rule, over every document. What it finds are suggestions: suggest never
 // overwrites a held value and never brings back a rejected one.
 
-// proposedPrefix marks a counterparty the extractor read from a document but found on no list:
-// a name for the operator to create, never a label id, so the projection leaves it out.
-const proposedPrefix = "new:"
-
 // maxPassText bounds the text one document is matched against. A pass over that much text with
 // any rule a label can hold stays well under a second (TestPassNeverStallsOnPathologicalPattern).
 const maxPassText = 1 << 20

@@ -126,6 +126,29 @@ func TestMarkReviewedAcceptsEveryValue(t *testing.T) {
 	}
 }
 
+// A proposed name the operator takes becomes the label adopted for it, accepted; a tag whose
+// label the document already holds leaves only the label.
+func TestAdoptReplacesAProposedNameByItsLabel(t *testing.T) {
+	f := Fields{Values: []Value{
+		suggestion(FieldCounterparty, proposedPrefix+"Verdi SpA", SetByExtractor),
+		suggestion(FieldTag, proposedPrefix+"urgente", SetByExtractor),
+		operator(FieldTag, "lbl-urgente"),
+	}}
+	events := f.adopt(map[ValueRef]string{
+		{Field: FieldCounterparty, ValueKey: proposedPrefix + "Verdi SpA"}: "lbl-verdi",
+		{Field: FieldTag, ValueKey: proposedPrefix + "urgente"}:            "lbl-urgente",
+	}, at)
+	if got := f.value(FieldCounterparty); got.ValueKey != "lbl-verdi" || !got.Accepted || got.SetBy != SetByExtractor {
+		t.Fatalf("counterparty = %+v, want lbl-verdi accepted, still the extractor's", got)
+	}
+	if tags := f.keys(FieldTag); !slices.Equal(tags, []string{"lbl-urgente"}) {
+		t.Fatalf("tags = %v, want the label once", tags)
+	}
+	if actions(events) != "accepted,removed" || events[0].Before.ValueKey != proposedPrefix+"Verdi SpA" {
+		t.Fatalf("events = %s (%+v)", actions(events), events)
+	}
+}
+
 // The projection is what the triggers copy onto the indexed rows: the _ok columns hold only
 // what the operator set or accepted, so include_unreviewed=false filters on them.
 func TestProjection(t *testing.T) {

@@ -316,12 +316,6 @@ export async function fetchNextToReview(after: string): Promise<string | null> {
   return page.rows.find((row) => row.id !== after)?.id ?? null;
 }
 
-/** createLabel adds a value to one of the operator's lists, with no rule. */
-export async function createLabel(kind: LabelKind, name: string): Promise<Label> {
-  const out = await sendJSON<{ label: Label }>('POST', `${documentsBase}/labels`, { kind, name });
-  return out.label;
-}
-
 /** A label as the operator writes it: no id for a new one. */
 export type LabelInput = Omit<Label, 'id'>;
 

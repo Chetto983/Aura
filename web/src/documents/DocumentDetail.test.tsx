@@ -128,7 +128,7 @@ describe('document detail', () => {
     ).toBeTruthy();
   });
 
-  it('creates a proposed counterparty on Save, and the document takes it', async () => {
+  it('saves a proposed counterparty as the name it is, for the server to make a label of', async () => {
     const { writes } = stubServer();
     renderDetail('d3');
     fireEvent.click(
@@ -136,17 +136,12 @@ describe('document detail', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
     await waitFor(() => {
-      expect(writes).toHaveLength(2);
+      expect(writes).toHaveLength(1);
     });
     expect(writes[0]).toEqual({
-      method: 'POST',
-      path: '/api/documents/labels',
-      body: { kind: 'counterparty', name: 'Verdi SpA' },
-    });
-    expect(writes[1]).toEqual({
       method: 'PATCH',
       path: '/api/documents/d3',
-      body: { set: [{ field: 'counterparty', value_key: 'c-verdi' }], remove: [] },
+      body: { set: [{ field: 'counterparty', value_key: 'new:Verdi SpA' }], remove: [] },
     });
   });
 

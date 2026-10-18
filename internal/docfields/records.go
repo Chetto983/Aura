@@ -98,9 +98,29 @@ func (s *Store) Suggest(ctx context.Context, identityID, recordID string, vs []V
 }
 
 // MarkReviewed accepts every value on the records: a reviewed document's suggestions weigh as the
-// operator's.
+// operator's, and a proposed name among them becomes a label of its list.
 func (s *Store) MarkReviewed(ctx context.Context, identityID string, recordIDs []string) error {
-	return s.change(ctx, identityID, recordIDs, func(f *Fields, now time.Time) []Event { return f.markReviewed(now) })
+	c, err := s.client(ctx, identityID)
+	if err != nil {
+		return err
+	}
+	records, err := load(ctx, c, recordIDs)
+	if err != nil {
+		return err
+	}
+	var refs []ValueRef
+	for _, f := range records {
+		for _, v := range f.Values {
+			refs = append(refs, v.ref())
+		}
+	}
+	adopted, err := s.adoptProposals(ctx, identityID, refs)
+	if err != nil {
+		return err
+	}
+	return s.change(ctx, identityID, recordIDs, func(f *Fields, now time.Time) []Event {
+		return append(f.adopt(adopted, now), f.markReviewed(now)...)
+	})
 }
 
 // change loads the records, applies fn to each and writes the ones it changed, with their

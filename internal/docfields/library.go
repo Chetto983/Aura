@@ -184,6 +184,10 @@ func (s *Store) ApplyToDocuments(ctx context.Context, identityID string, documen
 	if err := validateDiff(d); err != nil {
 		return err
 	}
+	d, err := s.adoptInDiff(ctx, identityID, d)
+	if err != nil {
+		return err
+	}
 	recordIDs, err := s.documentRecords(ctx, identityID, documentIDs)
 	if err != nil {
 		return err

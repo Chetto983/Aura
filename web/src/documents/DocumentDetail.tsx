@@ -7,7 +7,6 @@ import { formDiff, formOf, type DetailForm } from './detailModel';
 import { detailNames } from './detailNames';
 import { DocumentHistory } from './DocumentHistory';
 import {
-  createLabel,
   fetchDocument,
   fetchNextToReview,
   fetchReviewCount,
@@ -15,12 +14,8 @@ import {
   patchDocument,
   reviewDocument,
   type DocumentDetail as Detail,
-  type FieldsDiff,
   type FieldValue,
-  type FilterField,
-  type Label,
 } from './documentsApi';
-import { KIND_OF, LIST_OF, PROPOSED_PREFIX } from './documentsModel';
 import { useDocumentLists, type DocumentLists } from './useDocumentLists';
 import { useWrite } from './useWrite';
 import { previewKind } from '@/chat/artifacts/artifactMeta';
@@ -77,14 +72,6 @@ export function DocumentDetail({ id, onClose, onOpen }: DocumentDetailProps) {
   );
 }
 
-/** labelFor finds a proposed name on its list, or adds it there: the name the extractor read
- * becomes a label the document can hold. */
-async function labelFor(list: FilterField, name: string, labels: readonly Label[]): Promise<Label> {
-  const key = name.trim().toLowerCase();
-  const known = labels.find((label) => label.name.trim().toLowerCase() === key);
-  return known ?? createLabel(KIND_OF[list], name);
-}
-
 interface DetailPageProps {
   readonly doc: Detail;
   readonly lists: DocumentLists;
@@ -116,20 +103,8 @@ function DetailPage({ doc, lists: operatorLists, onClose, onOpen }: DetailPagePr
         queryClient.invalidateQueries({ queryKey: [key] }),
       ),
     );
-  const withLabels = async (d: FieldsDiff): Promise<FieldsDiff> => ({
-    set: await Promise.all(
-      d.set.map(async (value) => {
-        const list = LIST_OF[value.field];
-        if (list === undefined || !value.value_key.startsWith(PROPOSED_PREFIX)) return value;
-        const name = value.value_key.slice(PROPOSED_PREFIX.length);
-        const label = await labelFor(list, name, lists[list]);
-        return { field: value.field, value_key: label.id };
-      }),
-    ),
-    remove: d.remove,
-  });
   const save = async () => {
-    if (dirty) await patchDocument(doc.id, await withLabels(diff));
+    if (dirty) await patchDocument(doc.id, diff);
   };
   const onSave = () => {
     run(async () => {
