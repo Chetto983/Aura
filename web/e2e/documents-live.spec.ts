@@ -174,7 +174,13 @@ test.describe('the Documenti view, live', () => {
           await expect(page.getByRole('heading', { name: INVOICES[2] })).toBeVisible();
           const use = page.getByRole('button', { name: `Usa il suggerimento ${typeName}` });
           await expect(use).toBeVisible();
-          await expect(page.getByText(/Caricamento anteprima/)).toBeHidden({ timeout: 30_000 });
+          // The preview is GridCraft (/apps/gridcraft/): its own loader leaves once the app
+          // runs, and the workbook it is sent then paints on its canvas, which the DOM cannot
+          // see, so a short wait follows.
+          await expect(
+            page.frameLocator(`iframe[title="${INVOICES[2]}"]`).locator('#gridcraft_loading'),
+          ).toBeHidden({ timeout: 60_000 });
+          await page.waitForTimeout(1_500);
           await shot(page, testInfo, `${device.name}-07-dettaglio`);
           await use.click();
           await expect(page.getByRole('button', { name: 'Salva', exact: true })).toBeEnabled();
