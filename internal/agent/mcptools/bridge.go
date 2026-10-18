@@ -125,13 +125,14 @@ func (b *bridgedTool) refreshSpec(t *sdkmcp.Tool) {
 // The mount lists the tools before it gets here, on the RAW session (drainTools),
 // bounded by its handshakeCtx alone (AURA_MCP_MOUNT_TIMEOUT at boot). Bridged tools
 // still reference srv, the supervisor that owns every CALL after the mount and
-// redials on a transport error.
+// redials on a transport error. A Craft server's desktop-only tools are left out here,
+// before the manifest count, so they cost no slot and no search entry (bridge_craft.go).
 func bridgeFromAdvertisedWithPolicy(namespace string, srv *MountedServer, advertised []*sdkmcp.Tool, policy bridgePolicy) ([]tools.Tool, error) {
 	callTimeout, err := configuredMCPCallTimeout()
 	if err != nil {
 		return nil, err
 	}
-	bridged := bridgeToolsWithPolicy(namespace, srv, advertised, callTimeout, policy)
+	bridged := bridgeToolsWithPolicy(namespace, srv, visibleTools(policy.recipeSource, advertised), callTimeout, policy)
 	srv.trackBridgedTools(bridged)
 	return bridged, nil
 }
