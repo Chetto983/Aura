@@ -186,7 +186,7 @@ func (f *Fields) remove(ref ValueRef, actor string, now time.Time) []Event {
 	}
 	f.Values = slices.Delete(f.Values, i, i+1)
 	events := []Event{f.event(ref, ActionRemoved, actor, &held, nil, now)}
-	if actor == SetByOperator && held.SetBy != SetByOperator && !f.rejected(ref) {
+	if actor == SetByOperator && !f.rejected(ref) {
 		f.Rejections = append(f.Rejections, ref)
 		events = append(events, f.event(ref, ActionRejected, actor, &held, nil, now))
 	}

@@ -55,12 +55,16 @@ func TestApplyRemovalRejectsAndTheValueNeverReturns(t *testing.T) {
 	}
 }
 
-// The operator removing their own value is no rejection: they may set it again tomorrow.
-func TestApplyOperatorRemovingTheirOwnValueRejectsNothing(t *testing.T) {
-	f := Fields{Values: []Value{operator(FieldType, "lbl-fattura")}}
-	f.apply(Diff{Remove: []ValueRef{{Field: FieldType, ValueKey: "lbl-fattura"}}}, SetByOperator, at)
-	if len(f.Rejections) != 0 {
-		t.Fatalf("rejections = %+v, want none", f.Rejections)
+// The operator removing a value they set themselves is a rejection too (spec decision 3.1): a rule
+// on the same label must not bring back the tag they just took off. Setting it again lifts it.
+func TestApplyOperatorRemovingTheirOwnValueRejectsIt(t *testing.T) {
+	f := Fields{Values: []Value{operator(FieldTag, "lbl-urgente")}}
+	events := f.apply(Diff{Remove: []ValueRef{{Field: FieldTag, ValueKey: "lbl-urgente"}}}, SetByOperator, at)
+	if actions(events) != "removed,rejected" {
+		t.Fatalf("events = %s, want removed,rejected", actions(events))
+	}
+	if added := len(f.suggest([]Value{suggestion(FieldTag, "lbl-urgente", "rule:lbl-urgente")}, at)); added != 0 {
+		t.Fatalf("a rule brought back the tag the operator removed: values %+v", f.Values)
 	}
 }
 
