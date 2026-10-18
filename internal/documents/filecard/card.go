@@ -93,6 +93,9 @@ type Sheet struct {
 	HeaderRow int64
 	Columns   []Column
 	Samples   []SampleRow
+	// Header holds the label-value rows above the table, in sheet order. They are not
+	// rendered; the ingest carries them to the document fields.
+	Header []HeaderPair
 }
 
 // Column is one column's narration: what kind of values it holds, how many

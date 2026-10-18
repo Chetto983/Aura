@@ -144,3 +144,18 @@ func TestJSONOmitsRowsForAPDF(t *testing.T) {
 		t.Errorf("rows = %s, want an empty list", raw["rows"])
 	}
 }
+
+// The ingest reads an invoice's header pairs from here, and finds a list for every file.
+func TestJSONCarriesTheHeaderPairs(t *testing.T) {
+	_, raw := renderJSON(t, filepath.Join("..", "..", "scripts", "fixtures", "document_retrieval_eval", "corpus", "fattura_2026_001.xlsx"))
+	var header []map[string]string
+	if err := json.Unmarshal(raw["header"], &header); err != nil {
+		t.Fatal(err)
+	}
+	if len(header) != 5 || header[1]["key"] != "Cliente" || header[1]["value"] != "ACME SpA" || header[1]["sheet"] != "fattura" {
+		t.Fatalf("header = %s", raw["header"])
+	}
+	if _, raw := renderJSON(t, complexCorpus("report_qualita_Q3_2026.pdf")); string(raw["header"]) != "[]" {
+		t.Errorf("header = %s, want an empty list", raw["header"])
+	}
+}

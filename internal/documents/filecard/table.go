@@ -46,6 +46,15 @@ type tableBuilder struct {
 	// text by the ingest, and its rows must not reach the index a second time.
 	budget *rowBudget
 	rows   []Row
+	header []HeaderPair
+}
+
+// HeaderPair is a label and its value on a row above a sheet's table, an invoice's
+// "Cliente | ACME SpA": what the document fields suggest a counterparty and a date from.
+type HeaderPair struct {
+	Sheet string `json:"sheet"`
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 func newTable(name string) *tableBuilder {
@@ -90,7 +99,7 @@ func (t *tableBuilder) done(declaredTotal int64) Sheet {
 			rows = max(declaredTotal-int64(t.rowsSkipped), 0)
 		}
 	}
-	sheet := Sheet{Name: t.name, Rows: rows, RowsScanned: t.rowsScanned, HeaderRow: t.headerRow}
+	sheet := Sheet{Name: t.name, Rows: rows, RowsScanned: t.rowsScanned, HeaderRow: t.headerRow, Header: t.header}
 	for _, col := range t.columns {
 		sheet.Columns = append(sheet.Columns, col.column())
 	}
@@ -132,6 +141,7 @@ func (t *tableBuilder) resolveHeader() {
 	for i, row := range t.probe {
 		if i < pick {
 			t.rowsSkipped++
+			t.keepHeaderPair(row)
 			continue
 		}
 		if i == pick {
@@ -144,6 +154,24 @@ func (t *tableBuilder) resolveHeader() {
 	}
 	t.probe = nil
 	t.probePositions = nil
+}
+
+// keepHeaderPair keeps a row above the table that holds a label and its value, nothing else. A
+// trailing colon is the label's punctuation, not its name.
+func (t *tableBuilder) keepHeaderPair(row []string) {
+	var cells []string
+	for _, value := range row {
+		if cleaned := clean(value); cleaned != "" {
+			cells = append(cells, cleaned)
+		}
+	}
+	if len(cells) != 2 {
+		return
+	}
+	if _, isNumber := parseNumber(cells[0]); isNumber {
+		return
+	}
+	t.header = append(t.header, HeaderPair{Sheet: t.name, Key: strings.TrimSuffix(cells[0], ":"), Value: cells[1]})
 }
 
 func (t *tableBuilder) setHeaders(row []string) {

@@ -94,6 +94,9 @@ class IndexedDocument:
     # reader's, so a vector from another model is never ranked.
     embed_space: str
     indexed_at: datetime.datetime
+    # The label-value rows above a workbook's tables, "<Key>: <Value>", an invoice's
+    # "Cliente: ACME SpA": what Aura's document fields suggest a counterparty and a date from.
+    header_pairs: list[str]
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -158,9 +161,10 @@ class Card:
     text: str
     description: str
     rows: list[rows.Row]
+    header: list[str]
 
 
-_NO_CARD = Card(text="", description="", rows=[])
+_NO_CARD = Card(text="", description="", rows=[], header=[])
 
 
 def _card(path: str, file_name: str) -> Card:
@@ -196,6 +200,7 @@ def _card(path: str, file_name: str) -> Card:
         text=rendered["card"], description=rendered["description"],
         rows=[rows.Row(sheet=row["sheet"], number=row["row"], text=row["text"])
               for row in rendered["rows"]],
+        header=[f"{pair['key']}: {pair['value']}" for pair in rendered["header"]],
     )
 
 
@@ -241,13 +246,14 @@ def _text_fingerprint(text: str) -> str:
 @dataclasses.dataclass(frozen=True, slots=True)
 class Extracted:
     """What one file says: its text, its card, the card's description, where its sections start
-    and, for a workbook, its rows."""
+    and, for a workbook, its rows and the label-value pairs above its tables."""
 
     text: str
     card: str
     description: str
     anchors: list[outline.Anchor]
     rows: list[rows.Row]
+    header: list[str]
 
 
 @coco.fn(memo=True)
@@ -288,7 +294,7 @@ def _extract(content: bytes, suffix: str, file_name: str, content_type: str | No
             anchors = outline.anchors_in(text, outline.titles_of(ready))
             card = _card(ready, _card_name(file_name, ready))
     return Extracted(text=text, card=card.text, description=card.description, anchors=list(anchors),
-                     rows=card.rows)
+                     rows=card.rows, header=card.header)
 
 
 @coco.fn(memo=True)
@@ -361,6 +367,7 @@ async def index_object(
                    else [0.0] * embed.DIMENSIONS),
         embed_space=embed.SPACE,
         indexed_at=datetime.datetime.now(datetime.UTC),
+        header_pairs=list(extracted.header),
     ))
 
 

@@ -316,6 +316,7 @@ def _document_ddl(dimensions: int) -> list[str]:
         f"CREATE PROPERTY {DOCUMENT_TYPE}.size_bytes IF NOT EXISTS LONG",
         f"CREATE PROPERTY {DOCUMENT_TYPE}.passage_count IF NOT EXISTS LONG",
         f"CREATE PROPERTY {DOCUMENT_TYPE}.card IF NOT EXISTS STRING",
+        f"CREATE PROPERTY {DOCUMENT_TYPE}.header_pairs IF NOT EXISTS LIST OF STRING",
         f"CREATE PROPERTY {DOCUMENT_TYPE}.indexed_at IF NOT EXISTS DATETIME",
         # The card carries a vector for the same reason the passage does, and it is what
         # lets the two be compared at all. The card leg ranks with BM25 while the passage

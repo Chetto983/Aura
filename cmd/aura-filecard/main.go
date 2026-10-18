@@ -84,14 +84,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 // rendered is what the ingest reads (prd.md §11): it stores the card, embeds the description
-// (2026-10-16), and turns a workbook's rows into passages. rows is empty rather than null,
-// so a reader never has to tell a missing field from an empty one.
+// (2026-10-16), turns a workbook's rows into passages, and keeps the label-value pairs above
+// its tables for the document fields. rows and header are empty rather than null, so a reader
+// never has to tell a missing field from an empty one.
 func rendered(card filecard.Card) map[string]any {
 	rows := card.Rows
 	if rows == nil {
 		rows = []filecard.Row{}
 	}
-	return map[string]any{"card": card.Render(), "description": card.Description(), "rows": rows}
+	header := []filecard.HeaderPair{}
+	for _, sheet := range card.Sheets {
+		header = append(header, sheet.Header...)
+	}
+	return map[string]any{"card": card.Render(), "description": card.Description(), "rows": rows, "header": header}
 }
 
 // writeJSON leaves <, > and & as they are: the reader is the ingest, not a browser, and

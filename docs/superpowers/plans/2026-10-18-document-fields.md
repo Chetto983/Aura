@@ -290,24 +290,35 @@ on 26.10.1:
   (new).
 
 **Interfaces, produced:**
-- `type HeaderPair struct{ Sheet, Key, Value string }` and `Card.Header []HeaderPair`.
+- `type HeaderPair struct{ Sheet, Key, Value string }` and `Sheet.Header []HeaderPair`, on the
+  sheet the pairs were found on; `-json` gathers every sheet's, so no `Card.Header` repeats them.
 - `-json` emits `"header": [...]`, always a list.
 - `IndexedDocument.header_pairs`: `LIST OF STRING`, each `"<Key>: <Value>"`.
 
+**Measured while writing it:**
+- No `version=` on `_extract` or `process_file`. In cocoindex 1.0.25 a `version` replaces the
+  AST in the logic fingerprint (`_internal/function.py:682`), so it would turn the automatic
+  invalidation into a manual one. `_extract`'s body changes here, and a memoized parent records
+  its children's logic fingerprints even on a cache hit (`function.py:836-845`), so
+  `process_file` re-runs on every stored file without a bump.
+- The card still calls the pairs a banner, and an invoice's client is indexed nowhere: an
+  xlsx has no extracted text, and its passages are the rows under the header. Out of this
+  plan's scope; recorded for the retrieval work.
+
 **Steps:**
-- [ ] **Step 1. RED, Go.** `TestInvoiceHeaderPairsKept` reads a workbook built like
+- [x] **Step 1. RED, Go.** `TestInvoiceHeaderPairsKept` reads a workbook built like
   `generate_corpus.py:123-139`. It asserts the five pairs (`Fattura n.`, `Cliente`, `Partita IVA`,
   `Data emissione`, `Stato`) with their values, and that rows and columns are unchanged.
-- [ ] **Step 2. GREEN.** In `resolveHeader`'s skip loop, collect 2-cell rows with a label in
+- [x] **Step 2. GREEN.** In `resolveHeader`'s skip loop, collect 2-cell rows with a label in
   their first cell as `HeaderPair`s.
-- [ ] **Step 3. RED, Python.** `test_header_pairs_reach_indexed_document`.
-- [ ] **Step 4. GREEN.**
+- [x] **Step 3. RED, Python.** `test_header_pairs_reach_indexed_document`.
+- [x] **Step 4. GREEN.**
   - `Extracted.header`, then `IndexedDocument.header_pairs`.
   - The DDL property in `_document_ddl`.
   - `process_file` and `_extract` carry `version=` bumps with a WHY comment, so the memo
     re-extracts (the memo-fingerprint caveat of 2026-10-17).
-- [ ] **Step 5. Run** the filecard and cmd tests with `-race`, the ingest suite and ruff.
-- [ ] **Step 6. Commit:** `feat(filecard): keep an invoice's header pairs for the document fields`.
+- [x] **Step 5. Run** the filecard and cmd tests with `-race`, the ingest suite and ruff.
+- [x] **Step 6. Commit:** `feat(filecard): keep an invoice's header pairs for the document fields`.
 
 ### Task 6: `document_search` filters
 
