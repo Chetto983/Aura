@@ -14,7 +14,7 @@ scrivi la spec").
 - **Paperless is GPL-3.0.** Behaviours only, no code.
 
 Risk tier: **medium.** It adds data the operator owns and that nothing can rebuild, and it adds
-three arguments to an agent tool.
+seven optional arguments to an agent tool.
 
 ## The problem, measured and read
 
@@ -89,39 +89,63 @@ The slice has failed, even if it works, if any of these happens:
 - **Every document carries `reviewed_at` and `reviewed_by`,** null until the operator marks it
   reviewed.
 
-### 2. Where the fields live: the operator's call, decided by Task 0
+### 2. Where the fields live: Postgres, mirrored into ArcadeDB by Go (the operator's call)
 
-**Proposed: S3 object metadata as the source of truth, as 0098 says, mirrored into ArcadeDB by
-the ingest.**
-- **Writing.** The cockpit writes a document's current values and their `set_by` into the
-  object's user metadata, a copy onto itself with the metadata replaced.
-- **Rename and move.** Both are a copy, so the metadata travels with the object. This is
-  inferred from S3's default copy semantics, not measured (`internal/objectstore/s3.go:286-292`).
-- **Mirroring.** The ingest reads the metadata with the object and writes it onto
-  `IndexedDocument` and every `Passage` as CocoIndex-owned properties. The search filters them in
-  the same statement, with no second store to join.
-- **History** goes in `aura.document_field_events`: one row per change, with RLS like
-  `aura.assets`. It is an audit and the training data of phase 2, never the current value.
-- **The open risk.** A metadata change changes the ETag, so CocoIndex re-processes the file.
-  `_extract` and the embeddings are memoized on the bytes (`services/ingest/app.py:253, 294`;
-  `embed.py:188`). A re-process should then cost a re-read, not a re-embed, but nobody has
-  measured that.
+**Proposed, after the builder check of 2026-10-18.**
 
-**The alternative: a Postgres table** `aura.document_fields` keyed by `aura.assets.id`.
-- **What it buys.** The asset row survives a rename or a move, because `RelocateAsset` rewrites
-  `object_key`. A write is a row update, with no re-ingest.
-- **What it costs.**
-  - It reverses 0098.
-  - An object without an asset row has no fields.
-  - The search must turn a filter into document ids before querying, and `CandidateFilter`
-    caps those at 100 (`defaultDocumentFilterCap`). A filter like "type = fattura" can match more.
+**Postgres is the truth.** Everything lives in new `aura.*` tables with fail-closed RLS like
+`aura.assets` (`0090_rls_fail_closed_assets.up.sql`):
+- the identity's lists (types, counterparties, tags, custom-field definitions), each with its
+  matching rule;
+- one row per document, keyed by `(identity_id, object_key)`, with its own id. That id is the
+  stable handle the history and the UI use;
+- the current values, each with `set_by`, `set_at` and evidence; the review state; the rejected
+  suggestions;
+- `aura.document_field_events`, one row per change. It is the audit and phase 2's training data.
 
-**Task 0 measures the proposed path** on a disposable stack: write metadata, rename, move,
-re-ingest, edit the bytes, then the time and the embedding calls a metadata-only change costs.
-- **If it holds:** the proposed path.
-- **If Garage cannot replace metadata in place, the metadata does not survive the copy, or a
-  metadata change re-embeds:** the alternative, with the 100-id cap raised or the filter moved
-  into the statement, and 0098 amended with the measurement.
+**Go owns every write,** which removes the ingest from the write path:
+- **A rename or a move in the file manager** already runs `RelocateAsset`
+  (`internal/assets/filemanager_ops.go:120-180`). The same transaction moves the document row to
+  the new key, so its values follow the file.
+- **A copy** gets a new row, with the values copied and marked `set_by` as copied.
+- **An object renamed or moved outside the cockpit**, straight in the bucket, loses its row. This
+  is recorded as a limit, not handled.
+
+**ArcadeDB gets a Go-owned mirror:** a `DocumentFields` document type in the identity's database,
+keyed by `source_key`, holding the current values and whether each is reviewed.
+- **Not on `IndexedDocument`.** That vertex belongs to CocoIndex and is `DETACH DELETE`d on every
+  rename. `DocumentFields` belongs to no CocoIndex target, so a reconcile never touches it.
+- **Go writes it in the same request as Postgres.** A failed mirror write fails the save, and a
+  repair pass rebuilds the mirror from Postgres.
+- **The search filters with a subquery on `DocumentFields`**, inside the statement, so there is
+  no 100-id cap (decision 5).
+
+**Why not object metadata, which 0098 points to** (my first proposal, dropped):
+- **A metadata-only write may never reach the index.** `process_file` is memoized on the S3
+  file, mtime then ETag (`services/ingest/app.py:294`; cocoindex 1.0.25
+  `resources/file.py:183-202`, `connectors/amazon_s3/_source.py:35-44`). A copy onto itself with
+  replaced metadata usually keeps the content's ETag, so the mirror would stay stale.
+- **The lists, the rules and the rejections need a store anyway.** The ingest has no Postgres
+  connection (`app.py:31-41`).
+- **About 1 KiB of user metadata is left** once the filename is stored
+  (`internal/objectstore/asset_placement.go:15-19`).
+- **The Documenti view needs counts and filters over the library,** and metadata cannot be
+  queried.
+
+**It reverses 0098's sentence "anything richer has to live in S3 object metadata."** The PRD
+amendment records why, citing these four reasons.
+
+**Task 0, before the code, measures two things on a disposable stack:**
+- the fused query's latency with the `DocumentFields` subquery on the 7,798-passage library,
+  against today's;
+- that a reconcile, a rename and a re-ingest leave `DocumentFields` intact.
+
+**Found while checking this: a rename keeps the old name in the index.**
+- `S3Store.Copy` sends no `MetadataDirective` (`internal/objectstore/s3.go:289-294`), so the old
+  `filename` metadata is copied.
+- The ingest prefers that name (`app.py:315-316`).
+- So the index shows a renamed file under its old name. This is read, not run.
+- The rename path is touched here anyway, so it is fixed test-first in this slice (NOT MY WORK).
 
 ### 3. Assignment, in order, never overwriting the operator
 
@@ -130,9 +154,16 @@ re-ingest, edit the bytes, then the time and the embedding calls a metadata-only
 2. **Rules on the label**, as in Paperless: Any, All, Exact, Regex and Fuzzy over the document's
    text and file name.
    - A rule lives on its type, counterparty or tag, case-insensitive by default.
-   - It runs at ingest and when the operator saves a rule.
-3. **The extractor.** filecard keeps an invoice's header pairs and offers the date, the
-   counterparty and the number as candidates.
+   - **One matcher, in Go.** It runs in two cases:
+     - when the operator saves a rule, over every document;
+     - for each newly indexed document, found by `IndexedDocument.indexed_at` since the last pass.
+   - It reads the card and the passages from ArcadeDB. The ingest runs no rules.
+3. **The extractor.** filecard keeps an invoice's header pairs. They are derived from the bytes,
+   so they ride on `IndexedDocument` as a CocoIndex-owned property, as the card does. Go's pass
+   turns them into candidates:
+   - the date, for `document_date`;
+   - the counterparty, matched against the list, or proposed as a new name;
+   - the number and the status, for custom fields when the operator has defined them.
    - **This is bespoke: STOP BEFORE BESPOKE applies, and the inventory is below.**
    - Paperless never extracts a value from content, except a date found by a regex sweep
      (`paperless-ngx-behaviours-2026-10-17.md`).
@@ -191,12 +222,23 @@ The new arguments, all optional, strictly decoded like the existing ones
 - `date_from`, `date_to`;
 - `include_unreviewed`: a boolean, default `true`, so a library nobody reviewed still answers.
 
-Each filter becomes a WHERE on both legs of the fused statement and on the card leg, next to
-`candidateWhere`. With 26.11.1 it can join the `where` predicate of
-`2026-10-17-arcadedb-26-11-native-design.md`.
+**Where the filters apply.** They join `candidateWhere`
+(`internal/arcadedb/document_retrieval.go:309-330`) as a subquery on `DocumentFields`, so every
+leg built on it applies them: dense, full-text, lexical (`document_lexical.go:96`) and card.
 
-**The tool's result says which filters were applied and how many documents they excluded.** The
-agent can then retry without them, which answers the first anti-goal.
+**"Unreviewed" is judged per value.** A value is unreviewed while its `set_by` is not `operator`
+and the operator has not accepted it.
+
+**Names match case-insensitively and exactly** against the identity's lists.
+
+**The tool's result reports, for each filter it applied:**
+- whether the match rests on operator values or on suggestions;
+- how many documents of the library the filter admits;
+- when a name matches nothing, the closest names on the list, so the agent can correct itself or
+  retry without the filter. That answers the first anti-goal at no second query.
+
+The agent filters on the fixed fields and tags only. Custom fields are shown, edited and filtered
+in the cockpit; the agent gets them in a later slice.
 
 ## Shape
 
@@ -204,8 +246,10 @@ agent can then retry without them, which answers the first anti-goal.
 |---|---|
 | Task 0, the measurement | a dated file in `docs/superpowers/verification/`; no product code |
 | PRD | `prd.md` §11: the fields, where they live (per Task 0), the provenance, the filters, before the code |
-| Storage | per Task 0: the object-metadata codec, or migration `<next>` from `ls internal/db/migrations/ \| tail -1` (today 0141). `aura.document_field_events` either way |
-| Ingest | `services/ingest/app.py` and `arcade.py`: read the metadata, write the properties, the rules at ingest |
+| Storage | migration `<next>` from `ls internal/db/migrations/ \| tail -1` (today 0141): the lists, the document rows, the values, the rejections and `aura.document_field_events`, with RLS; `DocumentFields` in ArcadeDB, created by Go |
+| Ingest | `services/ingest/app.py` and `arcade.py`: the header pairs as an `IndexedDocument` property, with `process_file` versioned so the memo re-extracts |
+| Rename | `internal/assets/filemanager_ops.go`, `internal/objectstore/s3.go`: move the document row and the mirror, and replace the `filename` metadata on a rename |
+| Rules | a Go package: the matcher, the pass over new documents, and the pass on a rule save |
 | filecard | `internal/documents/filecard/table.go` and neighbours: keep the header pairs as candidates, test-first |
 | Go API | `internal/agui/`: list documents with fields, facet counts, bulk edit as a diff, the lists and rules; identity from the principal, never a parameter |
 | Search | `internal/arcadedb/document_retrieval.go`, `document_cards.go`, `internal/documents/retrieval*.go`, `internal/agent/tools/document_search.go` |
@@ -234,18 +278,23 @@ Each phase gets its own spec after its measurement.
 
 ## Acceptance
 
-1. **Task 0** is recorded and decides decision 2.
-2. **A "which documents" set.** At least 20 questions over the office corpus, extending q03, q08,
-   q09 and q18, with the gold *answer documents* (the invoices themselves, not the ledger that
-   lists them) written down before the code.
+1. **Task 0** is recorded: the latency with the `DocumentFields` subquery, and `DocumentFields`
+   intact after a reconcile, a rename and a re-ingest.
+2. **A "which documents" set.** At least 20 questions over the office corpus, extending q03, q09
+   and q18, with the gold *answer documents* (the invoices themselves, not the ledger that lists
+   them) written down before the code.
+   - Every question can be answered with the agent's filters: type, counterparty, date, tags.
+   - q08 ("non pagate") needs a status the agent cannot filter yet, so it stays out until custom
+     fields reach the tool.
    - Measured with today's search, then with the filters the questions imply, set by the
      operator on a reviewed library.
    - **The gate:** set recall up, and no gold lost that the agent could not recover by an
      unfiltered retry.
 3. **The extractor.** Every office invoice yields its counterparty, date and number as
    candidates, matching the generator's values (`spikes/document-routing-benchmark/generate_corpus.py:123-139`).
-4. **Survival.** An operator value survives a rename, a move, a re-ingest and an edit of the
-   bytes, on the live stack.
+4. **Survival.** An operator value and its history survive a rename, a move, a re-ingest and an
+   edit of the bytes, made in the cockpit, on the live stack. After a rename the index shows the
+   new name.
 5. **Isolation.** A second identity sees none of the first identity's fields, lists or events,
    through the API, the search and the database.
 6. **The cockpit.**
@@ -259,11 +308,19 @@ Each phase gets its own spec after its measurement.
 
 ## Open questions
 
-1. **Decision 2.** Object metadata or a Postgres table: the operator's call, with Task 0's
-   number.
-2. **Which types, counterparties and tags exist at the start?** An empty list, or one seeded
-   from the office corpus.
-3. **Does "reviewed" need a reviewer other than the operator?** One operator per identity today.
+1. **Decision 2.** A Postgres table plus a Go-owned ArcadeDB mirror, which reverses 0098's
+   sentence on object metadata. This is the operator's call.
+2. **Does "reviewed" need a reviewer other than the operator?** One operator per identity today.
+
+## Calls made while writing, for the operator to check
+
+- **The lists start empty.** The extractor proposes new counterparties, and the operator creates
+  them. The office corpus seeds them only in tests.
+- **Seven optional arguments** on `document_search`, with `include_unreviewed` defaulting to
+  `true`. The result marks matches that rest on suggestions.
+- **The agent filters on fixed fields and tags only** in this slice.
+- **Renames outside the cockpit** lose the fields: recorded as a limit.
+- **The rename bug is fixed in this slice,** because its path is touched anyway.
 
 ## What this spec does not prove
 
