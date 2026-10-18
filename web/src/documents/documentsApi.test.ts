@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  bulkApply,
+  CountChangedError,
   documentsQuery,
   EMPTY_FILTER,
   sourceOf,
@@ -66,5 +68,52 @@ describe('sourceOf', () => {
     expect(sourceOf('copied')).toBe('copied');
     expect(sourceOf('classifier')).toBe('classifier');
     expect(sourceOf('llm')).toBe('llm');
+  });
+});
+
+describe('bulkApply', () => {
+  it('sends a filter selection with the count the operator confirmed, and reads a changed count', async () => {
+    const sent: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+        sent.push(typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined);
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'count_changed', count: 25 }), { status: 409 }),
+        );
+      }),
+    );
+    const filter: DocumentsFilter = {
+      ...EMPTY_FILTER,
+      include: { ...EMPTY_FILTER.include, type: ['t1'] },
+      search: 'nota',
+    };
+    const diff = { set: [{ field: 'tag', value_key: 'g1' }], remove: [] };
+    await expect(
+      bulkApply({ kind: 'filter', filter, exclude: ['d9'], expectedCount: 24 }, diff),
+    ).rejects.toEqual(new CountChangedError(25));
+    expect(sent[0]).toEqual({
+      selection: {
+        filter: {
+          type: ['t1'],
+          counterparty: [],
+          tags: [],
+          type_not: [],
+          counterparty_not: [],
+          tags_not: [],
+          unassigned: [],
+          tags_mode: 'any',
+          date_from: '',
+          date_to: '',
+          q: 'nota',
+          include_unreviewed: true,
+          needs_review: false,
+        },
+        exclude: ['d9'],
+        expected_count: 24,
+      },
+      diff,
+    });
+    vi.unstubAllGlobals();
   });
 });

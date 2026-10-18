@@ -1,4 +1,4 @@
-import { getJSON } from '@/api/json';
+import { getJSON, httpErrorFrom } from '@/api/json';
 
 /**
  * The Documenti view's client (internal/agui/documents_api.go): the library with the fields the
@@ -184,4 +184,79 @@ export async function fetchCustomFields(signal?: AbortSignal): Promise<readonly 
     signal,
   );
   return out.fields;
+}
+
+/** filterBody spells a filter the way a bulk selection's body carries it
+ * (internal/agui/documents_api.go documentsFilter). */
+export function filterBody(filter: DocumentsFilter): Record<string, unknown> {
+  return {
+    type: filter.include.type,
+    counterparty: filter.include.counterparty,
+    tags: filter.include.tags,
+    type_not: filter.exclude.type,
+    counterparty_not: filter.exclude.counterparty,
+    tags_not: filter.exclude.tags,
+    unassigned: filter.unassigned,
+    tags_mode: filter.tagsMode,
+    date_from: filter.dateFrom,
+    date_to: filter.dateTo,
+    q: filter.search.trim(),
+    include_unreviewed: filter.includeUnreviewed,
+    needs_review: filter.needsReview,
+  };
+}
+
+/** What a bulk edit applies to: the documents ticked, or every document of a filter minus the
+ * ones unticked, with the count the operator confirmed. */
+export type BulkSelection =
+  | { readonly kind: 'ids'; readonly ids: readonly string[] }
+  | {
+      readonly kind: 'filter';
+      readonly filter: DocumentsFilter;
+      readonly exclude: readonly string[];
+      readonly expectedCount: number;
+    };
+
+/** CountChangedError is a filter that no longer holds the count the operator confirmed:
+ * nothing was written, and count is what it holds now. */
+export class CountChangedError extends Error {
+  readonly count: number;
+
+  constructor(count: number) {
+    super(`the filter now holds ${String(count)} documents`);
+    this.name = 'CountChangedError';
+    this.count = count;
+  }
+}
+
+/** bulkApply sends one diff to a selection. A 409 is a changed count, thrown as CountChangedError
+ * so the view can ask again. */
+export async function bulkApply(
+  selection: BulkSelection,
+  diff: { readonly set: readonly unknown[]; readonly remove: readonly unknown[] },
+): Promise<number> {
+  const body =
+    selection.kind === 'ids'
+      ? { selection: { ids: selection.ids }, diff }
+      : {
+          selection: {
+            filter: filterBody(selection.filter),
+            exclude: selection.exclude,
+            expected_count: selection.expectedCount,
+          },
+          diff,
+        };
+  const res = await fetch(`${documentsBase}/bulk`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 409) {
+    const conflict = (await res.json()) as { count: number };
+    throw new CountChangedError(conflict.count);
+  }
+  if (!res.ok) throw await httpErrorFrom(res);
+  const out = (await res.json()) as { applied: number };
+  return out.applied;
 }

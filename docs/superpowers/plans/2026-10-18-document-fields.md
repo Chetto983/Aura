@@ -511,15 +511,23 @@ behave as the clauses expect, live on 26.10.1.
 
 **Files:** `web/src/documents/BulkBar.tsx`, `BulkConfirmDialog.tsx`, with tests.
 
-- [ ] **Step 1. RED:**
+**As built** (2026-10-18): `bulkModel.ts` holds the three states and the diff, `useBulkEdit.ts`
+the selection (ticked ids, or the filter minus the unticked) through the confirmation and the
+request, and `SelectionCells.tsx` the checkbox column (`select={false}`, `data-action=
+"ignore-click"`, as SVAR's selection guide shows). A filter selection reads a value's three states
+from the result's facets, which count the excluded documents too; clearing a single field there
+removes every value the facets hold. The mockup's "Segna come rivisti" on the selection is not one
+of the spec's behaviours and has no API: left out. The tests share `documentsTestServer.tsx`.
+
+- [x] **Step 1. RED:**
   - three states per value;
   - Apply sends only the diff;
   - the confirmation names the change and N;
   - "tutti i N del filtro" sends `{filter, exclude, expected_count}`;
   - a 409 shows the new count and asks again.
-- [ ] **Step 2. GREEN,** following mockup 2.
-- [ ] **Step 3. The web gates.**
-- [ ] **Step 4. Commit:** `feat(web): bulk edit documents by difference`.
+- [x] **Step 2. GREEN,** following mockup 2.
+- [x] **Step 3. The web gates.**
+- [x] **Step 4. Commit:** `feat(web): bulk edit documents by difference`.
 
 ### Task 11: detail, suggestions and review
 

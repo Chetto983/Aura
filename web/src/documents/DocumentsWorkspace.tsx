@@ -11,15 +11,25 @@ import {
   fetchLabels,
   fetchReviewCount,
   withField,
+  type DocumentRow,
   type DocumentsFilter,
+  type Facets,
   type FilterField,
   type Label,
 } from './documentsApi';
+import { BulkBar } from './BulkBar';
+import { BulkConfirmDialog } from './BulkConfirmDialog';
 import { CustomCell, DateCell, FieldCell, NameCell, StatusCell, TagsCell } from './DocumentsCells';
-import { DocumentsCellContext, type FilterValueEvent } from './documentsCellContext';
+import {
+  DocumentsCellContext,
+  SelectionContext,
+  type FilterValueEvent,
+} from './documentsCellContext';
 import { documentsWords } from './documentsLocale';
 import { KIND_OF, labelNames } from './documentsModel';
 import { FilterBar } from './FilterBar';
+import { SelectCell, SelectPageCell } from './SelectionCells';
+import { useBulkEdit } from './useBulkEdit';
 import { Button } from '@/components/ui/button';
 import { useThemeMode } from '@/theme/useThemeMode';
 
@@ -49,6 +59,8 @@ function useLabels(field: FilterField) {
 }
 
 const NO_LABELS: readonly Label[] = [];
+const NO_ROWS: readonly DocumentRow[] = [];
+const NO_FACETS: Facets = {};
 
 interface DocumentsWorkspaceProps {
   readonly mobileMenu?: ReactNode;
@@ -105,12 +117,22 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
     [types.data, counterparties.data, tags.data],
   );
   const names = useMemo(() => labelNames(lists), [lists]);
+  const total = page.data?.total ?? 0;
+  const rows = page.data?.rows ?? NO_ROWS;
+  const facets = page.data?.facets ?? NO_FACETS;
+  const bulk = useBulkEdit({ rows, total, filter, facets });
+  // A selection belongs to the result it was made in: a new filter drops it.
+  const changeFilter = (next: DocumentsFilter) => {
+    bulk.clear();
+    setFilter(next);
+  };
 
   const columns = useMemo<IColumnConfig[]>(() => {
     const custom = (customFields.data ?? [])
       .filter((cf) => shownFields.includes(cf.id))
       .map((cf) => ({ id: `custom:${cf.id}`, header: cf.name, width: 150, cell: CustomCell }));
     return [
+      { id: 'select', header: [{ cell: SelectPageCell }], width: 52, cell: SelectCell },
       {
         id: 'file_name',
         header: t('documents.columns.name'),
@@ -159,8 +181,6 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
   }, [sort]);
 
   const Theme = useThemeMode() === 'light' ? Willow : WillowDark;
-  const total = page.data?.total ?? 0;
-  const rows = page.data?.rows ?? [];
   const review = reviewCount.data ?? 0;
 
   return (
@@ -179,23 +199,28 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
           aria-pressed={filter.needsReview}
           className="ml-auto gap-2"
           onClick={() => {
-            setFilter({ ...filter, needsReview: !filter.needsReview });
+            changeFilter({ ...filter, needsReview: !filter.needsReview });
           }}
         >
           {t('documents.review')}
           <span className="rounded-full bg-warning px-2 text-xs font-bold text-bg">{review}</span>
         </Button>
       </header>
-      <FilterBar
-        filter={filter}
-        onChange={setFilter}
-        facets={page.data?.facets ?? {}}
-        lists={lists}
-        names={names}
-        customFields={customFields.data ?? []}
-        shownFields={shownFields}
-        onShownFieldsChange={setShownFields}
-      />
+      {bulk.active ? (
+        <BulkBar {...bulk.bar} lists={lists} />
+      ) : (
+        <FilterBar
+          filter={filter}
+          onChange={changeFilter}
+          facets={facets}
+          lists={lists}
+          names={names}
+          customFields={customFields.data ?? []}
+          shownFields={shownFields}
+          onShownFieldsChange={setShownFields}
+        />
+      )}
+      <BulkConfirmDialog {...bulk.confirm} names={names} />
       {page.isError && (
         <p role="alert" className="px-3 py-2 text-sm text-danger">
           {t('documents.loadFailed')}
@@ -210,28 +235,30 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
           <Theme fonts={false}>
             <Locale words={documentsWords(i18n.language)}>
               <DocumentsCellContext.Provider value={names}>
-                <div className="min-h-0 flex-1 [&>*]:h-full">
-                  <Grid
-                    data={rows.map((row) => ({ ...row }))}
-                    columns={columns}
-                    sortMarks={sortMarks}
-                    init={init}
-                    select={false}
-                    onFilterValue={(ev: FilterValueEvent) => {
-                      setFilter(withField(filter, 'include', ev.field, ev.id));
-                    }}
-                  />
-                </div>
-                {total > PAGE_SIZE && (
-                  <Pager
-                    total={total}
-                    pageSize={PAGE_SIZE}
-                    value={Math.floor(offset / PAGE_SIZE) + 1}
-                    onChange={(ev) => {
-                      setOffset(ev.from);
-                    }}
-                  />
-                )}
+                <SelectionContext.Provider value={bulk.selectionApi}>
+                  <div className="min-h-0 flex-1 [&>*]:h-full">
+                    <Grid
+                      data={rows.map((row) => ({ ...row }))}
+                      columns={columns}
+                      sortMarks={sortMarks}
+                      init={init}
+                      select={false}
+                      onFilterValue={(ev: FilterValueEvent) => {
+                        changeFilter(withField(filter, 'include', ev.field, ev.id));
+                      }}
+                    />
+                  </div>
+                  {total > PAGE_SIZE && (
+                    <Pager
+                      total={total}
+                      pageSize={PAGE_SIZE}
+                      value={Math.floor(offset / PAGE_SIZE) + 1}
+                      onChange={(ev) => {
+                        setOffset(ev.from);
+                      }}
+                    />
+                  )}
+                </SelectionContext.Provider>
               </DocumentsCellContext.Provider>
             </Locale>
           </Theme>
