@@ -89,7 +89,33 @@ The slice has failed, even if it works, if any of these happens:
 - **Every document carries `reviewed_at` and `reviewed_by`,** null until the operator marks it
   reviewed.
 
-### 2. Where the fields live: Postgres, mirrored into ArcadeDB by Go (the operator's call)
+### 2, amended 2026-10-18: the fields live in ArcadeDB, kept on the indexed rows by triggers
+
+**Measured first, in Task 0** (`docs/superpowers/verification/2026-10-18-document-fields-mirror.md`):
+- **The subquery on a Go-written mirror fails the plan's 2× gate.** On a 4,045-document library of
+  real labelled documents its cost grows with the documents it admits: 2.9× the unfiltered query
+  at 325 documents and 14.6× at 4,027.
+- **Copying the fields onto the `Passage` rows passes at every width,** 59–168 ms against
+  155–163 ms unfiltered, with identical answers. That is Paperless's shape: the index carries the
+  fields.
+- **ArcadeDB keeps that copy itself.** An `AFTER UPDATE` SQL trigger stamps the passages when
+  CocoIndex's `MERGE … SET n += $props` lands: 407 of 407 stamped, at no measurable ingest cost.
+  Cascade triggers carry the operator's edits, and a rename is handled once Go moves the key.
+
+**The operator's call:** the fields leave Postgres. Everything decision 2 below put in `aura.*`
+lives instead in the identity's own ArcadeDB database:
+- the lists, the values with provenance, the review state, the rejections and the events;
+- `DocumentFields`, one per `source_key`, the truth.
+
+Isolation is the database per identity. Triggers keep `df_*` on `Passage` and `IndexedDocument`,
+and the search filters on them (decision 5). Go still owns every write, and moves the record on a
+rename. 0098's sentence about object metadata still does not hold, for the reasons below.
+
+What this does not prove: a library larger than 4,045 documents, the triggers under the live
+ingest loop with concurrent writers, and the cockpit's facet and bulk queries on ArcadeDB SQL.
+Those are measured by the tasks that build them.
+
+### 2. Where the fields live: Postgres, mirrored into ArcadeDB by Go (the operator's call, superseded above)
 
 **Proposed, after the builder check of 2026-10-18.**
 
