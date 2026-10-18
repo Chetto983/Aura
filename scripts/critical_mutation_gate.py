@@ -15,7 +15,6 @@ from typing import Any
 from evidence_metadata import candidate_commit
 from go_mutation_cache import go_mutesting, measurer, provenance
 
-
 GO_SCOPES = {
     "gateway": "internal/gateway/classify.go",
     "identity_isolation": "internal/identityctx/operator.go",
@@ -225,7 +224,7 @@ def run(args: argparse.Namespace, make_measurer: Callable[..., Any] = measurer) 
     log_dir = args.log_dir.resolve()
     report: dict[str, Any] = {
         "schema_version": 1,
-        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "generated_at": dt.datetime.now(dt.UTC).isoformat(),
         "candidate_commit": candidate_commit(repo),
         "passed": False,
         "minimum_score_percent": args.minimum,

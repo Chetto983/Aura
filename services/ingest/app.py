@@ -360,7 +360,7 @@ async def index_object(
         embedding=(await embed.embed_text(extracted.description) if extracted.description.strip()
                    else [0.0] * embed.DIMENSIONS),
         embed_space=embed.SPACE,
-        indexed_at=datetime.datetime.now(datetime.timezone.utc),
+        indexed_at=datetime.datetime.now(datetime.UTC),
     ))
 
 
@@ -487,12 +487,12 @@ def _publish_status(snapshot: coco.UpdateSnapshot) -> None:
             ("root", ARCADE_PASSWORD),
             _S3_CONFIG.identity_id,
             getattr(snapshot.status, "value", str(snapshot.status)),
-            observed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            observed_at=datetime.datetime.now(datetime.UTC).isoformat(),
             in_progress=getattr(total, "num_in_progress", 0),
             finished=getattr(total, "num_finished", 0),
             errors=getattr(total, "num_errors", 0),
         )
-    except Exception as exc:  # noqa: BLE001 - see the docstring
+    except Exception as exc:  # see the docstring
         print(f"ingest status not published: {exc}", file=sys.stderr, flush=True)
 
 

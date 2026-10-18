@@ -62,7 +62,7 @@ def main():
         profile.dump_stats(str(args.output / f"{label}.prof"))
         stats = pstats.Stats(profile)
         stages = {}
-        for (filename, _, name), (primitive, calls, own, total, _) in stats.stats.items():
+        for (filename, _, name), (_primitive, calls, _own, total, _) in stats.stats.items():
             if "/ingest/" in filename and name in {
                 "extract_text", "_card", "chunk", "_embed", "_embed_once", "_windows",
             }:

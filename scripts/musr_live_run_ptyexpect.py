@@ -22,6 +22,7 @@ Env vars (paths only — never the secret bytes themselves, see the discipline n
 Usage: musr_live_run_ptyexpect.py <argv0> [args...]
 Exit code mirrors the child process's exit code (127 if exec itself fails).
 """
+import contextlib
 import os
 import pty
 import select
@@ -38,7 +39,7 @@ def main() -> None:
         sys.exit(2)
 
     out_path = os.environ["PTYRUN_OUTPUT"]
-    with open(os.environ["PTYRUN_EXCHANGES_FILE"], "r", encoding="utf-8") as ef:
+    with open(os.environ["PTYRUN_EXCHANGES_FILE"], encoding="utf-8") as ef:
         raw = ef.read().split("\x1e")
     exchanges = [
         (raw[i].encode(), (raw[i + 1] + "\n").encode()) for i in range(0, len(raw), 2)
@@ -77,10 +78,8 @@ def main() -> None:
                 done_pid, status = os.waitpid(pid, os.WNOHANG)
                 if done_pid == pid:
                     break
-        try:
+        with contextlib.suppress(ChildProcessError):
             _, status = os.waitpid(pid, 0)
-        except ChildProcessError:
-            pass
 
     code = os.WEXITSTATUS(status) if os.WIFEXITED(status) else 1
     sys.exit(code)

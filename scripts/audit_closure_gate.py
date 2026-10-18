@@ -118,7 +118,7 @@ def run_gate(
     normalized_counts = {state: counts[state] for state in sorted(ALLOWED_STATES)}
     report = {
         "schema_version": 1,
-        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "generated_at": dt.datetime.now(dt.UTC).isoformat(),
         "candidate_commit": candidate,
         "passed": True,
         "release_ready": not rows,

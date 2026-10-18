@@ -7,7 +7,6 @@ import sys
 import tempfile
 import unittest
 
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 GATE = ROOT / "scripts" / "coverage_package_gate.py"
 

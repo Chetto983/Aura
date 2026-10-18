@@ -28,7 +28,7 @@ def log(cat, msg):
 
 
 def load_dataset(path):
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, encoding="utf-8") as fh:
         data = json.load(fh)
     cases = data.get("cases", [])
     if not cases:
@@ -70,11 +70,11 @@ async def main():
     embed_url = os.environ.get("AURA_EMBED_BASE_URL", "http://127.0.0.1:8081").rstrip("/") + "/v1"
 
     import ragas
-    from ragas import SingleTurnSample
-    from ragas.metrics import Faithfulness, AnswerCorrectness, AnswerSimilarity
-    from ragas.llms import LangchainLLMWrapper
-    from ragas.embeddings import LangchainEmbeddingsWrapper
     from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+    from ragas import SingleTurnSample
+    from ragas.embeddings import LangchainEmbeddingsWrapper
+    from ragas.llms import LangchainLLMWrapper
+    from ragas.metrics import AnswerCorrectness, AnswerSimilarity, Faithfulness
 
     log("ENV", f"ragas={ragas.__version__} judge={judge} embed={embed_url}")
     llm = LangchainLLMWrapper(ChatOpenAI(model=judge, base_url="https://openrouter.ai/api/v1",
@@ -104,16 +104,19 @@ async def main():
     for name, r in res.items():
         f = r["faithfulness"]
         if r["kind"] == "grounded" and not (isinstance(f, float) and f >= g_min):
-            log("FAIL", f"{name} grounded faithfulness {fmt(f)} < {g_min}"); ok = False
+            log("FAIL", f"{name} grounded faithfulness {fmt(f)} < {g_min}")
+            ok = False
         if r["kind"] == "hallucinated" and not (isinstance(f, float) and f <= h_max):
-            log("FAIL", f"{name} hallucinated faithfulness {fmt(f)} > {h_max}"); ok = False
+            log("FAIL", f"{name} hallucinated faithfulness {fmt(f)} > {h_max}")
+            ok = False
 
     gs = [r["answer_correctness"] for r in res.values() if r["kind"] == "grounded" and isinstance(r["answer_correctness"], float)]
     hs = [r["answer_correctness"] for r in res.values() if r["kind"] == "hallucinated" and isinstance(r["answer_correctness"], float)]
     if gs and hs:
         margin = statistics.mean(gs) - statistics.mean(hs)
         if margin < margin_min:
-            log("FAIL", f"answer_correctness margin {margin:.3f} < {margin_min} (grounded {statistics.mean(gs):.3f} vs hallucinated {statistics.mean(hs):.3f})"); ok = False
+            log("FAIL", f"answer_correctness margin {margin:.3f} < {margin_min} (grounded {statistics.mean(gs):.3f} vs hallucinated {statistics.mean(hs):.3f})")
+            ok = False
         else:
             log("OK", f"answer_correctness margin {margin:.3f} (grounded {statistics.mean(gs):.3f} vs hallucinated {statistics.mean(hs):.3f})")
 

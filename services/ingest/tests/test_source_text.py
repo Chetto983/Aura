@@ -11,7 +11,7 @@ import sqlite3
 
 import pytest
 
-from ingest.extract import _LEGACY, _TEXTUAL, extractable, extract_text
+from ingest.extract import _LEGACY, _TEXTUAL, extract_text, extractable
 from ingest.media import _AUDIO_EXTENSIONS, _IMAGE_EXTENSIONS, _VIDEO_EXTENSIONS
 from ingest.source_extensions import source_extensions
 

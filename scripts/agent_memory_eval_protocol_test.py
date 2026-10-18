@@ -72,9 +72,8 @@ class MetricParserTest(unittest.TestCase):
             ("mode: atomic\nexample/a.go:1.1,2.1 x 1\n", "invalid coverage counts"),
             ("mode: atomic\nexample/a.go:1.1,2.1 -3 1\n", "negative coverage counts"),
         ):
-            with self.subTest(reason=reason):
-                with self.assertRaisesRegex(ValueError, reason):
-                    evaluator.coverage_gaps(profile)
+            with self.subTest(reason=reason), self.assertRaisesRegex(ValueError, reason):
+                evaluator.coverage_gaps(profile)
 
     def test_parses_the_exact_live_latency_marker(self) -> None:
         marker = evaluator.parse_latency_marker('{"samples":25,"p50_ms":336.28,"p95_ms":498.36,"max_ms":1898.39,"cold_retained":true,"path":"cli_identity_mcp_search"}')

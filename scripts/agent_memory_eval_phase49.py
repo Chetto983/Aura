@@ -6,9 +6,18 @@ import subprocess
 import time
 from typing import Any
 
-from agent_memory_eval_phase49_batch import BATCH_MARKER, attach_batch_evidence, evaluate_batch_atomicity, extract_batch_markers
-from agent_memory_eval_running_aura import attach_running_aura_evidence, evaluate_running_aura_conversation, run_running_aura_conversation
-
+# Re-exported: agent_memory_eval, its protocol and its tests reach these as phase49.<name>.
+from agent_memory_eval_phase49_batch import (  # noqa: F401
+    BATCH_MARKER,
+    attach_batch_evidence,
+    evaluate_batch_atomicity,
+    extract_batch_markers,
+)
+from agent_memory_eval_running_aura import (  # noqa: F401
+    attach_running_aura_evidence,
+    evaluate_running_aura_conversation,
+    run_running_aura_conversation,
+)
 
 SCHEMA_ID = "aura.phase49-memory-evidence/v1"
 SCENARIOS = ("mixed_tier_recall", "reasoning_isolation")
@@ -363,17 +372,16 @@ def _observe_mounted_memory_surface(repo: pathlib.Path, timeout_seconds: int) ->
     failures: list[str] = []
     try:
         head = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=repo, text=True, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, check=False, timeout=timeout_seconds,
+            ["git", "rev-parse", "HEAD"], cwd=repo, text=True, capture_output=True,
+            check=False, timeout=timeout_seconds,
         )
         version = subprocess.run(
             ["docker", "exec", "aura", "aura", "version"], cwd=repo, text=True,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=timeout_seconds,
+            capture_output=True, check=False, timeout=timeout_seconds,
         )
         tools = subprocess.run(
             ["docker", "exec", "aura", "aura", "mcp", "tools", "memory", "--json"],
-            cwd=repo, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            check=False, timeout=timeout_seconds,
+            cwd=repo, text=True, capture_output=True, check=False, timeout=timeout_seconds,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         return {
@@ -450,8 +458,7 @@ def _run_go_json_suite(
             command,
             cwd=repo,
             text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=False,
             timeout=timeout_seconds,
         )

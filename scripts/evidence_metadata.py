@@ -4,7 +4,6 @@ import pathlib
 import re
 import subprocess
 
-
 FULL_GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 

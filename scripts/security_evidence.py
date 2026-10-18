@@ -13,7 +13,6 @@ from typing import Any
 
 from evidence_metadata import candidate_commit
 
-
 CODEQL_CHECKS = {
     "Analyze (go)": "go",
     "Analyze (javascript-typescript)": "javascript-typescript",
@@ -70,7 +69,7 @@ def run_command(
     repo: pathlib.Path,
     timeout: float,
 ) -> dict[str, Any]:
-    started = dt.datetime.now(dt.timezone.utc)
+    started = dt.datetime.now(dt.UTC)
     try:
         completed = subprocess.run(
             command,
@@ -91,7 +90,7 @@ def run_command(
         "executed": True,
         "passed": passed,
         "duration_ms": (
-            dt.datetime.now(dt.timezone.utc) - started
+            dt.datetime.now(dt.UTC) - started
         ).total_seconds()
         * 1000,
         "command": command,
@@ -117,7 +116,7 @@ def build_report(candidate: str, checks: list[dict[str, Any]]) -> dict[str, Any]
         sanitized.append(copy)
     return {
         "schema_version": 1,
-        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "generated_at": dt.datetime.now(dt.UTC).isoformat(),
         "candidate_commit": candidate,
         "passed": passed,
         "unresolved_release_blocking_alerts": 0 if passed else 1,
@@ -157,8 +156,7 @@ def collect(args: argparse.Namespace) -> dict[str, Any]:
             ["bash", "scripts/go_packages.sh"],
             cwd=repo,
             text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=True,
             timeout=60,
         ).stdout.split()

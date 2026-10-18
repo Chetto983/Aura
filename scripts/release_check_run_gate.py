@@ -7,7 +7,6 @@ import pathlib
 import sys
 from typing import Any
 
-
 REQUIRED_CHECK = "Production readiness bundle"
 
 

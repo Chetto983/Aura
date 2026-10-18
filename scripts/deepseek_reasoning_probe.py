@@ -29,7 +29,6 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_MODEL = "deepseek/deepseek-v4-flash:nitro"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_PRIMARY_MODEL = "xiaomi/mimo-v2.5"
@@ -163,7 +162,7 @@ def http_json(url: str, api_key: str, body: dict[str, Any], timeout: float) -> t
             "X-Title": "Aura direct DeepSeek reasoning probe",
         },
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - explicit user-requested live probe.
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # explicit user-requested live probe.
         raw = resp.read().decode("utf-8", errors="replace")
         return json.loads(raw), resp.status, resp.headers.get("content-type", "")
 
@@ -187,7 +186,7 @@ def http_sse(
     )
     frames: list[tuple[int, dict[str, Any]]] = []
     start = time.monotonic()
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - explicit user-requested live probe.
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # explicit user-requested live probe.
         for raw_line in resp:
             line = raw_line.decode("utf-8", errors="replace").strip()
             if not line or line.startswith(":") or not line.startswith("data:"):
@@ -1044,7 +1043,7 @@ def run_probe(args: argparse.Namespace) -> int:
             )
         )
         return 1
-    except Exception as exc:  # noqa: BLE001 - this probe should report failures as JSON.
+    except Exception as exc:  # this probe should report failures as JSON.
         print(json.dumps({"ok": False, "error": redact(str(exc))}, ensure_ascii=False, separators=(",", ":")))
         return 1
 

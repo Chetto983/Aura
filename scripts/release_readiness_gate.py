@@ -14,7 +14,6 @@ from critical_mutation_gate import MEDIA_SCOPE_IDS, REQUIRED_SCOPE_IDS
 from evidence_metadata import FULL_GIT_SHA
 from production_load_chaos_support import CHAOS_SCENARIO_ZERO_FIELDS
 
-
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -472,7 +471,7 @@ def read_and_validate_common(
     except ValueError as exc:
         raise GateError(f"{path.name}: invalid generated_at") from exc
     require(generated.tzinfo is not None, f"{path.name}: generated_at lacks timezone")
-    age = now - generated.astimezone(dt.timezone.utc)
+    age = now - generated.astimezone(dt.UTC)
     require(age >= dt.timedelta(minutes=-5), f"{path.name}: generated_at is in the future")
     require(age <= max_age, f"{path.name}: stale evidence ({age})")
     return report, hashlib.sha256(raw).hexdigest()
@@ -485,7 +484,7 @@ def run_gate(
     max_age_hours: float,
 ) -> dict[str, Any]:
     require(FULL_GIT_SHA.fullmatch(candidate) is not None, "candidate must be a full Git SHA")
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     max_age = dt.timedelta(hours=max_age_hours)
     require(max_age > dt.timedelta(0), "max evidence age must be positive")
     evidence = []

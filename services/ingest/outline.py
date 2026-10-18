@@ -19,6 +19,7 @@ Anchoring into the text Tika already produced is the point: no second extractor,
 arithmetic, and every citation offset already issued stays valid.
 """
 import dataclasses
+import itertools
 import pathlib
 import re
 
@@ -71,7 +72,7 @@ def titles_of(path: str) -> list[tuple[int, str]]:
         from pypdf import PdfReader
 
         outline = PdfReader(path).outline
-    except Exception:  # noqa: BLE001 - no outline is a normal document, never an error
+    except Exception:  # no outline is a normal document, never an error
         return []
     return _walk(outline)
 
@@ -105,7 +106,7 @@ def _markdown_titles(path: str) -> list[tuple[int, str]]:
     except (OSError, ImportError):  # unreadable or unparseable: no headings, never a failed ingest
         return []
     found: list[tuple[int, str]] = []
-    for token, following in zip(tokens, tokens[1:]):
+    for token, following in itertools.pairwise(tokens):
         if token.type != "heading_open" or following.type != "inline":
             continue
         title = following.content.strip()

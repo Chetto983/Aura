@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import http.server
 import json
 import os
@@ -12,6 +13,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from typing import ClassVar
 
 VEGETA_VERSION = "12.13.0"
 TOXIPROXY_VERSION = "2.12.0"
@@ -147,10 +149,8 @@ class MCPFixtureHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Mcp-Session-Id", "aura-chaos-session")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        try:
+        with contextlib.suppress(BrokenPipeError, ConnectionResetError):
             self.wfile.write(body)
-        except (BrokenPipeError, ConnectionResetError):
-            pass
 
     def log_message(self, _format: str, *_args: object) -> None:
         return
@@ -161,7 +161,7 @@ class MCPFixture:
         self.server: http.server.ThreadingHTTPServer | None = None
         self.thread: threading.Thread | None = None
 
-    def __enter__(self) -> "MCPFixture":
+    def __enter__(self) -> MCPFixture:
         self.server = http.server.ThreadingHTTPServer(
             ("0.0.0.0", 0), MCPFixtureHandler
         )
@@ -276,7 +276,7 @@ def wait_http(
 
 
 class Toxiproxy:
-    inner_ports = {"postgres": 15432, "garage": 13900, "memory": 18090}
+    inner_ports: ClassVar[dict[str, int]] = {"postgres": 15432, "garage": 13900, "memory": 18090}
 
     def __init__(self, fixture_port: int, run_id: str) -> None:
         self.fixture_port = fixture_port
@@ -287,10 +287,10 @@ class Toxiproxy:
             if candidate not in ports:
                 ports.append(candidate)
         self.control_port = ports[0]
-        self.host_ports = dict(zip(self.inner_ports, ports[1:]))
+        self.host_ports = dict(zip(self.inner_ports, ports[1:], strict=True))
         self.base = f"http://127.0.0.1:{self.control_port}"
 
-    def __enter__(self) -> "Toxiproxy":
+    def __enter__(self) -> Toxiproxy:
         network = self._compose_network()
         args = [
             "docker",
@@ -422,7 +422,7 @@ class ResourceSampler:
         self.stop_event = threading.Event()
         self.thread = threading.Thread(target=self._sample, daemon=True)
 
-    def __enter__(self) -> "ResourceSampler":
+    def __enter__(self) -> ResourceSampler:
         self.thread.start()
         return self
 
@@ -554,7 +554,7 @@ def fresh_database(name: str, create: bool) -> None:
             "-c",
         ]
     for statement in statements:
-        command(base + [statement])
+        command([*base, statement])
 
 
 def daemon_env(

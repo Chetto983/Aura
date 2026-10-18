@@ -326,7 +326,7 @@ def _embed_batch(texts: list[str]) -> list[list[float]]:
         # same either way, and the only symptom of it silently degrading to one chunk per
         # request is a slow cloud ingest nobody can explain. The time and the counts answer
         # the other question, whether a timeout came from one slow request or from a burst.
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")
+        now = datetime.datetime.now(datetime.UTC).isoformat(timespec="milliseconds")
         print(f"[embed] {now} inflight={inflight} waiting={waiting} {len(texts)} chunk(s) in one request", flush=True)
         try:
             with urllib.request.urlopen(req, timeout=120) as resp:

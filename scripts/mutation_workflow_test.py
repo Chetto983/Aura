@@ -7,7 +7,6 @@ import unittest
 
 import critical_mutation_gate
 
-
 REPO = pathlib.Path(__file__).resolve().parents[1]
 GO_CACHE = "artifacts/go-mutation-cache"
 SKILLS_CACHE = "artifacts/skills-mutation-cache"

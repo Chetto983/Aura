@@ -7,7 +7,6 @@ import re
 import sys
 from typing import Any
 
-
 PROFILE_POSITION = re.compile(r"^\d+\.\d+,\d+\.\d+$")
 # A package delegates only where a SEPARATE, release-blocking report measures it against
 # the same 85% floor on a denominator this tier can actually execute. docker_coverage is

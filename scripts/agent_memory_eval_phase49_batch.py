@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-
 BATCH_MARKER = "AURA_AGENT_MEMORY_BATCH_JSON="
 
 

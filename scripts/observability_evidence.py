@@ -14,7 +14,6 @@ from typing import Any
 
 from evidence_metadata import candidate_commit
 
-
 REQUIRED_CHECKS = (
     "static_contract",
     "runtime_smoke",
@@ -32,7 +31,7 @@ def command_check(
     repo: pathlib.Path,
     timeout: float,
 ) -> dict[str, Any]:
-    started = dt.datetime.now(dt.timezone.utc)
+    started = dt.datetime.now(dt.UTC)
     try:
         completed = subprocess.run(
             command,
@@ -53,7 +52,7 @@ def command_check(
         "executed": True,
         "passed": passed,
         "duration_ms": (
-            dt.datetime.now(dt.timezone.utc) - started
+            dt.datetime.now(dt.UTC) - started
         ).total_seconds()
         * 1000,
         "command": command,
@@ -62,7 +61,7 @@ def command_check(
 
 
 def endpoint_check(check_id: str, url: str, timeout: float) -> dict[str, Any]:
-    started = dt.datetime.now(dt.timezone.utc)
+    started = dt.datetime.now(dt.UTC)
     status = 0
     detail = ""
     try:
@@ -80,7 +79,7 @@ def endpoint_check(check_id: str, url: str, timeout: float) -> dict[str, Any]:
         "status": status,
         "url": url,
         "duration_ms": (
-            dt.datetime.now(dt.timezone.utc) - started
+            dt.datetime.now(dt.UTC) - started
         ).total_seconds()
         * 1000,
         "detail": detail,
@@ -135,7 +134,7 @@ def build_report(candidate: str, checks: list[dict[str, Any]]) -> dict[str, Any]
     required = [check for check in checks if check["id"] in REQUIRED_CHECKS]
     return {
         "schema_version": 1,
-        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "generated_at": dt.datetime.now(dt.UTC).isoformat(),
         "candidate_commit": candidate,
         "passed": all(
             check.get("executed") is True and check.get("passed") is True

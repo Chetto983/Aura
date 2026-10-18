@@ -29,7 +29,7 @@ import re
 
 import pytest
 
-from ingest.extract import extractable, extract_text, needs_normalisation, normalise
+from ingest.extract import extract_text, extractable, needs_normalisation, normalise
 
 FX = pathlib.Path("/fx")
 
@@ -115,6 +115,7 @@ def test_long_document_keeps_the_tail_beyond_tika_default_limit(tmp_path):
 
 def test_tika_reported_truncation_is_a_failure(monkeypatch, tmp_path):
     from types import SimpleNamespace
+
     from ingest import extract
 
     monkeypatch.setattr(extract, "_extractor", SimpleNamespace(

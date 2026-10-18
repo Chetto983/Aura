@@ -13,7 +13,7 @@ import subprocess
 import sys
 import time
 from collections import defaultdict
-from typing import Iterable
+from collections.abc import Iterable
 
 from evidence_metadata import candidate_commit
 
@@ -157,7 +157,7 @@ def build_report(race: bool) -> tuple[dict[str, object], bool]:
     ).stdout.strip()
     report: dict[str, object] = {
         "schema_version": 1,
-        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "generated_at": dt.datetime.now(dt.UTC).isoformat(),
         "candidate_commit": candidate_commit(),
         "race": race,
         "go_version": go_version,

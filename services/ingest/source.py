@@ -191,7 +191,7 @@ async def object_facts(client: object, config: S3Config, key: str) -> ObjectFact
     """
     try:
         head = await client.head_object(Bucket=config.bucket, Key=key)  # type: ignore[attr-defined]
-    except Exception:  # noqa: BLE001 - any failure here means "no facts", never "no document"
+    except Exception:  # any failure here means "no facts", never "no document"
         return ObjectFacts()
     return ObjectFacts(
         file_name=decode_file_name((head.get("Metadata") or {}).get(FILE_NAME_METADATA_KEY)),

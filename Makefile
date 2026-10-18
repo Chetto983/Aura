@@ -6,7 +6,7 @@
 # sqlc CLI: install with `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`
 # (v1.27.0 panics on Windows hosts via wazero out-of-bounds; v1.31.1 verified clean).
 
-.PHONY: help tools sqlc memory-up-core lint vet deadcode vuln coverage coverage-docker quality quality-full test test-race tagged-tier-compile file-size embedding-model-contract llm-model-contract capability-declaration web-lint web-test web-mutation web-quality evidence-contracts agent-memory-eval-contract agent-memory-eval agent-memory-eval-running-aura critical-mutation observability-check observability-evidence release-readiness db-up db-migrate db-status db-reset memory-up sandbox-images installer-artifact payload-manifest arcadedb-integration ingest-image ingest-test extractor-matrix ingest-reconcile sandbox-image-contract restore-drill load-chaos musr-e2e
+.PHONY: help tools sqlc memory-up-core lint py-lint vet deadcode vuln coverage coverage-docker quality quality-full test test-race tagged-tier-compile file-size embedding-model-contract llm-model-contract capability-declaration web-lint web-test web-mutation web-quality evidence-contracts agent-memory-eval-contract agent-memory-eval agent-memory-eval-running-aura critical-mutation observability-check observability-evidence release-readiness db-up db-migrate db-status db-reset memory-up sandbox-images installer-artifact payload-manifest arcadedb-integration ingest-image ingest-test extractor-matrix ingest-reconcile sandbox-image-contract restore-drill load-chaos musr-e2e
 
 # Resolve go-installed tool binaries even when $GOPATH/bin is not on PATH
 # (common in a fresh WSL login shell). Falls back to a bare name on PATH.
@@ -38,6 +38,7 @@ help:
 	@echo "make web-test      — vitest run --coverage (>=85% thresholds enforced in vitest.config.ts)"
 	@echo "make web-mutation  — Stryker mutation run (break=70: fails below 70% killed)"
 	@echo "make web-quality   — full frontend gate: web-lint + web-test + web-mutation"
+	@echo "make py-lint       — ruff over the Python Aura runs (ruff.toml pins the version and the rules)"
 	@echo "make evidence-contracts — self-test every candidate-bound release report parser"
 	@echo "make agent-memory-eval-contract — deterministic evaluator; never claims a live MRS"
 	@echo "make agent-memory-eval — blocking MRS over the already-running live memory stack"
@@ -76,6 +77,7 @@ tools:
 	go install golang.org/x/tools/cmd/goimports@latest
 	go install github.com/avito-tech/go-mutesting/cmd/go-mutesting@v0.0.0-20251226130216-48d0401f00fb
 	go install github.com/evilmartians/lefthook/v2@v2.2.1
+	python3 -m pip install --user --quiet ruff==0.17.1 || python -m pip install --user --quiet ruff==0.17.1
 	@echo "now run: lefthook install   (wires the git pre-commit/pre-push hooks)"
 
 sqlc:
@@ -86,6 +88,9 @@ vet:
 
 lint:
 	$(GOBIN)/golangci-lint run $(GO_PACKAGES)
+
+py-lint:
+	bash scripts/ruff.sh check .
 
 deadcode:
 	bash scripts/deadcode_gate.sh "$(GOBIN)/deadcode" -test $(GO_PACKAGES)

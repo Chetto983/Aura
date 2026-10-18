@@ -17,11 +17,11 @@ import uuid
 
 from evidence_metadata import candidate_commit
 from production_load_chaos_support import (
+    TOXIPROXY_VERSION,
+    VEGETA_VERSION,
     MCPFixture,
     ResourceSampler,
-    TOXIPROXY_VERSION,
     Toxiproxy,
-    VEGETA_VERSION,
     command,
     daemon_env,
     free_port,
@@ -55,7 +55,7 @@ def install_fixture_memory(aura: pathlib.Path, env: dict[str, str]) -> None:
 
 
 def new_reports(args: argparse.Namespace) -> tuple[dict, dict]:
-    generated = dt.datetime.now(dt.timezone.utc).isoformat()
+    generated = dt.datetime.now(dt.UTC).isoformat()
     candidate = candidate_commit()
     return (
         {

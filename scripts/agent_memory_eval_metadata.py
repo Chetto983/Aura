@@ -8,7 +8,6 @@ from typing import Any
 
 from evidence_metadata import candidate_commit
 
-
 RUNTIME_MARKER = "AURA_AGENT_MEMORY_RUNTIME_JSON="
 
 

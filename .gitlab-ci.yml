@@ -24,6 +24,12 @@
   - .env.example
   - .gitlab-ci.yml
 
+.python_inputs: &python_inputs
+  - "**/*.py"
+  - ruff.toml
+  - scripts/ruff.sh
+  - .gitlab-ci.yml
+
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "web"
@@ -31,6 +37,8 @@ workflow:
       changes: *go_inputs
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes: *appliance_inputs
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: *python_inputs
 
 quality:
   image: golang:1.27.2-bookworm
@@ -53,6 +61,16 @@ quality:
     - go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
   script:
     - make quality
+
+# ruff over the Python Aura runs: the ingest sidecar and the gate scripts. ruff.toml pins the
+# version, so the install below must name the same one or ruff refuses to run.
+python-lint:
+  image: python:3.12-slim-bookworm
+  rules:
+    - changes: *python_inputs
+  script:
+    - pip install --quiet ruff==0.17.1
+    - bash scripts/ruff.sh check .
 
 # The updater, its consent channel and image homes, the bridge patch, the publisher and the
 # installer: what an appliance runs as root, driven against stubs, as ci.yml does.

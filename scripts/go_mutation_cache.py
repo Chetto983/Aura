@@ -22,7 +22,6 @@ from typing import Any
 
 from evidence_metadata import FULL_GIT_SHA, candidate_commit
 
-
 SCHEMA_VERSION = 1
 SUMMARY = re.compile(
     r"mutation score is ([0-9.]+) "

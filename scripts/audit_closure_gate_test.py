@@ -7,7 +7,6 @@ import unittest
 
 import audit_closure_gate
 
-
 CANDIDATE = "a" * 40
 HEADER = (
     "| ID | State | Current evidence | Closure condition | Owner |\n"

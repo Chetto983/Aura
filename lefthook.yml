@@ -40,6 +40,11 @@ pre-commit:
     lint:
       glob: "*.go"
       run: bash scripts/lint-staged.sh {staged_files}
+    # ruff over the staged Python, with ruff.toml's rules and its pinned version. force-exclude
+    # keeps spikes and third-party skill code out even when a commit stages them.
+    ruff:
+      glob: "*.py"
+      run: bash scripts/ruff.sh check --force-exclude {staged_files}
     # Staged-file-only ({staged_files}), unlike lint above: the 600-LOC cap is a
     # per-file property, so scanning the whole tree can only re-report violations
     # this commit did not introduce — while costing ~2min of `wc` spawns over ~2k

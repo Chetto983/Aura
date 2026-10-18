@@ -1,0 +1,28 @@
+# Python lint for the code Aura ships and runs: the ingest sidecar (services/ingest), the gate and
+# eval scripts and the e2e helper. Run it through scripts/ruff.sh.
+#
+# Spikes are a record of what was measured, kept as written; .claude/skills and
+# internal/skills/embed hold third-party skill code and spike sources. None of them is linted, and
+# force-exclude keeps them out even when a staged file list names them.
+#
+# Lint, not format: `ruff format` would rewrite every hand-aligned file in one diff. Line length
+# is left to review for the same reason (E501 is off), as golangci-lint leaves it on the Go side.
+
+required-version = "==0.17.1"
+target-version = "py312"
+line-length = 120
+force-exclude = true
+extend-exclude = ["spikes", ".claude", ".planning", ".superpowers", "internal/skills/embed"]
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes: undefined names, unused imports and variables
+    "I",   # import order
+    "B",   # bugbear: likely bugs
+    "UP",  # pyupgrade: the syntax of the target version
+    "SIM", # simplifications
+    "RUF", # ruff's own checks
+]
+ignore = ["E501"]

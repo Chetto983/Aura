@@ -4,19 +4,27 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import math
 import pathlib
 import subprocess
 import sys
 import tempfile
 import time
 from typing import Any
+
 import agent_memory_eval_phase49 as phase49
-from agent_memory_eval_protocol import LATENCY_MARKER, LATENCY_PATH, P95_MIN_SAMPLES, parse_go_test_json, parse_latency_marker, failed_suite_details
 from agent_memory_eval_metadata import (
     candidate_state,
     manifest_sha256,
 )
+from agent_memory_eval_protocol import (
+    LATENCY_MARKER,
+    LATENCY_PATH,
+    P95_MIN_SAMPLES,
+    failed_suite_details,
+    parse_go_test_json,
+    parse_latency_marker,  # noqa: F401 -- re-exported: the protocol tests reach it as evaluator.parse_latency_marker
+)
+
 SCHEMA_ID = "aura.agent-memory-eval/v1"
 REVISION = 2
 TOTAL_POINTS = 100.0
@@ -316,8 +324,7 @@ def run_suites(manifest: dict[str, Any], tier: str, repo: pathlib.Path, timeout_
                     command,
                     cwd=repo,
                     text=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,
                     check=False,
                     timeout=timeout_seconds,
                 )
@@ -478,7 +485,7 @@ def score(manifest: dict[str, Any], suites: dict[str, Any], tier: str, candidate
         "schema_version": 1,
         "schema_id": SCHEMA_ID,
         "revision": REVISION,
-        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "generated_at": dt.datetime.now(dt.UTC).isoformat(),
         "candidate_commit": candidate["commit"],
         "candidate": candidate,
         "runtime": runtime,

@@ -13,16 +13,21 @@ from unittest import mock
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import agent_memory_eval as evaluator
-from agent_memory_eval_protocol_test import MetricParserTest, FailedGateNamesTest, FailedSuiteDetailsTest
 import agent_memory_eval_metadata as metadata
-from agent_memory_eval_running_aura_test import (
+
+# Imported so these suites run with this file: CI's unittest list names this one only.
+from agent_memory_eval_protocol_test import (  # noqa: F401
+    FailedGateNamesTest,
+    FailedSuiteDetailsTest,
+    MetricParserTest,
+)
+from agent_memory_eval_running_aura_test import (  # noqa: F401
     ExplicitReasoningRecallTest,
     RunningAuraArmingTest,
     RunningAuraConversationEvaluatorTest,
     ScenarioScoringTest,
     ToolEvidenceScopingTest,
 )
-
 
 MEMORY_RECALL_INPUT_PROPERTIES = [
     "mode",
@@ -527,7 +532,9 @@ class SuiteRunnerTest(unittest.TestCase):
         self.assertTrue(suites["unit"]["passed"])
         self.assertEqual(suites["unit"]["protocol_errors"], [])
         self.assertEqual(suites["unit"]["stderr_line_count"], 1)
-        self.assertIs(run.call_args.kwargs["stderr"], subprocess.PIPE)
+        # capture_output keeps stderr apart from stdout, and refuses a stderr=STDOUT beside it.
+        self.assertIs(run.call_args.kwargs["capture_output"], True)
+        self.assertNotIn("stderr", run.call_args.kwargs)
 
 
 class ScoringTest(unittest.TestCase):

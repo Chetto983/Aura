@@ -12,7 +12,6 @@ import critical_mutation_gate
 import go_mutation_cache
 from evidence_metadata import candidate_commit
 
-
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
 MEDIA_FRONTEND_TESTS = (

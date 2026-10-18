@@ -6,6 +6,7 @@ import pathlib
 import sys
 import unittest
 import unittest.mock
+from typing import ClassVar
 
 # Keep both documented invocations working: direct script execution and
 # `python -m unittest scripts.agent_memory_eval_running_aura_test` from the repository root.
@@ -13,7 +14,6 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import agent_memory_eval as evaluator
 import agent_memory_eval_running_aura as running_aura
-
 
 EXPECTED_COUNTS = {
     "beyond_active_context_recall": 1,
@@ -228,26 +228,28 @@ class RunningAuraArmingTest(unittest.TestCase):
     def test_armed_runs_the_live_tier_and_never_degrades_on_failure(self) -> None:
         module = running_aura
         for armed in ("1", "true", "YES"):
-            with self.subTest(armed=armed):
-                with unittest.mock.patch.dict(os.environ, {module.ARM_ENV: armed}, clear=False):
-                    with unittest.mock.patch.object(
-                        module, "run_running_aura_conversation", side_effect=RuntimeError("stack is down")
-                    ):
-                        with self.assertRaises(RuntimeError):
-                            module.attach_running_aura_evidence(
-                                {"hard_gates": {}, "passed": True, "verdict": "PASS"}, "all"
-                            )
+            with (
+                self.subTest(armed=armed),
+                unittest.mock.patch.dict(os.environ, {module.ARM_ENV: armed}, clear=False),
+                unittest.mock.patch.object(
+                    module, "run_running_aura_conversation", side_effect=RuntimeError("stack is down")
+                ),
+                self.assertRaises(RuntimeError),
+            ):
+                module.attach_running_aura_evidence(
+                    {"hard_gates": {}, "passed": True, "verdict": "PASS"}, "all"
+                )
 
     def test_armed_failure_fails_the_report(self) -> None:
         module = running_aura
         evidence = {"executed": True, "passed": False, "status": "FAIL", "failures": ["nope"]}
-        with unittest.mock.patch.dict(os.environ, {module.ARM_ENV: "1"}, clear=False):
-            with unittest.mock.patch.object(
-                module, "run_running_aura_conversation", return_value=evidence
-            ):
-                report = module.attach_running_aura_evidence(
-                    {"hard_gates": {}, "passed": True, "verdict": "PASS"}, "all"
-                )
+        with (
+            unittest.mock.patch.dict(os.environ, {module.ARM_ENV: "1"}, clear=False),
+            unittest.mock.patch.object(module, "run_running_aura_conversation", return_value=evidence),
+        ):
+            report = module.attach_running_aura_evidence(
+                {"hard_gates": {}, "passed": True, "verdict": "PASS"}, "all"
+            )
         self.assertIs(report["passed"], False)
         self.assertEqual(report["verdict"], "FAIL")
         self.assertEqual(report["hard_gates"]["running_aura_conversation"]["status"], "FAIL")
@@ -338,14 +340,14 @@ class ToolEvidenceScopingTest(unittest.TestCase):
     because its after_seq is 0.
     """
 
-    TURNS = [
+    TURNS: ClassVar[list[dict[str, object]]] = [
         {"seq": 4, "role": "assistant", "created_at": "2026-09-02T11:31:40.000000+00:00"},
         {"seq": 6, "role": "assistant", "created_at": "2026-09-02T11:31:45.000000+00:00"},
         {"seq": 10, "role": "assistant", "created_at": "2026-09-02T11:31:55.000000+00:00"},
     ]
     # Real shape: the later call still carries seq=1, because it is the first tool of ITS run.
-    EARLY = {"seq": 1, "tool_name": "memory__memory_upsert_fact", "ts": "2026-09-02T11:31:38.000000+00:00"}
-    LATE = {"seq": 1, "tool_name": "memory__memory_recall", "ts": "2026-09-02T11:31:49.000000+00:00"}
+    EARLY: ClassVar[dict[str, object]] = {"seq": 1, "tool_name": "memory__memory_upsert_fact", "ts": "2026-09-02T11:31:38.000000+00:00"}
+    LATE: ClassVar[dict[str, object]] = {"seq": 1, "tool_name": "memory__memory_recall", "ts": "2026-09-02T11:31:49.000000+00:00"}
 
     def test_later_tool_survives_despite_low_seq(self):
         scoped = running_aura._tools_after([self.EARLY, self.LATE],

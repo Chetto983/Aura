@@ -11,9 +11,8 @@ import unittest
 from critical_mutation_gate import MEDIA_SCOPE_IDS, REQUIRED_SCOPE_IDS
 from production_load_chaos_support import CHAOS_SCENARIO_ZERO_FIELDS
 
-
 CANDIDATE = "a" * 40
-NOW = dt.datetime.now(dt.timezone.utc).isoformat()
+NOW = dt.datetime.now(dt.UTC).isoformat()
 GATE = pathlib.Path(__file__).with_name("release_readiness_gate.py")
 
 

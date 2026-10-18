@@ -42,7 +42,7 @@ class _Response:
     def __init__(self, status: int) -> None:
         self.status = status
 
-    def __enter__(self) -> "_Response":
+    def __enter__(self) -> _Response:
         return self
 
     def __exit__(self, *_exc) -> bool:
@@ -78,7 +78,7 @@ def probes(monkeypatch):
     def install(sequence):
         remaining = list(sequence)
 
-        def fake_urlopen(request, timeout=None):  # noqa: ARG001
+        def fake_urlopen(request, timeout=None):
             calls.append(request.full_url)
             outcome = remaining.pop(0) if remaining else sequence[-1]
             if isinstance(outcome, BaseException):
@@ -113,7 +113,7 @@ def test_the_readiness_probe_carries_no_credential(probes, monkeypatch):
     # here would put it on the wire for a liveness probe that does not need it.
     seen: list[dict] = []
 
-    def fake_urlopen(request, timeout=None):  # noqa: ARG001
+    def fake_urlopen(request, timeout=None):
         seen.append(dict(request.headers))
         return _Response(204)
 
@@ -207,11 +207,11 @@ def test_ensure_schema_waits_before_it_writes_anything(monkeypatch):
 
     monkeypatch.setattr(
         "ingest.arcade.wait_until_ready",
-        lambda base_url, **kwargs: order.append("wait"),  # noqa: ARG005
+        lambda base_url, **kwargs: order.append("wait"),
     )
     monkeypatch.setattr(
         "ingest.arcade._post",
-        lambda *a, **k: order.append("post") or {},  # noqa: ARG005
+        lambda *a, **k: order.append("post") or {},
     )
 
     arcade.ensure_schema(BASE, "mem_x", ("root", "pw"), 768)
@@ -240,7 +240,7 @@ def test_a_rejected_schema_statement_still_fails_on_the_first_attempt(monkeypatc
     """The regression the fix must not introduce: retrying a real rejection."""
     attempts: list[str] = []
 
-    def fake_urlopen(request, timeout=None):  # noqa: ARG001
+    def fake_urlopen(request, timeout=None):
         attempts.append(request.full_url)
         if request.full_url.endswith(arcade.READY_PATH):
             return _Response(204)

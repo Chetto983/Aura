@@ -75,6 +75,11 @@ jobs:
       - name: Capability declaration gate (RBAC-02)
         run: bash scripts/check_capability_declaration.sh
 
+      - name: Python lint (ruff; ruff.toml pins the version and the rules)
+        run: |
+          python3 -m pip install --user --quiet ruff==0.17.1
+          bash scripts/ruff.sh check .
+
       - name: Workflow pin gate self-test
         run: bash scripts/workflow_pin_gate_test.sh
 

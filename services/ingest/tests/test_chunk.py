@@ -3,7 +3,10 @@ refuses anything past 2048 tokens with HTTP 500, so "no chunk exceeds the ceilin
 is a correctness test, not a style preference.
 """
 
-from cocoindex.resources.chunk import Chunk as CoreChunk, TextPosition
+import itertools
+
+from cocoindex.resources.chunk import Chunk as CoreChunk
+from cocoindex.resources.chunk import TextPosition
 
 from ingest.chunk import (
     EMBED_DOC_PREFIX,
@@ -83,7 +86,7 @@ def test_window_split_offsets_reconstruct_a_boundary_less_source():
         assert document[c.start:c.end] == c.text
     assert out[0].start == len(prefix)
     assert out[-1].end == len(document)
-    for prev, nxt in zip(out, out[1:]):
+    for prev, nxt in itertools.pairwise(out):
         assert prev.end == nxt.start, "window chunks must be contiguous, no gap or overlap"
 
 
@@ -96,7 +99,7 @@ def test_a_boundary_less_document_is_covered_exactly_by_chunk():
         assert text[c.start:c.end] == c.text
     assert out[0].start == 0
     assert out[-1].end == len(text)
-    for prev, nxt in zip(out, out[1:]):
+    for prev, nxt in itertools.pairwise(out):
         assert prev.end == nxt.start, "chunks must be contiguous, no gap or overlap"
 
 
@@ -173,7 +176,7 @@ def test_window_split_verifies_its_own_output_on_locally_dense_text(monkeypatch)
         assert uneven_count(c.text) <= 500, "a window may not exceed the ceiling it was sized for"
     assert out[0].start == 0
     assert out[-1].end == len(body)
-    for prev, nxt in zip(out, out[1:]):
+    for prev, nxt in itertools.pairwise(out):
         assert prev.end == nxt.start, "window chunks must stay contiguous while shrinking"
     assert "".join(c.text for c in out) == body
 
@@ -200,7 +203,7 @@ def test_dense_prose_keeps_overlap_when_words_fit_the_overlap_budget(monkeypatch
     monkeypatch.setattr("ingest.chunk.count_tokens", lambda text: len(text))
     text = "alpha beta gamma delta epsilon zeta eta theta iota kappa " * 100
     pieces = chunk(text, max_tokens=64)
-    assert any(b.start < a.end for a, b in zip(pieces, pieces[1:]))
+    assert any(b.start < a.end for a, b in itertools.pairwise(pieces))
 
 
 def test_tokens_are_counted_by_the_local_sidecar_whatever_route_embeds(monkeypatch):

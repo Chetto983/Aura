@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import datetime as dt
 import hashlib
-import http.cookiejar
 import json
 import os
 import pathlib
@@ -15,7 +14,6 @@ import urllib.parse
 import urllib.request
 import uuid
 from typing import Any
-
 
 ARM_ENV = "AURA_E2E_RUNNING_AURA"
 
@@ -326,7 +324,7 @@ class AuraHTTP:
         cookies = [value.split(";", 1)[0] for value in headers.get_all("Set-Cookie", [])]
         if not cookies:
             raise RuntimeError("Authula sign-in returned no session cookie")
-        self.cookie = "; ".join(cookies + [f"__Host-authula_csrf_token={self.csrf}"])
+        self.cookie = "; ".join([*cookies, f"__Host-authula_csrf_token={self.csrf}"])
 
     def create_conversation(self, title: str) -> str:
         status, raw, _ = self.request("POST", "/api/conversations", {"title": title})
@@ -552,7 +550,7 @@ def _remove_scenario_fixtures(repo: pathlib.Path, database: str, token: str) -> 
             if live and int(live[0].get("count", 0)) == 0:
                 _arcade_command(repo, database, "DELETE FROM Entity WHERE name = :name", {"name": name})
                 removed["entities"] += 1
-    except Exception as error:  # noqa: BLE001 - cleanup must never fail the gate
+    except Exception as error:  # cleanup must never fail the gate
         removed["error"] = str(error)
     return removed
 
@@ -662,7 +660,7 @@ def _secret(repo: pathlib.Path, name: str) -> str:
 
 
 def _command(repo: pathlib.Path, command: list[str]) -> str:
-    completed = subprocess.run(command, cwd=repo, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=120)
+    completed = subprocess.run(command, cwd=repo, text=True, capture_output=True, check=False, timeout=120)
     if completed.returncode != 0:
         raise RuntimeError(f"command failed ({completed.returncode}): {' '.join(command[:4])}: {completed.stderr.strip()}")
     return completed.stdout

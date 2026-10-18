@@ -22,9 +22,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
-
 FIXED_ZIP_TIME = (2026, 1, 1, 0, 0, 0)
-FIXED_DOC_TIME = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
+FIXED_DOC_TIME = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
 WORKBOOK_NAME = "movimenti_analitici_5000.xlsx"
 SCAN_NAME = "verbale_scansionato_italiano.pdf"
 

@@ -6,10 +6,10 @@ import json
 import pathlib
 import tempfile
 import unittest
+from typing import ClassVar
 
 import critical_mutation_gate
 import go_mutation_cache
-
 
 MODULE = {"Path": "example.com/m", "Main": True}
 TOOLCHAIN = {
@@ -383,7 +383,7 @@ class CommandLineTest(unittest.TestCase):
             measured["reused_from"] = reused_from
         return measured
 
-    ARGS = [
+    ARGS: ClassVar[list[str]] = [
         "internal/skills/validator.go",
         "--advisory",
         "internal/skills/writer.go",
