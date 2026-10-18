@@ -1,0 +1,140 @@
+{
+ "argv": [
+  "docker",
+  "exec",
+  "-i",
+  "-w",
+  "/workspace",
+  "aura-box-15d43203-e273-4366-a5af-897083676ced",
+  "photocraft-cli",
+  "mcp",
+  "--automation-read-root",
+  "/workspace",
+  "--automation-write-root",
+  "/workspace"
+ ],
+ "exit": 0,
+ "stderr": "",
+ "transcript": [
+  {
+   "method": "initialize",
+   "params": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {},
+    "clientInfo": {
+     "name": "aura-survey",
+     "version": "0"
+    }
+   },
+   "ms": 76,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+     "protocolVersion": "2025-06-18",
+     "capabilities": {
+      "resources": {},
+      "tools": {}
+     },
+     "serverInfo": {
+      "name": "photocraft",
+      "version": "0.10.0"
+     },
+     "instructions": "PhotoCraft image editor. Start with doc_new/doc_open, discover ids and parameter docs with command_list, edit with command_run or command_batch (one history step per command). Inspect with doc_inspect and render_preview; doc_save writes native .pcraft or exports by extension. File paths are relative to the read/write roots granted at launch. ui_inspect/ui_screenshot and other ui_* tools require bridge mode. Read photocraft://document and photocraft://commands for live JSON state."
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "command_list",
+    "arguments": {
+     "filter": "image size"
+    }
+   },
+   "ms": 5,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "result": {
+     "content": [
+      {
+       "type": "text",
+       "text": "[{\"disabledReason\":\"no document open\",\"enabled\":false,\"id\":\"image.imageSize\",\"label\":\"Image Size\u2026\",\"menu\":[\"Image\"],\"needsDocument\":true,\"params\":\"{\\\"width\\\":px,\\\"height\\\":px,\\\"percent\\\":%? (both sides; an explicit side wins),\\\"resolution\\\":ppi,\\\"keepPrintSize\\\":bool=false (with only a resolution: resample the pixels to keep the print size),\\\"resample\\\":\\\"automatic|preserveDetails|bicubicSmoother|bicubicSharper|bicubicAutomatic|bicubic|nearest|bilinear|lanczos|none\\\"=\\\"bicubic\\\"} \u2192 {width,height} (the document's size after the command; \\\"none\\\" changes the resolution only)\",\"shortcut\":null}]"
+      }
+     ],
+     "isError": false
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "command_list",
+    "arguments": {
+     "filter": "levels"
+    }
+   },
+   "ms": 5,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "result": {
+     "content": [
+      {
+       "type": "text",
+       "text": "[{\"disabledReason\":\"no document open\",\"enabled\":false,\"id\":\"layer.newAdjustmentLayer.levels\",\"label\":\"Levels\u2026\",\"menu\":[\"Layer\",\"New Adjustment Layer\"],\"needsDocument\":true,\"params\":\"{\\\"inBlack\\\":0..253=0,\\\"gamma\\\":0.01..9.99=1,\\\"inWhite\\\":2..255=255,\\\"outBlack\\\":0..255=0,\\\"outWhite\\\":0..255=255,\\\"red\\\":json,\\\"green\\\":json,\\\"blue\\\":json,\\\"eyedropper\\\":json} (top level = composite; per channel {\\\"inBlack\\\",\\\"gamma\\\",\\\"inWhite\\\",\\\"outBlack\\\",\\\"outWhite\\\"} under red/green/blue, gray, cyan/magenta/yellow/black or lightness/a/b; eyedropper = the dialog's Set Black/Neutral Gray/White Point picker {\\\"point\\\":\\\"black|gray|white\\\",\\\"at\\\":[x,y],\\\"size\\\":1..101=1} or {\\\"point\\\",\u2026,\\\"color\\\":[r,g,b] 0..1}: black/white set each channel's input black/white to the sample, gray each channel's gamma so the sample turns neutral at its luma; RGB and Grayscale (no gray) only, applied over the given levels) + {\\\"path\\\":\\\"work\\\"|saved path name|{\u2026path}? (the active path: becomes the vector mask; else the selection is the layer mask, or white with no selection)}\",\"shortcut\":null},{\"disabledReason\":\"no document open\",\"enabled\":false,\"id\":\"image.adjustments.levels\",\"label\":\"Levels\u2026\",\"menu\":[\"Image\",\"Adjustments\"],\"needsDocument\":true,\"params\":\"{\\\"inBlack\\\":0..253=0,\\\"gamma\\\":0.01..9.99=1,\\\"inWhite\\\":2..255=255,\\\"outBlack\\\":0..255=0,\\\"outWhite\\\":0..255=255,\\\"red\\\":json,\\\"green\\\":json,\\\"blue\\\":json,\\\"eyedropper\\\":json} (top level = composite; per channel {\\\"inBlack\\\",\\\"gamma\\\",\\\"inWhite\\\",\\\"outBlack\\\",\\\"...<1974 chars>"
+      }
+     ],
+     "isError": false
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "command_list",
+    "arguments": {
+     "filter": "brightness"
+    }
+   },
+   "ms": 4,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "result": {
+     "content": [
+      {
+       "type": "text",
+       "text": "[{\"disabledReason\":\"no document open\",\"enabled\":false,\"id\":\"layer.newAdjustmentLayer.brightnessContrast\",\"label\":\"Brightness/Contrast\u2026\",\"menu\":[\"Layer\",\"New Adjustment Layer\"],\"needsDocument\":true,\"params\":\"{\\\"brightness\\\":-150..150=0,\\\"contrast\\\":-50..100=0,\\\"legacy\\\":bool=false} + {\\\"path\\\":\\\"work\\\"|saved path name|{\u2026path}? (the active path: becomes the vector mask; else the selection is the layer mask, or white with no selection)}\",\"shortcut\":null},{\"disabledReason\":\"no document open\",\"enabled\":false,\"id\":\"image.adjustments.brightnessContrast\",\"label\":\"Brightness/Contrast\u2026\",\"menu\":[\"Image\",\"Adjustments\"],\"needsDocument\":true,\"params\":\"{\\\"brightness\\\":-150..150=0,\\\"contrast\\\":-50..100=0,\\\"legacy\\\":bool=false}\",\"shortcut\":null}]"
+      }
+     ],
+     "isError": false
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "command_list",
+    "arguments": {
+     "filter": "crop"
+    }
+   },
+   "ms": 4,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 5,
+    "result": {
+     "content": [
+      {
+       "type": "text",
+       "text": "[{\"disabledReason\":\"no document open\",\"enabled\":false,\"id\":\"image.crop\",\"label\":\"Crop\",\"menu\":[\"Image\"],\"needsDocument\":true,\"params\":\"{\\\"x\\\":px,\\\"y\\\":px,\\\"width\\\":px,\\\"height\\\":px,\\\"angle\\\":-3600..3600=0,\\\"deleteCroppedPixels\\\":bool=true,\\\"contentAware\\\":bool=false,\\\"targetWidth\\\":px,\\\"targetHeight\\\":px,\\\"resolution\\\":ppi,\\\"resample\\\":\\\"bicubic|bilinear|nearest|lanczos|preserveDetails\\\"=\\\"bicubic\\\"} \u2192 {x,y,width,height,documentWidth,documentHeight,resolution} (targetWidth/targetHeight, both or neither: the cropped area is resampled to exactly that size, as Image Size, in the same undo step; resolution: the document's new ppi; contentAware: the Crop tool's Fill \u203a Content-Aware Fill, the area a rotated or extending crop uncovers filled from its surroundings on the Background, else the active pixel layer)\",\"shortcut\":null},{\"disabledReason\":\"no document open\",\"enabled\":false,\"id\":\"image.perspectiveCrop\",\"label\":\"Perspective Crop\",\"menu\":[],\"needsDocument\":true,\"params\":\"{\\\"corners\\\":[[x,y],[x,y],[x,y],[x,y]] (top-left, top-right, bottom-right, bottom-left; a convex quad, document px),\\\"width\\\":px,\\\"height\\\":px,\\\"resolution\\\":ppi,\\\"interpolation\\\":\\\"bicubic|bilinear|nearest\\\"=\\\"bicubic\\\"} \u2192 {width,height,resolution,corners} (the quad is mapped onto an upright width x height canvas, all layers, one undo step; no width/height: the quad's mean side lengths, one alone keeps its proportions; type, shape, fill and smart object layers are rasterized)\",\"shortcut\":null},{\"disabledReason\"...<1744 chars>"
+      }
+     ],
+     "isError": false
+    }
+   }
+  }
+ ]
+}

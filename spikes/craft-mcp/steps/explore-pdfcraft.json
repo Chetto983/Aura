@@ -1,0 +1,4 @@
+[{"method":"tools/call","params":{"name":"tool_search","arguments":{"query":"redact"}}},
+ {"method":"tools/call","params":{"name":"tool_search","arguments":{"query":"office"}}},
+ {"method":"tools/call","params":{"name":"tool_search","arguments":{"query":"ocr"}}},
+ {"method":"tools/call","params":{"name":"tool_search","arguments":{"query":"form fill"}}}]

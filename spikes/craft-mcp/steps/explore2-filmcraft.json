@@ -1,0 +1,2 @@
+[{"method":"tools/call","params":{"name":"command_list","arguments":{"filter":"exportMedia"}}},
+ {"method":"tools/call","params":{"name":"command_list","arguments":{"filter":"Sequence"}}}]

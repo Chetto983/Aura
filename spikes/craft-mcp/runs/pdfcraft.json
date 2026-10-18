@@ -1,0 +1,348 @@
+{
+ "files": [
+  "anac-nota-illustrativa.pdf",
+  "inventari-manoscritti-37.pdf"
+ ],
+ "extracted_chars": 171485,
+ "found": {
+  "complete": true,
+  "count": 10,
+  "matches": [
+   {
+    "page": 3,
+    "rects": [
+     [
+      362.5899963378906,
+      110.05998229980469,
+      397.57000732421875,
+      122.05998229980469
+     ]
+    ],
+    "text": "ANAC"
+   },
+   {
+    "page": 3,
+    "rects": [
+     [
+      154.33999633789062,
+      156.61997985839844,
+      189.3199920654297,
+      168.61997985839844
+     ]
+    ],
+    "text": "ANAC"
+   },
+   {
+    "page": 3,
+    "rects": [
+     [
+      505.5400085449219,
+      401.5699768066406,
+      538.5880126953125,
+      413.5699768066406
+     ]
+    ],
+    "text": "ANAC"
+   },
+   {
+    "page": 3,
+    "rects": [
+     [
+      172.33535766601562,
+      541.7019653320312,
+      192.40475463867188,
+      551.6619873046875
+     ]
+    ],
+    "text": "Anac"
+   },
+   {
+    "page": 3,
+    "rects": [
+     [
+      429.9607238769531,
+      728.9320068359375,
+      449.9205627441406,
+      738.8919677734375
+     ]
+    ],
+    "text": "Anac"
+   },
+   {
+    "page": 7,
+    "rects": [
+     [
+      232.85000610351562,
+      752.135986328125,
+      267.9620056152344,
+      764.135986328125
+     ]
+    ],
+    "text": "ANAC"
+   },
+   {
+    "page": 11,
+    "rects": [
+     [
+      404.7099914550781,
+      187.69998168945312,
+      437.85400390625,
+      199.69998168945312
+     ]
+    ],
+    "text": "ANAC"
+   },
+   {
+    "page": 22,
+    "rects": [
+     [
+      454.7799987792969,
+      88.57998657226562,
+      487.8280029296875,
+      100.57998657226562
+     ]
+    ],
+    "text": "ANAC"
+   },
+   {
+    "page": 23,
+    "rects": [
+     [
+      211.61000061035156,
+      587.8299560546875,
+      244.75399780273438,
+      599.8299560546875
+     ]
+    ],
+    "text": "ANAC"
+   },
+   {
+    "page": 33,
+    "rects": [
+     [
+      56.63999938964844,
+      603.4299926757812,
+      89.78399658203125,
+      615.4299926757812
+     ]
+    ],
+    "text": "ANAC"
+   }
+  ],
+  "query": "ANAC",
+  "warning_count": 0,
+  "warnings": [],
+  "warnings_truncated": false
+ },
+ "mark": {
+  "dirty": true,
+  "doc": 1,
+  "editable": true,
+  "encrypted": false,
+  "marked": 10,
+  "marks_pending": 10,
+  "name": "anac-nota-illustrativa.pdf",
+  "pages": 42,
+  "pages_marked": [
+   3,
+   7,
+   11,
+   22,
+   23,
+   33
+  ],
+  "path": "/workspace/craft-spike/real/anac-nota-illustrativa.pdf",
+  "read_only_reason": null,
+  "redo": null,
+  "undo": "Mark for redaction"
+ },
+ "apply": {
+  "applied": 10,
+  "dirty": true,
+  "doc": 1,
+  "editable": true,
+  "encrypted": false,
+  "marks_pending": 0,
+  "name": "anac-nota-illustrativa.pdf",
+  "pages": 42,
+  "path": "/workspace/craft-spike/real/anac-nota-illustrativa.pdf",
+  "read_only_reason": null,
+  "redo": null,
+  "undo": "Apply redactions"
+ },
+ "audit": {
+  "count": 0,
+  "findings": []
+ },
+ "export": {
+  "bytes": 88769,
+  "format": "docx",
+  "path": "/workspace/craft-spike/out/anac-nota.docx"
+ },
+ "redact_export_seconds": 0.5,
+ "ocr": null,
+ "ocr_seconds": 0.03,
+ "ocr_text_sample": "{\"pages\": [{\"page\": 10, \"text\": \"\"}, {\"page\": 11, \"text\": \"ALBANO SORBELLI\\nBIBLIOTECARIO DELL'ARCHIGINNASIO - BOLOGNA\\nINVENTARI\\nDEI\\nMANOSCRITTI\\nDELLE\\nBIBLIOTECHE D'ITALIA\\nOpera fondata dal Prof. GIUSEPPE MAZZATINTI\\nVOLUME XXXVII\\nPESARO\\nS\\nFIRENZE\\nLIBRERIA EDITRICE LEO S. OLSCHKI\\n1927\"}, {\"page\": 12, \"text\": \"PROPRIETÀ RISERVATA\\nDELLA CASA EDITRICE LEO S. OLSCHKI\\nCooperativa Tipografica Azzoguidi - Bologna - 1927\"}]}",
+ "peak_kb": 66848,
+ "calls": [
+  {
+   "tool": "doc_open",
+   "args": {
+    "path": "/workspace/craft-spike/real/anac-nota-illustrativa.pdf"
+   },
+   "ms": 9,
+   "error": false,
+   "text": "{\n  \"dirty\": false,\n  \"doc\": 1,\n  \"editable\": true,\n  \"encrypted\": false,\n  \"name\": \"anac-nota-illustrativa.pdf\",\n  \"pages\": 42,\n  \"path\": \"/workspace/craft-spike/real/anac-nota-illustrativa.pdf\",\n  \"read_only_reason\": null,\n  \"redo\": null,\n  \"undo\": null\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "text_extract",
+   "args": {
+    "doc": 1
+   },
+   "ms": 98,
+   "error": false,
+   "text": "{\n  \"pages\": [\n    {\n      \"page\": 1,\n      \"text\": \" \\nAutorità Nazionale Anticorruzione \\n \\n \\n \\nBando-tipo n. 1 \\nNota illustrativa \\n \\n \\nSchema di disciplinare di gara \\nProcedura aperta per l’affidamento di contratti pubblici di \\nservizi e forniture nei settori ordinari sopra soglia comunitaria \\ncon il criterio dell’offerta economicamente più vantaggiosa \\nsulla base del miglior rapporto qualità/prezzo \\n \\n \"\n    },\n    {\n      \"page\": 2,\n      \"text\": \" \\n \\nSommario \\nPremessa.........................................................................................................",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "text_find",
+   "args": {
+    "doc": 1,
+    "query": "ANAC",
+    "limit": 50
+   },
+   "ms": 6,
+   "error": false,
+   "text": "{\n  \"complete\": true,\n  \"count\": 10,\n  \"matches\": [\n    {\n      \"page\": 3,\n      \"rects\": [\n        [\n          362.5899963378906,\n          110.05998229980469,\n          397.57000732421875,\n          122.05998229980469\n        ]\n      ],\n      \"text\": \"ANAC\"\n    },\n    {\n      \"page\": 3,\n      \"rects\": [\n        [\n          154.33999633789062,\n          156.61997985839844,\n          189.3199920654297,\n          168.61997985839844\n        ]\n      ],\n      \"text\": \"ANAC\"\n    },\n    {\n      \"page\": 3,\n      \"rects\": [\n        [\n          505.5400085449219,\n          401.5699768066406,\n          ",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "tool_call",
+   "args": {
+    "name": "redact_mark",
+    "arguments": {
+     "doc": 1,
+     "find": "ANAC"
+    }
+   },
+   "ms": 7,
+   "error": false,
+   "text": "{\n  \"dirty\": true,\n  \"doc\": 1,\n  \"editable\": true,\n  \"encrypted\": false,\n  \"marked\": 10,\n  \"marks_pending\": 10,\n  \"name\": \"anac-nota-illustrativa.pdf\",\n  \"pages\": 42,\n  \"pages_marked\": [\n    3,\n    7,\n    11,\n    22,\n    23,\n    33\n  ],\n  \"path\": \"/workspace/craft-spike/real/anac-nota-illustrativa.pdf\",\n  \"read_only_reason\": null,\n  \"redo\": null,\n  \"undo\": \"Mark for redaction\"\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "tool_call",
+   "args": {
+    "name": "redact_apply",
+    "arguments": {
+     "doc": 1
+    }
+   },
+   "ms": 117,
+   "error": false,
+   "text": "{\n  \"applied\": 10,\n  \"dirty\": true,\n  \"doc\": 1,\n  \"editable\": true,\n  \"encrypted\": false,\n  \"marks_pending\": 0,\n  \"name\": \"anac-nota-illustrativa.pdf\",\n  \"pages\": 42,\n  \"path\": \"/workspace/craft-spike/real/anac-nota-illustrativa.pdf\",\n  \"read_only_reason\": null,\n  \"redo\": null,\n  \"undo\": \"Apply redactions\"\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "tool_call",
+   "args": {
+    "name": "doc_audit_redactions",
+    "arguments": {
+     "doc": 1
+    }
+   },
+   "ms": 108,
+   "error": false,
+   "text": "{\n  \"count\": 0,\n  \"findings\": []\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "doc_save",
+   "args": {
+    "doc": 1,
+    "path": "/workspace/craft-spike/out/anac-redatto.pdf"
+   },
+   "ms": 23,
+   "error": false,
+   "text": "{\n  \"bytes\": 479443,\n  \"document\": {\n    \"dirty\": false,\n    \"doc\": 1,\n    \"editable\": true,\n    \"encrypted\": false,\n    \"name\": \"anac-redatto.pdf\",\n    \"pages\": 42,\n    \"path\": \"/workspace/craft-spike/out/anac-redatto.pdf\",\n    \"read_only_reason\": null,\n    \"redo\": null,\n    \"undo\": \"Apply redactions\"\n  },\n  \"incremental\": false,\n  \"path\": \"/workspace/craft-spike/out/anac-redatto.pdf\"\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "tool_call",
+   "args": {
+    "name": "doc_export_office",
+    "arguments": {
+     "doc": 1,
+     "path": "/workspace/craft-spike/out/anac-nota.docx"
+    }
+   },
+   "ms": 130,
+   "error": false,
+   "text": "{\n  \"bytes\": 88769,\n  \"format\": \"docx\",\n  \"path\": \"/workspace/craft-spike/out/anac-nota.docx\"\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "doc_open",
+   "args": {
+    "path": "/workspace/craft-spike/real/inventari-manoscritti-37.pdf"
+   },
+   "ms": 24,
+   "error": false,
+   "text": "{\n  \"dirty\": false,\n  \"doc\": 2,\n  \"editable\": true,\n  \"encrypted\": false,\n  \"name\": \"inventari-manoscritti-37.pdf\",\n  \"pages\": 352,\n  \"path\": \"/workspace/craft-spike/real/inventari-manoscritti-37.pdf\",\n  \"read_only_reason\": null,\n  \"redo\": null,\n  \"undo\": null\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "tool_call",
+   "args": {
+    "name": "ocr_recognize",
+    "arguments": {
+     "doc": 2,
+     "pages": [
+      10,
+      11,
+      12
+     ]
+    }
+   },
+   "ms": 3,
+   "error": true,
+   "text": "the text recognition models are not installed (reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them)",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "text_extract",
+   "args": {
+    "doc": 2,
+    "pages": [
+     10,
+     11,
+     12
+    ]
+   },
+   "ms": 11,
+   "error": false,
+   "text": "{\n  \"pages\": [\n    {\n      \"page\": 10,\n      \"text\": \"\"\n    },\n    {\n      \"page\": 11,\n      \"text\": \"ALBANO SORBELLI\\nBIBLIOTECARIO DELL'ARCHIGINNASIO - BOLOGNA\\nINVENTARI\\nDEI\\nMANOSCRITTI\\nDELLE\\nBIBLIOTECHE D'ITALIA\\nOpera fondata dal Prof. GIUSEPPE MAZZATINTI\\nVOLUME XXXVII\\nPESARO\\nS\\nFIRENZE\\nLIBRERIA EDITRICE LEO S. OLSCHKI\\n1927\"\n    },\n    {\n      \"page\": 12,\n      \"text\": \"PROPRIETÀ RISERVATA\\nDELLA CASA EDITRICE LEO S. OLSCHKI\\nCooperativa Tipografica Azzoguidi - Bologna - 1927\"\n    }\n  ]\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "doc_save",
+   "args": {
+    "doc": 2,
+    "path": "/workspace/craft-spike/out/inventari-ocr.pdf"
+   },
+   "ms": 71,
+   "error": false,
+   "text": "{\n  \"bytes\": 9781604,\n  \"document\": {\n    \"dirty\": false,\n    \"doc\": 2,\n    \"editable\": true,\n    \"encrypted\": false,\n    \"name\": \"inventari-ocr.pdf\",\n    \"pages\": 352,\n    \"path\": \"/workspace/craft-spike/out/inventari-ocr.pdf\",\n    \"read_only_reason\": null,\n    \"redo\": null,\n    \"undo\": null\n  },\n  \"incremental\": false,\n  \"path\": \"/workspace/craft-spike/out/inventari-ocr.pdf\"\n}",
+   "image_b64_chars": []
+  }
+ ],
+ "check": [
+  0.64,
+  "ANAC in the original: 8, in the redacted: 0\npages Pages:           42\nwords in the original 22189, in the redacted 22190\nexport docx: paragraphs 1451 tables 120 words 16320 has Sommario False\nsearchable text on scan pages 10-12 after OCR: 44 words"
+ ],
+ "baseline": [
+  11.91,
+  "tesseract eng, 3 pages at 300 dpi: 3005 ms, 46 words\nsample: Digitized by Google ALBANO SORBELLI  BIBLIOTECARIO DELL’ARCHIGINNASIO - BOLOGNA  INVENTARI  MANOSCRITTI  DELLE  BIBLIOTECHE D'ITALIA  Opera fondata dal Prof. GIUSEPPE. MAZZATINTI  VOLUME XXXVII  FIRENZE LiBRERIA EDITRICE LEO S. OLSCHKI 1927 PROPRIETA RISERVATA DELLA CASA EDITRICE LEO S. OLSCHKI  Cc ive Ti fica Azzoguidi - Bologna - 1927  \nLibreOffice pdf->docx: 8558 ms\nLO docx: paragraphs 1 tables 0 words 0\ntrue redaction tool in the box: none (pypdf, qpdf and pdftk draw or remove nothing under a mark)"
+ ]
+}

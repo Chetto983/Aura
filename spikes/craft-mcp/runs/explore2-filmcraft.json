@@ -1,0 +1,90 @@
+{
+ "argv": [
+  "docker",
+  "exec",
+  "-i",
+  "-w",
+  "/workspace",
+  "aura-box-15d43203-e273-4366-a5af-897083676ced",
+  "filmcraft-cli",
+  "mcp"
+ ],
+ "exit": 0,
+ "stderr": "",
+ "transcript": [
+  {
+   "method": "initialize",
+   "params": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {},
+    "clientInfo": {
+     "name": "aura-survey",
+     "version": "0"
+    }
+   },
+   "ms": 81,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+     "protocolVersion": "2025-06-18",
+     "capabilities": {
+      "resources": {},
+      "tools": {}
+     },
+     "serverInfo": {
+      "name": "filmcraft",
+      "version": "0.9.0"
+     },
+     "instructions": "FilmCraft video editor (Premiere Pro-class). Every edit is an engine command: `command_list` to discover ids/params, `command_run` to execute (undoable; `command_batch` runs several). `doc_inspect` (or `project_inspect`/`sequence_inspect`) returns ids you can pass to commands; `render_preview` shows the result. In bridge mode the `ui_*` tools drive the live app: `ui_elements` lists clickable ids, `ui_click`/`ui_drag`/`ui_key` operate it, `ui_screenshot` shows it. Time is in ticks: 254016000000 per second (commands also accept `seconds`, `frame` or `timecode`)."
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "command_list",
+    "arguments": {
+     "filter": "exportMedia"
+    }
+   },
+   "ms": 4,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "result": {
+     "content": [
+      {
+       "type": "text",
+       "text": "[\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"file.exportMedia\",\n    \"label\": \"Media\u2026\",\n    \"menu\": [\n      \"File\",\n      \"Export\"\n    ],\n    \"params\": \"{\\\"path\\\":str,\\\"preset\\\":str?,\\\"settings\\\":ExportSettings?,\\\"format\\\":\\\"h264|hevc|prores|dnxhr|apv|mjpeg|mxf-op1a|mxf-opatom|png|tiff|bmp|jpg|tga|dpx|exr|gif|wav|aiff|aac|flac\\\"?,\\\"audioCodec\\\":\\\"auto|aac|pcm|flac\\\"?,\\\"flacLevel\\\":0..8=5,\\\"width\\\":u32?,\\\"height\\\":u32?,\\\"fps\\\":f64?,\\\"bitrateKbps\\\":u32?,\\\"bitrateMode\\\":\\\"cbr|vbr1Pass|vbr2Pass|crf\\\"?,\\\"crf\\\":0..51=23,\\\"hardwareEncoding\\\":\\\"off|auto\\\"?,\\\"scale\\\":f32=1,\\\"audio\\\":bool=true,\\\"quality\\\":0..100,\\\"burnCaptions\\\":bool=false,\\\"alpha\\\":bool=false,\\\"exrCompression\\\":\\\"none|rle|zips|zip\\\"?,\\\"captionSidecar\\\":\\\"srt|vtt\\\"?,\\\"loudnessLufs\\\":f64?,\\\"proresProfile\\\":\\\"proxy|lt|standard|hq|4444|4444xq\\\"?,\\\"dnxProfile\\\":\\\"lb|sq|hq|hqx\\\"?,\\\"apvProfile\\\":\\\"422-10|422-12|444-10|444-12\\\"?,\\\"mxfVideoCodec\\\":\\\"dnxhr|proRes|h264\\\"?,\\\"sequence\\\":id?,\\\"range\\\":\\\"entire|inOut|workArea|custom\\\"?,\\\"startSeconds\\\":f64?,\\\"endSeconds\\\":f64?,\\\"wait\\\":bool=false}\",\n    \"shortcut\": null,\n    \"shortcuts\": []\n  }\n]"
+      }
+     ],
+     "isError": false
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "command_list",
+    "arguments": {
+     "filter": "Sequence"
+    }
+   },
+   "ms": 5,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "result": {
+     "content": [
+      {
+       "type": "text",
+       "text": "[\n  {\n    \"defaultShortcut\": \"Cmd+N\",\n    \"enabled\": true,\n    \"id\": \"file.newSequence\",\n    \"label\": \"Sequence\u2026\",\n    \"menu\": [\n      \"File\",\n      \"New\"\n    ],\n    \"params\": \"{\\\"name\\\":str,\\\"width\\\":u32=1920,\\\"height\\\":u32=1080,\\\"fps\\\":f64=23.976,\\\"sampleRate\\\":u32=48000,\\\"video\\\":n=3,\\\"audio\\\":n=3,\\\"mix\\\":\\\"Stereo|Mono|5.1|Adaptive\\\"?,\\\"trackType\\\":\\\"Standard|Mono|5.1|Adaptive\\\"?,\\\"fromItem\\\":itemId?,\\\"fromItems\\\":[itemId]?}\",\n    \"shortcut\": \"Cmd+N\",\n    \"shortcuts\": [\n      \"Cmd+N\"\n    ]\n  },\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"file.newSequenceFromClip\",\n    \"label\": \"Sequence From Clip\",\n    \"menu\": [\n      \"File\",\n      \"New\"\n    ],\n    \"params\": \"{\\\"items\\\":[id]?}\",\n    \"shortcut\": null,\n    \"shortcuts\": []\n  },\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"sequence.revealInProject\",\n    \"label\": \"Reveal Sequence in Project\",\n    \"menu\": [],\n    \"params\": \"{\\\"item\\\":id?}\",\n    \"shortcut\": null,\n    \"shortcuts\": []\n  },\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": true,\n    \"id\": \"sequence.open\",\n    \"label\": \"Open in Timeline\",\n    \"menu\": [],\n    \"params\": \"{\\\"item\\\":id}\",\n    \"shortcut\": null,\n    \"shortcuts\": []\n  },\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"sequence.close\",\n    \"label\": \"Close Sequence\",\n    \"menu\": [],\n    \"params\": \"{\\\"item\\\":id?}\",\n    \"shortcut\": \"Cmd+W\",\n    \"shortcuts\": [\n      \"Cmd+W\",\n      \"Cmd+W\"\n    ]\n  },\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n...<15569 chars>"
+      }
+     ],
+     "isError": false
+    }
+   }
+  }
+ ]
+}

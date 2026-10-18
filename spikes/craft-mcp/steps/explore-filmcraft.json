@@ -1,0 +1,4 @@
+[{"method":"tools/call","params":{"name":"command_list","arguments":{"filter":"export"}}},
+ {"method":"tools/call","params":{"name":"command_list","arguments":{"filter":"sequence.new"}}},
+ {"method":"tools/call","params":{"name":"command_list","arguments":{"filter":"timeline.place"}}},
+ {"method":"tools/call","params":{"name":"command_list","arguments":{"filter":"append"}}}]

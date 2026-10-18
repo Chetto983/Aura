@@ -1,0 +1,126 @@
+{
+ "file": "sintel-trailer-1080p.mp4",
+ "import": {
+  "errors": [],
+  "items": [
+   1
+  ]
+ },
+ "project": {
+  "activeSequence": null,
+  "dirty": true,
+  "name": "Untitled",
+  "path": null,
+  "revision": 2,
+  "root": {
+   "children": [
+    {
+     "duration": 13261921344000,
+     "item": 1,
+     "label": "Iris",
+     "name": "sintel-trailer-1080p.mp4",
+     "type": "Movie"
+    }
+   ],
+   "id": 0,
+   "name": "Untitled"
+  },
+  "sourceItem": null
+ },
+ "item": 1,
+ "sequence": {
+  "sequence": 8
+ },
+ "frame_png_b64": [
+  495708
+ ],
+ "export": {
+  "job": 1,
+  "offlineMedia": [],
+  "path": "/workspace/craft-spike/out/sintel-720.mp4",
+  "result": {
+   "bytes": 97156702,
+   "frames": 1253,
+   "path": "/workspace/craft-spike/out/sintel-720.mp4",
+   "render_fps": 12.834338948650396,
+   "seconds": 97.628713486
+  }
+ },
+ "export_seconds": 97.69,
+ "craft_seconds": 98.99,
+ "peak_kb": null,
+ "calls": [
+  {
+   "tool": "media_import",
+   "args": {
+    "paths": [
+     "/workspace/craft-spike/real/sintel-trailer-1080p.mp4"
+    ]
+   },
+   "ms": 3,
+   "error": false,
+   "text": "{\n  \"errors\": [],\n  \"items\": [\n    1\n  ]\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "project_inspect",
+   "args": {},
+   "ms": 1,
+   "error": false,
+   "text": "{\n  \"activeSequence\": null,\n  \"dirty\": true,\n  \"name\": \"Untitled\",\n  \"path\": null,\n  \"revision\": 2,\n  \"root\": {\n    \"children\": [\n      {\n        \"duration\": 13261921344000,\n        \"item\": 1,\n        \"label\": \"Iris\",\n        \"name\": \"sintel-trailer-1080p.mp4\",\n        \"type\": \"Movie\"\n      }\n    ],\n    \"id\": 0,\n    \"name\": \"Untitled\"\n  },\n  \"sourceItem\": null\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "command_run",
+   "args": {
+    "id": "file.newSequence",
+    "params": {
+     "name": "Trailer",
+     "fromItem": 1
+    }
+   },
+   "ms": 1,
+   "error": false,
+   "text": "{\n  \"sequence\": 8\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "render_frame",
+   "args": {
+    "seconds": 20,
+    "max_side": 640
+   },
+   "ms": 1292,
+   "error": false,
+   "text": "rendered frame",
+   "image_b64_chars": [
+    495708
+   ]
+  },
+  {
+   "tool": "command_run",
+   "args": {
+    "id": "file.exportMedia",
+    "params": {
+     "path": "/workspace/craft-spike/out/sintel-720.mp4",
+     "format": "h264",
+     "width": 1280,
+     "height": 544,
+     "wait": true
+    }
+   },
+   "ms": 97687,
+   "error": false,
+   "text": "{\n  \"job\": 1,\n  \"offlineMedia\": [],\n  \"path\": \"/workspace/craft-spike/out/sintel-720.mp4\",\n  \"result\": {\n    \"bytes\": 97156702,\n    \"frames\": 1253,\n    \"path\": \"/workspace/craft-spike/out/sintel-720.mp4\",\n    \"render_fps\": 12.834338948650396,\n    \"seconds\": 97.628713486\n  }\n}",
+   "image_b64_chars": []
+  }
+ ],
+ "check": [
+  0.17,
+  "-rw-r--r-- 1 root root 97156702 Oct 18 21:27 /workspace/craft-spike/out/sintel-720.mp4\nmp4 duration seconds 52.22 - avc1 track: True"
+ ],
+ "baseline": [
+  0.09,
+  "no ffmpeg or ffprobe in the box: no server-side video path today"
+ ]
+}

@@ -1,0 +1,622 @@
+[
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Open a PDF"
+  },
+  "description": "Open a PDF file and return its document id, page count and whether it can be edited.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "password": {
+     "description": "User or owner password for encrypted files.",
+     "type": "string"
+    },
+    "path": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "path"
+   ],
+   "type": "object"
+  },
+  "name": "doc_open",
+  "title": "Open a PDF"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Inspect a document"
+  },
+  "description": "Metadata, page sizes and labels, bookmarks, annotations, form fields, links, layers, page transitions and display times, attachments, fonts, security and repair notes.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "doc"
+   ],
+   "type": "object"
+  },
+  "name": "doc_info",
+  "title": "Inspect a document"
+ },
+ {
+  "annotations": {
+   "destructiveHint": true,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Save a document"
+  },
+  "description": "Save to its own file (an incremental update, which keeps signatures valid) or to a new path (a full rewrite). The write is atomic. flatten_fill_sign bakes Fill & Sign text, marks and signatures into the page first and removes those annotations; other comments and form fields stay. Omit it, or pass false, to leave them editable.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "flatten_fill_sign": {
+     "description": "Bake Fill & Sign marks into the page before writing. Default false.",
+     "type": "boolean"
+    },
+    "full": {
+     "description": "Force a full rewrite (or, with false, an incremental update).",
+     "type": "boolean"
+    },
+    "path": {
+     "description": "Save as this file. Omit to save in place.",
+     "type": "string"
+    }
+   },
+   "required": [
+    "doc"
+   ],
+   "type": "object"
+  },
+  "name": "doc_save",
+  "title": "Save a document"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Close a document"
+  },
+  "description": "Close a document. Fails if it has unsaved changes unless discard_changes is true.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "discard_changes": {
+     "type": "boolean"
+    },
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "doc"
+   ],
+   "type": "object"
+  },
+  "name": "doc_close",
+  "title": "Close a document"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Render a page"
+  },
+  "description": "Render one page to a PNG image (default 96 dpi, at most 600).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "dpi": {
+     "maximum": 600,
+     "minimum": 1,
+     "type": "number"
+    },
+    "hide_added_text": {
+     "description": "Render a retyping background without this added text item (added index from object_list). Mutually exclusive with hide_text_block. Does not modify the document.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "hide_text_block": {
+     "description": "Render an inline editor background without this paragraph (index from text_paragraphs). Does not modify the document.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "page": {
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "doc",
+    "page"
+   ],
+   "type": "object"
+  },
+  "name": "page_render",
+  "title": "Render a page"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Extract text"
+  },
+  "description": "Extract the text of some or all pages, in reading order. With rect, only the text inside that rectangle on each page, as Column select takes it: one row per visual line, side-by-side pieces (table cells) separated by a tab.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "pages": {
+     "description": "1-based page numbers to extract (default: all).",
+     "items": {
+      "minimum": 1,
+      "type": "integer"
+     },
+     "minItems": 1,
+     "type": "array"
+    },
+    "rect": {
+     "description": "Column select: [x0, y0, x1, y1] in points from the top-left of the displayed page; a glyph counts when its centre is inside.",
+     "items": {
+      "type": "number"
+     },
+     "maxItems": 4,
+     "minItems": 4,
+     "type": "array"
+    }
+   },
+   "required": [
+    "doc"
+   ],
+   "type": "object"
+  },
+  "name": "text_extract",
+  "title": "Extract text"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Find text"
+  },
+  "description": "Find a phrase (case-insensitive, whitespace-normalised) and return matches in page order with page and line rectangles in points (origin top-left). Reads growing batches, looking one match past the limit for a continuation. Failed pages do not discard readable matches: warnings contains up to 100 {page, error, error_truncated} entries (errors capped at 1024 UTF-8 bytes), warning_count counts failed pages, and warnings_truncated reports a capped list. complete is false after a page failure or when more matches exist; next is present only for a match-limit continuation.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "limit": {
+     "description": "Maximum matches (default 500). When another match exists, next holds start_page and skip to continue. complete is false for either additional matches or failed pages; an exhausted search with warnings has no next.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "query": {
+     "minLength": 1,
+     "type": "string"
+    },
+    "skip": {
+     "description": "Matches to pass over on start_page before returning any (default 0).",
+     "minimum": 0,
+     "type": "integer"
+    },
+    "start_page": {
+     "description": "Page to start searching from (default 1).",
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "doc",
+    "query"
+   ],
+   "type": "object"
+  },
+  "name": "text_find",
+  "title": "Find text"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Combine files"
+  },
+  "description": "Combine files, in order, into one PDF (bookmarks are kept under one entry per file). Images (PNG, JPEG, TIFF, GIF, BMP, JPEG 2000) and .txt files are made into PDFs first. pages optionally chooses each file's pages, in step with paths: a range such as \"1-3, 6\" or null for all pages. passwords, also in step with paths, opens encrypted files (the open password, or the permissions password where a file's security doesn't allow copying pages; null for none). The result is not encrypted. Passwords are never echoed back. groups, also in step with paths, splits a file around others: entries with the same number (they must name the same path) are one file, copied once, so it keeps one bookmark at its first page, its links and its form fields; null for a file of its own. A group uses its first entry's password. When two files' forms name the same field, field_conflicts says what happens: \"rename\" (the default) keeps the fields separate by renaming the later one (Text1 becomes Text1-1) and the result lists renamed_fields as [[old, new], \u2026] \u2014 scripts that refer to the old name are not rewritten; \"merge\" makes them one field, as before.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "field_conflicts": {
+     "enum": [
+      "rename",
+      "merge"
+     ],
+     "type": "string"
+    },
+    "groups": {
+     "items": {
+      "minimum": 0,
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "type": "array"
+    },
+    "open": {
+     "description": "Also open the result as a new document (default: only when out is omitted).",
+     "type": "boolean"
+    },
+    "out": {
+     "description": "File to write. Omit to open the result as a new unsaved document instead.",
+     "type": "string"
+    },
+    "pages": {
+     "items": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "type": "array"
+    },
+    "passwords": {
+     "items": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "type": "array"
+    },
+    "paths": {
+     "items": {
+      "type": "string"
+     },
+     "minItems": 2,
+     "type": "array"
+    }
+   },
+   "required": [
+    "paths"
+   ],
+   "type": "object"
+  },
+  "name": "doc_combine",
+  "title": "Combine files"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Split a document"
+  },
+  "description": "Split into several files written to out_dir: every N pages, before given pages, at top-level bookmarks (bookmarks: true; files named after them, repeated titles get -2, -3), or by file size (max_mb). Files are <name>-partK.pdf.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "before": {
+     "description": "1-based page numbers that start a new part.",
+     "items": {
+      "minimum": 1,
+      "type": "integer"
+     },
+     "minItems": 1,
+     "type": "array"
+    },
+    "bookmarks": {
+     "type": "boolean"
+    },
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "every": {
+     "minimum": 1,
+     "type": "integer"
+    },
+    "max_mb": {
+     "exclusiveMinimum": 0,
+     "type": "number"
+    },
+    "out_dir": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "doc",
+    "out_dir"
+   ],
+   "type": "object"
+  },
+  "name": "doc_split",
+  "title": "Split a document"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Undo"
+  },
+  "description": "Undo the last edit of a document.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [
+    "doc"
+   ],
+   "type": "object"
+  },
+  "name": "edit_undo",
+  "title": "Undo"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "List commands"
+  },
+  "description": "Every registered PdfCraft command with its menu, shortcut, whether it is enabled now, and the tool that automates it.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "enabled_only": {
+     "type": "boolean"
+    },
+    "filter": {
+     "type": "string"
+    }
+   },
+   "required": [],
+   "type": "object"
+  },
+  "name": "command_list",
+  "title": "List commands"
+ },
+ {
+  "annotations": {
+   "destructiveHint": true,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Run a command"
+  },
+  "description": "Run a registry command through its headless tool. Pass that tool's arguments in params (see command_list). Unknown params are ignored with warnings; path confinement still applies.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "id": {
+     "type": "string"
+    },
+    "params": {
+     "type": "object"
+    }
+   },
+   "required": [
+    "id"
+   ],
+   "type": "object"
+  },
+  "name": "command_run",
+  "title": "Run a command"
+ },
+ {
+  "annotations": {
+   "destructiveHint": true,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Run several commands"
+  },
+  "description": "Run steps in order (at most 1000). Returns completed/failed counts and per-step ok/result/error; stop_on_error defaults to true.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "steps": {
+     "items": {
+      "additionalProperties": false,
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "params": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "type": "object"
+     },
+     "type": "array"
+    },
+    "stop_on_error": {
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "steps"
+   ],
+   "type": "object"
+  },
+  "name": "command_batch",
+  "title": "Run several commands"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Inspect open documents"
+  },
+  "description": "With doc, return doc_info; otherwise return information for every open document (empty documents array when none are open).",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [],
+   "type": "object"
+  },
+  "name": "doc_inspect",
+  "title": "Inspect open documents"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Render a preview"
+  },
+  "description": "Render a PNG bounded by max_side (default 1024), without changing or saving the document. Page defaults to 1; doc may be omitted when exactly one document is open.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "doc": {
+     "description": "Document id from doc_open or doc_list.",
+     "minimum": 1,
+     "type": "integer"
+    },
+    "max_side": {
+     "maximum": 4096,
+     "minimum": 1,
+     "type": "integer"
+    },
+    "page": {
+     "minimum": 1,
+     "type": "integer"
+    }
+   },
+   "required": [],
+   "type": "object"
+  },
+  "name": "render_preview",
+  "title": "Render a preview"
+ },
+ {
+  "annotations": {
+   "destructiveHint": false,
+   "idempotentHint": true,
+   "openWorldHint": false,
+   "readOnlyHint": true,
+   "title": "Find PdfCraft tools"
+  },
+  "description": "Search and list all PdfCraft automation tools, including the core tools, with a one-sentence description each. Filter by query (words matched against name, title and description) and/or category (the name prefix: doc, page, text, form, \u2026). With name, return that one tool in full, including its input_schema. Run a tool with tool_call.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "category": {
+     "description": "Tool name prefix, e.g. page, text, form, redact.",
+     "type": "string"
+    },
+    "name": {
+     "description": "Exact tool name: return its description and input_schema.",
+     "type": "string"
+    },
+    "query": {
+     "description": "Words to look for, all of which must match (case-insensitive).",
+     "type": "string"
+    }
+   },
+   "required": [],
+   "type": "object"
+  },
+  "name": "tool_search",
+  "title": "Find PdfCraft tools"
+ },
+ {
+  "annotations": {
+   "destructiveHint": true,
+   "idempotentHint": false,
+   "openWorldHint": false,
+   "readOnlyHint": false,
+   "title": "Run any PdfCraft tool"
+  },
+  "description": "Run any PdfCraft tool by name with its arguments, exactly as if it were called directly. Find names and argument schemas with tool_search. The result is the tool's own result.",
+  "inputSchema": {
+   "additionalProperties": false,
+   "properties": {
+    "arguments": {
+     "description": "The tool's arguments (see its input_schema from tool_search).",
+     "type": "object"
+    },
+    "name": {
+     "description": "The tool to run, e.g. page_rotate.",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "type": "object"
+  },
+  "name": "tool_call",
+  "title": "Run any PdfCraft tool"
+ }
+]

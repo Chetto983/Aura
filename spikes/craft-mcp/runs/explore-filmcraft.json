@@ -1,0 +1,136 @@
+{
+ "argv": [
+  "docker",
+  "exec",
+  "-i",
+  "-w",
+  "/workspace",
+  "aura-box-15d43203-e273-4366-a5af-897083676ced",
+  "filmcraft-cli",
+  "mcp"
+ ],
+ "exit": 0,
+ "stderr": "",
+ "transcript": [
+  {
+   "method": "initialize",
+   "params": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {},
+    "clientInfo": {
+     "name": "aura-survey",
+     "version": "0"
+    }
+   },
+   "ms": 73,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+     "protocolVersion": "2025-06-18",
+     "capabilities": {
+      "resources": {},
+      "tools": {}
+     },
+     "serverInfo": {
+      "name": "filmcraft",
+      "version": "0.9.0"
+     },
+     "instructions": "FilmCraft video editor (Premiere Pro-class). Every edit is an engine command: `command_list` to discover ids/params, `command_run` to execute (undoable; `command_batch` runs several). `doc_inspect` (or `project_inspect`/`sequence_inspect`) returns ids you can pass to commands; `render_preview` shows the result. In bridge mode the `ui_*` tools drive the live app: `ui_elements` lists clickable ids, `ui_click`/`ui_drag`/`ui_key` operate it, `ui_screenshot` shows it. Time is in ticks: 254016000000 per second (commands also accept `seconds`, `frame` or `timecode`)."
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "command_list",
+    "arguments": {
+     "filter": "export"
+    }
+   },
+   "ms": 5,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "result": {
+     "content": [
+      {
+       "type": "text",
+       "text": "[\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"file.exportInterchange\",\n    \"label\": \"Export Interchange\",\n    \"menu\": [],\n    \"params\": \"{\\\"format\\\":\\\"edl|xml|fcpxml|otio|aaf|omf\\\"=xml,\\\"path\\\":str,\\\"sequence\\\":id?}\",\n    \"shortcut\": null,\n    \"shortcuts\": []\n  },\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"file.exportEdl\",\n    \"label\": \"EDL\u2026\",\n    \"menu\": [\n      \"File\",\n      \"Export\"\n    ],\n    \"params\": \"{\\\"path\\\":str}\",\n    \"shortcut\": null,\n    \"shortcuts\": []\n  },\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"file.exportSelectionProject\",\n    \"label\": \"Selection as FilmCraft Project\u2026\",\n    \"menu\": [\n      \"File\",\n      \"Export\"\n    ],\n    \"params\": \"{\\\"path\\\":str,\\\"items\\\":[id]?}\",\n    \"shortcut\": null,\n    \"shortcuts\": []\n  },\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"file.exportAle\",\n    \"label\": \"Avid Log Exchange\u2026\",\n    \"menu\": [\n      \"File\",\n      \"Export\"\n    ],\n    \"params\": \"{\\\"path\\\":str,\\\"items\\\":[id]?}\",\n    \"shortcut\": null,\n    \"shortcuts\": []\n  },\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"file.exportOtio\",\n    \"label\": \"OpenTimelineIO\u2026\",\n    \"menu\": [\n      \"File\",\n      \"Export\"\n    ],\n    \"params\": \"{\\\"path\\\":str}\",\n    \"shortcut\": null,\n    \"shortcuts\": []\n  },\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"file.exportFcp7Xml\",\n    \"label\": \"Final Cut Pro XML\u2026\",\n    \"menu\": [\n      \"File\",\n      \"Export\"\n    ],\n    \"params...<11399 chars>"
+      }
+     ],
+     "isError": false
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "command_list",
+    "arguments": {
+     "filter": "sequence.new"
+    }
+   },
+   "ms": 5,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "result": {
+     "content": [
+      {
+       "type": "text",
+       "text": "[]"
+      }
+     ],
+     "isError": false
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "command_list",
+    "arguments": {
+     "filter": "timeline.place"
+    }
+   },
+   "ms": 5,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "result": {
+     "content": [
+      {
+       "type": "text",
+       "text": "[\n  {\n    \"defaultShortcut\": null,\n    \"enabled\": false,\n    \"id\": \"timeline.place\",\n    \"label\": \"Place Clip\",\n    \"menu\": [],\n    \"params\": \"{\\\"item\\\":id|\\\"items\\\":[id] (back to back, one undo step),\\\"track\\\":\\\"V1\\\"|id|\\\"A1\\\" (sound only)|\\\"new\\\" (a video track after the last)?,\\\"audioTrack\\\":\\\"A1\\\"|id|\\\"new\\\"?,\\\"time\\\":ticks|\\\"frame\\\":i64|\\\"seconds\\\":f64,\\\"insert\\\":bool,\\\"sourceIn\\\":ticks?,\\\"duration\\\":ticks?,\\\"video\\\":bool=true,\\\"audio\\\":bool=true}\",\n    \"shortcut\": null,\n    \"shortcuts\": []\n  }\n]"
+      }
+     ],
+     "isError": false
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "command_list",
+    "arguments": {
+     "filter": "append"
+    }
+   },
+   "ms": 5,
+   "reply": {
+    "jsonrpc": "2.0",
+    "id": 5,
+    "result": {
+     "content": [
+      {
+       "type": "text",
+       "text": "[]"
+      }
+     ],
+     "isError": false
+    }
+   }
+  }
+ ]
+}

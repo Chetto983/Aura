@@ -1,0 +1,89 @@
+{
+ "file": "bando-tipo-anac-2.docx",
+ "target": "a contrarre n. ...................... del ………….……",
+ "render_page_png_b64": [
+  120500
+ ],
+ "craft_seconds": 0.41,
+ "peak_kb": 63996,
+ "calls": [
+  {
+   "tool": "open_document",
+   "args": {
+    "path": "/workspace/craft-spike/real/bando-tipo-anac-2.docx"
+   },
+   "ms": 104,
+   "error": false,
+   "text": "{\n  \"encrypted\": false,\n  \"paragraphs\": 1042,\n  \"path\": \"/workspace/craft-spike/real/bando-tipo-anac-2.docx\",\n  \"words\": 21340\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "get_text",
+   "args": {},
+   "ms": 6,
+   "error": false,
+   "text": "{\n  \"text\": \"\\nAutorità Nazionale Anticorruzione\\n\\n\\n\\nBando-tipo n. 2\\n\\n\\nSchema di disciplinare di gara \\nProcedura aperta per l’affidamento di contratti pubblici di servizi di pulizia di importo pari o superiore alla soglia comunitaria con il criterio dell’offerta economicamente più vantaggiosa sulla base del miglior rapporto qualità/prezzo\\n\\n\\nApprovato dal Consiglio dell’Autorità con deliberazione n. 2 del 10 gennaio 2018\\n\\f\\nAMBITO DI APPLICAZIONE E ISTRUZIONI PER LA COMPILAZIONE\\t3\\nDISCIPLINARE DI GARA\\t6\\n1.\\tPREMESSE\\t6\\n2.\\tDOCUMENTAZIONE DI GARA, CHIARIMENTI E COMUNICAZIONI.\\t6",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "select_text",
+   "args": {
+    "text": "a contrarre n. ...................... del ………….……"
+   },
+   "ms": 3,
+   "error": false,
+   "text": "{\n  \"anchor\": {\n    \"off\": 22,\n    \"path\": [\n      110\n    ],\n    \"story\": \"body\"\n  },\n  \"focus\": {\n    \"off\": 83,\n    \"path\": [\n      110\n    ],\n    \"story\": \"body\"\n  }\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "type_text",
+   "args": {
+    "text": "a contrarre n. 125/2026 del 12 ottobre 2026"
+   },
+   "ms": 2,
+   "error": false,
+   "text": "{\n  \"anchor\": {\n    \"off\": 65,\n    \"path\": [\n      110\n    ],\n    \"story\": \"body\"\n  },\n  \"focus\": {\n    \"off\": 65,\n    \"path\": [\n      110\n    ],\n    \"story\": \"body\"\n  }\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "/workspace/craft-spike/out/bando-compilato.docx"
+   },
+   "ms": 36,
+   "error": false,
+   "text": "{\n  \"encrypted\": false,\n  \"path\": \"/workspace/craft-spike/out/bando-compilato.docx\",\n  \"saved\": true\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "/workspace/craft-spike/out/bando-compilato.pdf"
+   },
+   "ms": 163,
+   "error": false,
+   "text": "{\n  \"encrypted\": false,\n  \"path\": \"/workspace/craft-spike/out/bando-compilato.pdf\",\n  \"saved\": true\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "render_page",
+   "args": {
+    "page": 1
+   },
+   "ms": 96,
+   "error": false,
+   "text": "{\"height\":842,\"pages\":51,\"width\":596}",
+   "image_b64_chars": [
+    120500
+   ]
+  }
+ ],
+ "check": [
+  0.61,
+  "bando-tipo-anac-2.docx paragraphs 821 tables 12 filled False bold runs 1042\nbando-compilato.docx paragraphs 821 tables 12 filled True bold runs 579\ncraft pdf: Pages:           51, filled in its text: 1\nSyntax Error: Suspects object is wrong type (boolean)"
+ ],
+ "baseline": [
+  2.39,
+  "fill-in inside one run: False - runs: 19\nrun styles before [(False, False, False), (False, True, False)] - after a paragraph-level replace every word takes the first run style\npython-docx + LibreOffice: 2289 ms, Pages:           66"
+ ]
+}

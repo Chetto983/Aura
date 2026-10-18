@@ -1,0 +1,451 @@
+{
+ "file": "fcffginzu.xls",
+ "inspect": {
+  "activeCell": "A1",
+  "activeSheet": 0,
+  "calcMode": "Automatic",
+  "dirty": false,
+  "mode": "Ready",
+  "names": [],
+  "path": null,
+  "redo": [],
+  "selection": "A1",
+  "sheets": [
+   {
+    "autofilter": null,
+    "cells": 28,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [
+     "A1:F1"
+    ],
+    "name": "Read me first",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:B22",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 167,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "Master Inputs Start here",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:D87",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 369,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [
+     "B1:J1",
+     "B60:K60",
+     "F13:O13"
+    ],
+    "name": "Valuation Model",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "B1:S73",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 15,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "Input Summary",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:D5",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 43,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "Earnings Normalizer",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:G21",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 458,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "R&D converter",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:I142",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 70,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "Operating lease converter",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:G35",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 63,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [
+     "B1:C1",
+     "A2:D2",
+     "A3:D8",
+     "A19:D19"
+    ],
+    "name": "Stories to Numbers",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:F31",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 57,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "Option Value",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:G27",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 305,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [
+     "A1:K2",
+     "M5:Q19",
+     "D4:F22"
+    ],
+    "name": "Cost of capital worksheet",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:M64",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 193,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "Ratings estimator",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:H53",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 2619,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "US Industry averages",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:AA97",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 2619,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "Global Industry averages",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:AA97",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 1298,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [
+     "A226:C226"
+    ],
+    "name": "Country ERP",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:F228",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 104,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "Trailing 12-month numbers",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "A1:E22",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   },
+   {
+    "autofilter": null,
+    "cells": 47,
+    "charts": [],
+    "comments": 0,
+    "conditionalFormats": 0,
+    "freeze": null,
+    "images": 0,
+    "merges": [],
+    "name": "Answers",
+    "protected": false,
+    "shapes": 0,
+    "tabColor": null,
+    "tables": [],
+    "usedRange": "B1:L16",
+    "validations": 0,
+    "visibility": "Visible",
+    "zoom": 100
+   }
+  ],
+  "theme": "Craft",
+  "title": "fcffginzu (imported).xlsx",
+  "undo": []
+ },
+ "before": {
+  "range": "F71",
+  "sheet": "Valuation Model",
+  "values": [
+   [
+    377.1402170197516
+   ]
+  ]
+ },
+ "riskfree_after": {
+  "range": "B39",
+  "sheet": "Master Inputs Start here",
+  "values": [
+   [
+    0.05
+   ]
+  ]
+ },
+ "after": {
+  "range": "F71",
+  "sheet": "Valuation Model",
+  "values": [
+   [
+    333.619261987673
+   ]
+  ]
+ },
+ "craft_seconds": 0.03,
+ "peak_kb": null,
+ "calls": [
+  {
+   "tool": "open_workbook",
+   "args": {
+    "path": "/workspace/craft-spike/real/fcffginzu.xls"
+   },
+   "ms": 12,
+   "error": false,
+   "text": "{\n  \"index\": 0,\n  \"sheets\": [\n    \"Read me first\",\n    \"Master Inputs Start here\",\n    \"Valuation Model\",\n    \"Input Summary\",\n    \"Earnings Normalizer\",\n    \"R&D converter\",\n    \"Operating lease converter\",\n    \"Stories to Numbers\",\n    \"Option Value\",\n    \"Cost of capital worksheet\",\n    \"Ratings estimator\",\n    \"US Industry averages\",\n    \"Global Industry averages\",\n    \"Country ERP\",\n    \"Trailing 12-month numbers\",\n    \"Answers\"\n  ],\n  \"title\": \"fcffginzu (imported).xlsx\",\n  \"warnings\": [\n    \"Imported from an Excel 97-2003 (.xls) workbook: values, formulas, number formats, merged cells, ",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "inspect_workbook",
+   "args": {},
+   "ms": 2,
+   "error": false,
+   "text": "{\n  \"activeCell\": \"A1\",\n  \"activeSheet\": 0,\n  \"calcMode\": \"Automatic\",\n  \"dirty\": false,\n  \"mode\": \"Ready\",\n  \"names\": [],\n  \"path\": null,\n  \"redo\": [],\n  \"selection\": \"A1\",\n  \"sheets\": [\n    {\n      \"autofilter\": null,\n      \"cells\": 28,\n      \"charts\": [],\n      \"comments\": 0,\n      \"conditionalFormats\": 0,\n      \"freeze\": null,\n      \"images\": 0,\n      \"merges\": [\n        \"A1:F1\"\n      ],\n      \"name\": \"Read me first\",\n      \"protected\": false,\n      \"shapes\": 0,\n      \"tabColor\": null,\n      \"tables\": [],\n      \"usedRange\": \"A1:B22\",\n      \"validations\": 0,\n      \"visibility\": \"Visible\",\n ",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "read_range",
+   "args": {
+    "sheet": "Valuation Model",
+    "range": "F71"
+   },
+   "ms": 1,
+   "error": false,
+   "text": "{\n  \"range\": \"F71\",\n  \"sheet\": \"Valuation Model\",\n  \"values\": [\n    [\n      377.1402170197516\n    ]\n  ]\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "set_cell",
+   "args": {
+    "cell": "'Master Inputs Start here'!B39",
+    "input": "0.05"
+   },
+   "ms": 2,
+   "error": false,
+   "text": "{\n  \"cell\": \"B39\",\n  \"value\": \"0.05\"\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "read_range",
+   "args": {
+    "sheet": "Master Inputs Start here",
+    "range": "B39"
+   },
+   "ms": 2,
+   "error": false,
+   "text": "{\n  \"range\": \"B39\",\n  \"sheet\": \"Master Inputs Start here\",\n  \"values\": [\n    [\n      0.05\n    ]\n  ]\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "read_range",
+   "args": {
+    "sheet": "Valuation Model",
+    "range": "F71"
+   },
+   "ms": 1,
+   "error": false,
+   "text": "{\n  \"range\": \"F71\",\n  \"sheet\": \"Valuation Model\",\n  \"values\": [\n    [\n      333.619261987673\n    ]\n  ]\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "save_workbook",
+   "args": {
+    "path": "/workspace/craft-spike/out/fcffginzu-rf5.xlsx"
+   },
+   "ms": 15,
+   "error": false,
+   "text": "{\n  \"bytes\": 114572,\n  \"path\": \"/workspace/craft-spike/out/fcffginzu-rf5.xlsx\"\n}",
+   "image_b64_chars": []
+  }
+ ],
+ "check": [
+  2.15,
+  "saved: sheets 16 formulas 894 B39 0.05 cached F71 333.619261987673\nLibreOffice recalculated F71 333.619261987673"
+ ],
+ "baseline": [
+  4.45,
+  "openpyxl cached F71 after its own save None\nbaseline ms 4019\nbaseline LibreOffice F71 333.619261987673"
+ ]
+}

@@ -1,0 +1,3 @@
+[{"method":"tools/call","params":{"name":"tool_search","arguments":{"name":"redact_mark"}}},
+ {"method":"tools/call","params":{"name":"tool_search","arguments":{"name":"doc_export_office"}}},
+ {"method":"tools/call","params":{"name":"tool_search","arguments":{"name":"doc_audit_redactions"}}}]

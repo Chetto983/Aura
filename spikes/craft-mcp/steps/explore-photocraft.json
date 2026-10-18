@@ -1,0 +1,4 @@
+[{"method":"tools/call","params":{"name":"command_list","arguments":{"filter":"image size"}}},
+ {"method":"tools/call","params":{"name":"command_list","arguments":{"filter":"levels"}}},
+ {"method":"tools/call","params":{"name":"command_list","arguments":{"filter":"brightness"}}},
+ {"method":"tools/call","params":{"name":"command_list","arguments":{"filter":"crop"}}}]

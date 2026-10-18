@@ -1,0 +1,724 @@
+{
+ "file": "HWC20_PPT_IT.pptx",
+ "inspect": {
+  "dirty": false,
+  "fonts": {
+   "major": "Arial",
+   "minor": "Arial"
+  },
+  "layouts": [
+   {
+    "id": 113,
+    "name": "Title Slide"
+   },
+   {
+    "id": 120,
+    "name": "Title and Content"
+   },
+   {
+    "id": 121,
+    "name": "Header Section"
+   },
+   {
+    "id": 122,
+    "name": "Two Content"
+   },
+   {
+    "id": 123,
+    "name": "Comparison"
+   },
+   {
+    "id": 124,
+    "name": "Title Only"
+   },
+   {
+    "id": 125,
+    "name": "Blank"
+   },
+   {
+    "id": 126,
+    "name": "Content with Caption"
+   },
+   {
+    "id": 127,
+    "name": "Picture with Caption"
+   },
+   {
+    "id": 128,
+    "name": "Title and Vertical Text"
+   },
+   {
+    "id": 129,
+    "name": "Vertical Title and Text"
+   }
+  ],
+  "media": [
+   {
+    "bytes": 20371,
+    "id": 110,
+    "name": "image1.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 4560,
+    "id": 111,
+    "name": "image2.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 6283,
+    "id": 112,
+    "name": "image3.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 26080,
+    "id": 114,
+    "name": "image4.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 8457,
+    "id": 115,
+    "name": "image5.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 3189,
+    "id": 116,
+    "name": "image6.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 5116,
+    "id": 117,
+    "name": "image7.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 311883,
+    "id": 118,
+    "name": "image8.jpg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 16657,
+    "id": 119,
+    "name": "image9.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 38574,
+    "id": 131,
+    "name": "image10.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 37926,
+    "id": 133,
+    "name": "image11.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 265093,
+    "id": 134,
+    "name": "image12.jpg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 7202,
+    "id": 135,
+    "name": "image13.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 45242,
+    "id": 146,
+    "name": "image14.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 68468,
+    "id": 147,
+    "name": "image15.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 156539,
+    "id": 148,
+    "name": "image16.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 116550,
+    "id": 149,
+    "name": "image17.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 87331,
+    "id": 150,
+    "name": "image18.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 148091,
+    "id": 151,
+    "name": "image19.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 195135,
+    "id": 152,
+    "name": "image20.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 141183,
+    "id": 153,
+    "name": "image21.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 101094,
+    "id": 154,
+    "name": "image22.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 119482,
+    "id": 155,
+    "name": "image23.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 95904,
+    "id": 156,
+    "name": "image24.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 109825,
+    "id": 157,
+    "name": "image25.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 51759,
+    "id": 158,
+    "name": "image26.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 9871,
+    "id": 159,
+    "name": "image27.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 18578,
+    "id": 160,
+    "name": "image28.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 73312,
+    "id": 161,
+    "name": "image29.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 48170,
+    "id": 162,
+    "name": "image30.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 60063,
+    "id": 163,
+    "name": "image31.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 156965,
+    "id": 164,
+    "name": "image32.jpg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 71666,
+    "id": 165,
+    "name": "image33.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 82998,
+    "id": 166,
+    "name": "image34.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 83572,
+    "id": 167,
+    "name": "image35.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 79742,
+    "id": 168,
+    "name": "image36.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 87842,
+    "id": 169,
+    "name": "image37.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 78362,
+    "id": 170,
+    "name": "image38.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 14388,
+    "id": 171,
+    "name": "image39.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 108064,
+    "id": 172,
+    "name": "image40.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 38382,
+    "id": 173,
+    "name": "image41.jpg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 291253,
+    "id": 174,
+    "name": "image42.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 460481,
+    "id": 175,
+    "name": "image43.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 153108,
+    "id": 176,
+    "name": "image44.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 134562,
+    "id": 177,
+    "name": "image45.jpg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 102262,
+    "id": 178,
+    "name": "image46.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 642652,
+    "id": 179,
+    "name": "image47.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 11642,
+    "id": 180,
+    "name": "image48.jpg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 8175,
+    "id": 181,
+    "name": "image49.jpg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 669161,
+    "id": 182,
+    "name": "image50.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 79732,
+    "id": 183,
+    "name": "image51.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 89123,
+    "id": 184,
+    "name": "image52.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 88156,
+    "id": 185,
+    "name": "image53.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 70225,
+    "id": 186,
+    "name": "image54.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 102963,
+    "id": 187,
+    "name": "image55.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 42503,
+    "id": 188,
+    "name": "image56.jpg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 2392,
+    "id": 189,
+    "name": "image57.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 969,
+    "id": 190,
+    "name": "image58.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 5379,
+    "id": 191,
+    "name": "image59.png",
+    "type": "image/png"
+   },
+   {
+    "bytes": 2105,
+    "id": 192,
+    "name": "image60.jpeg",
+    "type": "image/jpeg"
+   },
+   {
+    "bytes": 19512,
+    "id": 193,
+    "name": "image61.png",
+    "type": "image/png"
+   }
+  ],
+  "path": "/workspace/craft-spike/real/HWC20_PPT_IT.pptx",
+  "redo": null,
+  "sections": [],
+  "selection": {
+   "cells": null,
+   "shapes": [],
+   "slide": 0,
+   "slides": [],
+   "target": {
+    "kind": "slides"
+   },
+   "text": null
+  },
+  "slideSize": [
+   720.0,
+   405.0
+  ],
+  "slides": [
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 94,
+    "index": 0,
+    "layout": "Title Slide",
+    "notes": "",
+    "shapes": 2,
+    "title": "Prevenzione e gestione dei disturbi muscolo-scheletrici (DMS) lavoro correlati",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 95,
+    "index": 1,
+    "layout": "Title and Content",
+    "notes": "",
+    "shapes": 3,
+    "title": "",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 96,
+    "index": 2,
+    "layout": "Picture with Caption",
+    "notes": "Fonte: EU-OSHA, «Terza indagine europea fra le imprese sui rischi nuovi ed emergenti» (ESENER 3), 2019. Disponibile al seguente indirizzo: https://osha.europa.eu/it/publications/third-european-survey-enterprises-new-and-emerging-risks-esener-3/view",
+    "shapes": 4,
+    "title": "EU-OSHA, ESENER 2019",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 97,
+    "index": 3,
+    "layout": "Picture with Caption",
+    "notes": "Fonte: EU-OSHA, «Disturbi muscoloscheletrici associati al lavoro: diffusione, costi e demografia nell’UE», 2019, pag. 45. Disponibile al seguente indirizzo: \nhttps://osha.europa.eu/en/publications/msds-facts-and-figures-overview-prevalence-costs-and-demographics-msds-europe/view \n  \nNel 2015 circa tre lavoratori su cinque nell’UE a 28 hanno lamentato disturbi muscoloscheletrici alla schiena nonché agli arti superiori e/o inferiori; il dato emerge dalla sesta edizione dell’indagine europea sulle condizioni di lavoro (EWCS). I tipi di DMS più comuni tra i lavoratori nell’UE a 28 sono il mal di schiena e i dolori muscolari agli arti superiori (rispettivamente 43 % e 41 % nel 2015). I dolori muscolari agli arti inferiori sono segnalati meno spesso (29 % nel 2015). Per maggiori informazioni consultare Eurofound, «Sesta indagine europea sulle condizioni di lavoro» (EWCS), 2015. Disponibile al seguente indirizzo:  https://www.eurofound.europa.eu/it/surveys/european-working-conditions-surveys/\nsixth-european-working-conditions-survey-2015\n",
+    "shapes": 9,
+    "title": "EWCS 2015",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 98,
+    "index": 4,
+    "layout": "Picture with Caption",
+    "notes": "Fonte: Eurostat, Labour Force Survey ad hoc module «Accidents at work and other work-related health problems» (2013). Disponibile al seguente indirizzo: https://ec.europa.eu/eurostat/statistics-explained/index.php/EU_labour_force_survey_-_ad_hoc_modules",
+    "shapes": 11,
+    "title": "Eurostat, indagine sulle forze di lavoro 2013",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 99,
+    "index": 5,
+    "layout": "Title and Content",
+    "notes": "Percentuale di lavoratori che hanno lamentato disturbi muscoloscheletrici negli ultimi 12 mesi, UE a 28, 2015. Fonte: Sesta indagine europea sulle condizioni di lavoro (2015)\n\nEU-OSHA, «Disturbi muscoloscheletrici associati al lavoro: diffusione, costi e demografia nell’UE», 2019, pag. 45. Disponibile al seguente indirizzo: \nhttps://osha.europa.eu/en/publications/msds-facts-and-figures-overview-prevalence-costs-and-demographics-msds-europe/view \n\nI tipi di DMS più comuni tra i lavoratori nell’UE a 28 sono il mal di schiena e i dolori muscolari agli arti superiori (rispettivamente 43 % e 41 % nel 2015). I dolori muscolari agli arti inferiori sono segnalati meno spesso (29 % nel 2015). Dati tratti dalla «Sesta indagine europea sulle condizioni di lavoro» (EWCS), 2015. Analisi a cura dell’EU-OSHA. Maggiori informazioni su questa indagine sono disponibili al seguente indirizzo: https://www.eurofound.europa.eu/it/surveys/european-working-conditions-surveys/\nsixth-european-working-conditions-survey-2015",
+    "shapes": 11,
+    "title": " Parti del corpo tipicamente interessate ",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 100,
+    "index": 6,
+    "layout": "Title and Content",
+    "notes": "I disturbi muscoloscheletrici (DMS) associati al lavoro sono compromissioni delle strutture corporee, quali:\nmuscoli;\narticolazioni; \ntendini;\nlegamenti;\nnervi;\nossa;\nil sistema circolatorio locale.\nTali disturbi sono provocati o aggravati prevalentemente dall’attività lavorativa e dagli effetti dell’ambiente di lavoro circostante. \nPossono contribuire al loro sviluppo fattori fisici, psicosociali, organizzativi e individuali.\n \nEU-OSHA 2007. «Factsheet 71 – Introduzione alle patologie muscoloscheletriche legate all’attività lavorativa» (disponibile all’indirizzo https://osha.europa.eu/it/publications/factsheet-71-introduction-work-related-musculoskeletal-disorders/view).",
+    "shapes": 9,
+    "title": "",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 101,
+    "index": 7,
+    "layout": "Title and Content",
+    "notes": "I DMS possono essere prevenuti e gestiti.\nÈ essenziale adottare un approccio integrato e promuovere una cultura della prevenzione.\nLe misure per prevenire o ridurre al minimo i DMS devono basarsi sui principi generali di prevenzione:\nevitare i rischi;\ncombattere i rischi all’origine;\nadattare il lavoro alla persona:\nadattarsi al progresso tecnologico;\nsostituire pratiche rischiose con altre sicure o meno rischiose;\nsviluppare una politica di prevenzione uniforme;\nattribuire priorità alle misure collettive;\nfornire formazione e istruzione ai lavoratori.\n",
+    "shapes": 5,
+    "title": "Affrontare i DMS",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 102,
+    "index": 8,
+    "layout": "Title and Content",
+    "notes": "Valutazione dei rischi\nLa valutazione dei rischi è essenziale per una prevenzione efficace.\nTutti (datori di lavoro, dirigenti, lavoratori e servizi in materia di SSL) dovrebbero contribuire all’individuazione dei rischi e dei metodi per gestirli.\nSi dovrebbero considerare tutte le categorie di lavoratori.\nIl processo di valutazione dei rischi dovrebbe essere riesaminato e aggiornato periodicamente.\nSono disponibili mezzi, strumenti e guide fase per fase di cui le imprese possono servirsi per effettuare la valutazione dei rischi.\n\nValutazione dei rischi fase per fase per i DMS lavoro-correlati\nPreparazione:\ndecidere chi guiderà il processo di valutazione dei rischi;\nesaminare tutte le informazioni disponibili sui DMS nell’azienda.\nValutazione:\nindividuare i rischi e l’esposizione;\nredigere un piano d’azione basato sui principi della prevenzione, dando la massima priorità a misure preventive volte a eliminare i rischi di DMS.\nAttuazione:\nadottare le misure di prevenzione e protezione concordate.",
+    "shapes": 4,
+    "title": "Valutazione dei rischi",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 103,
+    "index": 9,
+    "layout": "Title and Content",
+    "notes": "La campagna «Ambienti di lavoro sani e sicuri. Alleggeriamo il carico!» è organizzata in diversi settori prioritari, discussi tramite speciali pacchetti di comunicazione e promozione distribuiti nel corso di tutta la sua durata. Ogni settore riguarda un argomento specifico relativo ai DMS. Per rilanciare la campagna, ogni tre/quattro mesi viene pubblicata una serie di materiali comprendenti relazioni, schede informative, infografiche e studi di casi.\n\nFatti e cifre/business case\nI DMS colpiscono milioni di lavoratori in Europa, con ripercussioni per le imprese in cui lavorano. Le misure di prevenzione e di intervento precoce possono ridurre l’assenteismo, aumentare la produttività e permettere risparmi effettivi per le imprese e per i sistemi sanitari e di previdenza sociale nazionali. La campagna fornisce prove in merito e collegamenti a risorse che possono aiutare le imprese ad affrontare i DMS in modo efficace.\n\nCondizioni croniche\nL’intervento in fase precoce è fondamentale per impedire che i DMS diventino cronici. Se un lavoratore è già affetto da una patologia cronica, è possibile aiutarlo con interventi ben gestiti in materia di SSL, che gli garantiranno la possibilità di \nritornare al lavoro e rimanerci. Parlare di DMS sul luogo di lavoro è determinante per ottenere buoni risultati e apportare semplici cambiamenti all’ambiente o all’organizzazione del lavoro può:\nridurre considerevolmente i congedi di malattia e le assenze prolungate dal lavoro;\ncomportare risparmi tangibili per le imprese e per i sistemi sanitari e di previdenza sociale nazionali.\n\nLavoro sedentario\nIl fatto di rimanere seduti per periodi prolungati è un problema che caratterizza molti lavori, tra cui quelli al computer e a linee di assemblaggio, e può aumentare il rischio di sviluppo di DMS e altri problemi di salute, per esempio l’obesità. È dunque essenziale adottare provvedimenti per affrontare questo fattore di rischio, come ad esempio incoraggiare i lavoratori a cambiare spesso postura e promuovere i vantaggi di una buona progettazione del luogo di lavoro.\n\nNel contesto delle misure di contenimento adottate a causa della pandemia di Covid-19, milioni di lavoratori europei sono stati costretti a lavorare a tempo pieno da casa per ridurre il rischio di contrarre il virus: Una nuova realtà che può andare a discapito della nostra salute fisica (anche a causa di una postura seduta prolungata) e mentale.  La nostra nuovissima banca dati di strumenti pratici e orientamenti sui DMS agevola la valutazione e la gestione di molti rischi di DMS, compresi quelli derivanti dal telelavoro. Contiene link a risorse provenienti da tutta Europa: pubblicazioni, studi campione, orientamenti, strumenti pratici e materiali audiovisivi.\n\nDiversità dei lavoratori\nÈ importante che tutti i lavoratori siano ugualmente protetti dall’esposizione ai fattori di rischio di DMS; tuttavia, alcune categorie (per esempio, le donne, i lavoratori più anziani e quelli migranti) hanno più probabilità di essere esposte rispetto ad altre.\nTra le cause possono esserci una scarsa formazione o il fatto che tali categorie sono spesso sovrarappresentate in lavori o settori associati a un rischio più elevato di DMS, quali ad esempio:\nagricoltura,\nedilizia,\nassistenza sociosanitaria.\nLe misure di prevenzione dovrebbero perciò tenere conto delle esigenze di queste categorie.\n\nGenerazioni future\nSecondo i risultati delle ricerche, persino gli alunni delle scuole lamentano dolori muscoloscheletrici. Per evitare che lavoratori giovani entrino nel mondo del lavoro con DMS preesistenti che potrebbero essere aggravati dall’attività lavorativa, è nell’interesse di tutti sensibilizzare il pubblico il più presto possibile sulla questione. Questa campagna è un’opportunità per promuovere una buona salute muscoloscheletrica presso i bambini e i giovani:\nintegrando le questioni correlate ai DMS nel settore dell’istruzione e nei programmi scolastici; \nsostenendo iniziative di sanità pubblica che incoraggino l’attività fisica all’interno e all’esterno delle scuole. \n\nRischi psicosociali\nQuando si effettua una valutazione relativa ai rischi di DMS sul luogo di lavoro, occorre tenere conto di tutti i fattori, tra cui quelli fisici, organizzativi, psicosociali e individuali. I fattori psicosociali, quali lo scarso controllo sul carico di lavoro, contribuiscono significativamente all’esposizione ai rischi di DMS lavoro-correlati. ",
+    "shapes": 7,
+    "title": "Settori d’intervento - settori prioritari",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 104,
+    "index": 10,
+    "layout": "Title and Content",
+    "notes": "IES Working at Home Wellbeing Survey Interim Findings (Risultati provvisori dell’indagine dell’IES sul grado di soddisfazione relativo al lavoro da casa) \nhttps://www.employment-studies.co.uk/resource/ies-working-home-wellbeing-survey\nhttps://www.employment-studies.co.uk/sites/default/files/resources/summarypdfs/IES%20Homeworker%20Wellbeing%20Survey%20Headlines%20-%20Interim%20Findings.pdf \n\n«C’è stato un aumento considerevole dei casi di disturbi muscoloscheletrici. Oltre la metà dei soggetti intervistati ha lamentato nuovi dolori, in particolare al collo (58 %), alle spalle (56 %) e alla schiena (55 %) rispetto alle loro normali condizioni fisiche». È importante sottolineare che questi sono solo i primi risultati basati su un’indagine limitata in termini di rappresentanza». \n\nCommissione europea, Telework in the EU before and after the COVID-19: where we were, where we head to [Il telelavoro nell’UE prima e dopo la Covid-19: a che punto eravamo e dove stiamo andando], https://ec.europa.eu/jrc/sites/jrcsh/files/jrc120945_policy_brief_-_covid_and_telework_final.pdf ",
+    "shapes": 4,
+    "title": "COVID-19: DMS e telelavoro da casa",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 105,
+    "index": 11,
+    "layout": "Title and Content",
+    "notes": "La campagna è condotta dall’EU-OSHA con l’aiuto di una rete di partner in più di 30 paesi, comprendente:\npunti focali nazionali;\nparti sociali europee;\npartner ufficiali della campagna;\npartner nel settore dei media;\nEnterprise Europe Network;\nistituzioni dell’UE;\naltre agenzie dell’UE.\nI partner fungono da intermediari tra l’EU-OSHA e la forza lavoro europea, divulgando materiali e risorse della campagna a livello nazionale. La dedizione e l’impegno attivo dei partner dell’EU-OSHA danno impulso alla campagna e garantiscono che il suo messaggio sia promosso efficacemente in tutta Europa, raggiungendo imprese di tutte le dimensioni.",
+    "shapes": 4,
+    "title": "EU-OSHA e partner della campagna",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 106,
+    "index": 12,
+    "layout": "Title and Content",
+    "notes": "Pubblicazioni\nSono disponibili e scaricabili gratuitamente varie relazioni di ricerca, sintesi e schede informative sui rischi correlati ai DMS. Queste pubblicazioni possono essere utilizzate per elaborare misure preventive nel luogo di lavoro.\n\nMateriale della campagna\nI materiali della campagna «Ambienti di lavoro sani e sicuri. Alleggeriamo il carico!», come la guida e l’opuscolo promozionale, spiegano come funziona la campagna e come partecipare, oltre a illustrare come mettere in pratica gli orientamenti forniti nel luogo di lavoro.\n\nKit di strumenti per la campagna\nIl kit di strumenti per la campagna offre consigli pratici fase per fase su come pianificare e condurre campagne di successo. Comprende esempi di vari strumenti di comunicazione e fornisce suggerimenti su come utilizzarli al meglio. \n\nFilm di Napo\nSono stati realizzati diversi brevi film di sensibilizzazione sul tema dei DMS con Napo – il personaggio dei cartoni animati – come protagonista: si tratta di un ottimo modo per coinvolgere le imprese e informarle sul messaggio della campagna.\n\nOSHwiki\nÈ stata dedicata ai DMS una sezione della piattaforma OSHwiki, che contiene articoli pertinenti e collegamenti a maggiori informazioni sull’argomento, ivi compreso come gestire la riabilitazione e il ritorno al lavoro di un dipendente.\n\nStrumenti pratici e orientamenti \nPer aiutare gli ambienti di lavoro a valutare e gestire agevolmente i rischi correlati ai DMS, è stata creata una banca dati di strumenti pratici e orientamenti facile da usare. Le risorse, comprendenti materiali visivi, riguardano svariati settori, tipi di pericolo e misure di prevenzione.\n\nStudi di casi\nOltre a quelli presenti nella banca dati, sono disponibili anche studi di casi strategici di paesi dell’UE e al di fuori dell’UE, che descrivono i fattori di successo e la trasferibilità di iniziative strategiche nazionali. \n\nNormativa\nIl datore di lavoro ha la responsabilità legale di garantire la sicurezza e la salute nel luogo di lavoro. I rischi di DMS rientrano nell’ambito di applicazione della  direttiva quadro sulla SSL (direttiva 89/391/CEE) e alcuni sono trattati specificamente dalle seguenti direttive:\ndirettiva 90/269/CEE sulla movimentazione manuale;\ndirettiva 2002/44/CEE sulle vibrazioni;\ndirettiva 90/270/CEE relativa alle attrezzature munite di videoterminali;\ndirettiva 2009/104/CEE sull’uso delle attrezzature di lavoro.\n\nSul sito web dell’EU-OSHA è disponibile una panoramica completa della normativa pertinente in materia di SSL (https://osha.europa.eu/it/safety-and-health-legislation).",
+    "shapes": 17,
+    "title": "Risorse per la campagna",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 107,
+    "index": 13,
+    "layout": "Title and Content",
+    "notes": "Settimana europea\nLa nostra Settimana europea per la sicurezza e la salute sul lavoro, evento ormai noto a livello mondiale che si svolge ogni anno a ottobre, è il momento culminante nel calendario della campagna. È possibile prendere parte a numerosi eventi di sensibilizzazione (concorsi, eventi speciali con proiezioni di film, eventi sui social media e conferenze) organizzati nell’UE e oltre.\n\nPartenariato della campagna\nIl successo della campagna dipende dai solidi partenariati tra l’EU-OSHA e le principali parti interessate. Le organizzazioni paneuropee e internazionali impegnate a favore della SSL possono diventare partner ufficiali della campagna, potendo così beneficiare di:\npromozione a livello dell’UE e nei media;\nopportunità di fare attività di rete e di scambio;\ncondivisione di buone pratiche con altri partner della campagna;\ninviti agli eventi dell’EU-OSHA;\nun pacchetto di benvenuto;\nun attestato di partecipazione.\n\nPremio per le buone pratiche\nNell’ambito della campagna, i Premi per le buone pratiche presentano approcci innovativi alla gestione della SSL, ricompensando iniziative sostenibili e che hanno ottenuto risultati positivi nella gestione dei DMS correlati al lavoro. Le organizzazioni negli Stati membri dell’UE, nei paesi candidati e potenziali tali e nei paesi dell’Associazione europea di libero scambio (EFTA) sono invitate a presentare le loro proposte in tema di gestione dei DMS nei luoghi di lavoro; i vincitori saranno annunciati durante la cerimonia di premiazione.\n\nKit di strumenti per la campagna \nPer avviare una campagna di sensibilizzazione sui DMS correlati al lavoro è disponibile il nostro kit di strumenti per la campagna, che fornisce orientamenti dettagliati sul processo di preparazione e conduzione di una campagna e su come utilizzare al meglio le proprie risorse.\n\nMateriale della campagna\nTutto ciò che occorre per promuovere e fornire un contributo alla campagna «Ambienti di lavoro sani e sicuri. Alleggeriamo il carico!» è disponibile nel materiale della campagna. Si può scaricare gratuitamente una gamma completa di risorse comprendenti la guida, l’opuscolo promozionale, il poster della campagna e il volantino del Premio per le buone pratiche.\n\nEventi\nÈ possibile visualizzare i prossimi eventi della campagna «Ambienti di lavoro sani e sicuri. Alleggeriamo il carico!». Se ne può effettuare una ricerca per paese e per data e aggiungerli al proprio calendario per essere certi di non perderli.\n\nCertificato di partecipazione \nIn cambio dell’organizzazione di eventi e attività o dello svolgimento della propria campagna per sostenere la campagna Ambienti di lavoro sani e sicuri, verrà conferito un certificato di partecipazione come riconoscimento del proprio impegno e contributo.\n\n",
+    "shapes": 15,
+    "title": "Come partecipare alla campagna",
+    "transition": null
+   },
+   {
+    "animations": 0,
+    "hidden": false,
+    "id": 108,
+    "index": 14,
+    "layout": "Title and Content",
+    "notes": "© Agenzia europea per la sicurezza e la salute sul lavoro, 2020\nRiproduzione autorizzata con citazione della fonte.\nL’uso o la riproduzione di fotografie o di altro materiale non protetti dal diritto d’autore dell’EU-OSHA devono essere autorizzati direttamente dal titolare del diritto d’autore.",
+    "shapes": 9,
+    "title": "Unisciti a noi e alleggeriamo il carico!",
+    "transition": null
+   }
+  ],
+  "theme": "HWC2018-19_Template_16-9",
+  "title": "HWC20_PPT_IT",
+  "undo": null
+ },
+ "first_text_shape": {
+  "box": [
+   110.52,
+   293.22,
+   544.31,
+   45.36
+  ],
+  "fill": "none",
+  "id": 2,
+  "kind": "placeholder",
+  "name": "Título 1",
+  "placeholder": "title",
+  "preset": "rect",
+  "rotation": 0.0,
+  "text": "Prevenzione e gestione dei disturbi muscolo-scheletrici (DMS) lavoro correlati"
+ },
+ "render_slide_png_b64": [
+  148676
+ ],
+ "craft_seconds": 1.18,
+ "peak_kb": null,
+ "calls": [
+  {
+   "tool": "open_presentation",
+   "args": {
+    "path": "/workspace/craft-spike/real/HWC20_PPT_IT.pptx"
+   },
+   "ms": 35,
+   "error": false,
+   "text": "{\n  \"damagedMedia\": [],\n  \"document\": 0,\n  \"missingFonts\": [\n    \"Arial\",\n    \"Wingdings\"\n  ],\n  \"slides\": 15\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "inspect_document",
+   "args": {},
+   "ms": 2,
+   "error": false,
+   "text": "{\n  \"dirty\": false,\n  \"fonts\": {\n    \"major\": \"Arial\",\n    \"minor\": \"Arial\"\n  },\n  \"layouts\": [\n    {\n      \"id\": 113,\n      \"name\": \"Title Slide\"\n    },\n    {\n      \"id\": 120,\n      \"name\": \"Title and Content\"\n    },\n    {\n      \"id\": 121,\n      \"name\": \"Header Section\"\n    },\n    {\n      \"id\": 122,\n      \"name\": \"Two Content\"\n    },\n    {\n      \"id\": 123,\n      \"name\": \"Comparison\"\n    },\n    {\n      \"id\": 124,\n      \"name\": \"Title Only\"\n    },\n    {\n      \"id\": 125,\n      \"name\": \"Blank\"\n    },\n    {\n      \"id\": 126,\n      \"name\": \"Content with Caption\"\n    },\n    {\n      \"id\": 127,\n      \"",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "inspect_slide",
+   "args": {
+    "index": 0
+   },
+   "ms": 1,
+   "error": false,
+   "text": "{\n  \"animations\": [],\n  \"background\": \"#FFFFFF\",\n  \"comments\": 0,\n  \"hidden\": false,\n  \"id\": 94,\n  \"index\": 0,\n  \"layout\": \"Title Slide\",\n  \"notes\": \"\",\n  \"notesBody\": {\n    \"body\": {\n      \"anchor\": null,\n      \"anchorCtr\": null,\n      \"autofit\": null,\n      \"colSpacing\": null,\n      \"columns\": null,\n      \"insetB\": null,\n      \"insetL\": null,\n      \"insetR\": null,\n      \"insetT\": null,\n      \"rot\": null,\n      \"rtlCol\": null,\n      \"spaceFirstLast\": null,\n      \"upright\": null,\n      \"vert\": null,\n      \"warp\": null,\n      \"wrap\": null\n    },\n    \"paragraphs\": []\n  },\n  \"shapes\": [\n    {\n   ",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "go_to_slide",
+   "args": {
+    "index": 0
+   },
+   "ms": 1,
+   "error": false,
+   "text": "{\n  \"index\": 0\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "set_text",
+   "args": {
+    "id": 2,
+    "text": "Ambienti di lavoro sani e sicuri - Comune di Trento 2026"
+   },
+   "ms": 1,
+   "error": false,
+   "text": "null",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "render_slide",
+   "args": {
+    "slide": 0
+   },
+   "ms": 97,
+   "error": false,
+   "text": "{\"height\":405,\"slide\":0,\"width\":720}",
+   "image_b64_chars": [
+    148676
+   ]
+  },
+  {
+   "tool": "export",
+   "args": {
+    "path": "/workspace/craft-spike/out/osha.pdf",
+    "format": "pdf"
+   },
+   "ms": 1024,
+   "error": false,
+   "text": "{\n  \"bytes\": 9248716,\n  \"path\": \"/workspace/craft-spike/out/osha.pdf\"\n}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "save_presentation",
+   "args": {
+    "path": "/workspace/craft-spike/out/osha-edit.pptx"
+   },
+   "ms": 21,
+   "error": false,
+   "text": "{\n  \"bytes\": 6295978,\n  \"path\": \"/workspace/craft-spike/out/osha-edit.pptx\"\n}",
+   "image_b64_chars": []
+  }
+ ],
+ "check": [
+  0.28,
+  "HWC20_PPT_IT.pptx slides 15 pictures 23 first slide text ['Prevenzione e gestione dei disturbi muscolo-scheletrici (DMS) lavoro correlati', 'Campagna Ambienti di lavoro sani e sicuri (2020-2022)\\nALLEGGERIAMO IL CARICO!']\nosha-edit.pptx slides 15 pictures 23 first slide text ['Ambienti di lavoro sani e sicuri - Comune di Trento 2026', 'Campagna Ambienti di lavoro sani e sicuri (2020-2022)\\nALLEGGERIAMO IL CARICO!']\ncraft pdf: Pages:           15, retitled in its text: 1"
+ ],
+ "baseline": [
+  4.93,
+  "python-pptx + LibreOffice: 4830 ms, Pages:           15"
+ ]
+}

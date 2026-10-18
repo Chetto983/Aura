@@ -1,0 +1,416 @@
+{
+ "argv": [
+  "docker",
+  "exec",
+  "-i",
+  "-w",
+  "/workspace",
+  "aura-box-15d43203-e273-4366-a5af-897083676ced",
+  "pdfcraft-cli",
+  "mcp",
+  "--compact",
+  "--automation-read-root",
+  "/workspace",
+  "--automation-write-root",
+  "/workspace"
+ ],
+ "exit": 0,
+ "stderr": "pdfcraft-cli: files confined: read root /workspace, write root /workspace\npdfcraft-cli: MCP server on stdio (protocol 2025-06-18, compact tool list); close stdin to stop\n",
+ "transcript": [
+  {
+   "method": "initialize",
+   "params": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {},
+    "clientInfo": {
+     "name": "aura-survey",
+     "version": "0"
+    }
+   },
+   "ms": 67,
+   "reply": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+     "capabilities": {
+      "resources": {
+       "listChanged": false,
+       "subscribe": false
+      },
+      "tools": {
+       "listChanged": false
+      }
+     },
+     "instructions": "PdfCraft edits PDFs. Open a file with doc_open to get a document id, then inspect (doc_info, text_extract, text_find, page_render) or edit it (page_*, doc_set_info). Edits are undoable (edit_undo) and stay in memory until doc_save. Page numbers are 1-based. Open documents are also resources: pdfcraft://doc/{doc}/info, /text, /page/{page}/text and /page/{page}/image. command_list discovers command ids and tool schemas; command_run executes one, command_batch runs several. doc_inspect returns open document state; render_preview returns a bounded PNG. Only a core set of tools is listed. Every other tool is still available: find it with tool_search (optional query and category, or name for its full input schema) and run it with tool_call.",
+     "protocolVersion": "2025-06-18",
+     "serverInfo": {
+      "name": "pdfcraft",
+      "title": "PdfCraft",
+      "version": "0.9.0",
+      "websiteUrl": "https://getartcraft.com/apps/pdfcraft"
+     }
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "tool_search",
+    "arguments": {
+     "query": "redact"
+    }
+   },
+   "ms": 3,
+   "reply": {
+    "id": 2,
+    "jsonrpc": "2.0",
+    "result": {
+     "content": [
+      {
+       "text": "{\n  \"categories\": [\n    \"accessibility\",\n    \"action\",\n    \"bookmark\",\n    \"command\",\n    \"comment\",\n    \"comments\",\n    \"content\",\n    \"doc\",\n    \"edit\",\n    \"fill\",\n    \"form\",\n    \"image\",\n    \"js\",\n    \"link\",\n    \"links\",\n    \"measure\",\n    \"object\",\n    \"ocr\",\n    \"page\",\n    \"pdfa\",\n    \"print\",\n    \"printer\",\n    \"printers\",\n    \"redact\",\n    \"render\",\n    \"sign\",\n    \"stamp\",\n    \"text\",\n    \"view\",\n    \"xfa\"\n  ],\n  \"count\": 4,\n  \"tools\": [\n    {\n      \"category\": \"redact\",\n      \"description\": \"Mark content for redaction (nothing is removed until redact_apply).\",\n      \"name\": \"redact_mark\",\n      \"read_only\": false\n    },\n    {\n      \"category\": \"redact\",\n      \"description\": \"Apply the redaction marks (all, or those on pages): text, images, vectors, comments and form fields under them are removed for good and boxes are drawn in their place.\",\n      \"name\": \"redact_apply\",\n      \"read_only\": false\n    },\n    {\n      \"category\": \"redact\",\n      \"description\": \"Remove every redaction mark without applying it.\",\n      \"name\": \"redact_clear\",\n      \"read_only\": false\n    },\n    {\n      \"category\": \"doc\",\n      \"description\": \"Find faux redactions: opaque filled rectangles painted over text that is still extractable, and /Redact annotations that were marked but never applied.\",\n      \"name\": \"doc_audit_redactions\",\n      \"read_only\": true\n    }\n  ]\n}",
+       "type": "text"
+      }
+     ],
+     "isError": false,
+     "structuredContent": {
+      "categories": [
+       "accessibility",
+       "action",
+       "bookmark",
+       "command",
+       "comment",
+       "comments",
+       "content",
+       "doc",
+       "edit",
+       "fill",
+       "form",
+       "image",
+       "js",
+       "link",
+       "links",
+       "measure",
+       "object",
+       "ocr",
+       "page",
+       "pdfa",
+       "print",
+       "printer",
+       "printers",
+       "redact",
+       "render",
+       "sign",
+       "stamp",
+       "text",
+       "view",
+       "xfa"
+      ],
+      "count": 4,
+      "tools": [
+       {
+        "category": "redact",
+        "description": "Mark content for redaction (nothing is removed until redact_apply).",
+        "name": "redact_mark",
+        "read_only": false
+       },
+       {
+        "category": "redact",
+        "description": "Apply the redaction marks (all, or those on pages): text, images, vectors, comments and form fields under them are removed for good and boxes are drawn in their place.",
+        "name": "redact_apply",
+        "read_only": false
+       },
+       {
+        "category": "redact",
+        "description": "Remove every redaction mark without applying it.",
+        "name": "redact_clear",
+        "read_only": false
+       },
+       {
+        "category": "doc",
+        "description": "Find faux redactions: opaque filled rectangles painted over text that is still extractable, and /Redact annotations that were marked but never applied.",
+        "name": "doc_audit_redactions",
+        "read_only": true
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "tool_search",
+    "arguments": {
+     "query": "office"
+    }
+   },
+   "ms": 2,
+   "reply": {
+    "id": 3,
+    "jsonrpc": "2.0",
+    "result": {
+     "content": [
+      {
+       "text": "{\n  \"categories\": [\n    \"accessibility\",\n    \"action\",\n    \"bookmark\",\n    \"command\",\n    \"comment\",\n    \"comments\",\n    \"content\",\n    \"doc\",\n    \"edit\",\n    \"fill\",\n    \"form\",\n    \"image\",\n    \"js\",\n    \"link\",\n    \"links\",\n    \"measure\",\n    \"object\",\n    \"ocr\",\n    \"page\",\n    \"pdfa\",\n    \"print\",\n    \"printer\",\n    \"printers\",\n    \"redact\",\n    \"render\",\n    \"sign\",\n    \"stamp\",\n    \"text\",\n    \"view\",\n    \"xfa\"\n  ],\n  \"count\": 1,\n  \"tools\": [\n    {\n      \"category\": \"doc\",\n      \"description\": \"Export a PDF \u25b8 Word (.docx), PowerPoint (.pptx, one slide per page), HTML (.html, one file with images inline) or RTF (.rtf), chosen by path's extension: text, headings, bold and italic.\",\n      \"name\": \"doc_export_office\",\n      \"read_only\": false\n    }\n  ]\n}",
+       "type": "text"
+      }
+     ],
+     "isError": false,
+     "structuredContent": {
+      "categories": [
+       "accessibility",
+       "action",
+       "bookmark",
+       "command",
+       "comment",
+       "comments",
+       "content",
+       "doc",
+       "edit",
+       "fill",
+       "form",
+       "image",
+       "js",
+       "link",
+       "links",
+       "measure",
+       "object",
+       "ocr",
+       "page",
+       "pdfa",
+       "print",
+       "printer",
+       "printers",
+       "redact",
+       "render",
+       "sign",
+       "stamp",
+       "text",
+       "view",
+       "xfa"
+      ],
+      "count": 1,
+      "tools": [
+       {
+        "category": "doc",
+        "description": "Export a PDF \u25b8 Word (.docx), PowerPoint (.pptx, one slide per page), HTML (.html, one file with images inline) or RTF (.rtf), chosen by path's extension: text, headings, bold and italic.",
+        "name": "doc_export_office",
+        "read_only": false
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "tool_search",
+    "arguments": {
+     "query": "ocr"
+    }
+   },
+   "ms": 2,
+   "reply": {
+    "id": 4,
+    "jsonrpc": "2.0",
+    "result": {
+     "content": [
+      {
+       "text": "{\n  \"categories\": [\n    \"accessibility\",\n    \"action\",\n    \"bookmark\",\n    \"command\",\n    \"comment\",\n    \"comments\",\n    \"content\",\n    \"doc\",\n    \"edit\",\n    \"fill\",\n    \"form\",\n    \"image\",\n    \"js\",\n    \"link\",\n    \"links\",\n    \"measure\",\n    \"object\",\n    \"ocr\",\n    \"page\",\n    \"pdfa\",\n    \"print\",\n    \"printer\",\n    \"printers\",\n    \"redact\",\n    \"render\",\n    \"sign\",\n    \"stamp\",\n    \"text\",\n    \"view\",\n    \"xfa\"\n  ],\n  \"count\": 6,\n  \"tools\": [\n    {\n      \"category\": \"doc\",\n      \"description\": \"Run convert, ocr and/or optimize over files and folders, one file at a time.\",\n      \"name\": \"doc_batch\",\n      \"read_only\": false\n    },\n    {\n      \"category\": \"text\",\n      \"description\": \"Count Unicode words and characters on selected pages (default all), with totals and per-page counts.\",\n      \"name\": \"text_word_count\",\n      \"read_only\": true\n    },\n    {\n      \"category\": \"page\",\n      \"description\": \"Straighten a photographed document (Scan & OCR \u25b8 Enhance \u25b8 Camera image): the part of the page inside the four corners (x1, y1, \u2026 x4, y4 in top-left-origin points, any order, a convex quadrilateral; when omitted, the document's edges are found automatically, or an error says they could not be) is warped to an upright rectangle that replaces what the page shows, at the page picture's own resolution (at most 600 dpi).\",\n      \"name\": \"page_enhance_camera\",\n      \"read_only\": false\n    },\n    {\n      \"category\": \"ocr\",\n      \"description\": \"Scan & OCR \u25b8 Recognize text: render ...<2469 chars>",
+       "type": "text"
+      }
+     ],
+     "isError": false,
+     "structuredContent": {
+      "categories": [
+       "accessibility",
+       "action",
+       "bookmark",
+       "command",
+       "comment",
+       "comments",
+       "content",
+       "doc",
+       "edit",
+       "fill",
+       "form",
+       "image",
+       "js",
+       "link",
+       "links",
+       "measure",
+       "object",
+       "ocr",
+       "page",
+       "pdfa",
+       "print",
+       "printer",
+       "printers",
+       "redact",
+       "render",
+       "sign",
+       "stamp",
+       "text",
+       "view",
+       "xfa"
+      ],
+      "count": 6,
+      "tools": [
+       {
+        "category": "doc",
+        "description": "Run convert, ocr and/or optimize over files and folders, one file at a time.",
+        "name": "doc_batch",
+        "read_only": false
+       },
+       {
+        "category": "text",
+        "description": "Count Unicode words and characters on selected pages (default all), with totals and per-page counts.",
+        "name": "text_word_count",
+        "read_only": true
+       },
+       {
+        "category": "page",
+        "description": "Straighten a photographed document (Scan & OCR \u25b8 Enhance \u25b8 Camera image): the part of the page inside the four corners (x1, y1, \u2026 x4, y4 in top-left-origin points, any order, a convex quadrilateral; when omitted, the document's edges are found automatically, or an error says they could not be) is warped to an upright rectangle that replaces what the page shows, at the page picture's own resolution (at most 600 dpi).",
+        "name": "page_enhance_camera",
+        "read_only": false
+       },
+       {
+        "category": "ocr",
+        "description": "Scan & OCR \u25b8 Recognize text: render pages, read the words in them and add them as invisible text over the page image, so scanned pages become searchable and selectable (a searchable image; the image is not changed).",
+        "name": "ocr_recognize",
+        "read_only": false
+       },
+       {
+        "category": "ocr",
+        "description": "Scan & OCR \u25b8 Recognize text \u25b8 In multiple files: read every page of each PDF in paths and write the searchable result into folder under the same name (pages that already have text are left alone unless skip_text_pages is false, as in ocr_recognize).",
+        "name": "ocr_recognize_files",
+        "read_only": false
+       },
+       {
+        "category": "ocr",
+        "description": "Whether text recognition is available (its models are installed: release packages include them; a source build fetches them with `cargo xtask models`; PDFCRAFT_MODELS overrides), where it looks for them, and the languages it reads.",
+        "name": "ocr_status",
+        "read_only": true
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "method": "tools/call",
+   "params": {
+    "name": "tool_search",
+    "arguments": {
+     "query": "form fill"
+    }
+   },
+   "ms": 2,
+   "reply": {
+    "id": 5,
+    "jsonrpc": "2.0",
+    "result": {
+     "content": [
+      {
+       "text": "{\n  \"categories\": [\n    \"accessibility\",\n    \"action\",\n    \"bookmark\",\n    \"command\",\n    \"comment\",\n    \"comments\",\n    \"content\",\n    \"doc\",\n    \"edit\",\n    \"fill\",\n    \"form\",\n    \"image\",\n    \"js\",\n    \"link\",\n    \"links\",\n    \"measure\",\n    \"object\",\n    \"ocr\",\n    \"page\",\n    \"pdfa\",\n    \"print\",\n    \"printer\",\n    \"printers\",\n    \"redact\",\n    \"render\",\n    \"sign\",\n    \"stamp\",\n    \"text\",\n    \"view\",\n    \"xfa\"\n  ],\n  \"count\": 9,\n  \"tools\": [\n    {\n      \"category\": \"doc\",\n      \"description\": \"Save to its own file (an incremental update, which keeps signatures valid) or to a new path (a full rewrite).\",\n      \"name\": \"doc_save\",\n      \"read_only\": false\n    },\n    {\n      \"category\": \"form\",\n      \"description\": \"Set several fields at once (one undo step).\",\n      \"name\": \"form_fill\",\n      \"read_only\": false\n    },\n    {\n      \"category\": \"form\",\n      \"description\": \"Add a form field on a page.\",\n      \"name\": \"form_add_field\",\n      \"read_only\": false\n    },\n    {\n      \"category\": \"sign\",\n      \"description\": \"Sign with a digital ID (a .p12/.pfx path, or on macOS a Keychain identity: \\\"keychain:<common name or fingerprint>\\\" from sign_keychain_ids, or on Windows a store identity: \\\"windows:<common name or fingerprint>\\\" from sign_windows_ids) and save the signed file to `out` (signing always saves, as in Acrobat; the document then shows the signed file).\",\n      \"name\": \"sign_document\",\n      \"read_only\": false\n    },\n    {\n      \"category\": \"form\",\n      \"descrip...<3344 chars>",
+       "type": "text"
+      }
+     ],
+     "isError": false,
+     "structuredContent": {
+      "categories": [
+       "accessibility",
+       "action",
+       "bookmark",
+       "command",
+       "comment",
+       "comments",
+       "content",
+       "doc",
+       "edit",
+       "fill",
+       "form",
+       "image",
+       "js",
+       "link",
+       "links",
+       "measure",
+       "object",
+       "ocr",
+       "page",
+       "pdfa",
+       "print",
+       "printer",
+       "printers",
+       "redact",
+       "render",
+       "sign",
+       "stamp",
+       "text",
+       "view",
+       "xfa"
+      ],
+      "count": 9,
+      "tools": [
+       {
+        "category": "doc",
+        "description": "Save to its own file (an incremental update, which keeps signatures valid) or to a new path (a full rewrite).",
+        "name": "doc_save",
+        "read_only": false
+       },
+       {
+        "category": "form",
+        "description": "Set several fields at once (one undo step).",
+        "name": "form_fill",
+        "read_only": false
+       },
+       {
+        "category": "form",
+        "description": "Add a form field on a page.",
+        "name": "form_add_field",
+        "read_only": false
+       },
+       {
+        "category": "sign",
+        "description": "Sign with a digital ID (a .p12/.pfx path, or on macOS a Keychain identity: \"keychain:<common name or fingerprint>\" from sign_keychain_ids, or on Windows a store identity: \"windows:<common name or fingerprint>\" from sign_windows_ids) and save the signed file to `out` (signing always saves, as in Acrobat; the document then shows the signed file).",
+        "name": "sign_document",
+        "read_only": false
+       },
+       {
+        "category": "form",
+        "description": "Collect the field values of form data files (FDF, XFDF) or filled-in PDF forms into one CSV file at path: a column per field name, a row per file.",
+        "name": "form_merge_data",
+        "read_only": false
+       },
+       {
+        "category": "form",
+        "description": "Prepare a form \u25b8 automatic field detection: find the blanks a printed form asks to be filled (underscore runs, lines, empty boxes, small squares for check boxes; on scanned pages read from the pixels) and name each field from its label.",
+        "name": "form_detect_fields",
+        "read_only": false
+       },
+       {
+        "category": "fill",
+        "description": "Fill in a form that has no fields, as Acrobat's Fill & Sign does: type text (`text`, default 10 pt; `font_size` 4\u2013300 pt), place a check, cross, dot or line, today's date (in Preferences \u25b8 Date format, see fill_sign_date_format, or `format`; `font_size` also applies), or a signature or initials (either `text` drawn in a script font, or `path` to a local PNG/JPEG image up to 4 MiB and 32 megapixels, scaled down to 4 megapixels, preserving transparency; with `scan: true`, `path` is instead a photo of a signature on paper, within the same limits: the signature is found, and the paper, shadows and table around it are removed, with `sensitivity` 0\u2013100, default 50, picking up fainter ink when higher).",
+        "name": "fill_sign_add",
+        "read_only": false
+       },
+       {
+        "category": "fill",
+        "description": "Preferences \u25b8 Date format: the pattern Fill & Sign dates use (default m/d/yyyy).",
+        "name": "fill_sign_date_format",
+        "read_only": false
+       },
+       {
+        "category": "image",
+        "description": "List image/Form numbers whose placement and all clipping paths contain point [x,y] in top-left-origin points.",
+        "name": "image_hit",
+        "read_only": true
+       }
+      ]
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,87 @@
+{
+ "file": "ponte-vecchio-dusk.jpg",
+ "open": {
+  "height": 3786,
+  "index": 0,
+  "layers": 1,
+  "name": "ponte-vecchio-dusk.jpg",
+  "warnings": [],
+  "width": 4948
+ },
+ "size": {
+  "height": 1836,
+  "width": 2400
+ },
+ "adjust": null,
+ "preview_png_b64": [
+  444612
+ ],
+ "craft_seconds": 1.16,
+ "peak_kb": 332092,
+ "calls": [
+  {
+   "tool": "doc_open",
+   "args": {
+    "path": "/workspace/craft-spike/real/ponte-vecchio-dusk.jpg"
+   },
+   "ms": 409,
+   "error": false,
+   "text": "{\"height\":3786,\"index\":0,\"layers\":1,\"name\":\"ponte-vecchio-dusk.jpg\",\"warnings\":[],\"width\":4948}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "command_run",
+   "args": {
+    "id": "image.imageSize",
+    "params": {
+     "width": 2400
+    }
+   },
+   "ms": 436,
+   "error": false,
+   "text": "{\"height\":1836,\"width\":2400}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "command_run",
+   "args": {
+    "id": "image.adjustments.brightnessContrast",
+    "params": {
+     "brightness": 25,
+     "contrast": 10
+    }
+   },
+   "ms": 113,
+   "error": false,
+   "text": "null",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "doc_export",
+   "args": {
+    "path": "/workspace/craft-spike/out/ponte-2400.jpg",
+    "quality": 85
+   },
+   "ms": 78,
+   "error": false,
+   "text": "{\"path\":\"/workspace/craft-spike/out/ponte-2400.jpg\",\"warnings\":[\"lossy compression\"]}",
+   "image_b64_chars": []
+  },
+  {
+   "tool": "render_preview",
+   "args": {
+    "max_side": 512
+   },
+   "ms": 119,
+   "error": false,
+   "text": "flattened preview (max side 512)",
+   "image_b64_chars": [
+    444612
+   ]
+  }
+ ],
+ "baseline": [
+  0.88,
+  "Pillow 0.53 s\nponte-vecchio-dusk.jpg (4948, 3786) RGB mean luma 62.6 exif True\nponte-2400.jpg (2400, 1836) RGB mean luma 71.5 exif True\nponte-pillow.jpg (2400, 1836) RGB mean luma 70.4 exif False"
+ ]
+}
