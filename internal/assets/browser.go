@@ -119,16 +119,16 @@ func (b *Browser) resolveStore(
 	return store, bucket, nil
 }
 
-// List returns one folder's contents for identityID.
+// List returns one folder's contents for identityID, all of them or an error.
 //
 // The delimiter is always "/": a listing without one returns every key in the bucket, which
 // for a browser is both the wrong shape and an unbounded read of somebody's whole corpus.
-func (b *Browser) List(
-	ctx context.Context,
-	identityID string,
-	prefix string,
-	limit int,
-) (BrowseResult, error) {
+//
+// The file manager has no "more" control, so a short listing reads as the whole folder: a
+// fixed page of 200 once let a select-all-and-delete leave 463 of 736 files behind a folder
+// that looked empty (2026-10-18). Past maxFolderFanout, the cap every folder operation keeps,
+// the listing refuses instead.
+func (b *Browser) List(ctx context.Context, identityID, prefix string) (BrowseResult, error) {
 	if b == nil || b.Objects == nil {
 		return BrowseResult{}, ErrBrowserUnconfigured
 	}
@@ -136,9 +136,6 @@ func (b *Browser) List(
 		return BrowseResult{}, errors.New("assets: identity is required to browse files")
 	}
 	prefix = normalizeBrowsePrefix(prefix)
-	if limit <= 0 || limit > 1000 {
-		limit = 200
-	}
 
 	store, bucket, err := b.resolveStore(ctx, identityID)
 	if err != nil {
@@ -146,10 +143,13 @@ func (b *Browser) List(
 	}
 
 	objects, err := store.List(ctx, objectstore.ListRequest{
-		Bucket: bucket, Prefix: prefix, Delimiter: "/", Limit: limit,
+		Bucket: bucket, Prefix: prefix, Delimiter: "/", Limit: maxFolderFanout + 1,
 	})
 	if err != nil {
 		return BrowseResult{}, err
+	}
+	if len(objects) > maxFolderFanout {
+		return BrowseResult{}, ErrTooManyObjects
 	}
 
 	entries := make([]BrowseEntry, 0, len(objects))

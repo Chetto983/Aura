@@ -2,6 +2,8 @@ package assets
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -39,7 +41,7 @@ func keysOf(result BrowseResult) []string {
 // delimiter returns the whole corpus flattened, which is both the wrong shape for a browser
 // and an unbounded read.
 func TestBrowserGroupsTheRootIntoFolders(t *testing.T) {
-	result, err := browserFixture(t).List(t.Context(), "owner-1", "", 100)
+	result, err := browserFixture(t).List(t.Context(), "owner-1", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +64,7 @@ func TestBrowserGroupsTheRootIntoFolders(t *testing.T) {
 // Keys come back RELATIVE to the folder being viewed, so a client renders them directly
 // instead of trimming a prefix it has to remember.
 func TestBrowserReturnsKeysRelativeToTheFolder(t *testing.T) {
-	result, err := browserFixture(t).List(t.Context(), "owner-1", "contabilita/", 100)
+	result, err := browserFixture(t).List(t.Context(), "owner-1", "contabilita/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +84,7 @@ func TestBrowserReturnsKeysRelativeToTheFolder(t *testing.T) {
 func TestBrowserNormalisesHostilePrefixes(t *testing.T) {
 	browser := browserFixture(t)
 	for _, prefix := range []string{"../../etc/", "/contabilita/", "contabilita/../"} {
-		result, err := browser.List(t.Context(), "owner-1", prefix, 100)
+		result, err := browser.List(t.Context(), "owner-1", prefix)
 		if err != nil {
 			t.Fatalf("%q: %v", prefix, err)
 		}
@@ -107,7 +109,7 @@ func TestBrowserTreatsADottedFolderAsAFolder(t *testing.T) {
 	}
 	browser := &Browser{Objects: store, SharedBucket: "aura-assets"}
 
-	result, err := browser.List(t.Context(), "owner-1", "v1.2", 100)
+	result, err := browser.List(t.Context(), "owner-1", "v1.2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,10 +124,45 @@ func TestBrowserTreatsADottedFolderAsAFolder(t *testing.T) {
 // An unconfigured browser is a DEPLOYMENT fault. It must not read as "this identity has no
 // files", which is what an empty success would say.
 func TestBrowserRefusesWhenUnconfigured(t *testing.T) {
-	if _, err := (&Browser{}).List(t.Context(), "owner-1", "", 10); err == nil {
+	if _, err := (&Browser{}).List(t.Context(), "owner-1", ""); err == nil {
 		t.Fatal("unconfigured browser returned a listing")
 	}
-	if _, err := browserFixture(t).List(t.Context(), "  ", "", 10); err == nil {
+	if _, err := browserFixture(t).List(t.Context(), "  ", ""); err == nil {
 		t.Fatal("browser listed without an identity")
+	}
+}
+
+func folderOf(t *testing.T, files int) *Browser {
+	t.Helper()
+	store := objectstore.NewFake()
+	for i := range files {
+		key := fmt.Sprintf("chat/%05d.go", i)
+		if _, err := store.Put(context.Background(), objectstore.ObjectRef{Bucket: "aura-assets", Key: key},
+			strings.NewReader("x"), objectstore.PutOptions{Size: 1}); err != nil {
+			t.Fatalf("Put %s: %v", key, err)
+		}
+	}
+	return &Browser{Objects: store, SharedBucket: "aura-assets"}
+}
+
+// The file manager shows one folder at a time and has no "more" control, so a folder listed
+// short looks complete. Measured on 2026-10-18: a folder of 736 files listed as 200, the
+// operator selected all and deleted, the folder looked empty, and 463 files were still there.
+func TestBrowserListsTheWholeFolder(t *testing.T) {
+	result, err := folderOf(t, 250).List(t.Context(), "owner-1", "chat/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 250 {
+		t.Fatalf("listed %d of 250 files", len(result.Entries))
+	}
+}
+
+// Past the cap every folder operation already refuses, the listing refuses too, loudly,
+// instead of showing a part as the whole.
+func TestBrowserRefusesAFolderPastTheFanoutCap(t *testing.T) {
+	_, err := folderOf(t, maxFolderFanout+1).List(t.Context(), "owner-1", "chat/")
+	if !errors.Is(err, ErrTooManyObjects) {
+		t.Fatalf("err = %v, want ErrTooManyObjects", err)
 	}
 }

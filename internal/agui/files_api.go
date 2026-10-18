@@ -25,7 +25,7 @@ const fileManagerBase = "/api/filemanager"
 
 // FileBrowser lists one identity's stored objects as folders and files.
 type FileBrowser interface {
-	List(ctx context.Context, identityID, prefix string, limit int) (assets.BrowseResult, error)
+	List(ctx context.Context, identityID, prefix string) (assets.BrowseResult, error)
 }
 
 // FileAssetLookup resolves the assets behind stored objects: the name a person gave the file,
@@ -133,7 +133,7 @@ func (s *Server) handleFileList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	result, err := s.files.List(r.Context(), identityID, r.PathValue("path"), 0)
+	result, err := s.files.List(r.Context(), identityID, r.PathValue("path"))
 	if err != nil {
 		http.Error(w, sanitizeErr(err), http.StatusBadRequest)
 		return

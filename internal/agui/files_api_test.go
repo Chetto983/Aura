@@ -27,7 +27,7 @@ type fakeFileBrowser struct {
 }
 
 func (f *fakeFileBrowser) List(
-	_ context.Context, identityID, prefix string, _ int,
+	_ context.Context, identityID, prefix string,
 ) (assets.BrowseResult, error) {
 	f.identity, f.prefix = identityID, prefix
 	return f.result, f.err

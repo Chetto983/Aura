@@ -309,7 +309,7 @@ func TestReservedPrefixesAreHiddenAndProtected(t *testing.T) {
 		"contabilita/listino.xlsx",
 	)
 
-	result, err := browser.List(t.Context(), "owner-1", "", 100)
+	result, err := browser.List(t.Context(), "owner-1", "")
 	if err != nil {
 		t.Fatal(err)
 	}
