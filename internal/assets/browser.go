@@ -31,8 +31,9 @@ type Browser struct {
 	// removes, and a move or rename takes the rows of the keys it relocates. Nil leaves rows
 	// alone, which is right only where no asset store exists.
 	Rows BrowserRows
-	// Fields carries a document's fields to the key a move, rename or copy gives it: they are
-	// keyed by the object key. Nil where no ArcadeDB is configured, so no document has any.
+	// Fields carries a document's fields to the key a move, rename or copy gives it, and drops
+	// them with a deleted file: they are keyed by the object key. Nil where no ArcadeDB is
+	// configured, so no document has any.
 	Fields BrowserFields
 }
 
@@ -40,6 +41,7 @@ type Browser struct {
 type BrowserFields interface {
 	Move(ctx context.Context, identityID, fromKey, toKey string) error
 	CopyRecord(ctx context.Context, identityID, fromKey, toKey string) error
+	Remove(ctx context.Context, identityID, key string) error
 }
 
 // BrowserRows is what the file manager does to the asset rows behind the keys it writes.

@@ -26,6 +26,10 @@ func (f *fakeFields) CopyRecord(_ context.Context, identityID, fromKey, toKey st
 	return f.record("copy " + identityID + " " + fromKey + " -> " + toKey)
 }
 
+func (f *fakeFields) Remove(_ context.Context, identityID, key string) error {
+	return f.record("remove " + identityID + " " + key)
+}
+
 func (f *fakeFields) record(call string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -110,5 +114,52 @@ func TestRenameReplacesFilenameMetadata(t *testing.T) {
 	}
 	if got := objectstore.DecodeFileName(attrs.Metadata[objectstore.MetadataFileName]); got != "Q3 è.pdf" {
 		t.Fatalf("filename after rename = %q", got)
+	}
+}
+
+// A deleted file takes its fields with it: a file uploaded later under the same name is another
+// document, and must not arrive reviewed with the old one's values.
+func TestDeleteRemovesTheDocumentRecord(t *testing.T) {
+	browser := opsFixture(t, "chat/a.pdf", "clienti/rossi/b.xlsx")
+	fields := withFields(browser)
+	if err := browser.Delete(t.Context(), "owner-1", []string{"/chat/a.pdf", "/clienti"}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"remove owner-1 chat/a.pdf", "remove owner-1 clienti/rossi/b.xlsx"}
+	if got := slices.Sorted(slices.Values(fields.calls)); !slices.Equal(got, want) {
+		t.Fatalf("calls = %v, want %v", got, want)
+	}
+}
+
+// Fields that cannot follow leave the asset rows where they were, so the operator can retry the
+// move: rows already on the destination refused the retry as a held key.
+func TestAMoveWhoseFieldsFailLeavesTheRowsWhereTheyWere(t *testing.T) {
+	browser := opsFixture(t, "inbox/row.pdf", "archivio/.keep")
+	rows := withAssetRow(browser, keyedRow("asset-row", "owner-1", "aura-assets", "inbox/row.pdf", "report.pdf"))
+	fields := withFields(browser)
+	fields.err = errors.New("arcadedb down")
+	if _, err := browser.Move(t.Context(), "owner-1", []string{"/inbox/row.pdf"}, "/archivio"); err == nil {
+		t.Fatal("the move succeeded with the fields left behind")
+	}
+	requireRowAt(t, rows, "asset-row", "inbox/row.pdf", "report.pdf")
+	fields.err = nil
+	if _, err := browser.Move(t.Context(), "owner-1", []string{"/inbox/row.pdf"}, "/archivio"); err != nil {
+		t.Fatalf("the retry: %v", err)
+	}
+	requireRowAt(t, rows, "asset-row", "archivio/row.pdf", "report.pdf")
+}
+
+// Rows that cannot follow take the fields back, so fields and rows stay on the same key.
+func TestARowThatCannotFollowTakesTheFieldsBack(t *testing.T) {
+	browser := opsFixture(t, "inbox/row.pdf", "archivio/.keep")
+	rows := withAssetRow(browser, keyedRow("asset-row", "owner-1", "aura-assets", "inbox/row.pdf", "report.pdf"))
+	browser.Rows = rowsUnreachable{fakeAssetStore: rows, relocate: errors.New("database unreachable")}
+	fields := withFields(browser)
+	if _, err := browser.Move(t.Context(), "owner-1", []string{"/inbox/row.pdf"}, "/archivio"); err == nil {
+		t.Fatal("the move reported success although its row stayed behind")
+	}
+	want := []string{"move owner-1 inbox/row.pdf -> archivio/row.pdf", "move owner-1 archivio/row.pdf -> inbox/row.pdf"}
+	if !slices.Equal(fields.calls, want) {
+		t.Fatalf("calls = %v, want %v", fields.calls, want)
 	}
 }

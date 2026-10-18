@@ -414,3 +414,39 @@ func TestDocfieldsResolveAndAdmitBeforeAnyIngest(t *testing.T) {
 		t.Fatalf("admissions = %+v, want %+v", admissions, want)
 	}
 }
+
+// A file with no fields moved or copied over one that has them: the bytes under the key are no
+// longer the labelled document's, so its record goes, the values ending with a removed event. A
+// deleted file's record goes the same way, so a file uploaded later under that name starts empty.
+func TestDocfieldsARecordGoesWithItsBytes(t *testing.T) {
+	s, ctx := liveStore(t)
+	id := uuid.NewString()
+	steps := map[string]func(key string) error{
+		"move":   func(key string) error { return s.Move(ctx, id, "chat/unlabelled.pdf", key) },
+		"copy":   func(key string) error { return s.CopyRecord(ctx, id, "chat/unlabelled.pdf", key) },
+		"delete": func(key string) error { return s.Remove(ctx, id, key) },
+	}
+	for name, step := range steps {
+		key := "chat/" + name + ".pdf"
+		held, err := s.Record(ctx, id, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.ApplyDiff(ctx, id, []string{held.RecordID}, Diff{Set: []Value{{Field: FieldType, ValueKey: "lbl-fattura"}}}, SetByOperator); err != nil {
+			t.Fatal(err)
+		}
+		if err := step(key); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if now, err := s.Record(ctx, id, key); err != nil || now.RecordID == held.RecordID || len(now.Values) != 0 {
+			t.Fatalf("%s: %s holds %+v (err %v), want a new empty record", name, key, now, err)
+		}
+		history, err := s.History(ctx, id, held.RecordID)
+		if err != nil || history[len(history)-1].Action != ActionRemoved {
+			t.Fatalf("%s: the replaced record's history = %+v (err %v), want it to end with removed", name, history, err)
+		}
+	}
+	if err := s.Remove(ctx, id, "chat/never-labelled.pdf"); err != nil {
+		t.Fatalf("removing a document nobody labelled: %v", err)
+	}
+}

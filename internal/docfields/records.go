@@ -160,7 +160,8 @@ func (s *Store) change(ctx context.Context, identityID string, recordIDs []strin
 }
 
 // Move carries a document's fields to its new key after a rename or a move. A record already on
-// the new key is replaced, and its values end with a removed event (Review Focus 3).
+// the new key is replaced, and its values end with a removed event (Review Focus 3); with no
+// record to carry, the target's goes all the same, since its bytes were overwritten.
 func (s *Store) Move(ctx context.Context, identityID, fromKey, toKey string) error {
 	return s.carry(ctx, identityID, fromKey, toKey, false)
 }
@@ -170,6 +171,14 @@ func (s *Store) CopyRecord(ctx context.Context, identityID, fromKey, toKey strin
 	return s.carry(ctx, identityID, fromKey, toKey, true)
 }
 
+// Remove drops the record of a deleted document, its values ending with a removed event: a file
+// uploaded later under the same key is another document.
+func (s *Store) Remove(ctx context.Context, identityID, key string) error {
+	return s.carry(ctx, identityID, "", key, false)
+}
+
+// carry replaces the record on toKey by the one on fromKey, moved or copied; an empty fromKey, or
+// one with no record, leaves toKey with none.
 func (s *Store) carry(ctx context.Context, identityID, fromKey, toKey string, copied bool) error {
 	if fromKey == toKey {
 		return nil
@@ -179,33 +188,50 @@ func (s *Store) carry(ctx context.Context, identityID, fromKey, toKey string, co
 		return err
 	}
 	defer lockIdentity(identityID)()
-	source, found, err := byKey(ctx, c, fromKey)
-	if err != nil || !found {
-		return err
-	}
 	now := s.now()
 	sc := newScript()
-	var events []Event
-	if target, exists, err := byKey(ctx, c, toKey); err != nil {
+	events, err := dropRecord(ctx, c, sc, toKey, now)
+	if err != nil {
 		return err
-	} else if exists {
-		for _, v := range target.Values {
-			events = append(events, target.event(v.ref(), ActionRemoved, SetByOperator, &v, nil, now))
-		}
-		sc.add("DELETE FROM DocumentFields WHERE record_id = " + sc.bind(target.RecordID))
 	}
-	if copied {
-		events = append(events, copyInto(sc, source, toKey, now)...)
-	} else {
-		sc.add("UPDATE DocumentFields SET source_key = " + sc.bind(toKey) + ", updated_at = " + sc.bind(now.Format(timeLayout)) +
-			" WHERE record_id = " + sc.bind(source.RecordID))
-		events = append(events, source.event(ValueRef{Field: "source_key", ValueKey: toKey}, ActionMoved, SetByOperator, nil, nil, now))
+	if fromKey != "" {
+		source, found, err := byKey(ctx, c, fromKey)
+		if err != nil {
+			return err
+		}
+		switch {
+		case !found:
+		case copied:
+			events = append(events, copyInto(sc, source, toKey, now)...)
+		default:
+			sc.add("UPDATE DocumentFields SET source_key = " + sc.bind(toKey) + ", updated_at = " + sc.bind(now.Format(timeLayout)) +
+				" WHERE record_id = " + sc.bind(source.RecordID))
+			events = append(events, source.event(ValueRef{Field: "source_key", ValueKey: toKey}, ActionMoved, SetByOperator, nil, nil, now))
+		}
+	}
+	if len(sc.statements) == 0 {
+		return nil
 	}
 	sc.writeEvents(events)
 	if _, err := c.Script(ctx, sc.text(), sc.params); err != nil {
 		return fmt.Errorf("carry document fields to %s: %w", toKey, err)
 	}
 	return nil
+}
+
+// dropRecord adds to sc the deletion of key's record, if it has one, and returns the removed
+// events of its values.
+func dropRecord(ctx context.Context, c *arcadedb.Client, sc *script, key string, now time.Time) ([]Event, error) {
+	target, exists, err := byKey(ctx, c, key)
+	if err != nil || !exists {
+		return nil, err
+	}
+	events := make([]Event, 0, len(target.Values))
+	for _, v := range target.Values {
+		events = append(events, target.event(v.ref(), ActionRemoved, SetByOperator, &v, nil, now))
+	}
+	sc.add("DELETE FROM DocumentFields WHERE record_id = " + sc.bind(target.RecordID))
+	return events, nil
 }
 
 func copyInto(sc *script, source Fields, toKey string, now time.Time) []Event {

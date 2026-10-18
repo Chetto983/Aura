@@ -122,8 +122,8 @@ func (b *Browser) transferAll(
 // there leaves the sources and their rows as they were, and the copies without a row. name,
 // when not empty, is the renamed file's new name, which its row and its object's metadata
 // take too. A copy gets no row: it is a new file, not a new upload, and is listed by its key
-// like any other. The document fields follow before any source goes, for the same reason the
-// rows do.
+// like any other. The document fields follow before the rows, and rows that cannot follow take
+// them back, so a retry finds both where it left them.
 func (b *Browser) transfer(
 	ctx context.Context, identityID, source, destination string, removeSource bool, name string,
 ) (string, error) {
@@ -165,13 +165,14 @@ func (b *Browser) transfer(
 			return "", fmt.Errorf("copy %s: %w", move.From, err)
 		}
 	}
-	if removeSource && b.Rows != nil {
-		if err := b.Rows.Relocate(ctx, identityID, bucket, moves); err != nil {
-			return "", fmt.Errorf("move the asset rows: %w", err)
-		}
-	}
 	if err := b.carryFields(ctx, identityID, moves, removeSource); err != nil {
 		return "", err
+	}
+	if removeSource && b.Rows != nil {
+		if err := b.Rows.Relocate(ctx, identityID, bucket, moves); err != nil {
+			b.carryBack(ctx, identityID, documentMoves(moves))
+			return "", fmt.Errorf("move the asset rows: %w", err)
+		}
 	}
 	if !removeSource {
 		return "/" + destination, nil
@@ -185,7 +186,7 @@ func (b *Browser) transfer(
 }
 
 // carryFields moves, or for a copy copies, the document fields of every relocated file to its
-// new key. A folder marker is no document.
+// new key. A move that fails part way takes back what it carried.
 func (b *Browser) carryFields(ctx context.Context, identityID string, moves []KeyMove, removeSource bool) error {
 	if b.Fields == nil {
 		return nil
@@ -194,15 +195,40 @@ func (b *Browser) carryFields(ctx context.Context, identityID string, moves []Ke
 	if removeSource {
 		carry = b.Fields.Move
 	}
-	for _, move := range moves {
-		if strings.HasSuffix(move.From, folderMarkerSuffix) {
-			continue
-		}
+	documents := documentMoves(moves)
+	for i, move := range documents {
 		if err := carry(ctx, identityID, move.From, move.To); err != nil {
+			if removeSource {
+				b.carryBack(ctx, identityID, documents[:i])
+			}
 			return fmt.Errorf("carry the document fields of %s: %w", move.From, err)
 		}
 	}
 	return nil
+}
+
+// carryBack returns the fields of moves that will not happen to their sources. What cannot go
+// back stays on the destination, where a retry of the move finds it.
+func (b *Browser) carryBack(ctx context.Context, identityID string, moves []KeyMove) {
+	if b.Fields == nil {
+		return
+	}
+	for _, move := range moves {
+		if err := b.Fields.Move(ctx, identityID, move.To, move.From); err != nil {
+			slog.Warn("aura assets: document fields left at the destination of a failed move", "key", move.To, "err", err)
+		}
+	}
+}
+
+// documentMoves leaves out the folder markers: a marker is no document.
+func documentMoves(moves []KeyMove) []KeyMove {
+	out := make([]KeyMove, 0, len(moves))
+	for _, move := range moves {
+		if !strings.HasSuffix(move.From, folderMarkerSuffix) {
+			out = append(out, move)
+		}
+	}
+	return out
 }
 
 // refuseHeldDestinations fails before anything is copied when an asset row holds a key the
@@ -255,8 +281,15 @@ func (b *Browser) Delete(ctx context.Context, identityID string, ids []string) e
 
 // deleteKey removes one object and retires the asset row holding its key, in Service.Delete's
 // order: the row is marked deleting before the bytes go, so a failure between the two leaves
-// a row the retention sweep finishes, never a live row over a missing object.
+// a row the retention sweep finishes, never a live row over a missing object. The document
+// fields go first: a failure there leaves the file whole, while fields outliving it would hand
+// a file uploaded later under the same name another document's values.
 func (b *Browser) deleteKey(ctx context.Context, store objectstore.Store, identityID string, ref objectstore.ObjectRef) error {
+	if b.Fields != nil && !strings.HasSuffix(ref.Key, folderMarkerSuffix) {
+		if err := b.Fields.Remove(ctx, identityID, ref.Key); err != nil {
+			return fmt.Errorf("drop the document fields: %w", err)
+		}
+	}
 	holder, err := b.claimRow(ctx, identityID, ref)
 	if err != nil {
 		return err
