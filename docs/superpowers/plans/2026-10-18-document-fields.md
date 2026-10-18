@@ -12,18 +12,20 @@ included ("Approvata, scrivi il piano").
 custom fields on every document in a Documenti view. The agent's `document_search` filters by the
 same fields. Every value records who set it.
 
-**Architecture:**
-- **Postgres is the truth.** New `aura.*` tables with the fail-closed RLS pair hold the lists, one
-  record per `(identity_id, object_key)`, the values with provenance, the rejections and the event
-  history, behind a `internal/docfields` Store in the `internal/board` shape.
-- **ArcadeDB gets a Go-owned mirror.** Go writes a `DocumentFields` document type in the
-  identity's database in the same request. `candidateWhere` filters through a subquery on it.
+**Architecture** (revised 2026-10-18 after Task 0; the operator moved the fields into ArcadeDB):
+- **ArcadeDB is the truth, in the identity's own database.** Document types `DocumentLabel`,
+  `DocumentCustomField`, `DocumentFields` and `DocumentFieldEvent` hold the lists, one record per
+  `source_key`, the values with provenance, the rejections and the history. The database per
+  identity is the isolation. An `internal/docfields` Store writes them through the tenant clients.
+- **Triggers keep the fields on the rows the search scans.** An `AFTER UPDATE` trigger on `Passage`
+  and `IndexedDocument` stamps `df_*` from `DocumentFields` when CocoIndex's `SET` lands. Cascade
+  triggers on `DocumentFields` carry the operator's edits. `candidateWhere` filters on `df_*`.
 - **Suggestions come from Go.** A Go pass applies rules on the labels, and the invoice header
   pairs filecard now keeps (carried on `IndexedDocument` by the ingest), as suggestions.
 - **The cockpit** adds a Documenti view on `@svar-ui/react-grid` beside the file manager.
 
 **Tech Stack:**
-- Go 1.27, sqlc, golang-migrate, Postgres 18;
+- Go 1.27;
 - ArcadeDB 26.10.1 over HTTP;
 - Python 3.12 with cocoindex 1.0.25;
 - React 18, `@svar-ui/react-grid` 2.7.0, vitest, Playwright.
@@ -33,11 +35,10 @@ same fields. Every value records who set it.
 ## Global Constraints
 
 - **No new environment variable.**
-- **The migration number is `ls internal/db/migrations/ | tail -1` plus one.** It is 0142 if
-  nothing lands first. Never copy the number from this plan.
-- **Every new table carries the fail-closed RLS pair** of `0141_work_board.up.sql`: an
-  `*_owner_isolation` policy and an `*_require_identity` RESTRICTIVE policy. Grants go to
-  `aura_app` and `aura_migrate`.
+- **No Postgres migration.** Document fields live in the identity's ArcadeDB database, reached only
+  through `arcadedb.TenantClients`, so one identity cannot address another's database.
+- **Every multi-record write is one `sqlscript`.** Measured in Task 0: 4,027 records take 32.8 s one
+  HTTP request each, and 0.27 s in one script.
 - **The identity comes from the principal** (`principalIdentityID(r)`), never a request parameter.
 - **`set_by` takes exactly these values:** `operator`, `rule:<label id>`, `extractor`, `copied`.
   `classifier` and `llm` are reserved for phases 2 and 3; the CHECK admits them and no code
@@ -103,17 +104,18 @@ code.
   CocoIndex's rows. The operator moved the fields into ArcadeDB. See
   `docs/superpowers/verification/2026-10-18-document-fields-mirror.md`; Tasks 2, 3 and 6 change accordingly.
 
-### Task 1: the PRD amendment and the question set, before the code
+### Task 1: the question set, before the code
 
 **Files:**
-- Modify: `prd.md` §11;
+- Modify: `docs/superpowers/specs/2026-10-18-document-fields-design.md` (Ruling 2026-10-18: no
+  `prd.md` amendment, the operator's standing rule; the spec records the ArcadeDB decision instead);
 - Create: `scripts/fixtures/document_retrieval_eval/document_filter_questions.json`.
 
-- [ ] **Step 1. The amendment.**
-  - It covers the fields, provenance, review state, the Postgres tables plus the `DocumentFields`
-    mirror, and the seven arguments.
-  - It records the reversal of 0098's sentence "anything richer has to live in S3 object
-    metadata", with the spec's four reasons and Task 0's number.
+- [ ] **Step 1. The spec amendment** (it replaces decision 2 and the filter of decision 5).
+  - It covers the fields, provenance, review state, the ArcadeDB types and triggers, and the
+    seven arguments.
+  - It records why the fields left Postgres for the identity's ArcadeDB database, citing Task 0's
+    numbers, and that 0098's object-metadata sentence still does not hold, for the spec's reasons.
   - It ends with what the amendment does not prove.
 - [ ] **Step 2. The question set.**
   - At least 20 questions over the office corpus, each answerable with type, counterparty, date
@@ -121,54 +123,49 @@ code.
   - Each entry: `{"qid","query","filters":{…},"gold_docs":[…],"answer"}`. `gold_docs` holds the
     answer documents themselves: the invoices, not `contabilita_2026.xlsx`.
   - Read the values from `spikes/document-routing-benchmark/generate_corpus.py`.
-- [ ] **Step 3. Commit:** `docs(prd): operator-owned document fields, and the question set that
+- [ ] **Step 3. Commit:** `docs(spec): document fields live in ArcadeDB, and the question set that
   gates them`.
 
-### Task 2: the tables and the store
+### Task 2: the ArcadeDB types and the store
 
 **Files:**
-- Create: `internal/db/migrations/<next>_document_fields.up.sql` and `.down.sql`;
-- Create: `internal/db/queries/document_fields.sql`;
-- Create: `internal/docfields/docfields.go`, `labels.go`, `records.go`, `values.go`, `events.go`;
-- Create: `internal/docfields/rules/match.go`, `match_test.go`: the five matchers (the Interfaces of Task 7), here because `SaveLabel` validates with them;
-- Test: `internal/docfields/docfields_test.go`, `store_integration_test.go` (`//go:build db_integration`).
+- Create: `internal/arcadedb/document_fields_schema.go`, the types, indexes and triggers;
+- Create: `internal/docfields/docfields.go`, `labels.go`, `records.go`, `values.go`, `events.go`, `script.go`;
+- Create: `internal/docfields/rules/match.go`, `match_test.go`, the five matchers (the Interfaces of
+  Task 7), here because `SaveLabel` validates with them;
+- Test: `internal/docfields/docfields_test.go` (unit, no database) and
+  `store_integration_test.go` (`//go:build arcadedb_integration`).
 
-**The tables** (names and CHECKs fixed here; the columns are as listed):
-- `aura.document_labels`:
-  - `id uuid PK`, `identity_id`, `kind CHECK (kind IN ('type','counterparty','tag'))`, `name`;
-  - `match_algorithm CHECK (IN ('none','any','all','exact','regex','fuzzy'))` default `none`;
-  - `match_pattern text default ''`, `case_insensitive bool default true`, timestamps;
-  - `UNIQUE (identity_id, kind, lower(btrim(name)))`.
-- `aura.document_custom_fields`: `id`, `identity_id`, `name`,
-  `data_type CHECK (IN ('date','monetary','integer','text','select'))`, `options jsonb default '[]'`,
-  `UNIQUE (identity_id, lower(btrim(name)))`.
-- `aura.document_records`: `id uuid PK`, `identity_id`, `object_key`, `reviewed_at`,
-  `reviewed_by text CHECK (IN ('operator'))`, timestamps, `UNIQUE (identity_id, object_key)`.
-- `aura.document_values`:
-  - `record_id → document_records ON DELETE CASCADE`, `identity_id`;
-  - `field text`: `type|counterparty|document_date|tag|custom:<uuid>`;
-  - `value_key text`: the label id, ISO date, or the value's canonical text;
-  - `value jsonb`;
-  - `set_by CHECK (set_by IN ('operator','extractor','copied','classifier','llm') OR set_by LIKE 'rule:%')`;
-  - `accepted bool default false`, `evidence text default ''`, `set_at`;
-  - `PRIMARY KEY (record_id, field, value_key)`.
-- `aura.document_rejections`: `record_id`, `identity_id`, `field`, `value_key`, `rejected_at`,
-  `PRIMARY KEY (record_id, field, value_key)`.
-- `aura.document_field_events`: `id bigserial`, `identity_id`, `record_id`, `field`, `value_key`,
-  `action CHECK (IN ('set','accepted','rejected','removed','reviewed','moved'))`, `actor`, `before jsonb`,
-  `after jsonb`, `at`.
+**The types**, in the identity's database, created `IF NOT EXISTS` on first use:
+- `DocumentLabel`:
+  - `id` UNIQUE, `kind` (`type|counterparty|tag`), `name`;
+  - `name_key = lower(trim(name))`, UNIQUE on `(kind, name_key)`;
+  - `match_algorithm` (`none|any|all|exact|regex|fuzzy`), `match_pattern`, `case_insensitive`, timestamps.
+- `DocumentCustomField`: `id` UNIQUE, `name`, `name_key` UNIQUE, `data_type`
+  (`date|monetary|integer|text|select`), `options`.
+- `DocumentFields`, one per `source_key` (UNIQUE), with `record_id` (UNIQUE, the stable handle):
+  - **the filterable projection,** which the triggers copy:
+    - label ids `type`, `counterparty` and `tags`;
+    - `document_date`;
+    - `*_ok`, the same values restricted to operator-set or accepted ones;
+  - **provenance,** `values`: a list of `{field, value_key, value, set_by, accepted, evidence, set_at}`;
+  - **review,** `rejections`, `reviewed_at`, `reviewed_by`, timestamps.
+- `DocumentFieldEvent`: `record_id`, `field`, `value_key`,
+  `action` (`set|accepted|rejected|removed|reviewed|moved`), `actor`, `before`, `after`, `at`.
+- `DocumentRulePass`: the pass watermark on `IndexedDocument.indexed_at` (Task 7).
 
 **Interfaces, produced:**
-- `func New(pool *pgxpool.Pool) *Store`.
+- `arcadedb.(*Client).EnsureDocumentFieldsSchema(ctx) error`: the types, indexes and triggers, idempotent.
+- `func New(tenants arcadedb.TenantClientResolver) *Store`. It ensures the schema once per identity.
 - Labels: `(s *Store) Labels(ctx, identityID string, kind Kind) ([]Label, error)`, and
   `SaveLabel(ctx, identityID string, in Label) (Label, error)`, which validates the pattern
   through `rules.Compile`. Also `DeleteLabel(ctx, identityID, id string) error`.
-- `(s *Store) Record(ctx, identityID, objectKey string) (Record, error)`, which creates on first
-  use.
+- `(s *Store) Record(ctx, identityID, sourceKey string) (Record, error)`, which creates on first use.
 - `(s *Store) ApplyDiff(ctx, identityID string, recordIDs []string, d Diff, actor string) error`,
-  where `Diff{Set []Value; Remove []ValueRef}`. It writes events, records rejections when the
-  operator removes a non-operator value, and never overwrites `set_by=operator` unless the actor
-  is the operator.
+  where `Diff{Set []Value; Remove []ValueRef}`:
+  - one `sqlscript` for every record;
+  - it writes events, and records a rejection when the operator removes a non-operator value;
+  - it never overwrites `set_by=operator` unless the actor is the operator.
 - `(s *Store) Suggest(ctx, identityID, recordID string, vs []Value) (int, error)`. It skips
   rejected values and fields that already hold an operator value.
 - `(s *Store) MarkReviewed(ctx, identityID string, recordIDs []string) error`.
@@ -177,43 +174,56 @@ code.
 - `var ErrNotFound, ErrInvalid` as in `internal/board`.
 
 **Steps:**
-- [ ] **Step 1. RED.** The matcher table test for all five algorithms, with case folding,
-  accents and `TestInvalidRegexRefused` (Review Focus 5). Then the integration tests
-  `TestDocfieldsOperatorWins`, `TestDocfieldsRejectionSticks`,
-  `TestDocfieldsMoveOntoExistingKey` (Review Focus 3), `TestDocfieldsIsolation` (a second identity
-  reads `ErrNotFound`) and `TestDocfieldsNameCaseInsensitiveUnique`.
-- [ ] **Step 2. Run them:** `bash scripts/coverage_docker.sh` style env, then
-  `go test -tags db_integration -run TestDocfields ./internal/docfields/`. They fail on the
+- [ ] **Step 1. RED.**
+  - The matcher table test for all five algorithms, with case folding, accents and
+    `TestInvalidRegexRefused` (Review Focus 5).
+  - Unit tests for the diff semantics and the generated script.
+  - The integration tests:
+    - `TestDocfieldsOperatorWins`;
+    - `TestDocfieldsRejectionSticks`;
+    - `TestDocfieldsMoveOntoExistingKey` (Review Focus 3);
+    - `TestDocfieldsIsolation`: a second identity's database has none of the first's records;
+    - `TestDocfieldsNameCaseInsensitiveUnique`.
+- [ ] **Step 2. Run them** against the dev stack's ArcadeDB, with the `arcadedb_integration` env:
+  `go test -tags arcadedb_integration -run TestDocfields ./internal/docfields/`. They fail on the
   missing package.
-- [ ] **Step 3. GREEN.** The migration, the sqlc queries (`make sqlc`), then the Store.
-- [ ] **Step 4. Run them again, plus `go test -race ./internal/docfields/`;** all pass.
-- [ ] **Step 5. Commit:** `feat(docfields): store operator-owned document fields with provenance`.
+- [ ] **Step 3. GREEN.** The schema, then the Store.
+- [ ] **Step 4. Run them again, plus `go test -race ./internal/docfields/` in WSL;** all pass.
+- [ ] **Step 5. Commit:** `feat(docfields): store operator-owned document fields in the identity's ArcadeDB`.
 
-### Task 3: the ArcadeDB mirror
+### Task 3: the triggers that keep the fields on the indexed rows
 
-**Files:** `internal/arcadedb/document_fields.go` (new), `document_fields_test.go`, and an
+**Files:** `internal/arcadedb/document_fields_schema.go` (the trigger DDL), its unit test, and an
 `arcadedb_integration` test.
 
-**Interfaces, produced:**
-- `type FieldsMirror struct{ SourceKey, Type, Counterparty string; DocumentDate string; Tags []string; Reviewed map[string]bool }`.
-- `(c *Client) EnsureDocumentFieldsSchema(ctx) error`: the type and the `source_key` UNIQUE
-  index, `IF NOT EXISTS`.
-- `(c *Client) PutDocumentFields(ctx, m FieldsMirror) error`, an upsert by `source_key`.
-- `(c *Client) MoveDocumentFields(ctx, from, to string) error` and
-  `(c *Client) DeleteDocumentFields(ctx, sourceKey string) error`.
-- In `internal/docfields`:
-  - `type Mirror interface{ Put(ctx, identityID string, m arcadedb.FieldsMirror) error; Move(…); Delete(…) }`;
-  - the Store takes it through `WithMirror(m Mirror)`;
-  - every write runs Postgres, then the mirror, and a mirror error fails the call.
-  - `(s *Store) RepairMirror(ctx, identityID string) (int, error)` rewrites the mirror from
-    Postgres.
+**The triggers**, as measured in Task 0 (`docs/superpowers/verification/2026-10-18-document-fields-mirror.md`):
+- **The stamp:** `AFTER UPDATE ON TYPE Passage` and `ON TYPE IndexedDocument`:
+  - `UPDATE … SET df_* = first((SELECT … FROM DocumentFields WHERE source_key = $record.source_key)).…, df_stamped = true`;
+  - `WHERE @rid = $record.@rid AND df_stamped IS NULL AND source_key IS NOT NULL`.
+  - CocoIndex's `MERGE … SET n += $props` lands on the update, not the create.
+- **The cascade:** `AFTER CREATE` and `AFTER UPDATE ON TYPE DocumentFields`, which write `df_*` on
+  both types `WHERE source_key = $record.source_key`.
+- **The clear:** `AFTER DELETE ON TYPE DocumentFields`, which sets `df_*` to null on both types.
+- **Not used, because they fail on 26.10.1:**
+  - a `BEFORE CREATE` SQL trigger (`$record` has no RID yet);
+  - JavaScript triggers (`record.x = …` is not persisted, and parameters given as a JS object are
+    not bound).
+- **A failing `BEFORE` trigger aborts CocoIndex's write silently.** These are `AFTER` only.
+
+**Interfaces, produced:** `(s *Store) Backfill(ctx, identityID string) (int, error)`. It fires the
+cascade for a library indexed before the triggers existed, as `UPDATE DocumentFields SET
+source_key = source_key`.
 
 **Steps:**
-- [ ] **Step 1. RED.** Unit tests on the generated statements. Integration
-  `TestDocumentFieldsMirrorSurvivesReconcile` runs Task 0's step 3 as a test.
+- [ ] **Step 1. RED.**
+  - Unit tests on the generated DDL.
+  - Integration `TestDocumentFieldsTriggersStampCocoIndexWrites` replays CocoIndex's
+    `MERGE (n:Passage {passage_key: …}) SET n += $props` over openCypher.
+  - It asserts that the stamp, the cascade, the clear and a rename move the values the way Task 0
+    measured.
 - [ ] **Step 2. GREEN.**
-- [ ] **Step 3. Run the touched packages with `-race`, and the integration test.**
-- [ ] **Step 4. Commit:** `feat(arcadedb): a Go-owned DocumentFields mirror`.
+- [ ] **Step 3. Run the touched packages with `-race` in WSL, and the integration test.**
+- [ ] **Step 4. Commit:** `feat(arcadedb): triggers keep document fields on the indexed rows`.
 
 ### Task 4: rename and move carry the fields, and the new name
 
@@ -276,10 +286,16 @@ code.
 
 **Interfaces:**
 - `arcadedb.FieldFilter{Types, Counterparties, Tags []string; TagsAll bool; DateFrom, DateTo string; IncludeUnreviewed bool}`
-  on `CandidateFilter.Fields *FieldFilter`.
-- `candidateWhere` appends `AND source_key IN (SELECT source_key FROM DocumentFields WHERE …)`.
-  Every leg built on it inherits the filter: dense, full-text, lexical (`document_lexical.go:96`)
-  and card.
+  on `CandidateFilter.Fields *FieldFilter`. The values are label ids.
+- `candidateWhere` appends predicates on the stamped properties:
+  - `df_type IN :types` and `df_counterparty IN :counterparties`;
+  - `df_tags CONTAINSANY :tags`, or `CONTAINSALL` when `TagsAll`;
+  - `df_date >= :date_from` and `df_date <= :date_to`, both ISO strings;
+  - the `_ok` columns when `IncludeUnreviewed` is false.
+  - Every leg built on it inherits the filter: dense, full-text, lexical (`document_lexical.go:96`)
+    and card.
+  - Measured in Task 0: 59–168 ms, against 155–163 ms for the unfiltered query.
+- `document_retrieval.go` is 558 lines: the filter goes to `document_retrieval_fields.go`.
 - **Names arrive as label names.** The tool resolves them through a
   `docfields.Store.ResolveNames(ctx, identityID string, kind Kind, names []string) (ids []string, unknown map[string][]string, err error)`.
   `unknown` maps each unmatched name to up to 3 closest names, by edit distance over the lowered
@@ -315,8 +331,7 @@ code.
   - `fuzzy`: a token-set ratio of at least 0.8 against any window of the pattern's length.
 - `(s *Store) RunPass(ctx, identityID string, reader DocumentReader) (PassResult, error)`.
   - `DocumentReader` lists `IndexedDocument`s with `indexed_at` above a watermark kept in
-    `aura.document_rule_passes(identity_id PK, watermark timestamptz)`. Add it to Task 2's
-    migration if Task 2 has not landed; otherwise use the next migration.
+    a `DocumentRulePass` record in the identity's database (Task 2).
   - It returns `file_name`, `card` and `header_pairs`.
 - **The extractor mapping:**
   - `Data emissione` (dd/mm/yyyy or ISO) goes to `document_date`;
@@ -450,6 +465,8 @@ tests.
 
 ## Decisions taken while writing this plan
 
+- **Superseded by Task 0 (2026-10-18):** the subquery failed the gate; the fields live in ArcadeDB
+  and triggers stamp them on the indexed rows (Architecture above). The original ruling follows.
 - **Ruling: the mirror's filter is a `source_key IN (subquery)` on `candidateWhere`,** so every leg
   inherits it from one clause. Cost if wrong: Task 0 says so before any code, and the filter
   becomes a Go-side id prefilter.
@@ -466,10 +483,9 @@ tests.
 
 | Files | Responsibility |
 |---|---|
-| `internal/db/migrations/<next>_document_fields.*`, `internal/db/queries/document_fields.sql` | the tables, RLS, queries |
-| `internal/docfields/` | the store, diff semantics, provenance, events, the mirror port, the pass |
+| `internal/arcadedb/document_fields_schema.go` | the ArcadeDB types, indexes and triggers |
+| `internal/docfields/` | the store, diff semantics, provenance, events, the pass |
 | `internal/docfields/rules/` | the five matchers |
-| `internal/arcadedb/document_fields.go` | the `DocumentFields` mirror |
 | `internal/arcadedb/document_retrieval.go`, `internal/documents/retrieval*.go`, `internal/agent/tools/document_search.go` | the filters |
 | `internal/objectstore/s3.go`, `internal/assets/filemanager_ops.go` | rename and move carry the name and the fields |
 | `internal/documents/filecard/`, `cmd/aura-filecard/`, `services/ingest/` | header pairs to `IndexedDocument` |
