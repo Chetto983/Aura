@@ -197,7 +197,7 @@ code.
 
 ### Task 3: the triggers that keep the fields on the indexed rows
 
-**Files:** `internal/arcadedb/document_fields_schema.go` (the trigger DDL), its unit test, and an
+**Files:** `internal/arcadedb/document_fields_triggers.go` (the trigger DDL), its unit test, and an
 `arcadedb_integration` test.
 
 **The triggers**, as measured in Task 0 (`docs/superpowers/verification/2026-10-18-document-fields-mirror.md`):
@@ -224,9 +224,18 @@ on 26.10.1:
   one, into a schema with none of ingest's indexes.
 - Each trigger converges on its body, read back from `SELECT FROM schema:triggers`
   (`actionCode`): one that differs is dropped and created again.
-- When one is created or replaced, every indexed row is stamped again by lowering the sentinel
-  (`SET df_stamped = false`). `UPDATE DocumentFields SET source_key = source_key` fires nothing:
-  an UPDATE that changes nothing is not written.
+- Every record not stamped under the current bodies cascades once: `UPDATE DocumentFields SET
+  stamp_version = :v ... LIMIT 500`, repeated until a batch is short, where `v` hashes the trigger
+  bodies. `SET source_key = source_key` fires nothing, since an UPDATE that changes nothing is not
+  written. Only records are walked: a row of a document with no record needs no stamp, its `df_*`
+  being null either way. The batches resume where an interrupted pass stopped.
+- The stamp names its row as `UPDATE $record.@rid`: `UPDATE <type> WHERE @rid = $record.@rid` scans
+  the type (11.6 ms against 2.6 ms per row on 5,000 passages), and `UPDATE $record` is an internal
+  error. The cascade finds a document's rows by `source_key`, which ingest declares but does not
+  index, so the ensure adds a NOTUNIQUE index on both types.
+- On the bench library (4,027 records, 7,271 passages, 4,045 documents), through the identity's
+  own credential: the first ensure, re-stamp included, 1.33 s; the next 38 ms. Lowering the sentinel
+  on every row instead had passed the client's 30 s timeout.
 
 **Steps:**
 - [x] **Step 1. RED.**
