@@ -50,7 +50,7 @@ const StudioWorkspace = lazy(() => import('./studio/StudioWorkspace'));
 const GraphExplorer = lazy(() => import('./graph/GraphExplorer'));
 
 const GovernanceWorkspace = lazy(() => import('./governance/GovernanceWorkspace'));
-const FilesWorkspace = lazy(() => import('./files/FilesWorkspace'));
+const DocumentsSurface = lazy(() => import('./documents/DocumentsSurface'));
 const BoardWorkspace = lazy(() => import('./board/BoardWorkspace'));
 const SettingsWorkspace = lazy(() => import('./settings/SettingsWorkspace'));
 
@@ -375,7 +375,7 @@ export function AppShell() {
             ) : surface === 'governance' ? (
               <GovernanceWorkspace />
             ) : surface === 'documents' ? (
-              <FilesWorkspace mobileMenu={documentsMobileMenu} />
+              <DocumentsSurface mobileMenu={documentsMobileMenu} />
             ) : surface === 'board' ? (
               <BoardWorkspace mobileMenu={documentsMobileMenu} onDiscuss={discussCard} />
             ) : surface === 'settings' ? (

@@ -477,19 +477,35 @@ behave as the clauses expect, live on 26.10.1.
   `documentsLocale.ts`, with tests;
 - Modify: `web/src/AppShell.tsx:377-378` for the Cartelle/Documenti toggle, remembered like the
   surface;
-- Modify: `web/package.json`: `"@svar-ui/react-grid": "2.7.0"`.
+- Modify: `web/package.json`: `"@svar-ui/react-grid": "2.7.6"`.
+
+**As built** (2026-10-18):
+- `DocumentsSurface.tsx` holds the Cartelle/Documenti toggle, remembered under
+  `aura.documents.view`; `AppShell` loads it in place of `FilesWorkspace`.
+- The list pages on the server with SVAR's `Pager`, and sorts there: an intercept on `sort-rows`
+  that answers false stops the grid's own sort (`@svar-ui/lib-state` `exec`), and `sortMarks`
+  draws the arrow.
+- The cells live in `DocumentsCells.tsx`, their context in `documentsCellContext.ts`. In 2.7.6
+  the runtime hands a custom cell `onAction` while the published types declare `onaction`; the
+  cells read both.
+- The mockup's Exclude, "Non assegnata" and search box needed the list API to grow:
+  `type_not`, `counterparty_not`, `tags_not`, `unassigned`, `q`, and an `unassigned` facet
+  (commit `feat(docfields): the list's exclusions, unassigned fields and name search`). The search
+  box matches file names; its "Significato" mode, a semantic search, is left for later.
+- `web/src/i18n/resources.ts` passed 600 lines with the new namespace: the approval strings moved
+  to `resources.approval.ts`.
 
 **Steps:**
-- [ ] **Step 1. RED, vitest:**
+- [x] **Step 1. RED, vitest:**
   - columns and source marks rendered from API rows;
   - facet counts, Include, Exclude and "Non assegnata";
   - a click on a value adds its filter;
   - Reset;
   - the "da rivedere" counter.
-- [ ] **Step 2. GREEN,** following mockup 1. The grid uses `cell` components for values and
+- [x] **Step 2. GREEN,** following mockup 1. The grid uses `cell` components for values and
   marks; the bar sits outside the grid.
-- [ ] **Step 3. `npm run lint && npm run typecheck && npm test`.**
-- [ ] **Step 4. Commit:** `feat(web): the Documenti view with filters`.
+- [x] **Step 3. `npm run lint && npm run typecheck && npm test`.**
+- [x] **Step 4. Commit:** `feat(web): the Documenti view with filters`.
 
 ### Task 10: bulk edit and its confirmation
 

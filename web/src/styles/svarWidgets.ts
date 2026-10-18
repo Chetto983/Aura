@@ -10,4 +10,5 @@
 // in one chunk, in this order.
 import '@svar-ui/react-filemanager/all.css';
 import '@svar-ui/react-kanban/all.css';
+import '@svar-ui/react-grid/all.css';
 import './svar.css';
