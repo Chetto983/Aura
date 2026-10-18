@@ -31,8 +31,8 @@ const invalidated = [['documents-labels'], ['documents']];
 interface LabelsAdminProps {
   readonly kind: LabelKind;
   readonly labels: readonly Label[];
-  /** How many documents of the library hold each label. */
-  readonly counts: Readonly<Record<string, number>>;
+  /** How many documents of the library hold each label; undefined while they load. */
+  readonly counts: Readonly<Record<string, number>> | undefined;
   readonly onFilter: (id: string) => void;
 }
 
@@ -106,7 +106,9 @@ export function LabelsAdmin({ kind, labels, counts, onFilter }: LabelsAdminProps
               name={label.name}
               lines={[
                 ruleWords(label, t),
-                t('documents.lists.count', { count: counts[label.id] ?? 0 }),
+                ...(counts === undefined
+                  ? []
+                  : [t('documents.lists.count', { count: counts[label.id] ?? 0 })]),
               ]}
               actions={
                 <Button

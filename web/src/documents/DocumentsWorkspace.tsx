@@ -246,36 +246,42 @@ export default function DocumentsWorkspace({ mobileMenu }: DocumentsWorkspacePro
           {t('documents.loading')}
         </p>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col">
+        // The theme wrapper is a plain div with no height of its own: stretched here, the grid
+        // gets the room left and scrolls inside it. Left to its content, the grid grew to all
+        // fifty rows and the page cut off those below the fold and the pager (measured live
+        // 2026-10-18, a 1,889 px grid in 438 px). FilesWorkspace stretches its manager the same way.
+        <div className="min-h-0 flex-1 [&>*]:h-full">
           <Theme fonts={false}>
             <Locale words={documentsWords(i18n.language)}>
               <DocumentsCellContext.Provider value={names}>
                 <SelectionContext.Provider value={bulk.selectionApi}>
-                  <div className="min-h-0 flex-1 [&>*]:h-full">
-                    <Grid
-                      data={rows.map((row) => ({ ...row }))}
-                      columns={columns}
-                      sortMarks={sortMarks}
-                      init={init}
-                      select={false}
-                      onFilterValue={(ev: FilterValueEvent) => {
-                        changeFilter(withField(filter, 'include', ev.field, ev.id));
-                      }}
-                      onOpenDocument={(ev: OpenDocumentEvent) => {
-                        setOpenId(ev.id);
-                      }}
-                    />
+                  <div className="flex h-full min-h-0 flex-col">
+                    <div className="min-h-0 flex-1 [&>*]:h-full">
+                      <Grid
+                        data={rows.map((row) => ({ ...row }))}
+                        columns={columns}
+                        sortMarks={sortMarks}
+                        init={init}
+                        select={false}
+                        onFilterValue={(ev: FilterValueEvent) => {
+                          changeFilter(withField(filter, 'include', ev.field, ev.id));
+                        }}
+                        onOpenDocument={(ev: OpenDocumentEvent) => {
+                          setOpenId(ev.id);
+                        }}
+                      />
+                    </div>
+                    {total > PAGE_SIZE && (
+                      <Pager
+                        total={total}
+                        pageSize={PAGE_SIZE}
+                        value={Math.floor(offset / PAGE_SIZE) + 1}
+                        onChange={(ev) => {
+                          setOffset(ev.from);
+                        }}
+                      />
+                    )}
                   </div>
-                  {total > PAGE_SIZE && (
-                    <Pager
-                      total={total}
-                      pageSize={PAGE_SIZE}
-                      value={Math.floor(offset / PAGE_SIZE) + 1}
-                      onChange={(ev) => {
-                        setOffset(ev.from);
-                      }}
-                    />
-                  )}
                 </SelectionContext.Provider>
               </DocumentsCellContext.Provider>
             </Locale>

@@ -69,7 +69,7 @@ export function ListsPage({ onClose, onFilter }: ListsPageProps) {
             <LabelsAdmin
               kind={kind}
               labels={lists[field]}
-              counts={library.data?.facets[field] ?? {}}
+              counts={library.data === undefined ? undefined : (library.data.facets[field] ?? {})}
               onFilter={(id) => {
                 onFilter(field, id);
               }}

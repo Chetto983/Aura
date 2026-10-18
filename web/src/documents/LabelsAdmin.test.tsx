@@ -1,6 +1,9 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderDocuments, stubServer } from './documentsTestServer';
+import type { Label } from './documentsApi';
+import { LABELS, renderDocuments, stubServer } from './documentsTestServer';
+import { LabelsAdmin } from './LabelsAdmin';
 import i18n from '@/i18n/i18n';
 
 beforeEach(async () => {
@@ -44,6 +47,23 @@ describe('the lists', () => {
       expect(lists.at(-1)?.getAll('type')).toEqual(['t-fattura']);
     });
     expect(screen.queryByRole('heading', { name: 'Liste e regole', level: 1 })).toBeNull();
+  });
+
+  it('shows no count while the counts load, rather than zero', () => {
+    stubServer();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <LabelsAdmin
+          kind="type"
+          labels={LABELS.type as readonly Label[]}
+          counts={undefined}
+          onFilter={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Fattura', level: 3 }).closest('li')?.textContent,
+    ).not.toMatch(/\d+ documenti/);
   });
 
   it('shows the pattern box only for a rule that reads one', async () => {
