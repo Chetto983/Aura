@@ -92,6 +92,36 @@ describe('file manager provider', () => {
 
     expect(headerOf(seen.init)).toBe('application/problem+json');
   });
+
+  /**
+   * SVAR's own send logs a refused request to the console and resolves undefined, so the widget,
+   * which has already dropped the files from its view, never learns the server stopped. Measured
+   * on 2026-10-18: a delete failed part way and the operator saw an emptied folder and no word.
+   */
+  it('reports a refused write instead of swallowing it', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 400,
+          json: () => Promise.resolve({ error: 'remove chat/a.go: boom' }),
+        } as unknown as Response),
+      ),
+    );
+    const failures: string[] = [];
+    const provider = createFileManagerProvider();
+    provider.onWriteFailed((message) => {
+      failures.push(message);
+    });
+    const handler = provider.getHandlers()['delete-files']?.handler;
+    if (!handler) throw new Error('the provider no longer exposes a delete-files handler');
+
+    await expect(handler({ ids: ['/chat/a.go'] }, 'delete-files', {})).rejects.toThrow(
+      'remove chat/a.go: boom',
+    );
+    expect(failures).toEqual(['remove chat/a.go: boom']);
+  });
 });
 
 describe('wire helpers', () => {

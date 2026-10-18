@@ -5,7 +5,7 @@ import i18n from '@/i18n/i18n';
 import { setTheme } from '@/theme/applyTheme';
 
 // The provider is an HTTP client; the widget under test only needs it to answer the first
-// listing, so the stub is the four bus methods FilesWorkspace actually calls.
+// listing, so the stub is the provider methods FilesWorkspace actually calls.
 vi.mock('./filesApi', async () => {
   const actual = await vi.importActual<typeof import('./filesApi')>('./filesApi');
   return {
@@ -17,6 +17,7 @@ vi.mock('./filesApi', async () => {
           { id: '/clip.mp4', name: 'clip.mp4', type: 'file', size: 4 },
         ]),
       on: () => undefined,
+      onWriteFailed: () => () => undefined,
       setNext: () => undefined,
       exec: () => Promise.resolve(),
     }),

@@ -22,6 +22,7 @@ vi.mock('./filesApi', async () => {
           { id: '/charlie.txt', type: 'file', size: 7 },
         ]),
       on: () => undefined,
+      onWriteFailed: () => () => undefined,
       setNext: () => undefined,
       exec: provider.exec,
     }),

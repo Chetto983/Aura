@@ -9,6 +9,7 @@ import i18n from '@/i18n/i18n';
 const provider = vi.hoisted(() => ({
   loadFiles: vi.fn<(id: string) => Promise<IEntity[]>>(),
   handlers: new Map<string, (ev: unknown) => void>(),
+  writeFailed: undefined as ((message: string) => void) | undefined,
 }));
 
 vi.mock('./filesApi', async () => {
@@ -18,6 +19,10 @@ vi.mock('./filesApi', async () => {
     createFileManagerProvider: () => ({
       loadFiles: provider.loadFiles,
       on: (name: string, handler: (ev: unknown) => void) => provider.handlers.set(name, handler),
+      onWriteFailed: (listener: (message: string) => void) => {
+        provider.writeFailed = listener;
+        return () => undefined;
+      },
       setNext: () => undefined,
       exec: () => Promise.resolve(),
     }),
@@ -68,6 +73,25 @@ describe('FilesWorkspace and its provider', () => {
     render(<FilesWorkspace />);
 
     expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('files.loadFailed'));
+  });
+
+  // The widget drops the files from its view before the server answers. When the server
+  // refuses, the operator is told why, and the folder is read again so it shows what is stored.
+  it('says a write failed and shows the folder as stored', async () => {
+    const { container } = render(<FilesWorkspace />);
+    await card(container, '/clip.mp4');
+    provider.loadFiles.mockImplementation(() =>
+      Promise.resolve([...root(), { id: '/kept.txt', type: 'file', size: 1 }]),
+    );
+
+    act(() => {
+      provider.writeFailed?.('remove /kept.txt: boom');
+    });
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      i18n.t('files.writeFailed', { message: 'remove /kept.txt: boom' }),
+    );
+    await card(container, '/kept.txt');
   });
 
   it('fetches a folder the first time it is opened', async () => {

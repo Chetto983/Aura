@@ -11,21 +11,34 @@ import type { AssetSource } from '@/chat/artifacts/renderers/assetSourceContext'
 export const fileManagerBase = '/api/filemanager';
 
 /**
- * The provider, with the one thing its author left out put back.
+ * The provider, with the two things its author left out put back.
  *
- * RestDataProvider.send overrides Rest.sendRequest and loses that method's
+ * The label. RestDataProvider.send overrides Rest.sendRequest and loses that method's
  * `"Content-Type": "application/json"` default, so every write it issues leaves the header
  * unset and the browser stamps the JSON string text/plain. The server refuses that, and it
  * is right to: a cross-origin form can post text/plain with no preflight but cannot post
  * application/json, so the header check is what makes the browser ask permission before a
- * page the operator never opened can rename or delete their files. The server-side hole
- * that used to paper over this is closed -- the label belongs on the request.
+ * page the operator never opened can rename or delete their files.
  *
- * customHeaders is the library's own seam (the fourth argument of send), so nothing here
- * reimplements or forks the provider's request building.
+ * The failure. Its send logs a refused request to the console and resolves undefined, so a
+ * write the server stopped part way reads as done to the widget, which has already changed
+ * its view. Measured on 2026-10-18: a delete failed, the folder looked emptied, and the
+ * operator saw no word. Here a refusal rejects, with the server's own message, and a write's
+ * refusal also reaches every onWriteFailed listener, so the page can say so and show what is
+ * stored.
  */
-class LabelledRestDataProvider extends RestDataProvider {
-  override send<T>(
+export class FileManagerProvider extends RestDataProvider {
+  private readonly writeListeners = new Set<(message: string) => void>();
+
+  /** Subscribes to refused writes; the returned function unsubscribes. */
+  onWriteFailed(listener: (message: string) => void): () => void {
+    this.writeListeners.add(listener);
+    return () => {
+      this.writeListeners.delete(listener);
+    };
+  }
+
+  override async send<T>(
     url: string,
     method: string,
     data?: unknown,
@@ -34,17 +47,23 @@ class LabelledRestDataProvider extends RestDataProvider {
     // An upload is multipart and only the browser can write its boundary parameter, so
     // labelling that one would break the body it is meant to describe.
     const carriesJSON = data != null && !(data instanceof FormData);
-    return super.send<T>(
-      url,
+    const response = await fetch(`${this._url}/${url}`, {
       method,
-      data,
-      carriesJSON ? { 'Content-Type': 'application/json', ...customHeaders } : customHeaders,
-    );
+      headers: carriesJSON ? { 'Content-Type': 'application/json', ...customHeaders } : { ...customHeaders },
+      body: (data ?? null) as BodyInit | null,
+    });
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    if (response.ok) return body as T;
+    const message = body.error ?? `HTTP ${String(response.status)}`;
+    if (method !== 'GET') {
+      for (const listener of this.writeListeners) listener(message);
+    }
+    throw new Error(message);
   }
 }
 
-export function createFileManagerProvider(): RestDataProvider {
-  return new LabelledRestDataProvider(fileManagerBase);
+export function createFileManagerProvider(): FileManagerProvider {
+  return new FileManagerProvider(fileManagerBase);
 }
 
 /**

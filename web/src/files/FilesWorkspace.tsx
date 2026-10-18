@@ -76,6 +76,32 @@ export default function FilesWorkspace({ mobileMenu, onOpenFile }: FilesWorkspac
   const provider = useMemo(() => createFileManagerProvider(), []);
   const selection = useMemo(() => createFileSelection(saveSelected), [saveSelected]);
 
+  // The widget changes its view before the server answers, so a refused write leaves it
+  // showing a folder the bucket does not hold. Say why, and read the open folder again.
+  useEffect(
+    () =>
+      provider.onWriteFailed((message) => {
+        setError(t('files.writeFailed', { message }));
+        const api = apiRef.current;
+        if (api === null) return;
+        const { panels, activePanel } = api.getState();
+        const path = panels?.[activePanel ?? 0]?.path ?? '/';
+        provider
+          .loadFiles(path === '/' ? '' : path)
+          .then(async (files: IEntity[]) => {
+            if (path === '/') {
+              setData(parseDates(files));
+              return;
+            }
+            await api.exec('provide-data', { id: path, data: parseDates(files) });
+          })
+          .catch(() => {
+            setError(t('files.loadFailed'));
+          });
+      }),
+    [provider, t],
+  );
+
   useEffect(() => {
     let cancelled = false;
     provider
