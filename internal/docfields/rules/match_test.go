@@ -76,3 +76,21 @@ func TestCompileRefusesWhatCannotMatch(t *testing.T) {
 		}
 	}
 }
+
+// A fuzzy rule costs the square of its pattern's length on every window of every document: a
+// pasted paragraph would hold the label's save and the pass for minutes (40 words, 4.5 s per MB,
+// measured 2026-10-18). Any other algorithm reads a pattern of any length in linear time.
+func TestCompileBoundsAFuzzyPattern(t *testing.T) {
+	eight := "via roma 12 20100 milano partita iva 01234567890"
+	if _, err := Compile(Fuzzy, eight, true); err != nil {
+		t.Fatalf("eight words refused: %v", err)
+	}
+	for _, pattern := range []string{eight + " italia", strings.Repeat("a", 60) + " " + strings.Repeat("b", 60)} {
+		if _, err := Compile(Fuzzy, pattern, true); !errors.Is(err, ErrInvalidPattern) {
+			t.Errorf("Compile(fuzzy, %q) err = %v, want ErrInvalidPattern", pattern, err)
+		}
+		if _, err := Compile(All, pattern, true); err != nil {
+			t.Errorf("Compile(all, %q) err = %v, want none", pattern, err)
+		}
+	}
+}

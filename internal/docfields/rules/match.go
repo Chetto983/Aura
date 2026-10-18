@@ -38,6 +38,14 @@ const (
 // office set.
 const fuzzyThreshold = 0.8
 
+// A fuzzy rule costs the square of its pattern's length on every window of every document, so the
+// pattern is bounded: an address line or a company name fits, a pasted paragraph does not. 16
+// words take 0.77 s per MB of text and 40 words 4.5 s (measured 2026-10-18).
+const (
+	fuzzyMaxWords = 8
+	fuzzyMaxRunes = 120
+)
+
 // ErrInvalidPattern refuses a rule that cannot match anything, or a regex that does not parse.
 var ErrInvalidPattern = errors.New("invalid matching pattern")
 
@@ -76,7 +84,7 @@ func (t *Text) tokens(insensitive bool) ([]string, map[string]struct{}) {
 }
 
 // Compile validates a rule once, when the operator saves it, so a pass never meets a broken one.
-// RE2 has no backtracking, so no pattern can stall a pass.
+// RE2 has no backtracking and a fuzzy pattern is bounded, so no pattern can stall a pass.
 func Compile(alg Algorithm, pattern string, caseInsensitive bool) (Matcher, error) {
 	switch alg {
 	case None:
@@ -98,6 +106,9 @@ func Compile(alg Algorithm, pattern string, caseInsensitive bool) (Matcher, erro
 		words := tokens(pattern, caseInsensitive)
 		if len(words) == 0 {
 			return nil, fmt.Errorf("%w: a %s rule needs at least one word", ErrInvalidPattern, alg)
+		}
+		if alg == Fuzzy && (len(words) > fuzzyMaxWords || utf8.RuneCountInString(strings.Join(words, " ")) > fuzzyMaxRunes) {
+			return nil, fmt.Errorf("%w: a fuzzy rule takes at most %d words and %d characters", ErrInvalidPattern, fuzzyMaxWords, fuzzyMaxRunes)
 		}
 		return wordMatcher{alg: alg, words: words, insensitive: caseInsensitive}, nil
 	default:
