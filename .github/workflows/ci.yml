@@ -844,6 +844,12 @@ jobs:
             exit 1
           fi
 
+      - name: Document fields against live ArcadeDB (race)
+        # internal/docfields keeps the operator's document fields in each identity's ArcadeDB
+        # database, so its store, pass and review run only against a live server; the db_integration
+        # coverage tier cannot reach them. CI=true arms newDisposableTenants' no-skip-as-green guard.
+        run: go test -race -count=1 -tags arcadedb_integration ./internal/docfields/...
+
       - name: Bring up EmbeddingGemma and the ArcadeDB MCP built from this commit
         run: |
           docker compose create aura-llama-embed
