@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -320,5 +321,81 @@ func TestDispatch_ParallelRespectsFanoutCap(t *testing.T) {
 		t.Fatalf("observed %d concurrent tools with cap=2", got)
 	} else if got < 2 {
 		t.Fatalf("test did not exercise concurrency, max observed=%d", got)
+	}
+}
+
+// sequenceTool records when each call starts and ends, so a test can see whether a batch overlapped.
+type sequenceTool struct {
+	spec tools.Spec
+	log  *sequenceLog
+}
+
+type sequenceLog struct {
+	mu     sync.Mutex
+	events []string
+}
+
+func (l *sequenceLog) add(event string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.events = append(l.events, event)
+}
+
+func (s sequenceTool) Spec() tools.Spec { return s.spec }
+
+func (s sequenceTool) Execute(ctx context.Context, raw json.RawMessage) (tools.ToolResult, error) {
+	s.log.add("start " + s.spec.Name)
+	defer s.log.add("end " + s.spec.Name)
+	select {
+	case <-ctx.Done():
+		return tools.ToolResult{}, ctx.Err()
+	case <-time.After(40 * time.Millisecond):
+		return tools.ToolResult{Preview: "ok"}, nil
+	}
+}
+
+// A batch the model emits in order is an order when it changes something, or when its calls share an MCP
+// server's state: measured live, a concurrent batch saved a PDF before its redaction applied and delivered it
+// as redacted, and added a slide before the deck it was meant for was open. Such a batch runs one call after
+// another, in the order the model wrote it.
+func TestDispatch_AnOrderedBatchRunsInOrder(t *testing.T) {
+	recordingProvider(t)
+	log := &sequenceLog{}
+	reg := tools.NewRegistry()
+	reg.Register(tools.TextResponse{})
+	param := json.RawMessage(`{"type":"object"}`)
+	for _, spec := range []tools.Spec{
+		{Name: "pdf__open", Summary: "an MCP read", Parameters: param, MCPServer: "pdf"},
+		{Name: "pdf__inspect", Summary: "another MCP read", Parameters: param, MCPServer: "pdf"},
+		{Name: "pdf__save", Summary: "an MCP write", Parameters: param, MCPServer: "pdf", Mutating: true},
+		{Name: "deliver", Summary: "a write of Aura's own", Parameters: param, Mutating: true},
+	} {
+		reg.Register(sequenceTool{spec: spec, log: log})
+	}
+	fc := agenttest.NewFakeClient(
+		agenttest.ToolCallTurn(
+			agenttest.MakeToolCall("c1", "pdf__open", `{"i":1}`),
+			agenttest.MakeToolCall("c2", "pdf__inspect", `{"i":2}`),
+			agenttest.MakeToolCall("c3", "pdf__save", `{"i":3}`),
+			agenttest.MakeToolCall("c4", "deliver", `{"i":4}`),
+		),
+		agenttest.ToolCallTurn(textResponseCall("c5", "done")),
+	)
+	a := agent.NewLlmAgent(agent.LlmAgentConfig{
+		Client:     fc,
+		LLM:        llm.Config{Model: "m", Provider: "p", TotalTimeoutSec: 30},
+		Registry:   reg,
+		PreviewCap: 2048,
+		RunDir:     t.TempDir(),
+		SessionID:  uuid.Must(uuid.NewV7()).String(),
+		UserTurns:  []llm.Message{{Role: llm.RoleUser, Content: "go"}},
+	})
+	if _, err := collect(a.Run(newIC(t, agent.BudgetOptions{MaxSteps: new(25)}))); err != nil {
+		t.Fatalf("run errored: %v", err)
+	}
+	want := []string{"start pdf__open", "end pdf__open", "start pdf__inspect", "end pdf__inspect",
+		"start pdf__save", "end pdf__save", "start deliver", "end deliver"}
+	if got := strings.Join(log.events, ", "); got != strings.Join(want, ", ") {
+		t.Fatalf("the batch ran\n  %s\nwant\n  %s", got, strings.Join(want, ", "))
 	}
 }

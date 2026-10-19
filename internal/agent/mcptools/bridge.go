@@ -170,6 +170,7 @@ func specFromToolDefWithPolicy(namespace string, t *sdkmcp.Tool, policy bridgePo
 		Destructive:         destructive,
 		TrustedRecipeSource: policy.recipeSource,
 		TrustedRecipeTool:   t.Name,
+		MCPServer:           namespace,
 	}
 	// D-34: Multiplexed is set ONLY when this tool's namespaced name already has a
 	// classifier (isKnownMultiplexedMCPTool, bridge_multiplex.go) — never inferred

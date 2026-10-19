@@ -27,11 +27,14 @@ const (
 // touched only by dispatch's serial Before/AfterToolResult, never inside runTool),
 // and large outputs spill to per-tool_call_id sidecars, so concurrent writes never
 // collide. The caller serializes the dedup gate, history appends, and yields.
+//
+// Only a batch of independent calls runs concurrently (independentBatch); any other runs one call
+// after another, in the order the model wrote it.
 func (a *LlmAgent) executeBatch(ctx context.Context, budget *Budget, calls []llm.ToolCall, startedAt time.Time) []toolRunResult {
 	results := make([]toolRunResult, len(calls))
-	if len(calls) <= 1 {
-		if len(calls) == 1 {
-			results[0] = a.runToolRecovering(ctx, budget, calls[0], startedAt)
+	if len(calls) <= 1 || !a.independentBatch(calls) {
+		for k, call := range calls {
+			results[k] = a.runToolRecovering(ctx, budget, call, startedAt)
 		}
 		return results
 	}
@@ -58,6 +61,24 @@ func (a *LlmAgent) executeBatch(ctx context.Context, budget *Budget, calls []llm
 	close(indices)
 	wg.Wait()
 	return results
+}
+
+// independentBatch reports whether a batch's calls may run at once: every one reads and none calls an MCP
+// server. A batch that writes is a sequence -- save, then send_file -- and the tools of an MCP server share
+// its state, so even two of its reads depend on their order (open a document, then inspect it). Measured
+// live (2026-10-19): run concurrently, a batch saved a PDF before its redaction applied and delivered it as
+// redacted. A tool the registry does not know is left to runTool, which refuses it.
+func (a *LlmAgent) independentBatch(calls []llm.ToolCall) bool {
+	for _, call := range calls {
+		tool, ok := a.registry.Get(call.Function.Name)
+		if !ok {
+			continue
+		}
+		if spec := tool.Spec(); spec.Mutating || spec.MCPServer != "" {
+			return false
+		}
+	}
+	return true
 }
 
 func (a *LlmAgent) runToolRecovering(ctx context.Context, budget *Budget, call llm.ToolCall, startedAt time.Time) (run toolRunResult) {

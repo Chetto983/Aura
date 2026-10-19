@@ -82,6 +82,10 @@ type Spec struct {
 	// TrustedRecipeTool is the raw MCP tool name from the managed bridge. The
 	// model-facing Spec.Name may be truncated and hash-suffixed at 64 bytes.
 	TrustedRecipeTool string `json:"-"`
+	// MCPServer is the namespace of the MCP server a bridged tool calls, set by the bridge
+	// for every server. Its tools share one process and its state (an open document, the
+	// active sheet), so the agent loop never runs two of them at once. Runtime-only.
+	MCPServer string `json:"-"`
 	// OperationScope, OperationNormalizer, and ReplayPolicy are Aura-owned
 	// mutation metadata. They are runtime-only and never exposed to the model.
 	OperationScope      idempotency.Scope
