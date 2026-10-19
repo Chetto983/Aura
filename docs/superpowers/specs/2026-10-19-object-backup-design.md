@@ -2,7 +2,8 @@
 
 **Status (2026-10-19):** approved by the operator (*"1 ma elimina le copie vecchie se no hhd
 esplode"*): Aura copies the objects itself, through S3, into `AURA_BACKUP_DIR`, and deletes old
-copies so the disk does not fill.
+copies so the disk does not fill. Implemented and verified on the lab VM the same day
+(`docs/superpowers/verification/2026-10-19-object-backup.md`).
 
 ## Why
 

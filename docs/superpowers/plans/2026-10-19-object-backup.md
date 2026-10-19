@@ -1,6 +1,6 @@
 # The nightly backup covers the object store: implementation plan
 
-**Status (2026-10-19):** in progress.
+**Status (2026-10-19):** done; verified on the lab VM (`docs/superpowers/verification/2026-10-19-object-backup.md`). The operator chose this backup (*"1 ma elimina le copie vecchie se no hhd esplode"*).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans, task by task, with
 > test-driven-development.
@@ -123,11 +123,11 @@
 
 - [x] `docs/BACKUP-RESTORE.md` (the table row, the restore procedure, recovery scope), `prd.md`,
   the coverage policy entry.
-- [ ] Push from WSL, publish, and let the updater bring the VM to the build.
-- [ ] On the VM:
+- [x] Push from WSL, publish, and let the updater bring the VM to the build (`d0a2d1efe`, then `a5d75c2d8`).
+- [x] On the VM:
   - run the job;
   - compare the manifest with the bucket and each sha256;
   - delete one sample through the cockpit and run again: the sample is retired;
   - `aura objectstore restore --as-of <before>`: it is back with its sha256 and name;
   - a third run downloads nothing.
-- [ ] `docs/superpowers/verification/2026-10-19-object-backup.md`.
+- [x] `docs/superpowers/verification/2026-10-19-object-backup.md`.
