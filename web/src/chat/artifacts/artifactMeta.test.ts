@@ -27,6 +27,16 @@ describe('previewKind', () => {
     expect(previewKind('image/webp', 'x.webp')).toBe('image');
   });
 
+  // The file manager's listing carries no media type, so there the extension stands in for one;
+  // a type that is declared still wins over it.
+  it('takes a raster image by its extension when no type is declared', () => {
+    expect(previewKind('', 'Colosseo.jpg')).toBe('image');
+    expect(previewKind('', 'scan.JPEG')).toBe('image');
+    expect(previewKind('application/octet-stream', 'x.png')).toBe('image');
+    expect(previewKind('application/pdf', 'x.png')).toBe('pdf');
+    expect(previewKind('', 'x.svg')).toBe('download');
+  });
+
   it('routes the two streamable video formats by mime and by extension fallback', () => {
     expect(previewKind('video/mp4', 'clip.mp4')).toBe('video');
     expect(previewKind('video/webm', 'clip')).toBe('video');

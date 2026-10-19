@@ -38,6 +38,8 @@ const AUDIO_MIME = new Set([
 
 // The raw-<pre> text family (D-07): rendered as escaped monospace, never as
 // interpreted markdown/HTML — zero injection surface.
+const RASTER_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
+
 const TEXT_EXT = new Set([
   'txt',
   'md',
@@ -69,6 +71,10 @@ export function previewKind(mime: string, filename: string): PreviewKind {
   if (mediaType === 'image/svg+xml' || ext === 'svg') return 'download';
   if (AUDIO_MIME.has(mediaType)) return 'audio';
   if (mediaType.startsWith('image/')) return 'image';
+  // The file manager's listing carries no media type, so there a raster extension stands in for
+  // one. An <img> runs no script, and the route serves only inline-safe types as themselves.
+  const untyped = mediaType === '' || mediaType === 'application/octet-stream';
+  if (untyped && RASTER_EXT.has(ext)) return 'image';
   if (mediaType === 'video/mp4' || mediaType === 'video/webm' || ext === 'mp4' || ext === 'webm') {
     return 'video';
   }
