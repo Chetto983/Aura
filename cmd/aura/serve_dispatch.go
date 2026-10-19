@@ -67,6 +67,7 @@ func buildDispatch(chat *chatEnv, store *cron.Store, reg *channels.Registry, swe
 		cron.KindReminder:       handlers.ReminderHandler{},
 		cron.KindAgentJob:       handlers.AgentJobHandler{Deps: agentDeps},
 		cron.KindBackupPostgres: handlers.BackupHandler{Variant: handlers.BackupPostgres},
+		cron.KindBackupObjects:  handlers.NewObjectBackupHandler(buildObjectBackup(chat)),
 		cron.KindSkillTTLSweep: handlers.SkillTTLSweepHandler{
 			Sweeper: &snippetSweeperAdapter{
 				w:             newSkillWriter(chat.cfg, chat.pool),

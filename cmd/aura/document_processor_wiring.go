@@ -92,12 +92,7 @@ func buildObjectResolverBundle(cfg *config.Config, pool *pgxpool.Pool) *assets.O
 	if pool == nil || strings.TrimSpace(cfg.AuthulaSecret) == "" {
 		return nil
 	}
-	shared := objectstore.Credentials{
-		Bucket:    cfg.ObjectStoreBucket,
-		AccessKey: cfg.ObjectStoreAccessKey,
-		SecretKey: cfg.ObjectStoreSecretKey,
-	}
-	resolver, err := objectstore.NewIdentityStore(pool, cfg.AuthulaSecret, shared, localSeededIdentityID)
+	resolver, err := newObjectIdentityStore(cfg, pool)
 	if err != nil {
 		slog.Warn("aura assets: per-identity object resolver disabled", "err", err)
 		return nil
@@ -107,6 +102,17 @@ func buildObjectResolverBundle(cfg *config.Config, pool *pgxpool.Pool) *assets.O
 		PerIdentityStore: newCachingPerIdentityStoreFactory(cfg),
 		SharedBucket:     cfg.ObjectStoreBucket,
 	}
+}
+
+// newObjectIdentityStore reads each identity's own bucket and key from Postgres; the `local`
+// principal keeps the shared bucket and its key from the environment.
+func newObjectIdentityStore(cfg *config.Config, pool *pgxpool.Pool) (*objectstore.IdentityStore, error) {
+	shared := objectstore.Credentials{
+		Bucket:    cfg.ObjectStoreBucket,
+		AccessKey: cfg.ObjectStoreAccessKey,
+		SecretKey: cfg.ObjectStoreSecretKey,
+	}
+	return objectstore.NewIdentityStore(pool, cfg.AuthulaSecret, shared, localSeededIdentityID)
 }
 
 // ensuringObjectResolver makes an identity's bucket exist the first time that identity

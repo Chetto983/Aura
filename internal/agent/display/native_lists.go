@@ -69,7 +69,7 @@ func parseTaskList(preview string) ([][]string, bool) {
 			return nil, false
 		}
 		kind := strings.TrimPrefix(fields[1], "kind=")
-		if kind != "reminder" && kind != "agent_job" && kind != "backup_postgres" {
+		if kind != "reminder" && kind != "agent_job" && kind != "backup_postgres" && kind != "backup_objects" {
 			return nil, false
 		}
 		if fields[2] != "at" && fields[2] != "every" && fields[2] != "cron" {

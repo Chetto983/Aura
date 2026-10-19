@@ -16,7 +16,6 @@ import (
 	"github.com/chetto1983/aura/internal/cron"
 	"github.com/chetto1983/aura/internal/identity"
 	"github.com/chetto1983/aura/internal/idroot"
-	"github.com/chetto1983/aura/internal/objectstore"
 	"github.com/chetto1983/aura/internal/objectstore/garageadmin"
 	"github.com/chetto1983/aura/internal/sandbox/usersandbox"
 )
@@ -295,8 +294,7 @@ func buildProvisioningPorts(chat *chatEnv) (agui.ObjectStoreProvisioner, agui.Fi
 		slog.Warn("aura serve: garage admin client unavailable — provisioning disabled", "err", err)
 		return nil, nil, nil
 	}
-	shared := objectstore.Credentials{Bucket: cfg.ObjectStoreBucket, AccessKey: cfg.ObjectStoreAccessKey, SecretKey: cfg.ObjectStoreSecretKey}
-	store, err := objectstore.NewIdentityStore(chat.pool, cfg.AuthulaSecret, shared, localSeededIdentityID)
+	store, err := newObjectIdentityStore(cfg, chat.pool)
 	if err != nil {
 		slog.Warn("aura serve: object-store identity resolver unavailable — provisioning disabled", "err", err)
 		return nil, nil, nil

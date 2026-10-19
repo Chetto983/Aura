@@ -19,6 +19,7 @@ func TestManageableAndCancellableKinds(t *testing.T) {
 		{KindReminder, true, true},
 		{KindAgentJob, true, true},
 		{KindBackupPostgres, true, false},
+		{KindBackupObjects, true, false},
 		{KindIdentityPurge, false, false},
 		{KindRetentionSweep, false, false},
 		{KindMemoryEmbedBackfill, false, false},

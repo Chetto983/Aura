@@ -367,6 +367,11 @@ func bootServe(ctx context.Context, channelOverride func(name string) (enabled, 
 	if err := seedPostgresBackup(ctx, store); err != nil {
 		slog.Warn("aura serve: seed postgres backup", "err", err)
 	}
+	// The objects' nightly copy (0142): the 2026-10-14 reinstall restored both databases and
+	// none of the files.
+	if err := seedObjectBackup(ctx, store); err != nil {
+		slog.Warn("aura serve: seed object backup", "err", err)
+	}
 	// The AG-UI gateway (Slice 8b) construction + its independent SetX wiring lives in
 	// wireAGUIServer (serve_agui.go, refactor-on-touch split when the SSE-heartbeat knob
 	// landed a new ServerConfig field — CLAUDE.md 600-LOC ceiling). The auth-dependent

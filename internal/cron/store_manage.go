@@ -17,12 +17,12 @@ import (
 )
 
 // IsUserManageableKind reports whether a task kind is operator-managed (reminder,
-// agent_job, the database backup) rather than one of the system-seeded sweeps. The cockpit
+// agent_job, the two backups) rather than one of the system-seeded sweeps. The cockpit
 // write handlers refuse to approve/run/edit/cancel a system sweep: those are seeded on a
 // fixed cadence and must never be operator-mutated.
 func IsUserManageableKind(k TaskKind) bool {
 	switch k {
-	case KindReminder, KindAgentJob, KindBackupPostgres:
+	case KindReminder, KindAgentJob, KindBackupPostgres, KindBackupObjects:
 		return true
 	default:
 		return false
@@ -30,10 +30,11 @@ func IsUserManageableKind(k TaskKind) bool {
 }
 
 // IsCancellableKind reports whether an operator or the agent may cancel a task of this
-// kind: an operator-managed one other than the database backup, which the operator decided
-// on 2026-10-05 must never be stopped from the cockpit or the agent.
+// kind: an operator-managed one other than a backup. The operator decided on 2026-10-05 that
+// the database backup must never be stopped from the cockpit or the agent, and the object
+// backup is its sibling.
 func IsCancellableKind(k TaskKind) bool {
-	return IsUserManageableKind(k) && k != KindBackupPostgres
+	return IsUserManageableKind(k) && k != KindBackupPostgres && k != KindBackupObjects
 }
 
 // ListManageableTasks returns the active + pending_approval tasks of operator-managed kinds

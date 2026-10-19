@@ -64,10 +64,16 @@ type TaskKind string
 // corpus (the hub cap). Its literal MUST equal handlers.KindMemoryMentionLink
 // ("memory_mention_link") — the cron store writes the row, the dispatcher routes the same
 // string to the handler handlers.NewMemoryMentionLinkHandler builds.
+//
+// KindBackupObjects is the nightly copy of the object store into AURA_BACKUP_DIR/objects — the
+// 0142 migration widened the scheduler_tasks.kind CHECK to admit it. It is seeded
+// (seedObjectBackup), never model-schedulable, and managed like backup_postgres: on the board,
+// never cancelled. Its literal MUST equal handlers.KindBackupObjects ("backup_objects").
 const (
 	KindReminder           TaskKind = "reminder"
 	KindAgentJob           TaskKind = "agent_job"
 	KindBackupPostgres     TaskKind = "backup_postgres"
+	KindBackupObjects      TaskKind = "backup_objects"
 	KindSkillTTLSweep      TaskKind = "skill_ttl_sweep"
 	KindIdentityPurge      TaskKind = "identity_purge"
 	KindSandboxReap        TaskKind = "sandbox_reap"
