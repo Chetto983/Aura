@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-const loader = "\nimport init from './app-1a2b.js';\nawait init({ module_or_path: './app-1a2b_bg.wasm' });\n"
+const loader = "\nimport init from './app-2980fc4b3c9405b8.js';\nawait init({ module_or_path: './app-2980fc4b3c9405b8_bg.wasm' });\n"
 
 // site writes a static app the way GridCraft's web release lays one out: a page with its loader
 // inline, the hashed glue and wasm, and a precompressed wasm beside it.
@@ -30,10 +30,10 @@ func site(t *testing.T) string {
 		}
 	}
 	write("index.html", []byte(`<!DOCTYPE html><html><head><script type="module">`+loader+
-		`</script><link rel="modulepreload" href="./app-1a2b.js"></head><body><canvas></canvas></body></html>`))
-	write("app-1a2b.js", []byte("export default function init() {}"))
+		`</script><link rel="modulepreload" href="./app-2980fc4b3c9405b8.js"></head><body><canvas></canvas></body></html>`))
+	write("app-2980fc4b3c9405b8.js", []byte("export default function init() {}"))
 	wasm := []byte("\x00asm\x01\x00\x00\x00 the app")
-	write("app-1a2b_bg.wasm", wasm)
+	write("app-2980fc4b3c9405b8_bg.wasm", wasm)
 	var gz bytes.Buffer
 	zw := gzip.NewWriter(&gz)
 	if _, err := zw.Write(wasm); err != nil {
@@ -42,7 +42,7 @@ func site(t *testing.T) string {
 	if err := zw.Close(); err != nil {
 		t.Fatal(err)
 	}
-	write("app-1a2b_bg.wasm.gz", gz.Bytes())
+	write("app-2980fc4b3c9405b8_bg.wasm.gz", gz.Bytes())
 	write("assets/logo.png", []byte("png"))
 	return dir
 }
@@ -86,7 +86,7 @@ func TestThePageCarriesItsOwnPolicyAndIsRevalidated(t *testing.T) {
 
 func TestTheHashedFilesAreCachedForGoodAndTheWasmIsServedAsWasm(t *testing.T) {
 	h := Handler("/apps/gridcraft/", site(t))
-	rec := get(t, h, "/apps/gridcraft/app-1a2b_bg.wasm", nil)
+	rec := get(t, h, "/apps/gridcraft/app-2980fc4b3c9405b8_bg.wasm", nil)
 	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/wasm" {
 		t.Fatalf("wasm = %d %q", rec.Code, rec.Header().Get("Content-Type"))
 	}
@@ -98,9 +98,34 @@ func TestTheHashedFilesAreCachedForGoodAndTheWasmIsServedAsWasm(t *testing.T) {
 	}
 }
 
+// FilmCraft's page loads its glue and wasm with `?v=<build hash>` and its audio worklet and icon
+// by bare names: an upgrade replaces the bare-named files in place, so a browser must revalidate
+// them or pair a new page with an old worklet.
+func TestOnlyAURLThatNamesItsContentIsCachedForGood(t *testing.T) {
+	dir := site(t)
+	for _, name := range []string{"audio-worklet.js", "favicon.png", "filmcraft_web.js", "deckcraft-web-4c4865caf75cb5a.js"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h := Handler("/apps/filmcraft/", dir)
+	for target, want := range map[string]string{
+		"/apps/filmcraft/audio-worklet.js":                 "no-cache",
+		"/apps/filmcraft/favicon.png":                      "no-cache",
+		"/apps/filmcraft/filmcraft_web.js?v=8f3a01c2":      "public, max-age=31536000, immutable",
+		"/apps/filmcraft/deckcraft-web-4c4865caf75cb5a.js": "public, max-age=31536000, immutable",
+		"/apps/filmcraft/app-2980fc4b3c9405b8_bg.wasm":     "public, max-age=31536000, immutable",
+	} {
+		rec := get(t, h, target, nil)
+		if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != want {
+			t.Fatalf("%s = %d, Cache-Control %q, want %q", target, rec.Code, rec.Header().Get("Cache-Control"), want)
+		}
+	}
+}
+
 func TestAClientThatAcceptsGzipGetsThePrecompressedFile(t *testing.T) {
 	h := Handler("/apps/gridcraft/", site(t))
-	rec := get(t, h, "/apps/gridcraft/app-1a2b_bg.wasm", map[string]string{"Accept-Encoding": "br, gzip"})
+	rec := get(t, h, "/apps/gridcraft/app-2980fc4b3c9405b8_bg.wasm", map[string]string{"Accept-Encoding": "br, gzip"})
 	if rec.Header().Get("Content-Encoding") != "gzip" || rec.Header().Get("Content-Type") != "application/wasm" {
 		t.Fatalf("headers = %v", rec.Header())
 	}

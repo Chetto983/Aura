@@ -1,8 +1,9 @@
-// Package staticapp serves a static web app the cockpit frames, such as GridCraft's spreadsheet
-// (docs/superpowers/specs/2026-10-18-xlsx-viewer-gridcraft-design.md), from a directory on disk.
-// The headers follow the app's own hosting notes: the page is revalidated and carries a policy of
-// its own, the content-hashed files are cached for good, and a file precompressed at image build
-// is sent to a client that accepts gzip, since nothing in front of aura compresses.
+// Package staticapp serves a static web app the cockpit frames, such as the Craft apps
+// (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md), from a directory on disk.
+// The headers follow the apps' own hosting notes: the page is revalidated and carries a policy of
+// its own, a file whose URL names its content is cached for good and any other is revalidated,
+// and a file precompressed at image build is sent to a client that accepts gzip, since nothing in
+// front of aura compresses.
 package staticapp
 
 import (
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -41,7 +43,11 @@ func Handler(prefix, dir string) http.Handler {
 			servePage(w, files)
 			return
 		}
-		h.Set("Cache-Control", "public, max-age=31536000, immutable")
+		if namesItsContent(r, name) {
+			h.Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			h.Set("Cache-Control", "no-cache")
+		}
 		h.Add("Vary", "Accept-Encoding")
 		if ctype := mime.TypeByExtension(path.Ext(name)); ctype != "" {
 			h.Set("Content-Type", ctype)
@@ -54,6 +60,16 @@ func Handler(prefix, dir string) http.Handler {
 		}
 		http.ServeFileFS(w, r, files, name) // #nosec G703 -- name passed fs.ValidPath (no .., not absolute) inside os.DirFS(dir)
 	}))
+}
+
+// contentHash is the hash Trunk's `filehash` puts in a file name: `-<hex>` before the extension or
+// a wasm-bindgen `_bg`, as wide as the u64 it prints (leading zeros dropped).
+var contentHash = regexp.MustCompile(`-[0-9a-f]{8,16}(_bg)?\.[a-z0-9]+$`)
+
+// namesItsContent reports whether the URL changes whenever the file does, so a browser may keep
+// it for good: a content hash in the name, or a build version in the query (FilmCraft's `?v=`).
+func namesItsContent(r *http.Request, name string) bool {
+	return r.URL.Query().Has("v") || contentHash.MatchString(path.Base(name))
 }
 
 // servePage writes the app's page with a policy that admits its own scripts and its inline
