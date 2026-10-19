@@ -50,18 +50,16 @@ func main() {
 			http.Error(w, "no name", http.StatusBadRequest)
 			return
 		}
-		f, err := os.Create(filepath.Join(*out, name))
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		// #nosec G703 -- name is a single path component (filepath.Base), written inside -out
+		if err := os.WriteFile(filepath.Join(*out, name), body, 0o600); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer f.Close()
-		n, err := io.Copy(f, r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		log.Printf("saved %s (%d bytes)", name, n)
 	})
 	log.Printf("listening on http://%s", *addr)
 	log.Fatal(http.ListenAndServe(*addr, mux)) // #nosec G114 -- a loopback spike server
