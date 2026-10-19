@@ -1,6 +1,6 @@
 # The ingest removes index rows whose object is gone: implementation plan
 
-**Status (2026-10-19):** Tasks 1–2 done; Task 3 (lab VM) open. The operator chose this fix (*"2 e poi 1"*).
+**Status (2026-10-19):** done; verified on the lab VM (`docs/superpowers/verification/2026-10-19-ingest-index-orphans.md`). The operator chose this fix (*"2 e poi 1"*).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans, task by task, with
 > test-driven-development.
@@ -74,8 +74,10 @@ of the bucket for two consecutive cycles, so Documenti never lists a file the bu
 
 ### Task 3: acceptance on the lab VM
 
-- [ ] Publish edge (`scripts/publish_images.sh`); the updater applies it.
-- [ ] Within two cycles of the new child starting, `IndexedDocument` in `mem_448ddbe1_…` holds only
+- [x] Publish edge (`scripts/publish_images.sh`); the updater applies it.
+- [x] Within two cycles of the new child starting, `IndexedDocument` in `mem_448ddbe1_…` holds only
   `esempio.md`, its passage is still there, and the ingest log carries nine `[audit] ORPHAN … removed`.
-- [ ] Documenti in the cockpit lists one document.
-- [ ] `docs/superpowers/verification/2026-10-19-ingest-index-orphans.md`.
+  The operator had meanwhile uploaded six files, and five of them stayed indexed too.
+- [x] Documenti in the cockpit lists only files the bucket holds: seven, once the image indexed
+  through the host mapping (`af5f02281`).
+- [x] `docs/superpowers/verification/2026-10-19-ingest-index-orphans.md`.
