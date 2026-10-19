@@ -57,6 +57,27 @@ describe('VideoPreview', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  // The file manager serves its objects, Range included, at one route that names the object in
+  // its query (FILE_MANAGER_SOURCE): refusing every query left its videos unplayable.
+  it("streams the file manager's own route, and nothing else under its path", () => {
+    const route = (extra: string): AssetSource => ({
+      assetUrl: (id) => `/api/filemanager/direct?id=${encodeURIComponent(id)}${extra}`,
+      streamUrl: (id) => `/api/filemanager/direct?id=${encodeURIComponent(id)}${extra}`,
+      credentials: 'same-origin',
+    });
+    const file = { ...props, assetId: '/prove-craft/clip.mp4' };
+    const { container } = renderIn(route(''), <VideoPreview {...file} />);
+    expect(videoOf(container).getAttribute('src')).toBe(
+      '/api/filemanager/direct?id=%2Fprove-craft%2Fclip.mp4',
+    );
+
+    for (const extra of ['&download=true', '#t=5', '&id=/other.mp4']) {
+      const other = renderIn(route(extra), <VideoPreview {...file} />);
+      expect(other.container.querySelector('video')).toBeNull();
+      other.unmount();
+    }
+  });
+
   it('refuses a stream URL outside Aura', () => {
     const source: AssetSource = {
       assetUrl: () => '/safe/download',
