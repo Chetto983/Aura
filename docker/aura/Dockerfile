@@ -20,14 +20,20 @@ COPY internal/agui/testdata/golden-events.json /internal/agui/testdata/golden-ev
 COPY internal/assets/testdata/studio-project.json /internal/assets/testdata/studio-project.json
 RUN npm run build
 
-# GridCraft's web build, which the cockpit frames as its xlsx preview
-# (docs/superpowers/specs/2026-10-18-xlsx-viewer-gridcraft-design.md). The release zip is pinned
-# by version and by the SHA-256 the release itself publishes, so nothing is fetched at run time.
-# The wasm and its glue are gzipped here because nothing in front of aura compresses: aura sends
-# the .gz to a browser that accepts it (internal/staticapp).
-FROM alpine:3.22 AS gridcraft
-ADD --checksum=sha256:532966caa70bbd346bcd3c48a827d9d0118f83e50be7a0ca43fdb28bd48f1dd4     https://github.com/storytold/gridcraft/releases/download/v0.8.0/gridcraft-web-0.8.0.zip /tmp/gridcraft.zip
-RUN set -eu;     unzip -q /tmp/gridcraft.zip -d /tmp;     mv /tmp/gridcraft-web-0.8.0 /gridcraft;     rm -f /gridcraft/_headers /gridcraft/.htaccess;     gzip -9 -k /gridcraft/*.wasm /gridcraft/*.js
+# The Craft apps the cockpit frames to view and edit files, one folder each under
+# /usr/share/aura/apps (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md). GridCraft and
+# PdfCraft carry the `?host=parent` bridge in their official web releases, so their zips go in as
+# they are, pinned by version and SHA-256: nothing is fetched at run time. The wasm and its glue
+# are gzipped here because nothing in front of aura compresses: aura sends the .gz to a browser
+# that accepts it (internal/staticapp).
+FROM alpine:3.22 AS craft-official
+ADD --checksum=sha256:532966caa70bbd346bcd3c48a827d9d0118f83e50be7a0ca43fdb28bd48f1dd4 https://github.com/storytold/gridcraft/releases/download/v0.8.0/gridcraft-web-0.8.0.zip /tmp/gridcraft.zip
+ADD --checksum=sha256:eb465508b0623be27b07ef5145c0670c71ddd7791b4541721358b59c7e0a722e https://github.com/storytold/pdfcraft/releases/download/v0.9.0/pdfcraft-web-0.9.0.zip /tmp/pdfcraft.zip
+RUN set -eu; \
+    mkdir /apps; \
+    unzip -q /tmp/gridcraft.zip -d /tmp && mv /tmp/gridcraft-web-0.8.0 /apps/gridcraft; \
+    unzip -q /tmp/pdfcraft.zip -d /tmp && mv /tmp/pdfcraft-web-0.9.0 /apps/pdfcraft; \
+    for app in /apps/*; do rm -f "$app/_headers" "$app/.htaccess"; gzip -9 -k "$app"/*.wasm "$app"/*.js; done
 
 # Keep in lockstep with the garage service pin in compose.yaml — the bootstrap
 # CLI talks native RPC to the server and Garage wants matched versions.
@@ -142,7 +148,7 @@ RUN apt-get update \
 ENV AURA_IN_CONTAINER=1
 
 COPY --from=payload /payload /usr/share/aura/payload
-COPY --from=gridcraft /gridcraft /usr/share/aura/gridcraft
+COPY --from=craft-official /apps /usr/share/aura/apps
 COPY --from=build /out/aura /usr/local/bin/aura
 COPY --from=garagebin /garage /usr/local/bin/garage
 COPY docker/aura/aura-garage-bootstrap.sh /usr/local/bin/aura-garage-bootstrap.sh

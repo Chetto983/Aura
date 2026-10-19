@@ -472,7 +472,7 @@ func bootServe(ctx context.Context, channelOverride func(name string) (enabled, 
 		}
 	}
 	wirePasswordResetService(aguiServer, chat.pool, reg, authulaProvider, resetTokenPepper)
-	serveHandler, err := newServeHandler(aguiServer.Mux(), auth, authulaProvider, chat.cfg.GridcraftDir)
+	serveHandler, err := newServeHandler(aguiServer.Mux(), auth, authulaProvider, chat.cfg.AppsDir)
 	if err != nil {
 		closeAuthulaProviders(authulaProvider, onboardingAuthulaProvider)
 		chat.close()

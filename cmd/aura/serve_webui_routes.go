@@ -7,6 +7,8 @@ package main
 
 import (
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/chetto1983/aura/internal/agui"
 	"github.com/chetto1983/aura/internal/identity"
@@ -368,9 +370,23 @@ const boardSubtreeRoute = "/api/board/"
 const documentsRoutePrefix = "/api/documents"
 const documentsSubtreeRoute = "/api/documents/"
 
-// GridCraft's web build, which the xlsx preview frames, served from AURA_GRIDCRAFT_DIR
-// (docs/superpowers/specs/2026-10-18-xlsx-viewer-gridcraft-design.md).
-const gridcraftRoute = "/apps/gridcraft/"
+// The Craft apps' web builds, which the previews frame to view and edit files, each served at
+// /apps/<app>/ from AURA_APPS_DIR/<app> (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md).
+const appsRoute = "/apps/"
+
+var craftApps = []string{"gridcraft", "pdfcraft", "wordcraft", "deckcraft", "photocraft", "filmcraft"}
+
+// isCraftAppRoute admits a GET under one of the Craft apps: they carry no data (what they show
+// arrives by postMessage from the page that frames them), and the share page frames them with no
+// session.
+func isCraftAppRoute(r *http.Request) bool {
+	if r.Method != http.MethodGet {
+		return false
+	}
+	rest, under := strings.CutPrefix(r.URL.Path, appsRoute)
+	app, _, inside := strings.Cut(rest, "/")
+	return under && inside && slices.Contains(craftApps, app)
+}
 
 const (
 	assetsPresignRoute  = "POST /api/assets/presign"

@@ -30,7 +30,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
+	"path/filepath"
 	"time"
 
 	"github.com/chetto1983/aura/internal/agui"
@@ -56,7 +56,7 @@ import (
 // agui.RequireCapability ahead of the AG-UI prefix loop (Go 1.22 method-pattern
 // precedence makes "POST /agent/run" win over the bare "/agent/run") so the capability
 // gate fires AFTER RequireAuth has bound the principal.
-func newServeHandler(aguiHandler http.Handler, auth agui.AuthDeps, authulaProvider credentialProvider, gridcraftDir string) (http.Handler, error) {
+func newServeHandler(aguiHandler http.Handler, auth agui.AuthDeps, authulaProvider credentialProvider, appsDir string) (http.Handler, error) {
 	static, err := webui.Handler(fallbackExcludedPrefixes())
 	if err != nil {
 		return nil, fmt.Errorf("webui handler: %w", err)
@@ -140,7 +140,10 @@ func newServeHandler(aguiHandler http.Handler, auth agui.AuthDeps, authulaProvid
 	mux.Handle(boardSubtreeRoute, aguiHandler)
 	mux.Handle(documentsRoutePrefix, aguiHandler)
 	mux.Handle(documentsSubtreeRoute, aguiHandler)
-	mux.Handle("GET "+gridcraftRoute, staticapp.Handler(gridcraftRoute, gridcraftDir))
+	for _, app := range craftApps {
+		route := appsRoute + app + "/"
+		mux.Handle("GET "+route, staticapp.Handler(route, filepath.Join(appsDir, app)))
+	}
 	// The DISP-05/D-09 image-proxy delegates to the AG-UI handler (route on Server.Mux).
 	// A read GET, it inherits RequireAuth from the whole-mux wrap below (never an open
 	// relay) — no capability gate. Method+path-specific so it wins longest-pattern
@@ -331,9 +334,7 @@ func newServeHandler(aguiHandler http.Handler, auth agui.AuthDeps, authulaProvid
 		if isPublicOAuthCallbackRoute(r) {
 			return true
 		}
-		// GridCraft's web build carries no data: what it shows arrives by postMessage from the
-		// page that frames it, and the share page frames it with no session.
-		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, gridcraftRoute) {
+		if isCraftAppRoute(r) {
 			return true
 		}
 		// The MCP Apps sandbox proxy is fetched from the SECOND origin and carries no

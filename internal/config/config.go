@@ -144,9 +144,10 @@ type Config struct {
 	// loader scans for skills. Empty disables per-identity skills — every identity then sees
 	// the deployment's own skills and nothing else, which is today's behaviour.
 	SkillsIdentityDir string // AURA_SKILLS_IDENTITY_DIR — per-identity skill root base
-	// GridcraftDir holds GridCraft's web build, which the cockpit serves at /apps/gridcraft/ and
-	// frames as its xlsx preview (docs/superpowers/specs/2026-10-18-xlsx-viewer-gridcraft-design.md).
-	GridcraftDir string // AURA_GRIDCRAFT_DIR — GridCraft's static web build; missing answers 404
+	// AppsDir holds the Craft apps' web builds, one folder per app, which the cockpit serves at
+	// /apps/<app>/ and frames to view and edit files
+	// (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md).
+	AppsDir string // AURA_APPS_DIR — the Craft apps' static web builds; a missing app answers 404
 	// MCPEnvDir roots the prepared environments stdio MCP servers launch from (#211). An
 	// install materialises the server here once and stores an absolute path into it, so a
 	// mount runs a binary instead of re-resolving a package with egress it may not have.
@@ -467,7 +468,7 @@ func loadBase() *Config {
 		SkillExportDir:        envDefault("AURA_SKILL_EXPORT_DIR", defaultSkillExportDir()),
 		SkillsIdentityDir:     envDefault("AURA_SKILLS_IDENTITY_DIR", defaultSkillsIdentityDir()),
 		MCPEnvDir:             envDefault("AURA_MCP_ENV_DIR", defaultMCPEnvDir()),
-		GridcraftDir:          envDefault("AURA_GRIDCRAFT_DIR", "/usr/share/aura/gridcraft"),
+		AppsDir:               envDefault("AURA_APPS_DIR", "/usr/share/aura/apps"),
 		SkillSnippetTTLDays:   envutil.IntDefault("AURA_SKILL_SNIPPET_TTL_DAYS", 90),
 
 		SkillInjectionBlocklist: envSliceDefault("AURA_SKILL_INJECTION_BLOCKLIST", defaultSkillInjectionBlocklist()),
