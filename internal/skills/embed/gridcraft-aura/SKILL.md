@@ -9,21 +9,26 @@ Your tools are `gridcraft__<tool>`, deferred: `tool_search` with "gridcraft" lis
 
 ## The round trip
 
-1. A library document: `document_open` copies it to `/workspace/documents/<id>/<file>`. A file you made is
-   already in `/workspace`.
+1. A file attached to the conversation or in the library: `document_open {document_id}` with the id the
+   attachment block or `document_search` gives (an attachment's asset id works at once) copies it to
+   `/workspace/documents/<id>/<file>`. Work on THAT copy, not on a file of the same name you find elsewhere
+   in `/workspace`. A file you made is already in `/workspace`.
 2. `gridcraft__open_workbook {path}` — absolute path. It opens .xls too (measured: a 16-sheet, 906-formula
    valuation model).
-3. Read before you write: `gridcraft__inspect_workbook` (sheets, used ranges, names), then
-   `gridcraft__read_range {sheet, range}` — add `formulas: true` to see the formulas instead of values.
-   - Read small windows at explicit addresses (`A30:B45`, never a whole sheet): the answer is rows WITHOUT
-     row numbers, so the first row is the window's first row. Count from it, not from 0.
-   - Before you write a cell you located that way, confirm it: `gridcraft__get_cell {cell}` must show the
-     label or value you expect. Writing one row off changes a different input and nothing warns you.
+3. FIND cells by their label, never by counting rows:
+   `gridcraft__execute_command {command: "edit.find", params: {what: "tax rate", all: true,
+   within: "workbook"}}` answers `{sheet, cell, value}` for every match, e.g. `{"sheet": "Inputs",
+   "cell": "A12", "value": "Marginal tax rate ="}`. The input or the result sits on that row to the right:
+   read the row (`gridcraft__read_range {sheet: "Inputs", range: "A12:H12"}`) and take the first value.
+   `read_range` answers rows WITHOUT row numbers, so counting rows in a big window writes one row off
+   (measured twice on a 16-sheet model). `gridcraft__inspect_workbook` lists the sheets and names first.
+   - Before you write, `gridcraft__get_cell {cell}` must show the value you mean to change.
 4. Change: `gridcraft__set_cell {cell, input}` types exactly as a user would (a number, text, or `=FORMULA`).
-   A cell on another sheet is quoted: `'Master Inputs Start here'!B39`. Several cells:
+   A cell on another sheet is quoted: `'Cost of capital'!B12`. Several cells:
    `gridcraft__write_range {range, values}`.
-5. Every dependent formula recalculates at once: read the output cell with `get_cell` and report the number,
-   old and new. Measured: the result matched LibreOffice's recalculation to the last digit.
+5. Every dependent formula recalculates at once. Find the output by its label the same way, read it
+   before and after, and report both numbers. Measured: the result matched LibreOffice's recalculation to
+   the last digit.
 6. `gridcraft__save_workbook {path}` — always a NEW path under `/workspace` (`<name>-modificato.xlsx`),
    never over the original. The saved file carries the cached values, so any reader sees the new numbers.
 7. `send_file` delivers it; that copy also lands in the library.
@@ -37,7 +42,8 @@ image. `##########` there is a number wider than its column, as in Excel: read t
 
 ## Limits (measured 2026-10-18, GridCraft 0.8.0)
 
-- No confinement flags: the server can write anywhere in the box. Write only under `/workspace`.
+- The server writes only under `/workspace`: anywhere else it gets "Permission denied" (Aura's landrun
+  fence; GridCraft has no root flags of its own).
 - `screenshot` needs a desktop app (it is not offered); look through `file.exportPdf` as above.
 - Error constants (`#DIV/0!`) are kept as values, not as empty formulas.
 - Alpha software: after a save, re-open the file and read the cells you changed before you report.

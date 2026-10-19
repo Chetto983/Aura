@@ -23,5 +23,5 @@ than 650, each with its params; `filmcraft__command_run {id, params}` runs one.
 
 - Speed at the box's 2 CPUs: about 12 frames per second for 720p, so a minute of video takes about two
   minutes; peak memory about 1 GB. The call runs in the background of your turn; tell the operator.
-- No confinement flags: write only under `/workspace`.
+- The server writes only under `/workspace`: anywhere else it gets "Permission denied" (Aura's landrun fence; FilmCraft has no root flags of its own).
 - The `ui_*` tools need a desktop app and fail here.
