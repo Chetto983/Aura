@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileDown } from 'lucide-react';
 import type { Asset } from '../attachments/types';
@@ -7,6 +7,7 @@ import { SaveFileLink } from './SaveFileLink';
 import { PreviewLoading, type RendererProps } from './renderers/PreviewStatus';
 import { PreviewByKind } from './renderers/previewDispatch';
 import { useAssetSource } from './renderers/assetSourceContext';
+import { PreviewActionsContext, previewActionClass } from './renderers/previewActionsContext';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
 // PreviewModal (WEBART-05 / D-09): a ~90vw×90vh Radix Dialog that previews an agent-
@@ -73,6 +74,7 @@ function DownloadCard({ active }: { active: PreviewTarget }) {
 export function PreviewModal({ active, onClose }: PreviewModalProps) {
   const { t } = useTranslation();
   const { assetUrl } = useAssetSource();
+  const [actions, setActions] = useState<HTMLElement | null>(null);
   return (
     <Dialog
       open={active !== undefined}
@@ -83,24 +85,30 @@ export function PreviewModal({ active, onClose }: PreviewModalProps) {
       <DialogContent className="flex h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0">
         {active !== undefined ? (
           <>
-            <div className="flex shrink-0 items-center gap-3 border-b border-border bg-gradient-to-r from-surface-2/80 to-surface px-5 py-3 pr-14">
+            <div
+              data-slot="preview-header"
+              className="flex shrink-0 items-center gap-3 border-b border-border bg-gradient-to-r from-surface-2/80 to-surface px-5 py-3 pr-14"
+            >
               <DialogTitle className="min-w-0 flex-1 truncate font-mono text-[15px] font-medium">
                 {active.file_name}
               </DialogTitle>
+              <span ref={setActions} className="flex items-center gap-3" />
               <SaveFileLink
                 href={assetUrl(active.id)}
                 fileName={active.file_name}
                 mimeType={active.mime_type}
                 label={t('artifacts.preview.downloadFallback')}
                 aria-label={t('artifacts.preview.download', { name: active.file_name })}
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-surface px-3.5 text-[13px] font-medium text-accent-text transition-colors hover:border-accent hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className={previewActionClass}
               />
             </div>
             <DialogDescription className="sr-only">
               {t('artifacts.preview.description', { name: active.file_name })}
             </DialogDescription>
             <div className="min-h-0 flex-1 overflow-auto bg-surface">
-              <Suspense fallback={<PreviewLoading />}>{renderKind(active)}</Suspense>
+              <PreviewActionsContext.Provider value={actions}>
+                <Suspense fallback={<PreviewLoading />}>{renderKind(active)}</Suspense>
+              </PreviewActionsContext.Provider>
             </div>
           </>
         ) : null}

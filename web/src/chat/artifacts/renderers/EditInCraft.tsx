@@ -4,14 +4,15 @@ import { Pencil } from 'lucide-react';
 import { useAssetSource } from './assetSourceContext';
 import { PreviewLoading, type RendererProps } from './PreviewStatus';
 import type { CraftApp } from './CraftFrame';
-import { Button } from '@/components/ui/button';
+import { PreviewAction } from './PreviewAction';
+import { previewActionClass } from './previewActionsContext';
 
 const CraftFrame = lazy(() => import('./CraftFrame'));
 
 // A file a light viewer shows and a Craft app edits (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md):
 // the viewer stays the preview, so reading costs no app download, and Edit swaps the app in. It
 // is offered only where the source can store what the app saves (the file manager's tier); an
-// edit made anywhere else could only be lost.
+// edit made anywhere else could only be lost. Edit sits in the host's header, beside its download.
 export default function EditInCraft({
   app,
   asset,
@@ -33,21 +34,20 @@ export default function EditInCraft({
   }
   if (save === undefined) return children;
   return (
-    <div className="relative h-full w-full">
+    <>
       {children}
-      {/* Solid, not outline: it floats over the viewer, and over a white PDF page a transparent
-          button could not be seen. */}
-      <Button
-        type="button"
-        variant="default"
-        className="absolute top-3 right-3 shadow-lg"
-        onClick={() => {
-          setEditing(true);
-        }}
-      >
-        <Pencil data-icon aria-hidden="true" className="size-4" />
-        {t('artifacts.preview.edit')}
-      </Button>
-    </div>
+      <PreviewAction>
+        <button
+          type="button"
+          className={previewActionClass}
+          onClick={() => {
+            setEditing(true);
+          }}
+        >
+          <Pencil aria-hidden="true" className="size-4" />
+          {t('artifacts.preview.edit')}
+        </button>
+      </PreviewAction>
+    </>
   );
 }

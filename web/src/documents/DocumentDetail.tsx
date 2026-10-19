@@ -21,6 +21,7 @@ import { useWrite } from './useWrite';
 import { previewKind } from '@/chat/artifacts/artifactMeta';
 import { AssetSourceContext } from '@/chat/artifacts/renderers/assetSourceContext';
 import { PreviewLoading } from '@/chat/artifacts/renderers/PreviewStatus';
+import { PreviewActionsContext } from '@/chat/artifacts/renderers/previewActionsContext';
 import { PreviewByKind } from '@/chat/artifacts/renderers/previewDispatch';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -82,6 +83,7 @@ interface DetailPageProps {
 function DetailPage({ doc, lists: operatorLists, onClose, onOpen }: DetailPageProps) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const [previewActions, setPreviewActions] = useState<HTMLElement | null>(null);
   const { lists, names, customFields } = operatorLists;
   const reviewCount = useQuery({
     queryKey: ['documents-review'],
@@ -186,25 +188,30 @@ function DetailPage({ doc, lists: operatorLists, onClose, onOpen }: DetailPagePr
       )}
       <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)] lg:overflow-hidden">
         <div className="flex h-[45vh] min-h-0 flex-col border-b border-border lg:h-auto lg:border-r lg:border-b-0">
-          <h2 className="px-4 pt-3 text-xs font-semibold tracking-[0.08em] text-text-muted uppercase">
-            {t('documents.detail.preview')}
-          </h2>
+          <div className="flex min-h-12 items-center justify-between gap-3 px-4 pt-3">
+            <h2 className="text-xs font-semibold tracking-[0.08em] text-text-muted uppercase">
+              {t('documents.detail.preview')}
+            </h2>
+            <span ref={setPreviewActions} className="flex items-center gap-3" />
+          </div>
           <div className="min-h-0 flex-1 p-3">
             <AssetSourceContext.Provider value={FILE_MANAGER_SOURCE}>
-              <Suspense fallback={<PreviewLoading />}>
-                <PreviewByKind
-                  kind={previewKind('', doc.file_name)}
-                  asset={{ assetId: `/${doc.source_key}`, mimeType: '', fileName: doc.file_name }}
-                  downloadFallback={
-                    <a
-                      href={directURL(`/${doc.source_key}`, true)}
-                      className="grid h-full place-items-center text-sm text-info underline"
-                    >
-                      {t('artifacts.preview.downloadFallback')}
-                    </a>
-                  }
-                />
-              </Suspense>
+              <PreviewActionsContext.Provider value={previewActions}>
+                <Suspense fallback={<PreviewLoading />}>
+                  <PreviewByKind
+                    kind={previewKind('', doc.file_name)}
+                    asset={{ assetId: `/${doc.source_key}`, mimeType: '', fileName: doc.file_name }}
+                    downloadFallback={
+                      <a
+                        href={directURL(`/${doc.source_key}`, true)}
+                        className="grid h-full place-items-center text-sm text-info underline"
+                      >
+                        {t('artifacts.preview.downloadFallback')}
+                      </a>
+                    }
+                  />
+                </Suspense>
+              </PreviewActionsContext.Provider>
             </AssetSourceContext.Provider>
           </div>
         </div>

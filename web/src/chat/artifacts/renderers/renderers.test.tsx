@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState, type ReactNode } from 'react';
 import { renderAsync } from 'docx-preview';
 import '../../../i18n/i18n'; // side-effect: initialise i18next so preview t() keys resolve
 import ImagePreview from './ImagePreview';
@@ -9,6 +10,7 @@ import HtmlPreview from './HtmlPreview';
 import { AssetSourceContext, type AssetSource } from './assetSourceContext';
 import DocxPreview from './DocxPreview';
 import CraftFrame from './CraftFrame';
+import { PreviewActionsContext } from './previewActionsContext';
 
 // The lazy per-MIME renderers (D-07/D-08/D-09). docx-preview is the heavy dep confined to its own
 // chunk — here it is MOCKED (vi.mock, hoisted above the imports) so the suite asserts the wrapper
@@ -439,12 +441,33 @@ describe('CraftFrame', () => {
 
     // The apps' own full-screen buttons send egui's ViewportCommand::Fullscreen, which eframe
     // 0.36's web backend leaves unhandled: the cockpit's control is the one that works.
+    /** A host as PreviewModal is one: a header that holds the preview's actions. */
+    function Host({ children }: { readonly children: ReactNode }) {
+      const [actions, setActions] = useState<HTMLElement | null>(null);
+      return (
+        <>
+          <header data-testid="header">
+            <span ref={setActions} />
+          </header>
+          <PreviewActionsContext.Provider value={actions}>
+            {children}
+          </PreviewActionsContext.Provider>
+        </>
+      );
+    }
+
     it('takes the app to full screen and back, frame and notices together', async () => {
       const { request, exit } = emulateFullscreen(true);
       stubFetch({ buffer: new ArrayBuffer(16) });
-      const { container } = render(<CraftFrame app="filmcraft" {...props} fileName="clip.mp4" />);
+      const { container } = render(
+        <Host>
+          <CraftFrame app="filmcraft" {...props} fileName="clip.mp4" />
+        </Host>,
+      );
 
-      fireEvent.click(screen.getByRole('button', { name: /^(Full screen|Schermo intero)$/ }));
+      const enter = await screen.findByRole('button', { name: /^(Full screen|Schermo intero)$/ });
+      expect(screen.getByTestId('header').contains(enter)).toBe(true);
+      fireEvent.click(enter);
       await screen.findByRole('button', { name: /Exit full screen|Esci dallo schermo intero/ });
       expect(request.mock.contexts[0]?.contains(iframeOf(container))).toBe(true);
 
@@ -460,7 +483,11 @@ describe('CraftFrame', () => {
     it('offers no full screen where the browser has none', () => {
       emulateFullscreen(false);
       stubFetch({ buffer: new ArrayBuffer(16) });
-      render(<CraftFrame app="filmcraft" {...props} fileName="clip.mp4" />);
+      render(
+        <Host>
+          <CraftFrame app="filmcraft" {...props} fileName="clip.mp4" />
+        </Host>,
+      );
 
       expect(screen.queryByRole('button', { name: /Full screen|Schermo intero/ })).toBeNull();
     });

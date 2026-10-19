@@ -116,6 +116,27 @@ describe('PreviewModal edit (a source that can save)', () => {
       expect(screen.queryByTestId(viewer)).toBeNull();
     },
   );
+
+  // Floating over the viewer, Edit covered the PDF viewer's own toolbar: it belongs in the header,
+  // beside the download and drawn the same way.
+  it('puts Edit in the header beside the download, in the same style', async () => {
+    render(
+      <AssetSourceContext.Provider
+        value={{ ...IDENTITY_SCOPED, save: vi.fn(() => Promise.resolve()) }}
+      >
+        <PreviewModal
+          active={asset({ mime_type: 'application/pdf', file_name: 'doc.pdf' })}
+          onClose={vi.fn()}
+        />
+      </AssetSourceContext.Provider>,
+    );
+    const edit = await screen.findByRole('button', { name: /^(Edit|Modifica)$/ });
+    const download = screen.getByRole('link', { name: /download doc\.pdf|scarica doc\.pdf/i });
+    const header = download.closest('[data-slot="preview-header"]');
+    expect(header).not.toBeNull();
+    expect(header?.contains(edit)).toBe(true);
+    expect(edit.className).toBe(download.className);
+  });
 });
 
 describe('PreviewModal chrome', () => {

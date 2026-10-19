@@ -145,6 +145,16 @@ describe('document detail', () => {
     });
   });
 
+  // Floating over the document, Edit covered the PDF viewer's own toolbar.
+  it("puts Modifica in the preview's heading row, not over the document", async () => {
+    stubServer();
+    renderDetail('d2');
+    const heading = await screen.findByRole('heading', { name: 'Anteprima' });
+    const edit = await screen.findByRole('button', { name: 'Modifica' });
+    // In the heading's own row, beside the title: not inside the preview below it.
+    expect(edit.parentElement?.parentElement).toBe(heading.parentElement);
+  });
+
   it('lists the history, and says when the operator has not reviewed it yet', async () => {
     stubServer();
     renderDetail('d2');
