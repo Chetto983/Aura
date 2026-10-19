@@ -1,0 +1,74 @@
+{
+ "gridcraft": {
+  "file": "gridcraft-fcffginzu_rf5.xlsx",
+  "risk_free_B39": 0.05,
+  "value_per_share_cached_F71": 333.619261987673,
+  "value_per_share_libreoffice_F71": 333.619261987673,
+  "expected_F71_at_5pct": 333.619261987673
+ },
+ "pdfcraft": {
+  "file": "pdfcraft-anac-nota-illustrativa-oscurato.pdf",
+  "ANAC_in_original": 8,
+  "ANAC_left": 0,
+  "words_original": 22388,
+  "words": 22389,
+  "pages": [
+   "Pages:           42"
+  ]
+ },
+ "wordcraft": {
+  "file": "wordcraft-bando-compilato-125-2026.docx",
+  "has_125_2026": true,
+  "has_12_ottobre_2026": true,
+  "placeholder_left": false,
+  "paragraphs": 821,
+  "paragraphs_original": 821,
+  "tables": 12,
+  "tables_original": 12,
+  "bold_runs": 579,
+  "bold_runs_original": 1042
+ },
+ "deckcraft": {
+  "file": "deckcraft-HWC20_PPT_IT_Updated.pptx",
+  "slides": 16,
+  "slides_original": 15,
+  "last_slide_text": [
+   "Domande?",
+   "Grazie per l'attenzione"
+  ],
+  "domande_on_slide": [
+   16
+  ]
+ },
+ "photocraft": {
+  "file": "photocraft-ponte-vecchio-dusk-edited.jpg",
+  "size": [
+   2400,
+   1836
+  ],
+  "size_original": [
+   4948,
+   3786
+  ],
+  "exif": true,
+  "exif_original": true,
+  "mean_luma": 70.5,
+  "mean_luma_original_resized": 62.6
+ },
+ "filmcraft": {
+  "file": "filmcraft-sintel_trimmed_720p.mp4",
+  "bytes": 1591109,
+  "seconds": 10.05,
+  "avc1": true,
+  "track_sizes": [
+   [
+    1280,
+    720
+   ],
+   [
+    0,
+    0
+   ]
+  ]
+ }
+}

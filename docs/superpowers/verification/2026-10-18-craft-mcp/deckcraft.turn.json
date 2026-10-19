@@ -1,0 +1,16 @@
+{
+ "seconds": 6,
+ "tools": [
+  "skill",
+  "tool_search",
+  "document_open",
+  "tool_search",
+  "deckcraft__open_presentation",
+  "deckcraft__go_to_slide",
+  "deckcraft__add_slide",
+  "deckcraft__save_presentation",
+  "send_file"
+ ],
+ "answer": "Ho aggiunto la slide finale con il titolo \"Domande?\" e il testo \"Grazie per l'attenzione\".\n\nLa presentazione è stata salvata come `/workspace/artifacts/HWC20_PPT_IT_Updated.pptx` e ti è stata inviata in allegato.",
+ "errors": []
+}

@@ -1,0 +1,15 @@
+{
+ "seconds": 50,
+ "tools": [
+  "document_open",
+  "skill",
+  "tool_search",
+  "filmcraft__media_import",
+  "filmcraft__command_list",
+  "filmcraft__command_list",
+  "filmcraft__command_batch",
+  "send_file"
+ ],
+ "answer": "Ho elaborato il video: ho mantenuto i primi 10 secondi, l'ho esportato in 720p con qualità costante (CRF 23) per ottimizzare le dimensioni del file e te l'ho appena inviato.",
+ "errors": []
+}
