@@ -214,15 +214,50 @@ func killLiveSession(t *testing.T, srv *MountedServer) {
 // answers: the call provably reached the peer and its transport then failed, which is the one
 // case the no-replay policy exists for. Killing the session before the call cannot stand in
 // for it, because watch() may or may not have seen that death by the time the call starts.
+//
+// go-sdk v1.8.0's ServerSession.Close waits for in-flight handlers, this one included, and
+// cancels only subscriptions/listen requests (mcp/server.go Close, internal/jsonrpc2/conn.go
+// Close). So the handler starts Close from outside itself, pings the client until a ping is
+// refused (Call refuses as soon as Close has marked the connection closing), and only then
+// returns. Its answer is then written on a closing connection: the write fails, breaks the
+// connection and cancels anything else in flight (conn.go write), and the client reads EOF.
+//
+// The version before waited on its own ctx and was freed only if Close cancelled the client's
+// subscriptions/listen first. Under the coverage gate's load it once took its snapshot of
+// listenIDs before the listen handler had registered, and the call hung for ten minutes.
 func dropsConnectionOnSend() *sdkmcp.Server {
 	server := sdkmcp.NewServer(&sdkmcp.Implementation{Name: "fixture", Version: "0.0.1"}, nil)
 	server.AddTool(mustTool("send", "Send.", nil, nil), func(ctx context.Context, req *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
-		// Closed from outside the handler: Close waits for in-flight handlers, this one included.
 		go func() { _ = req.Session.Close() }()
-		<-ctx.Done()
-		return nil, ctx.Err()
+		for req.Session.Ping(ctx, &sdkmcp.PingParams{}) == nil {
+		}
+		return nil, errors.New("connection dropped before the answer")
 	})
 	return server
+}
+
+// The fixture's drop must not lean on the client's subscriptions/listen stream: a client that
+// opens none still sees the transport fail, and promptly. With the version before, this call
+// waited out its deadline every time.
+func TestDropsConnectionOnSendDropsWithoutAListenStream(t *testing.T) {
+	clientTransport, serverTransport := sdkmcp.NewInMemoryTransports()
+	serverSession, err := dropsConnectionOnSend().Connect(context.Background(), serverTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = serverSession.Close() })
+	session, err := connectClient(context.Background(), clientTransport, mcp.SessionOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err = session.CallTool(ctx, &sdkmcp.CallToolParams{Name: "send", Arguments: map[string]any{"x": "y"}})
+	if err == nil || ctx.Err() != nil || !strings.Contains(err.Error(), "EOF") {
+		t.Fatalf("call = %v (deadline: %v), want the transport's EOF before the deadline", err, ctx.Err())
+	}
 }
 
 // TestMountedServer_MutatingNotReplayedAfterDeath covers the no-replay
