@@ -101,6 +101,27 @@ container does not trust it otherwise. Every product step ran unchanged.
   file for file. PhotoCraft's new unit test (`the_web_build_skips_the_languages_it_has_no_face_for`)
   passes natively. Upstream's own suites were not run against the patches (FINDINGS, "does not show").
 
+## Live run on the lab VM (open)
+
+The lab VM `192.168.101.158` ran these builds through its updater on 2026-10-19:
+- `fb69fe5bc`: a file opened in the file manager shows the cockpit preview, never a new tab.
+- `dcd3a8a38`:
+  - an image the file manager lists without a type previews by its extension (`9147f22fc`);
+  - a video streams from the file manager's own route (`739cb88d8`);
+  - Edit and Full screen sit in the preview's header, beside "Scarica il file", in its style
+    (`c0b7fbda5`). The Craft apps' own full-screen command is unhandled by eframe 0.36's web
+    backend, so the cockpit's button replaces it.
+
+The operator saved a docx from WordCraft and an xlsx from GridCraft in the cockpit. Both landed in
+the bucket and were valid when checked outside the apps: the docx with 334 paragraphs, the xlsx
+with 11,216 cells and their number formats. Both contents were equal to the originals', so this
+does not show that an edit reached the file. Which edit was made is an open question to the
+operator. After the GridCraft save, the xlsx re-indexed with 55 passages instead of 71
+(`2026-10-19-ingest-index-orphans.md`).
+
+Still open: the operator's own pass in the cockpit on Acceptance 2–4, and an edit visible in the
+saved file of each app.
+
 ## Not shown here
 
 - The image was built here, not in CI: the release workflow's time, with its buildx cache, and a

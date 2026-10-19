@@ -123,3 +123,10 @@ binaryen 123 for the patched builds.
   (51 min cold, +235 MB, +130 MB compressed; the image's apps saved through the bridge).
 - [ ] On the lab VM, the spec's Acceptance 2, 3 and 4 in the cockpit, each save checked outside the app;
   `docs/superpowers/verification/2026-10-19-craft-web-apps.md` updated with the live run.
+  - 2026-10-19: in progress. The builds below are live on the VM:
+    - the preview opens from the file manager;
+    - an image previews by its extension, and a video streams from the file manager's route;
+    - Edit and Full screen sit in the header.
+
+    A docx and an xlsx saved by the operator are valid but equal to the originals. The operator's
+    pass is open.
