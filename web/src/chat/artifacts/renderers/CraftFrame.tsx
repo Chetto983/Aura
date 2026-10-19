@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useAssetSource } from './assetSourceContext';
 import { useAssetContent } from './useAssetContent';
 import { PreviewError, PreviewErrorWithDownload, type RendererProps } from './PreviewStatus';
+import { Button } from '@/components/ui/button';
 
 // A Craft app (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md) aura serves at
 // /apps/<app>/ from the image. Framed in host mode it announces <app>:ready, and the file goes to

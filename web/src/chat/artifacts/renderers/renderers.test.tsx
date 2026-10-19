@@ -446,8 +446,7 @@ describe('CraftFrame', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /^(Full screen|Schermo intero)$/ }));
       await screen.findByRole('button', { name: /Exit full screen|Esci dallo schermo intero/ });
-      const element = request.mock.contexts[0] as Element;
-      expect(element.contains(iframeOf(container))).toBe(true);
+      expect(request.mock.contexts[0]?.contains(iframeOf(container))).toBe(true);
 
       fireEvent.click(
         screen.getByRole('button', { name: /Exit full screen|Esci dallo schermo intero/ }),
