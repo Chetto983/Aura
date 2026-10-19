@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -15,7 +16,7 @@ import (
 func TestServeWebuiServesTheCraftAppsWithoutASession(t *testing.T) {
 	dir := t.TempDir()
 	page := `<html><head><script type="module">init()</script></head><body><canvas></canvas></body></html>`
-	for _, app := range append(craftApps, "notanapp") {
+	for _, app := range append(slices.Clone(craftApps), "notanapp") {
 		if err := os.MkdirAll(filepath.Join(dir, app), 0o755); err != nil {
 			t.Fatal(err)
 		}
