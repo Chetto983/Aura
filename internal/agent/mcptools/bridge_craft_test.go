@@ -11,6 +11,7 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/chetto1983/aura/internal/mcp"
+	mcpmanager "github.com/chetto1983/aura/internal/mcp/manager"
 )
 
 // pinnedCraftTools is a Craft server's tool list as its pinned version serves it in the box, captured by
@@ -147,5 +148,25 @@ func TestOtherRecipesStillHonourADestructiveHint(t *testing.T) {
 	_, destructive := mcpToolRisk(bridgePolicy{recipeSource: calendarRecipeSource}, mustTool("list_accounts", "", nil, &sdkmcp.ToolAnnotations{DestructiveHint: &yes}))
 	if !destructive {
 		t.Fatal("a calendar tool declared destructive was not")
+	}
+}
+
+// The policy a recipe mount gets is built from the catalog's own server, not set by hand as the tests
+// above set it. The live run found the Craft sources missing from that build: every Craft tool fell back
+// to its server's hints, so the gateway asked to approve wordcraft open_document and deckcraft add_slide,
+// and the desktop-only tools were bridged.
+func TestACraftRecipeMountGetsTheCraftPolicy(t *testing.T) {
+	for _, server := range mcp.CraftServers {
+		entry, ok := mcpmanager.LookupCatalog(server)
+		if !ok {
+			t.Fatalf("%s recipe missing", server)
+		}
+		policy := managedBridgePolicy(entry.Server)
+		if policy.recipeSource != mcp.CraftRecipeSource(server) {
+			t.Errorf("%s: a recipe mount's policy has source %q, want %q", server, policy.recipeSource, mcp.CraftRecipeSource(server))
+		}
+		if !policy.identityScoped {
+			t.Errorf("%s: a box recipe's policy is not identity scoped", server)
+		}
 	}
 }

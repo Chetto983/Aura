@@ -166,7 +166,9 @@ func managedBridgePolicy(server mcp.ManagedServer) bridgePolicy {
 		return policy
 	}
 	source := strings.TrimSpace(server.Source)
-	if _, ok := trustedRecipeActions[source]; ok {
+	_, trusted := trustedRecipeActions[source]
+	_, craft := craftRecipeActions[source]
+	if trusted || craft {
 		policy.recipeSource = source
 	}
 	policy.neverLoaded = source == calendarRecipeSource
