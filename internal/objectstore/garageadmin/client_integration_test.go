@@ -35,11 +35,7 @@ func envOrSkip(t *testing.T, key string) string {
 
 func randSuffix(t *testing.T) string {
 	t.Helper()
-	b := make([]byte, 6)
-	if _, err := rand.Read(b); err != nil {
-		t.Fatalf("rand: %v", err)
-	}
-	return hex.EncodeToString(b)
+	return randHex(t, 6)
 }
 
 // TestGarageAdmin provisions a per-identity bucket + scoped key, proves the create
@@ -123,4 +119,45 @@ func TestGarageAdmin(t *testing.T) {
 	if err := c.DeleteBucket(ctx, bucketID); err != nil {
 		t.Fatalf("DeleteBucket (idempotent 404): %v", err)
 	}
+}
+
+// TestGarageAdminImportsALostKey puts back a key Garage never held, the state a Postgres
+// restored without its Garage leaves behind. A fresh id each run: Garage refuses to import an id
+// it has ever held, deleted or not.
+func TestGarageAdminImportsALostKey(t *testing.T) {
+	c, err := New(envOrSkip(t, "AURA_GARAGE_ADMIN_ENDPOINT"), envOrSkip(t, "AURA_GARAGE_ADMIN_TOKEN"))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	accessKey := "GK" + randHex(t, 12)
+	secretKey := randHex(t, 32)
+	if exists, err := c.KeyExists(ctx, accessKey); err != nil || exists {
+		t.Fatalf("KeyExists(never held) = %t, %v; want false, nil", exists, err)
+	}
+	if err := c.ImportKey(ctx, accessKey, secretKey, "import-"+randSuffix(t)); err != nil {
+		t.Fatalf("ImportKey: %v", err)
+	}
+	t.Cleanup(func() {
+		cctx, ccancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer ccancel()
+		_ = c.DeleteKey(cctx, accessKey)
+	})
+	if exists, err := c.KeyExists(ctx, accessKey); err != nil || !exists {
+		t.Fatalf("KeyExists(imported) = %t, %v; want true, nil", exists, err)
+	}
+	if err := c.ImportKey(ctx, accessKey, secretKey, "again"); err == nil {
+		t.Fatal("a second ImportKey of the same id succeeded, want Garage's refusal")
+	}
+}
+
+func randHex(t *testing.T, n int) string {
+	t.Helper()
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		t.Fatalf("rand: %v", err)
+	}
+	return hex.EncodeToString(b)
 }

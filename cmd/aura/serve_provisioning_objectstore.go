@@ -28,13 +28,15 @@ type objectStoreCredentialResolver interface {
 }
 
 // objectStoreMinter is the Garage-admin-side seam: create a bucket + a scoped key and grant
-// it, or tear both down. *garageadmin.Client satisfies it; the interface exists so
-// EnsureForIdentity/ProvisionObjectStore is testable (fake minter) without a live Garage
-// admin API.
+// it, put back the ones Garage lost, or tear both down. *garageadmin.Client satisfies it; the
+// interface exists so EnsureForIdentity/ProvisionObjectStore is testable (fake minter) without
+// a live Garage admin API.
 type objectStoreMinter interface {
 	CreateBucket(ctx context.Context, globalAlias string) (string, error)
 	BucketIDByAlias(ctx context.Context, globalAlias string) (string, error)
 	CreateKey(ctx context.Context, name string) (accessKeyID, secretAccessKey string, err error)
+	KeyExists(ctx context.Context, accessKeyID string) (bool, error)
+	ImportKey(ctx context.Context, accessKeyID, secretAccessKey, name string) error
 	KeyIDByName(ctx context.Context, name string) (accessKeyID string, err error)
 	AllowBucketKey(ctx context.Context, bucketID, accessKeyID string, perms garageadmin.Permissions) error
 	DeleteBucket(ctx context.Context, bucketID string) error
@@ -49,13 +51,18 @@ var (
 // objectStoreProvisionAdapter satisfies agui.ObjectStoreProvisioner over the Garage Admin
 // API v2 client + the plan-06 identity_store (promoted verbatim from liveObjectStore).
 // ProvisionObjectStore/EnsureForIdentity are idempotent (Resolve → skip when the secret row
-// already exists); the adapter remembers each bucket's internal id so DeprovisionObjectStore
-// can delete it.
+// already exists); the adapter remembers each bucket's internal id, by bucket name, so
+// DeprovisionObjectStore can delete it.
 type objectStoreProvisionAdapter struct {
 	client    objectStoreMinter
 	store     objectStoreCredentialResolver
 	mu        sync.Mutex
 	bucketIDs map[string]string
+	// settleMu holds a request back while the first one for the process restores the bucket and
+	// writes its CORS rule: a second request racing it would try the grant before the bucket is
+	// back, and the rule is attempted once per process.
+	settleMu    sync.Mutex
+	restoreDone map[string]struct{}
 	// ensureCORS writes the browser-upload CORS rule onto a bucket using AURA'S OWN key, not
 	// the identity's. Optional: nil in tests that are not about it, and in any wiring with no
 	// S3 endpoint to talk to.
@@ -83,10 +90,11 @@ var _ objectStoreEmptier = (*objectstore.S3Store)(nil)
 
 func newObjectStoreProvisionAdapter(client objectStoreMinter, store objectStoreCredentialResolver) *objectStoreProvisionAdapter {
 	return &objectStoreProvisionAdapter{
-		client:    client,
-		store:     store,
-		bucketIDs: map[string]string{},
-		corsDone:  map[string]struct{}{},
+		client:      client,
+		store:       store,
+		bucketIDs:   map[string]string{},
+		restoreDone: map[string]struct{}{},
+		corsDone:    map[string]struct{}{},
 	}
 }
 
@@ -223,7 +231,7 @@ func (a *objectStoreProvisionAdapter) EnsureForIdentity(ctx context.Context, id 
 		// more thing to keep in step. Compared against the derived name rather than a
 		// literal, so the two cannot drift.
 		if own, derr := garageadmin.BucketForIdentity(id); derr == nil && creds.Bucket == own {
-			a.configureCORS(ctx, creds.Bucket)
+			a.settleOwnBucket(ctx, id, creds)
 		}
 		return creds, nil // shared principal OR already provisioned — idempotent no-mint
 	} else if !errors.Is(err, pgx.ErrNoRows) {
@@ -233,11 +241,15 @@ func (a *objectStoreProvisionAdapter) EnsureForIdentity(ctx context.Context, id 
 	if err != nil {
 		return objectstore.Credentials{}, err
 	}
+	keyName, err := garageadmin.KeyNameForIdentity(id)
+	if err != nil {
+		return objectstore.Credentials{}, err
+	}
 	bucketID, err := a.client.CreateBucket(ctx, bucket)
 	if err != nil {
 		return objectstore.Credentials{}, err
 	}
-	ak, sk, err := a.client.CreateKey(ctx, "aura-"+id)
+	ak, sk, err := a.client.CreateKey(ctx, keyName)
 	if err != nil {
 		return objectstore.Credentials{}, err
 	}
@@ -248,11 +260,89 @@ func (a *objectStoreProvisionAdapter) EnsureForIdentity(ctx context.Context, id 
 		return objectstore.Credentials{}, err
 	}
 	a.mu.Lock()
-	a.bucketIDs[id] = bucketID
+	a.bucketIDs[bucket] = bucketID
 	a.mu.Unlock()
 	creds := objectstore.Credentials{Bucket: bucket, AccessKey: ak, SecretKey: sk}
 	a.configureCORS(ctx, creds.Bucket)
 	return creds, nil
+}
+
+// settleOwnBucket makes an already-provisioned identity's bucket usable, once per bucket per
+// process: Garage first holds what the credential row names, then the bucket gets its CORS rule.
+func (a *objectStoreProvisionAdapter) settleOwnBucket(ctx context.Context, id string, creds objectstore.Credentials) {
+	a.settleMu.Lock()
+	defer a.settleMu.Unlock()
+	a.restoreLost(ctx, id, creds)
+	a.configureCORS(ctx, creds.Bucket)
+}
+
+// restoreLost puts back the bucket and key the credential row names when Garage no longer has
+// them, with the key's own id and secret, so every reader of the row works again unchanged.
+// Measured on the lab VM 2026-10-19: Postgres restored from a backup that did not carry Garage
+// held the row, Garage held neither, and every read answered 403 "No such key" while the resolve
+// path only logged that the CORS grant had no bucket. The files the bucket held are not in the
+// row and stay lost.
+//
+// Like the CORS rule, it is attempted once per bucket per process and a failure is logged, never
+// returned: the credentials are what Postgres holds either way.
+func (a *objectStoreProvisionAdapter) restoreLost(ctx context.Context, id string, creds objectstore.Credentials) {
+	a.mu.Lock()
+	_, done := a.restoreDone[creds.Bucket]
+	a.restoreDone[creds.Bucket] = struct{}{}
+	a.mu.Unlock()
+	if done {
+		return
+	}
+	restored, err := a.putBackLost(ctx, id, creds)
+	if err != nil {
+		slog.Error("objectstore: the identity's bucket or key is not in Garage and could not be put back; its files cannot be read or stored",
+			"bucket", redact.Line(creds.Bucket), "err", err)
+		return
+	}
+	if len(restored) > 0 {
+		slog.Warn("objectstore: put back what Garage had lost, from the credential row; the objects it held are not recoverable this way",
+			"bucket", redact.Line(creds.Bucket), "restored", restored)
+	}
+}
+
+// putBackLost returns what it had to put back ("bucket", "key"). Garage answers 409 when another
+// adapter imported the key first, so a refused import that leaves the key there is converged.
+func (a *objectStoreProvisionAdapter) putBackLost(ctx context.Context, id string, creds objectstore.Credentials) ([]string, error) {
+	var restored []string
+	bucketID, err := a.client.BucketIDByAlias(ctx, creds.Bucket)
+	if errors.Is(err, garageadmin.ErrBucketNotFound) {
+		bucketID, err = a.client.CreateBucket(ctx, creds.Bucket)
+		restored = append(restored, "bucket")
+	}
+	if err != nil {
+		return nil, err
+	}
+	a.mu.Lock()
+	a.bucketIDs[creds.Bucket] = bucketID
+	a.mu.Unlock()
+	exists, err := a.client.KeyExists(ctx, creds.AccessKey)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		name, err := garageadmin.KeyNameForIdentity(id)
+		if err != nil {
+			return nil, err
+		}
+		if err := a.client.ImportKey(ctx, creds.AccessKey, creds.SecretKey, name); err != nil {
+			if there, kerr := a.client.KeyExists(ctx, creds.AccessKey); kerr != nil || !there {
+				return nil, err
+			}
+		} else {
+			restored = append(restored, "key")
+		}
+	}
+	if len(restored) > 0 {
+		if err := a.client.AllowBucketKey(ctx, bucketID, creds.AccessKey, garageadmin.ReadWrite); err != nil {
+			return nil, err
+		}
+	}
+	return restored, nil
 }
 
 // ProvisionObjectStore satisfies agui.ObjectStoreProvisioner by delegating to
@@ -371,19 +461,19 @@ func (a *objectStoreProvisionAdapter) deprovisionKey(ctx context.Context, id str
 }
 
 // deprovisionBucketID resolves the bucket to delete, preferring the id this adapter
-// instance minted and falling back to the alias derived from the identity. An empty return
-// with a nil error means there is nothing left to delete: an alias Garage does not know
+// instance already knows and falling back to the alias derived from the identity. An empty
+// return with a nil error means there is nothing left to delete: an alias Garage does not know
 // (ErrBucketNotFound) is a converged step, unlike a lookup that could not be read at all.
 func (a *objectStoreProvisionAdapter) deprovisionBucketID(ctx context.Context, id string) (string, error) {
-	a.mu.Lock()
-	bucketID := a.bucketIDs[id]
-	a.mu.Unlock()
-	if bucketID != "" {
-		return bucketID, nil
-	}
 	bucket, err := garageadmin.BucketForIdentity(id)
 	if err != nil {
 		return "", err
+	}
+	a.mu.Lock()
+	bucketID := a.bucketIDs[bucket]
+	a.mu.Unlock()
+	if bucketID != "" {
+		return bucketID, nil
 	}
 	bucketID, err = a.client.BucketIDByAlias(ctx, bucket)
 	if errors.Is(err, garageadmin.ErrBucketNotFound) {

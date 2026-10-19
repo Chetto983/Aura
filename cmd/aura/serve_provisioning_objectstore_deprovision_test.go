@@ -51,6 +51,14 @@ func (d *deprovisionMinter) CreateKey(context.Context, string) (string, string, 
 	return "", "", errors.New("deprovisionMinter: CreateKey must not be called on teardown")
 }
 
+func (d *deprovisionMinter) KeyExists(context.Context, string) (bool, error) {
+	return false, errors.New("deprovisionMinter: KeyExists must not be called on teardown")
+}
+
+func (d *deprovisionMinter) ImportKey(context.Context, string, string, string) error {
+	return errors.New("deprovisionMinter: ImportKey must not be called on teardown")
+}
+
 // AllowBucketKey records the teardown's own re-grant. Measured 2026-09-08: three orphaned
 // buckets carried ZERO authorized keys, so listing them for emptying answered S3 403
 // AccessDenied and they could not be deleted by any code path at all. The teardown therefore

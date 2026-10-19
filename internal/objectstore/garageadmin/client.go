@@ -108,6 +108,26 @@ func (c *Client) post(ctx context.Context, path string, query url.Values, body a
 	return resp.StatusCode, raw, nil
 }
 
+// get issues an authenticated GET to path with query, returning the status code and the
+// (capped) raw response body.
+func (c *Client) get(ctx context.Context, path string, query url.Values) (int, []byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.endpoint+path+"?"+query.Encode(), nil)
+	if err != nil {
+		return 0, nil, fmt.Errorf("garageadmin: build %s: %w", path, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return 0, nil, fmt.Errorf("garageadmin: call %s: %w", path, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxAdminBody))
+	if err != nil {
+		return resp.StatusCode, nil, fmt.Errorf("garageadmin: read %s: %w", path, err)
+	}
+	return resp.StatusCode, raw, nil
+}
+
 // ErrBucketNotFound is BucketIDByAlias's 404: the global alias names no bucket. It is a
 // sentinel and not a status check at the call site because "already gone" is the one
 // non-2xx a teardown may treat as a converged step.
@@ -169,30 +189,19 @@ func (c *Client) CreateBucket(ctx context.Context, globalAlias string) (string, 
 // needs the id of an EXISTING bucket should ask for it, not call CreateBucket
 // and lean on its idempotence -- that reads as "mint" at every call site.
 func (c *Client) BucketIDByAlias(ctx context.Context, alias string) (string, error) {
-	target := c.endpoint + "/v2/GetBucketInfo?" + url.Values{"globalAlias": {alias}}.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	status, raw, err := c.get(ctx, "/v2/GetBucketInfo", url.Values{"globalAlias": {alias}})
 	if err != nil {
-		return "", fmt.Errorf("garageadmin: build GetBucketInfo: %w", err)
+		return "", err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	resp, err := c.hc.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("garageadmin: call GetBucketInfo: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxAdminBody))
-	if err != nil {
-		return "", fmt.Errorf("garageadmin: read GetBucketInfo: %w", err)
-	}
-	if resp.StatusCode == http.StatusNotFound {
+	if status == http.StatusNotFound {
 		// A teardown running in a later process than the one that provisioned the bucket
 		// has only the alias, and it must tell "already gone" (converged) from "the admin
 		// API said something else" (retry). Everything non-2xx that is NOT a 404 stays an
 		// opaque failure: we could not check is not there is nothing there.
 		return "", fmt.Errorf("garageadmin: bucket alias %q: %w", alias, ErrBucketNotFound)
 	}
-	if !is2xx(resp.StatusCode) {
-		return "", statusErr("GetBucketInfo", resp.StatusCode, raw)
+	if !is2xx(status) {
+		return "", statusErr("GetBucketInfo", status, raw)
 	}
 	var info bucketInfo
 	if err := json.Unmarshal(raw, &info); err != nil {
@@ -209,26 +218,15 @@ func (c *Client) BucketIDByAlias(ctx context.Context, alias string) (string, err
 // an ambiguous or failed search answers non-2xx and stays an opaque error, because deleting
 // the wrong key would be worse than leaving this one.
 func (c *Client) KeyIDByName(ctx context.Context, name string) (string, error) {
-	target := c.endpoint + "/v2/GetKeyInfo?" + url.Values{"search": {name}}.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	status, raw, err := c.get(ctx, "/v2/GetKeyInfo", url.Values{"search": {name}})
 	if err != nil {
-		return "", fmt.Errorf("garageadmin: build GetKeyInfo: %w", err)
+		return "", err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	resp, err := c.hc.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("garageadmin: call GetKeyInfo: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxAdminBody))
-	if err != nil {
-		return "", fmt.Errorf("garageadmin: read GetKeyInfo: %w", err)
-	}
-	if resp.StatusCode == http.StatusNotFound {
+	if status == http.StatusNotFound {
 		return "", fmt.Errorf("garageadmin: key name %q: %w", name, ErrKeyNotFound)
 	}
-	if !is2xx(resp.StatusCode) {
-		return "", statusErr("GetKeyInfo", resp.StatusCode, raw)
+	if !is2xx(status) {
+		return "", statusErr("GetKeyInfo", status, raw)
 	}
 	var info struct {
 		AccessKeyID string `json:"accessKeyId"`
@@ -264,6 +262,40 @@ func (c *Client) CreateKey(ctx context.Context, name string) (accessKeyID, secre
 		return "", "", fmt.Errorf("garageadmin: CreateKey returned empty credentials")
 	}
 	return info.AccessKeyID, info.SecretAccessKey, nil
+}
+
+// KeyExists reports whether Garage knows the access key id. GetKeyInfo answers 404
+// NoSuchAccessKey for an unknown id (measured 2026-10-19 on Garage v2.4.1); any other non-2xx
+// stays an error, because an admin API that could not answer is not a key that is gone.
+func (c *Client) KeyExists(ctx context.Context, accessKeyID string) (bool, error) {
+	status, raw, err := c.get(ctx, "/v2/GetKeyInfo", url.Values{"id": {accessKeyID}})
+	if err != nil {
+		return false, err
+	}
+	if status == http.StatusNotFound {
+		return false, nil
+	}
+	if !is2xx(status) {
+		return false, statusErr("GetKeyInfo", status, raw)
+	}
+	return true, nil
+}
+
+// ImportKey puts back a key Garage no longer has, with the id and secret it was created with.
+// Garage reserves it for "migrations and backup restore": the restore of a Postgres that still
+// holds the credential row into a Garage that lost the key. An id Garage has ever held, even a
+// deleted one, answers 409 KeyAlreadyExists.
+func (c *Client) ImportKey(ctx context.Context, accessKeyID, secretAccessKey, name string) error {
+	status, raw, err := c.post(ctx, "/v2/ImportKey", nil, importKeyRequest{
+		AccessKeyID: accessKeyID, SecretAccessKey: secretAccessKey, Name: name,
+	})
+	if err != nil {
+		return err
+	}
+	if !is2xx(status) {
+		return statusErr("ImportKey", status, raw)
+	}
+	return nil
 }
 
 // AllowBucketKey grants perms to accessKeyID on bucketID (per-bucket, F-007).

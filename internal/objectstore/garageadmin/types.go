@@ -50,6 +50,13 @@ type createKeyRequest struct {
 	Name string `json:"name"`
 }
 
+// importKeyRequest is the POST /v2/ImportKey body: an existing key's id and secret.
+type importKeyRequest struct {
+	AccessKeyID     string `json:"accessKeyId"`
+	SecretAccessKey string `json:"secretAccessKey"`
+	Name            string `json:"name"`
+}
+
 // bucketKeyRequest is the POST /v2/AllowBucketKey and /v2/DenyBucketKey body: the
 // target bucket id, the access key id, and the permission triple.
 type bucketKeyRequest struct {

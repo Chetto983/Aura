@@ -80,6 +80,17 @@ type fakeMinter struct {
 	bucketID        string
 	accessKey       string
 	secretKey       string
+	// lostBucket and lostKey are a Garage that no longer has what the credential row names:
+	// the state a Postgres restored without its Garage leaves (lab VM, 2026-10-14).
+	lostBucket     bool
+	lostKey        bool
+	keyExistsCalls int
+	keyExistsErr   error
+	imported       []string // every ImportKey as "<accessKey>:<secretKey>:<name>"
+	importErr      error
+	// importRaced is a second adapter importing the key first: Garage answers 409, and the
+	// key is there.
+	importRaced bool
 }
 
 func (f *fakeMinter) CreateBucket(_ context.Context, _ string) (string, error) {
@@ -89,7 +100,33 @@ func (f *fakeMinter) CreateBucket(_ context.Context, _ string) (string, error) {
 	if f.createBucketErr != nil {
 		return "", f.createBucketErr
 	}
+	f.lostBucket = false
 	return f.bucketID, nil
+}
+
+func (f *fakeMinter) KeyExists(_ context.Context, _ string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.keyExistsCalls++
+	if f.keyExistsErr != nil {
+		return false, f.keyExistsErr
+	}
+	return !f.lostKey, nil
+}
+
+func (f *fakeMinter) ImportKey(_ context.Context, accessKey, secretKey, name string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.imported = append(f.imported, accessKey+":"+secretKey+":"+name)
+	if f.importRaced {
+		f.lostKey = false
+		return errors.New("garageadmin: ImportKey returned status 409: KeyAlreadyExists")
+	}
+	if f.importErr != nil {
+		return f.importErr
+	}
+	f.lostKey = false
+	return nil
 }
 
 func (f *fakeMinter) CreateKey(_ context.Context, _ string) (string, string, error) {
@@ -104,9 +141,12 @@ func (f *fakeMinter) CreateKey(_ context.Context, _ string) (string, string, err
 
 // BucketIDByAlias answers for a bucket that already exists, without counting as a mint --
 // which is the distinction the resolve path depends on.
-func (f *fakeMinter) BucketIDByAlias(_ context.Context, _ string) (string, error) {
+func (f *fakeMinter) BucketIDByAlias(_ context.Context, alias string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.lostBucket {
+		return "", fmt.Errorf("garageadmin: bucket alias %q: %w", alias, garageadmin.ErrBucketNotFound)
+	}
 	if f.bucketID == "" {
 		return "existing-bucket-id", nil
 	}
