@@ -86,8 +86,12 @@ describe('previewKind', () => {
     }
   });
 
-  it('falls back to download for formats with no free renderer (pptx, binary)', () => {
-    expect(previewKind('application/vnd.ms-powerpoint', 'x.pptx')).toBe('download');
+  it('opens a deck in DeckCraft, which reads .pptx and not the legacy .ppt', () => {
+    expect(previewKind('application/vnd.ms-powerpoint', 'x.pptx')).toBe('pptx');
+  });
+
+  it('falls back to download for formats with no free renderer (ppt, binary)', () => {
+    expect(previewKind('application/vnd.ms-powerpoint', 'x.ppt')).toBe('download');
     expect(previewKind('application/octet-stream', 'x.bin')).toBe('download');
   });
 });

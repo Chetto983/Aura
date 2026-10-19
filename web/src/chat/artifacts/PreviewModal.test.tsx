@@ -4,20 +4,31 @@ import '../../i18n/i18n'; // side-effect: initialise i18next so the modal's t() 
 import type { Asset } from '../attachments/types';
 import { PreviewModal } from './PreviewModal';
 
-// PreviewModal (WEBART-05 / D-09): the click-to-preview modal. The seven renderers are MOCKED
-// to marker divs so the test pins the previewKind→renderer dispatch table, the download-only
-// card for svg/pptx/unknown, the 90vw×90vh sizing, the header download href, and onClose —
-// without loading the real renderer chunks (and their heavy docx-preview/xlsx deps).
+// PreviewModal (WEBART-05 / D-09): the click-to-preview modal. The renderers are MOCKED to
+// marker divs (a Craft app's names its app) so the test pins the previewKind→renderer dispatch
+// table, the download-only card for svg/ppt/unknown, the 90vw×90vh sizing, the header download
+// href, and onClose — without loading the real renderer chunks (and docx-preview's weight).
 
 vi.mock('./renderers/ImagePreview', () => ({ default: () => <div data-testid="r-image" /> }));
 vi.mock('./renderers/PdfPreview', () => ({ default: () => <div data-testid="r-pdf" /> }));
 vi.mock('./renderers/TextPreview', () => ({ default: () => <div data-testid="r-text" /> }));
 vi.mock('./renderers/HtmlPreview', () => ({ default: () => <div data-testid="r-html" /> }));
 vi.mock('./renderers/DocxPreview', () => ({ default: () => <div data-testid="r-docx" /> }));
-vi.mock('./renderers/XlsxPreview', () => ({ default: () => <div data-testid="r-xlsx" /> }));
+vi.mock('./renderers/CraftFrame', () => ({
+  default: ({ app }: { app: string }) => <div data-testid={`r-${app}`} />,
+}));
 vi.mock('./renderers/VideoPreview', () => ({ default: () => <div data-testid="r-video" /> }));
 
-const RENDERER_IDS = ['r-image', 'r-pdf', 'r-text', 'r-html', 'r-docx', 'r-xlsx', 'r-video'];
+const RENDERER_IDS = [
+  'r-image',
+  'r-pdf',
+  'r-text',
+  'r-html',
+  'r-docx',
+  'r-gridcraft',
+  'r-deckcraft',
+  'r-video',
+];
 
 function asset(over: Partial<Asset>): Asset {
   return {
@@ -45,7 +56,8 @@ describe('PreviewModal dispatch (previewKind → renderer)', () => {
     ['text/plain', 'notes.txt', 'r-text'],
     ['text/html', 'page.html', 'r-html'],
     ['application/octet-stream', 'memo.docx', 'r-docx'],
-    ['application/octet-stream', 'book.xlsx', 'r-xlsx'],
+    ['application/octet-stream', 'book.xlsx', 'r-gridcraft'],
+    ['application/octet-stream', 'deck.pptx', 'r-deckcraft'],
     ['video/mp4', 'sea.mp4', 'r-video'],
     ['video/webm', 'sea.webm', 'r-video'],
   ];
@@ -57,7 +69,7 @@ describe('PreviewModal dispatch (previewKind → renderer)', () => {
 
   const downloadOnly: readonly (readonly [string, string])[] = [
     ['image/svg+xml', 'logo.svg'],
-    ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'deck.pptx'],
+    ['application/vnd.ms-powerpoint', 'deck.ppt'],
     ['application/x-unknown', 'blob.bin'],
   ];
 

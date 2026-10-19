@@ -22,7 +22,7 @@ import {
  *  `image`) to keep script-bearing SVG out of an executing <img> (T-37B-05). `video`
  *  is only the two formats the asset stream route serves; any other clip is `download`. */
 export type PreviewKind =
-  'image' | 'audio' | 'video' | 'pdf' | 'text' | 'html' | 'docx' | 'xlsx' | 'download';
+  'image' | 'audio' | 'video' | 'pdf' | 'text' | 'html' | 'docx' | 'xlsx' | 'pptx' | 'download';
 
 const AUDIO_MIME = new Set([
   'audio/mpeg',
@@ -76,6 +76,7 @@ export function previewKind(mime: string, filename: string): PreviewKind {
   if (mime === 'text/html' || ext === 'html' || ext === 'htm') return 'html';
   if (ext === 'docx') return 'docx';
   if (ext === 'xlsx') return 'xlsx';
+  if (ext === 'pptx') return 'pptx';
   if (mime.startsWith('text/') || TEXT_EXT.has(ext)) return 'text';
   return 'download';
 }

@@ -8,13 +8,13 @@ import TextPreview from './TextPreview';
 import HtmlPreview from './HtmlPreview';
 import { AssetSourceContext, type AssetSource } from './assetSourceContext';
 import DocxPreview from './DocxPreview';
-import XlsxPreview from './XlsxPreview';
+import CraftFrame from './CraftFrame';
 
 // The lazy per-MIME renderers (D-07/D-08/D-09). docx-preview is the heavy dep confined to its own
 // chunk — here it is MOCKED (vi.mock, hoisted above the imports) so the suite asserts the wrapper
 // calls it with the right args without loading the real library (Pitfall 4, which would drag the
 // 85% aggregate). The security-critical surface is pinned directly: HtmlPreview's null-origin
-// sandbox, and XlsxPreview's GridCraft frame, which hears only its own frame on this origin.
+// sandbox, and the Craft apps' frame, which hears only its own frame on this origin.
 vi.mock('docx-preview', () => ({
   renderAsync: vi.fn(() => Promise.resolve({})),
 }));
@@ -286,18 +286,18 @@ describe('DocxPreview (D-08 / T-37B-12)', () => {
   });
 });
 
-describe('XlsxPreview', () => {
-  /** gridcraft sends a message as the framed GridCraft does, from its window on this origin. */
+describe('CraftFrame', () => {
+  /** gridcraft sends a message as a framed Craft app does, from its window on this origin. */
   function gridcraft(frame: HTMLIFrameElement, data: unknown, source = frame.contentWindow): void {
     window.dispatchEvent(
       new MessageEvent('message', { data, origin: window.location.origin, source }),
     );
   }
 
-  it('frames GridCraft in host mode, and opens the workbook in it once it is ready', async () => {
+  it('frames the app in host mode, and opens the file in it once it is ready', async () => {
     const workbook = new ArrayBuffer(16);
     stubFetch({ buffer: workbook });
-    const { container } = render(<XlsxPreview {...props} fileName="book.xlsx" />);
+    const { container } = render(<CraftFrame app="gridcraft" {...props} fileName="book.xlsx" />);
     const frame = iframeOf(container);
     expect(frame.getAttribute('src')).toBe('/apps/gridcraft/?host=parent');
     expect(frame.getAttribute('title')).toBe('book.xlsx');
@@ -318,9 +318,28 @@ describe('XlsxPreview', () => {
     expect(origin).toBe(window.location.origin);
   });
 
+  it("speaks its own app's messages and no other app's", async () => {
+    stubFetch({ buffer: new ArrayBuffer(16) });
+    const { container } = render(<CraftFrame app="deckcraft" {...props} fileName="deck.pptx" />);
+    const frame = iframeOf(container);
+    expect(frame.getAttribute('src')).toBe('/apps/deckcraft/?host=parent');
+    const target = frame.contentWindow;
+    if (target === null) throw new Error('the frame has no window');
+    const post = vi.spyOn(target, 'postMessage');
+    gridcraft(frame, { type: 'gridcraft:ready' });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(post).not.toHaveBeenCalled();
+    gridcraft(frame, { type: 'deckcraft:ready', version: '0.8.0' });
+    await waitFor(() => {
+      expect(post).toHaveBeenCalledTimes(1);
+    });
+    const [message] = post.mock.calls[0] as [{ type: string; name: string }];
+    expect(message).toMatchObject({ type: 'deckcraft:open', name: 'deck.pptx' });
+  });
+
   it('hears nothing from a window that is not its frame', async () => {
     stubFetch({ buffer: new ArrayBuffer(16) });
-    const { container } = render(<XlsxPreview {...props} fileName="book.xlsx" />);
+    const { container } = render(<CraftFrame app="gridcraft" {...props} fileName="book.xlsx" />);
     const frame = iframeOf(container);
     const target = frame.contentWindow;
     if (target === null) throw new Error('the frame has no window');
@@ -332,20 +351,20 @@ describe('XlsxPreview', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shows the error when GridCraft cannot start', async () => {
+  it('shows the error when the app cannot start', async () => {
     stubFetch({ buffer: new ArrayBuffer(16) });
-    const { container } = render(<XlsxPreview {...props} fileName="book.xlsx" />);
+    const { container } = render(<CraftFrame app="gridcraft" {...props} fileName="book.xlsx" />);
     gridcraft(iframeOf(container), { type: 'gridcraft:failed', error: 'no WebGL' });
     expect((await screen.findByRole('alert')).textContent).toContain('no WebGL');
   });
 
-  it('saves over the file when GridCraft saves it under its own name', async () => {
+  it('saves over the file when the app saves it under its own name', async () => {
     stubFetch({ buffer: new ArrayBuffer(16) });
     const save = vi.fn(() => Promise.resolve());
     const source: AssetSource = { ...FILE_SOURCE, save };
     const { container } = render(
       <AssetSourceContext.Provider value={source}>
-        <XlsxPreview {...props} assetId="/chat/c5d7.xlsx" fileName="book.xlsx" />
+        <CraftFrame app="gridcraft" {...props} assetId="/chat/c5d7.xlsx" fileName="book.xlsx" />
       </AssetSourceContext.Provider>,
     );
     const frame = iframeOf(container);
@@ -364,7 +383,7 @@ describe('XlsxPreview', () => {
     const save = vi.fn(() => Promise.reject(new Error('HTTP 502')));
     const { container } = render(
       <AssetSourceContext.Provider value={{ ...FILE_SOURCE, save }}>
-        <XlsxPreview {...props} fileName="book.xlsx" />
+        <CraftFrame app="gridcraft" {...props} fileName="book.xlsx" />
       </AssetSourceContext.Provider>,
     );
     gridcraft(iframeOf(container), {
@@ -377,7 +396,7 @@ describe('XlsxPreview', () => {
 
   it('says that changes made in the preview are not stored', async () => {
     stubFetch({ buffer: new ArrayBuffer(16) });
-    const { container } = render(<XlsxPreview {...props} fileName="book.xlsx" />);
+    const { container } = render(<CraftFrame app="gridcraft" {...props} fileName="book.xlsx" />);
     gridcraft(iframeOf(container), { type: 'gridcraft:dirty', dirty: true });
     expect((await screen.findByRole('status')).textContent).toMatch(
       /not saved|non vengono salvate/,
@@ -386,19 +405,19 @@ describe('XlsxPreview', () => {
 
   it('shows the error when the workbook cannot be read', async () => {
     stubFetch({ ok: false, status: 404 });
-    render(<XlsxPreview {...props} fileName="book.xlsx" />);
+    render(<CraftFrame app="gridcraft" {...props} fileName="book.xlsx" />);
     expect(await screen.findByRole('alert')).toBeTruthy();
   });
 
   // A frame that never starts (a 404 outside the image, a wasm the browser refuses) would stay
-  // blank for good: after a while the file is offered, and a GridCraft that starts late still wins.
-  it('offers the file when GridCraft does not start, and steps aside when it does', () => {
+  // blank for good: after a while the file is offered, and an app that starts late still wins.
+  it('offers the file when the app does not start, and steps aside when it does', () => {
     vi.useFakeTimers();
     try {
       stubFetch({ pending: true });
       const { container } = render(
         <AssetSourceContext.Provider value={FILE_SOURCE}>
-          <XlsxPreview {...props} fileName="book.xlsx" />
+          <CraftFrame app="gridcraft" {...props} fileName="book.xlsx" />
         </AssetSourceContext.Provider>,
       );
       act(() => {
@@ -408,7 +427,7 @@ describe('XlsxPreview', () => {
       act(() => {
         vi.advanceTimersByTime(1_000);
       });
-      expect(screen.getByRole('alert').textContent).toMatch(/did not start|non si è avviato/);
+      expect(screen.getByRole('alert').textContent).toMatch(/did not start|non si è avviata/);
       const link = screen.getByRole('link', { name: /book\.xlsx/ });
       expect(link.getAttribute('href')).toBe('/files/asset-1');
       expect(link.getAttribute('download')).toBe('book.xlsx');

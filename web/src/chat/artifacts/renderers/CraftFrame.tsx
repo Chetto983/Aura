@@ -4,22 +4,23 @@ import { useAssetSource } from './assetSourceContext';
 import { useAssetContent } from './useAssetContent';
 import { PreviewError, PreviewErrorWithDownload, type RendererProps } from './PreviewStatus';
 
-// .xlsx: GridCraft (docs/superpowers/specs/2026-10-18-xlsx-viewer-gridcraft-design.md), an
-// Excel-style spreadsheet aura serves at /apps/gridcraft/ from the image. Framed in host mode it
-// announces gridcraft:ready, and the workbook goes to it as bytes, read through the asset source
-// so the share page's token-scoped route works unchanged. The frame is same-origin because the
-// app answers only its own origin's parent, so only messages from THIS frame on THIS origin are
-// heard. A save comes back as gridcraft:save: where the source can write (the file manager's),
-// it goes over the file under its own name, or beside it under a new one; elsewhere the preview
-// says that nothing made in it is stored. A frame that has not said ready after a while (a 404
-// outside the image, a wasm the browser refuses) gets the original file offered over it; the
-// frame stays, so a GridCraft that starts late on a slow link still takes over.
+// A Craft app (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md) aura serves at
+// /apps/<app>/ from the image. Framed in host mode it announces <app>:ready, and the file goes to
+// it as bytes, read through the asset source so the share page's token-scoped route works
+// unchanged. The frame is same-origin because the app answers only its own origin's parent, so
+// only messages from THIS frame on THIS origin are heard. A save comes back as <app>:save: where
+// the source can write (the file manager's), it goes over the file under its own name, or beside
+// it under a new one; elsewhere the frame says that nothing made in it is stored. A frame that has
+// not said ready after a while (a 404 outside the image, a wasm the browser refuses) gets the
+// original file offered over it; the frame stays, so an app that starts late on a slow link
+// still takes over.
 
-const GRIDCRAFT = '/apps/gridcraft/?host=parent';
+export type CraftApp =
+  'gridcraft' | 'pdfcraft' | 'wordcraft' | 'deckcraft' | 'photocraft' | 'filmcraft';
 
 const READY_WITHIN_MS = 15_000;
 
-interface GridcraftMessage {
+interface CraftMessage {
   readonly type?: string;
   readonly error?: string;
   readonly dirty?: boolean;
@@ -33,7 +34,11 @@ type SaveState =
   | { readonly kind: 'saved' }
   | { readonly kind: 'failed'; readonly message: string };
 
-export default function XlsxPreview({ assetId, fileName }: RendererProps) {
+interface CraftFrameProps extends RendererProps {
+  readonly app: CraftApp;
+}
+
+export default function CraftFrame({ app, assetId, fileName }: CraftFrameProps) {
   const { t } = useTranslation();
   const frame = useRef<HTMLIFrameElement>(null);
   const { data, error } = useAssetContent(assetId, 'arrayBuffer');
@@ -44,7 +49,7 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
   const { save } = useAssetSource();
 
   useEffect(() => {
-    const onMessage = (event: MessageEvent<GridcraftMessage | null>) => {
+    const onMessage = (event: MessageEvent<CraftMessage | null>) => {
       if (
         event.source !== frame.current?.contentWindow ||
         event.origin !== window.location.origin
@@ -52,9 +57,9 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
         return;
       }
       const message = event.data ?? {};
-      if (message.type === 'gridcraft:ready') setReady(true);
-      else if (message.type === 'gridcraft:failed') setFailed(message.error ?? '');
-      else if (message.type === 'gridcraft:save' && save !== undefined && message.bytes) {
+      if (message.type === `${app}:ready`) setReady(true);
+      else if (message.type === `${app}:failed`) setFailed(message.error ?? '');
+      else if (message.type === `${app}:save` && save !== undefined && message.bytes) {
         const saveAs = message.name === fileName ? undefined : message.name;
         save(assetId, message.bytes, saveAs).then(
           () => {
@@ -67,10 +72,7 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
             });
           },
         );
-      } else if (
-        save === undefined &&
-        (message.type === 'gridcraft:save' || message.dirty === true)
-      ) {
+      } else if (save === undefined && (message.type === `${app}:save` || message.dirty === true)) {
         setSaving({ kind: 'unsaved' });
       }
     };
@@ -78,7 +80,7 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
     return () => {
       window.removeEventListener('message', onMessage);
     };
-  }, [assetId, fileName, save]);
+  }, [app, assetId, fileName, save]);
 
   useEffect(() => {
     if (ready) return;
@@ -95,10 +97,10 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
     if (!ready || data === undefined || target === null || target === undefined) return;
     // The bytes are transferred, so the frame gets a copy and the fetched buffer stays whole.
     const bytes = data.slice(0);
-    target.postMessage({ type: 'gridcraft:open', name: fileName, bytes }, window.location.origin, [
+    target.postMessage({ type: `${app}:open`, name: fileName, bytes }, window.location.origin, [
       bytes,
     ]);
-  }, [ready, data, fileName]);
+  }, [app, ready, data, fileName]);
 
   const problem = error ?? failed;
   if (problem !== undefined) return <PreviewError detail={problem} />;
@@ -106,7 +108,7 @@ export default function XlsxPreview({ assetId, fileName }: RendererProps) {
     <div className="relative h-full w-full">
       <iframe
         ref={frame}
-        src={GRIDCRAFT}
+        src={`/apps/${app}/?host=parent`}
         title={fileName}
         allow="clipboard-read; clipboard-write; fullscreen"
         className="h-full w-full border-0 bg-white"

@@ -18,7 +18,7 @@ Release evidence is governed by [Release readiness](release-readiness.md).
 | Scheduler | Reminders, agent jobs and maintenance; operator inspection and control | Job approval and notification behavior depend on the job and owning route |
 | Voice | Spoken input and spoken replies in the web cockpit; Telegram voice notes | Local faster-whisper STT and Kokoro TTS sidecars by default; a configured OpenRouter speech model replaces either |
 | Studio | Image and video generation over OpenRouter media models, saving to the per-identity library | Generation is billed by the provider |
-| Documents, photos and video | Spreadsheets, Word documents, decks, PDFs, photos and video sequences edited through the GridCraft, WordCraft, DeckCraft, PdfCraft, PhotoCraft and FilmCraft MCP servers | They run in the identity's box, write only in its workspace (landrun), and the result reaches the library through `send_file` |
+| Documents, photos and video | Spreadsheets, Word documents, decks, PDFs, photos and video sequences edited by the agent through the GridCraft, WordCraft, DeckCraft, PdfCraft, PhotoCraft and FilmCraft MCP servers, and by hand in the cockpit through the same apps' web builds | The servers run in the identity's box, write only in its workspace (landrun), and the result reaches the library through `send_file`. In the cockpit, a spreadsheet or deck opens in its app and a PDF, document, photo or clip has Edit; a save lands in the library only from the file manager and the Documenti detail |
 | Cockpit | Chat, Studio, documents, memory graph, scheduler, settings, approvals, integrations and skills | Administrative actions require the corresponding capabilities |
 
 ## Knowledge and memory

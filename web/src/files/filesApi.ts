@@ -105,7 +105,7 @@ export const FILE_MANAGER_SOURCE: AssetSource = {
 };
 
 /**
- * saveBeside writes what the spreadsheet preview saved into the folder of the file manager
+ * saveBeside writes what a Craft app saved (CraftFrame) into the folder of the file manager
  * object `id`: over that object itself when `saveAs` is absent, which keeps the name it is
  * known by, or as a new file named `saveAs` beside it (Save As, a PDF export). It goes through
  * the upload route, so the ingest reads it again like any upload.
