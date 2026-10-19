@@ -1,0 +1,130 @@
+{
+ "app": "wordcraft",
+ "file": "/fixtures/sample.docx",
+ "flags": "",
+ "steps": [
+  {
+   "step": "wait:5000",
+   "ms": 5003
+  },
+  {
+   "step": "click:0.536:0.5456",
+   "ms": 25
+  },
+  {
+   "step": "key:End",
+   "ms": 5
+  },
+  {
+   "step": "type: Modificato da Aura.",
+   "ms": 891
+  },
+  {
+   "step": "dirty",
+   "ms": 8
+  },
+  {
+   "step": "wait:500",
+   "ms": 501
+  },
+  {
+   "step": "key:Control+s",
+   "ms": 4
+  },
+  {
+   "step": "save",
+   "ms": 256
+  },
+  {
+   "step": "wait:800",
+   "ms": 810
+  },
+  {
+   "step": "shot:saved",
+   "ms": 296
+  }
+ ],
+ "readyMs": 1218,
+ "events": [
+  {
+   "at": 591,
+   "type": "wordcraft:ready",
+   "version": "0.8.0"
+  },
+  {
+   "at": 593,
+   "type": "wordcraft:dirty",
+   "dirty": false
+  },
+  {
+   "at": 601,
+   "type": "host:sent",
+   "name": "sample.docx",
+   "bytes": 8942
+  },
+  {
+   "at": 6352,
+   "type": "wordcraft:dirty",
+   "dirty": true
+  },
+  {
+   "at": 7768,
+   "type": "wordcraft:save",
+   "name": "sample.docx",
+   "bytes": 8178
+  },
+  {
+   "at": 7769,
+   "type": "wordcraft:dirty",
+   "dirty": false
+  }
+ ],
+ "saves": [
+  {
+   "name": "sample.docx",
+   "bytes": 8178,
+   "stored": true
+  }
+ ],
+ "requests": [
+  {
+   "url": "/?app=wordcraft&file=%2Ffixtures%2Fsample.docx",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "length": 433
+  },
+  {
+   "url": "/host.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "length": 1811
+  },
+  {
+   "url": "/apps/wordcraft/?host=parent",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "length": 1604
+  },
+  {
+   "url": "/apps/wordcraft/wordcraft-web-364cd71628e35dfa_bg.wasm",
+   "status": 200,
+   "type": "application/wasm",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/apps/wordcraft/wordcraft-web-364cd71628e35dfa.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/fixtures/sample.docx",
+   "status": 200,
+   "type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+   "length": 8942
+  }
+ ],
+ "console": [
+  "[error] Failed to load resource: the server responded with a status of 404 (Not Found)"
+ ]
+}

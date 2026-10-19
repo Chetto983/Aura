@@ -1,0 +1,120 @@
+{
+ "app": "photocraft",
+ "file": "/fixtures/photo.png",
+ "flags": "",
+ "steps": [
+  {
+   "step": "wait:5000",
+   "ms": 5001
+  },
+  {
+   "step": "click:0.4:0.5",
+   "ms": 50
+  },
+  {
+   "step": "key:Control+i",
+   "ms": 32
+  },
+  {
+   "step": "dirty",
+   "ms": 208
+  },
+  {
+   "step": "key:Control+s",
+   "ms": 4
+  },
+  {
+   "step": "save",
+   "ms": 205
+  }
+ ],
+ "readyMs": 1249,
+ "events": [
+  {
+   "at": 918,
+   "type": "photocraft:ready",
+   "version": "0.10.0"
+  },
+  {
+   "at": 921,
+   "type": "photocraft:dirty",
+   "dirty": false
+  },
+  {
+   "at": 1158,
+   "type": "host:sent",
+   "name": "photo.png",
+   "bytes": 8884
+  },
+  {
+   "at": 6399,
+   "type": "photocraft:dirty",
+   "dirty": true
+  },
+  {
+   "at": 6651,
+   "type": "photocraft:save",
+   "name": "photo.png",
+   "bytes": 9749
+  },
+  {
+   "at": 6652,
+   "type": "photocraft:dirty",
+   "dirty": false
+  }
+ ],
+ "saves": [
+  {
+   "name": "photo.png",
+   "bytes": 9749,
+   "stored": true
+  }
+ ],
+ "requests": [
+  {
+   "url": "/?app=photocraft&file=%2Ffixtures%2Fphoto.png",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "length": 433
+  },
+  {
+   "url": "/host.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "length": 1811
+  },
+  {
+   "url": "/apps/photocraft/?host=parent",
+   "status": 200,
+   "type": "text/html; charset=utf-8"
+  },
+  {
+   "url": "/apps/photocraft/photocraft-web-f0e0280980addf17_bg.wasm",
+   "status": 200,
+   "type": "application/wasm",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/apps/photocraft/photocraft-web-f0e0280980addf17.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/apps/photocraft/fonts/manifest.txt",
+   "status": 404,
+   "type": "text/plain; charset=utf-8",
+   "length": 19
+  },
+  {
+   "url": "/fixtures/photo.png",
+   "status": 200,
+   "type": "image/png",
+   "length": 8884
+  }
+ ],
+ "console": [
+  "[error] Failed to load resource: the server responded with a status of 404 (Not Found)",
+  "[error] Failed to load resource: the server responded with a status of 404 (Not Found)"
+ ]
+}

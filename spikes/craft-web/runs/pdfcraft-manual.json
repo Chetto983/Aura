@@ -1,0 +1,93 @@
+{
+ "app": "pdfcraft",
+ "file": "/fixtures/manuale_confezionatrice_FX300.pdf",
+ "flags": "",
+ "steps": [
+  {
+   "step": "wait:4000",
+   "ms": 4003
+  },
+  {
+   "step": "click:0.5:0.5",
+   "ms": 18
+  },
+  {
+   "step": "key:Control+s",
+   "ms": 25
+  },
+  {
+   "step": "save",
+   "ms": 465
+  }
+ ],
+ "readyMs": 1149,
+ "events": [
+  {
+   "at": 612,
+   "type": "pdfcraft:ready",
+   "version": "0.9.0"
+  },
+  {
+   "at": 783,
+   "type": "host:sent",
+   "name": "manuale_confezionatrice_FX300.pdf",
+   "bytes": 29805
+  },
+  {
+   "at": 5480,
+   "type": "pdfcraft:save",
+   "name": "manuale_confezionatrice_FX300.pdf",
+   "saveAs": false,
+   "bytes": 29805
+  }
+ ],
+ "saves": [
+  {
+   "name": "manuale_confezionatrice_FX300.pdf",
+   "saveAs": false,
+   "bytes": 29805,
+   "stored": true
+  }
+ ],
+ "requests": [
+  {
+   "url": "/?app=pdfcraft&file=%2Ffixtures%2Fmanuale_confezionatrice_FX300.pdf",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "length": 433
+  },
+  {
+   "url": "/host.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "length": 1811
+  },
+  {
+   "url": "/apps/pdfcraft/?host=parent",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "length": 1210
+  },
+  {
+   "url": "/apps/pdfcraft/pdfcraft-web-93f3e457fbc79002_bg.wasm",
+   "status": 200,
+   "type": "application/wasm",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/apps/pdfcraft/pdfcraft-web-93f3e457fbc79002.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/fixtures/manuale_confezionatrice_FX300.pdf",
+   "status": 200,
+   "type": "application/pdf",
+   "length": 29805
+  }
+ ],
+ "console": [
+  "[error] Failed to load resource: the server responded with a status of 404 (Not Found)"
+ ]
+}

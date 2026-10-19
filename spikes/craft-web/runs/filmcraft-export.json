@@ -1,0 +1,146 @@
+{
+ "app": "filmcraft",
+ "file": "/fixtures/clip.mp4",
+ "flags": "",
+ "steps": [
+  {
+   "step": "wait:8000",
+   "ms": 8001
+  },
+  {
+   "step": "shot:opened",
+   "ms": 126
+  },
+  {
+   "step": "click:0.5:0.5",
+   "ms": 40
+  },
+  {
+   "step": "key:Control+s",
+   "ms": 19
+  },
+  {
+   "step": "save",
+   "ms": 210
+  },
+  {
+   "step": "filmexport",
+   "ms": 213
+  },
+  {
+   "step": "save",
+   "ms": 6429
+  },
+  {
+   "step": "wait:500",
+   "ms": 502
+  },
+  {
+   "step": "shot:saved",
+   "ms": 151
+  }
+ ],
+ "readyMs": 1384,
+ "export": {
+  "job": 1,
+  "path": "/exports/edited.mp4"
+ },
+ "events": [
+  {
+   "at": 938,
+   "type": "filmcraft:ready",
+   "version": "0.9.0"
+  },
+  {
+   "at": 952,
+   "type": "filmcraft:dirty",
+   "dirty": false
+  },
+  {
+   "at": 1262,
+   "type": "host:sent",
+   "name": "clip.mp4",
+   "bytes": 163832
+  },
+  {
+   "at": 1688,
+   "type": "filmcraft:dirty",
+   "dirty": true
+  },
+  {
+   "at": 9655,
+   "type": "filmcraft:save",
+   "name": "Untitled.fcproj",
+   "bytes": 5616
+  },
+  {
+   "at": 9656,
+   "type": "filmcraft:dirty",
+   "dirty": false
+  },
+  {
+   "at": 16249,
+   "type": "filmcraft:save",
+   "name": "edited.mp4",
+   "bytes": 327037
+  }
+ ],
+ "saves": [
+  {
+   "name": "Untitled.fcproj",
+   "bytes": 5616,
+   "stored": true
+  },
+  {
+   "name": "edited.mp4",
+   "bytes": 327037,
+   "stored": true
+  }
+ ],
+ "requests": [
+  {
+   "url": "/?app=filmcraft&file=%2Ffixtures%2Fclip.mp4",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "length": 433
+  },
+  {
+   "url": "/host.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "length": 1811
+  },
+  {
+   "url": "/apps/filmcraft/?host=parent",
+   "status": 200,
+   "type": "text/html; charset=utf-8"
+  },
+  {
+   "url": "/apps/filmcraft/favicon.png",
+   "status": 200,
+   "type": "image/png",
+   "length": 17152
+  },
+  {
+   "url": "/apps/filmcraft/filmcraft_web.js?v=ec970ea9dd94a6a5",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/apps/filmcraft/filmcraft_web_bg.wasm?v=ec970ea9dd94a6a5",
+   "status": 200,
+   "type": "application/wasm",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/fixtures/clip.mp4",
+   "status": 200,
+   "type": "video/mp4",
+   "length": 163832
+  }
+ ],
+ "console": [
+  "[error] Failed to load resource: the server responded with a status of 404 (Not Found)"
+ ]
+}

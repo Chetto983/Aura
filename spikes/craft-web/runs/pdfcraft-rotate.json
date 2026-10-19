@@ -1,0 +1,140 @@
+{
+ "app": "pdfcraft",
+ "file": "/fixtures/Appunti.pdf",
+ "flags": "",
+ "steps": [
+  {
+   "step": "wait:4000",
+   "ms": 4002
+  },
+  {
+   "step": "click:0.0701:0.4344",
+   "ms": 30
+  },
+  {
+   "step": "wait:1500",
+   "ms": 1501
+  },
+  {
+   "step": "click:0.3167:0.4622",
+   "ms": 85
+  },
+  {
+   "step": "wait:800",
+   "ms": 802
+  },
+  {
+   "step": "click:0.8708:0.1211",
+   "ms": 43
+  },
+  {
+   "step": "dirty",
+   "ms": 8
+  },
+  {
+   "step": "save",
+   "ms": 3
+  },
+  {
+   "step": "key:Control+s",
+   "ms": 4
+  },
+  {
+   "step": "save",
+   "ms": 254
+  }
+ ],
+ "readyMs": 1036,
+ "events": [
+  {
+   "at": 714,
+   "type": "pdfcraft:ready",
+   "version": "0.9.0"
+  },
+  {
+   "at": 958,
+   "type": "host:sent",
+   "name": "Appunti.pdf",
+   "bytes": 582
+  },
+  {
+   "at": 6702,
+   "type": "pdfcraft:dirty",
+   "dirty": true
+  },
+  {
+   "at": 7527,
+   "type": "pdfcraft:save",
+   "name": "Appunti.pdf",
+   "saveAs": false,
+   "bytes": 872
+  },
+  {
+   "at": 7536,
+   "type": "pdfcraft:dirty",
+   "dirty": false
+  },
+  {
+   "at": 7756,
+   "type": "pdfcraft:save",
+   "name": "Appunti.pdf",
+   "saveAs": false,
+   "bytes": 872
+  }
+ ],
+ "saves": [
+  {
+   "name": "Appunti.pdf",
+   "saveAs": false,
+   "bytes": 872,
+   "stored": true
+  },
+  {
+   "name": "Appunti.pdf",
+   "saveAs": false,
+   "bytes": 872,
+   "stored": true
+  }
+ ],
+ "requests": [
+  {
+   "url": "/?app=pdfcraft&file=%2Ffixtures%2FAppunti.pdf",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "length": 433
+  },
+  {
+   "url": "/host.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "length": 1811
+  },
+  {
+   "url": "/apps/pdfcraft/?host=parent",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "length": 1210
+  },
+  {
+   "url": "/apps/pdfcraft/pdfcraft-web-93f3e457fbc79002_bg.wasm",
+   "status": 200,
+   "type": "application/wasm",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/apps/pdfcraft/pdfcraft-web-93f3e457fbc79002.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/fixtures/Appunti.pdf",
+   "status": 200,
+   "type": "application/pdf",
+   "length": 582
+  }
+ ],
+ "console": [
+  "[error] Failed to load resource: the server responded with a status of 404 (Not Found)"
+ ]
+}

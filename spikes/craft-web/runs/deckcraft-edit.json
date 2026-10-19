@@ -1,0 +1,146 @@
+{
+ "app": "deckcraft",
+ "file": "/fixtures/sample.pptx",
+ "flags": "",
+ "steps": [
+  {
+   "step": "wait:5000",
+   "ms": 5002
+  },
+  {
+   "step": "click:0.5236:0.2944",
+   "ms": 25
+  },
+  {
+   "step": "wait:300",
+   "ms": 300
+  },
+  {
+   "step": "click:0.5236:0.2944",
+   "ms": 20
+  },
+  {
+   "step": "key:End",
+   "ms": 13
+  },
+  {
+   "step": "type: modificato",
+   "ms": 537
+  },
+  {
+   "step": "key:Escape",
+   "ms": 3
+  },
+  {
+   "step": "dirty",
+   "ms": 213
+  },
+  {
+   "step": "wait:500",
+   "ms": 501
+  },
+  {
+   "step": "shot:edited",
+   "ms": 154
+  },
+  {
+   "step": "key:Control+s",
+   "ms": 4
+  },
+  {
+   "step": "save",
+   "ms": 422
+  },
+  {
+   "step": "wait:1000",
+   "ms": 1002
+  },
+  {
+   "step": "shot:saved",
+   "ms": 88
+  }
+ ],
+ "readyMs": 907,
+ "events": [
+  {
+   "at": 654,
+   "type": "deckcraft:ready",
+   "version": "0.8.0"
+  },
+  {
+   "at": 656,
+   "type": "deckcraft:dirty",
+   "dirty": false
+  },
+  {
+   "at": 769,
+   "type": "host:sent",
+   "name": "sample.pptx",
+   "bytes": 51758
+  },
+  {
+   "at": 7271,
+   "type": "deckcraft:dirty",
+   "dirty": true
+  },
+  {
+   "at": 8317,
+   "type": "deckcraft:save",
+   "name": "sample.pptx",
+   "bytes": 13148
+  },
+  {
+   "at": 8320,
+   "type": "deckcraft:dirty",
+   "dirty": false
+  }
+ ],
+ "saves": [
+  {
+   "name": "sample.pptx",
+   "bytes": 13148,
+   "stored": true
+  }
+ ],
+ "requests": [
+  {
+   "url": "/?app=deckcraft&file=%2Ffixtures%2Fsample.pptx",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "length": 433
+  },
+  {
+   "url": "/host.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "length": 1811
+  },
+  {
+   "url": "/apps/deckcraft/?host=parent",
+   "status": 200,
+   "type": "text/html; charset=utf-8",
+   "length": 1622
+  },
+  {
+   "url": "/apps/deckcraft/deckcraft-web-9796f71446941b09_bg.wasm",
+   "status": 200,
+   "type": "application/wasm",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/apps/deckcraft/deckcraft-web-9796f71446941b09.js",
+   "status": 200,
+   "type": "text/javascript; charset=utf-8",
+   "encoding": "gzip"
+  },
+  {
+   "url": "/fixtures/sample.pptx",
+   "status": 200,
+   "type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+   "length": 51758
+  }
+ ],
+ "console": [
+  "[error] Failed to load resource: the server responded with a status of 404 (Not Found)"
+ ]
+}
