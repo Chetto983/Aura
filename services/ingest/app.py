@@ -456,10 +456,11 @@ def _bucket_versus_index() -> tuple[set[str], set[str]]:
 
 
 _missing_previous_cycle: set[str] = set()
+_orphaned_previous_cycle: set[str] = set()
 
 
 def audit_cycle() -> None:
-    """Name what stayed missing across TWO consecutive live cycles.
+    """Name what stayed missing across TWO consecutive live cycles, and remove what stayed orphaned.
 
     One cycle is not evidence of loss. An object uploaded after this cycle's walker listed
     the bucket has simply not been offered to the pipeline yet, and reporting it would train
@@ -467,15 +468,34 @@ def audit_cycle() -> None:
     distinguishes them, and it is measured in the pipeline's own cadence rather than in a
     wall-clock threshold somebody would have to keep in step with the poll interval.
 
-    Prints only. A live ingest that exits on a missing document would take the pipeline down
-    for the one case where it still has work to do for every other file.
+    The same bound guards the converse: a row whose object left the bucket after the walker
+    listed it is still CocoIndex's, and CocoIndex deletes it on the next cycle. A row still
+    there a cycle later has no owner -- on 2026-10-19 a wipe had restored the index without
+    CocoIndex's state, and Documenti listed nine files the bucket no longer held.
+
+    Never raises. A live ingest that exits on a missing document or a stale row would take
+    the pipeline down for the one case where it still has work to do for every other file.
     """
-    global _missing_previous_cycle
+    global _missing_previous_cycle, _orphaned_previous_cycle
     expected, indexed = _bucket_versus_index()
     missing = expected - indexed
     for key in sorted(missing & _missing_previous_cycle):
         print(f"[audit] MISSING {key}", flush=True)
     _missing_previous_cycle = missing
+    orphaned = indexed - expected
+    _remove_orphans(orphaned & _orphaned_previous_cycle)
+    _orphaned_previous_cycle = orphaned
+
+
+def _remove_orphans(keys: set[str]) -> None:
+    """Remove each key's rows; a failure is printed, and the key comes back next cycle."""
+    for key in sorted(keys):
+        try:
+            arcade.remove_document(ARCADE_HTTP, ARCADE_DB, ("root", ARCADE_PASSWORD), key, 60.0)
+        except Exception as exc:  # see audit_cycle: one stale row must not stop the cycle
+            print(f"[audit] ORPHAN {key} not removed: {exc}", file=sys.stderr, flush=True)
+        else:
+            print(f"[audit] ORPHAN {key} removed", flush=True)
 
 
 def _publish_status(snapshot: coco.UpdateSnapshot) -> None:

@@ -26,7 +26,7 @@ import os
 import pytest
 from neo4j import GraphDatabase
 
-from ingest.arcade import _post, ensure_schema
+from ingest.arcade import _post, ensure_schema, remove_document
 from ingest.tests import disposable
 from ingest.tests.disposable import ARCADE_HTTP, AUTH
 
@@ -167,3 +167,32 @@ def test_rows_written_before_the_stamp_are_counted_through_its_index(disposable_
                                {"s": "es1-aaaaaaaaaaaaaaaa"})
     assert unstamped[0]["n"] == 1, "the stamp index hides the rows written before it"
     assert stamped[0]["n"] == 1
+
+
+def test_remove_document_leaves_only_the_other_keys_rows(disposable_database):
+    ensure_schema(ARCADE_HTTP, disposable_database, AUTH, DIMS)
+    driver = GraphDatabase.driver(ARCADE_BOLT, auth=AUTH)
+    try:
+        with driver.session(database=disposable_database) as session:
+            # CocoIndex's own write shape, so the rows are the ones a lost state leaves behind.
+            for key in ("gone.md", "kept.md"):
+                session.run(
+                    "MERGE (d:IndexedDocument {search_document_id: $id}) SET d.source_key = $k",
+                    id=f"doc-{key}", k=key,
+                ).consume()
+                for ordinal in (0, 1):
+                    session.run(
+                        "MERGE (p:Passage {passage_key: $pk}) SET p.source_key = $k",
+                        pk=f"{key}#{ordinal}", k=key,
+                    ).consume()
+    finally:
+        driver.close()
+
+    remove_document(ARCADE_HTTP, disposable_database, AUTH, "gone.md", 30.0)
+
+    for type_name, kept in (("IndexedDocument", 1), ("Passage", 2)):
+        rows = disposable.query(
+            disposable_database,
+            f"SELECT source_key, count(*) AS n FROM {type_name} GROUP BY source_key",
+        )
+        assert {row["source_key"]: row["n"] for row in rows} == {"kept.md": kept}, type_name

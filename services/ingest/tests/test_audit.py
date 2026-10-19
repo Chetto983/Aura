@@ -77,6 +77,25 @@ def test_indexed_source_keys_reads_the_rows(monkeypatch):
     assert arcade.DOCUMENT_TYPE in captured["payload"]["command"]
 
 
+def test_remove_document_deletes_the_passages_before_the_document_row(monkeypatch):
+    # The document row is what the audit reads: removed first, a failure before the
+    # passages would leave passages no audit can find.
+    calls = []
+    monkeypatch.setattr("ingest.arcade._post", lambda base_url, path, payload, auth, timeout_s: calls.append(
+        (path, payload)) or {})
+
+    arcade.remove_document("http://arcadedb:2480", "mem_x", ("root", "pw"), "chat/gone.md", 60.0)
+
+    assert [path for path, _ in calls] == ["/api/v1/command/mem_x"] * 2
+    assert [payload["command"] for _, payload in calls] == [
+        f"DELETE FROM {arcade.PASSAGE_TYPE} WHERE source_key = :key",
+        f"DELETE FROM {arcade.DOCUMENT_TYPE} WHERE source_key = :key",
+    ]
+    assert all(payload["params"] == {"key": "chat/gone.md"} for _, payload in calls), (
+        "the key is bound, never spliced into the statement"
+    )
+
+
 @pytest.mark.parametrize("body", [{}, {"result": []}, {"result": [{"source_key": None}]}])
 def test_indexed_source_keys_treats_an_empty_index_as_empty_not_as_success(monkeypatch, body):
     # An empty answer must read as "nothing is indexed", never as "nothing is missing".

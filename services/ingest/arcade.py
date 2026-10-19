@@ -406,6 +406,27 @@ def indexed_source_keys(
     return {row["source_key"] for row in body.get("result", []) if row.get("source_key")}
 
 
+def remove_document(
+    base_url: str, database: str, auth: tuple[str, str], source_key: str, timeout_s: float
+) -> None:
+    """Delete one object's passages, then its IndexedDocument row.
+
+    For the rows CocoIndex will never delete: it removes only what its own state recorded
+    writing (cocoindex 1.0.25 connectors/neo4j/_target.py, _RecordHandler.reconcile), so a
+    state lost while the index survived leaves them for good. No edge type ends on either
+    type, so this removes exactly what its DETACH DELETE would. Passages go first because
+    the document row is what the audit reads: a failure between the two statements leaves
+    it there to be swept again.
+    """
+    path = f"/api/v1/command/{urllib.parse.quote(database, safe='')}"
+    for type_name in (PASSAGE_TYPE, DOCUMENT_TYPE):
+        _post(base_url, path, {
+            "language": "sql",
+            "command": f"DELETE FROM {type_name} WHERE source_key = :key",
+            "params": {"key": source_key},
+        }, auth, timeout_s)
+
+
 def _create_database(base_url: str, database: str, auth: tuple[str, str], timeout_s: float) -> None:
     try:
         _post(base_url, "/api/v1/server", {"command": f"create database {database}"}, auth, timeout_s)

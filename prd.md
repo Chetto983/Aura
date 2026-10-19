@@ -1861,6 +1861,26 @@ This does not prove:
 - anything about a `processing` row with no job, which an inline Telegram ingest interrupted
   mid-processing would leave: 0132 leaves such a row alone.
 
+**Index rows without an object.** CocoIndex deletes a row only when its own state recorded
+writing it (cocoindex 1.0.25 `_RecordHandler.reconcile`). Measured 2026-10-19 on the lab VM:
+- the 2026-10-14 wipe restored ArcadeDB, but not Garage or the volume holding each identity's
+  `coco.db`;
+- the identity's bucket held 0 objects and its index held 10 `IndexedDocument` rows, nine of them
+  from before the wipe;
+- the restored rows had no owner, so Documenti listed nine files that the file manager could not
+  show.
+
+Each live cycle now applies CocoIndex's rule to such a row as well. A key that is indexed but was
+absent from the bucket listing in two consecutive cycles has its passages and its document row
+deleted, and the log reads `[audit] ORPHAN <key> removed`
+(`docs/superpowers/specs/2026-10-19-ingest-index-orphans-design.md`). A catch-up run does not
+sweep.
+
+This does not prove:
+- that a lost `coco.db` costs only a re-index: an object the bucket still holds is upserted under
+  the same keys, but the cost of that re-index was not measured;
+- anything about the `aura.assets` rows of the lost objects, whose downloads still answer 404.
+
 ## 12. Workspace, shell and web
 
 Tools and artifact delivery resolve the persistent working root consistently. Sandbox
