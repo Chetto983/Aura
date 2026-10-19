@@ -14,10 +14,12 @@ Your tools are `deckcraft__<tool>`. Files: `/workspace` only.
    `id`, kind, box and text).
 3. Change text: `deckcraft__go_to_slide {index}`, then `deckcraft__set_text {id, text}` with the shape id from
    `inspect_slide` (it keeps the first run's formatting).
-4. Add: `add_slide {layout, title, body}`, `add_text_box`, `add_shape`, `insert_picture {path}`,
+4. Add: `add_slide {layout, title, body}` inserts AFTER THE CURRENT slide, which is the first after an open:
+   for a slide at the end, `deckcraft__go_to_slide {index: <slides - 1>}` first (measured: without it the
+   new "last" slide landed second). `add_text_box`, `add_shape`, `insert_picture {path}`,
    `insert_table {rows, cols, data}`, `insert_chart {type, categories, series}`. Anything else:
    `list_commands {filter}` and `run_command {command, params}`.
-5. `deckcraft__render_slide {slide}` and look at it.
+5. `deckcraft__render_slide {slide}` and look at it; `inspect_document` confirms the slide count and order.
 6. `deckcraft__export {path: "...pdf", format: "pdf"}` and/or `deckcraft__save_presentation {path}`; then
    `send_file`. Measured on a 15-slide, 23-picture deck: everything kept, PDF in 1.1 s.
 

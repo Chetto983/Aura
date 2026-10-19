@@ -12,7 +12,11 @@ Your tools are `wordcraft__<tool>`. Files: `/workspace` only.
 1. `wordcraft__open_document {path}` — returns paragraphs and words.
 2. `wordcraft__get_text` to read; `wordcraft__inspect_document` for styles, tables and sections.
 3. Replace text: `wordcraft__select_text {text, occurrence?}` with the EXACT text (copy it from `get_text`),
-   then `wordcraft__type_text {text}`. The new text takes the formatting where it lands; bold and italic
+   then `wordcraft__type_text {text}`. `select_text` takes the FIRST match, and a template repeats its blanks
+   (`n. ......`, `del ……`) in many places: select the whole blank together with the words just before it
+   (`contratto n. ...... del ……`), so it matches only the place you mean (measured: a bare `n. ......`
+   filled an attachment number 40 paragraphs before the one asked). Then find that sentence again in
+   `get_text` and check it reads as it should. The new text takes the formatting where it lands; bold and italic
    elsewhere are kept (measured on a 821-paragraph bando: 0 italic characters lost, where python-docx lost
    108 in the one paragraph it touched).
 4. Anything else is a command: `wordcraft__list_commands {query}`, then `wordcraft__execute {command, params}`.
