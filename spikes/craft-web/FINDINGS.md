@@ -32,8 +32,10 @@ from the repository: `web/e2e/fixtures/documents/Appunti.pdf` (1 page),
 - **Not in the running cockpit.** No aura stack ran here (no Postgres, no Garage): the preview components
   (`CraftFrame`, `EditInCraft`) are covered by unit tests, not by a browser against aura. The live run on
   the lab VM is still the gate.
-- **The image stage was not built**: there is no Docker daemon here. `docker/craft-web/build.sh`, which
-  the stage runs, was run end to end on DeckCraft and PdfCraft outside Docker.
+- **The image was not built in this spike.** It was built afterwards, with the Docker daemon this
+  container has but had not started (`docs/superpowers/verification/2026-10-19-craft-web-apps.md`, "The
+  image"); before that, `docker/craft-web/build.sh` ran end to end on DeckCraft and PdfCraft outside
+  Docker.
 - **One small file per app, one run each.** Round-trip fidelity of real-world documents through WordCraft
   and DeckCraft (styles, embedded media) was not measured; a 51,758 B pptx came back as 13,148 B.
 - **WebGPU was not exercised** (headless SwiftShader is WebGL2), nor Firefox or Safari, nor a phone.

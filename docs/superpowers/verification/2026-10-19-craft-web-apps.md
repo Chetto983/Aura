@@ -5,8 +5,9 @@ Date: 2026-10-19. Tasks 1–7 of `docs/superpowers/plans/2026-10-19-craft-web-ap
 15 GB, no Docker daemon, no aura stack), on branch `claude/photo-video-craft-wasm-ui-t7bkgi`.
 
 **Verdict:** the six apps open, edit and save a real file through the bridge under aura's own page
-policy; the cockpit's frame and Edit are covered by unit tests; **the acceptance run is still open**:
-neither the image nor a cockpit against a running aura was exercised here.
+policy, and so do the bytes the aura image ships; the image builds cold in 51 minutes and grows by
+235 MB (130 MB compressed); the cockpit's frame and Edit are covered by unit tests; **the live
+acceptance run is still open**: no cockpit against a running aura was exercised here.
 
 ## What was measured
 
@@ -50,6 +51,42 @@ patch (548 s from a fresh clone and an empty target): its wasm, 39,088,994 bytes
 build by two bytes (not traced; the two builds ran from different source paths), and its `it-IT`, `ja-JP` and `en-US` screens are
 byte-identical to the tested build's, the manual byte-identical after Ctrl+S.
 
+## The image
+
+`docker build` of `docker/aura/Dockerfile` (Task 8), in the same container with its Docker daemon
+started by hand (`dockerd`; it is installed but was not running, which an earlier version of this file
+mistook for no daemon). Two accommodations of this sandbox, none in the repository: pulls go through the
+`mirror.gcr.io` Docker Hub mirror (Docker Hub answered `429 Too Many Requests`), and the build ran
+with `--network host` from a copy of the Dockerfile that adds, after each `FROM`, the egress gateway's
+CA bundle and the standard variables pointing at it (`SSL_CERT_FILE`, `CARGO_HTTP_CAINFO`,
+`GIT_SSL_CAINFO`, `NODE_EXTRA_CA_CERTS`, apt's `CaInfo`): the gateway re-signs TLS, and a build
+container does not trust it otherwise. Every product step ran unchanged.
+
+- **Cold build: 3,041 s (50.7 min), exit 0.** `craft-web` is 2,984 s of it, one app per step:
+  PdfCraft 700 s, WordCraft 512, DeckCraft 594, PhotoCraft 772, FilmCraft 406. The tools' SHA-256, the
+  tags' commits and the five patches all checked or applied inside the stage.
+- **Size**, against `master` (8755b92, the branch's base) built the same way: 1,041,068,248 →
+  1,406,357,445 bytes. The layers are identical but the apps': GridCraft's 26.2 MB on `master`;
+  GridCraft's 26.3 MB plus the five patched apps' 235 MB here, so **+235 MB** on disk (raw and `.gz`
+  side by side) and **+130 MB** compressed (`docker save | gzip -1`: 258,087,450 → 388,252,602).
+  The sandbox's CA and apt setting add about 220 kB to both.
+- **The image's own bytes**, copied out of `/usr/share/aura/apps` and served through
+  `internal/staticapp` by the spike server, each app framed with `drive.mjs` and every save checked
+  outside it:
+
+  | app | saved | checked |
+  |---|---|---|
+  | GridCraft | `contabilita_2026.xlsx` (Ctrl+S, `it-IT`) | sheets `registro`, `riepilogo`, as the original |
+  | PdfCraft | `Appunti.pdf` after a rotate; the manual (Ctrl+S, `it-IT`) | `Page rot: 90`; byte-identical |
+  | WordCraft | `sample.docx` | `document.xml` holds the typed text |
+  | DeckCraft | `sample.pptx` | 2 slides, the edited title |
+  | PhotoCraft | `photo.png` after Invert (`it-IT`) | 0 of 65,536 pixels wrong |
+  | FilmCraft | `Untitled.fcproj`, `edited.mp4` (`it-IT`) | project JSON; 4.017 s 320×180 avc1 + mp4a |
+
+  No policy violation, `dirty` true then false wherever the app reports it. Each app folder carries
+  `LICENSE-MIT` and `LICENSE-APACHE`; in the patched wasm, "ArtCraft" survives only in copyright
+  notices, a command id, link targets and the allowed "based on" sentence.
+
 ## Gates
 
 - Go: `go vet ./...`, `go build ./...`, `go test -race` on `internal/staticapp`, `internal/config`,
@@ -66,8 +103,8 @@ byte-identical to the tested build's, the manual byte-identical after Ctrl+S.
 
 ## Not shown here
 
-- The aura image was not built (no Docker daemon): the `craft-official` and `craft-web` stages, the
-  build time in CI and the image size change are unmeasured.
+- The image was built here, not in CI: the release workflow's time, with its buildx cache, and a
+  multi-arch build are unmeasured. It ran with the two sandbox accommodations above.
 - No cockpit against a running aura: the file manager's Edit and the save into Garage through
   `saveBeside` were not exercised end to end, and the Playwright suites were not run (they need the
   stack). The file manager's spec expects the PDF preview's `blob:` frame, which the viewer keeps.

@@ -1,9 +1,10 @@
 # Craft web apps in the cockpit: implementation plan
 
 **Status (2026-10-19):** Tasks 1–7 done in one session on `claude/photo-video-craft-wasm-ui-t7bkgi`;
-Task 8 (the image build and the live run on the lab VM) is open. The operator asked for the spike and
-"tutte le modifiche necessarie per le altre non supportate a oggi con la modifica ed il salvataggio",
-then, on the Italian catalogs, "Procedi pure" (Task 7).
+in Task 8 the image is built and measured, the live run on the lab VM is open. The operator asked for
+the spike and "tutte le modifiche necessarie per le altre non supportate a oggi con la modifica ed il
+salvataggio", then, on the Italian catalogs, "Procedi pure" (Task 7), and "Hai docker basta farlo
+partire" (Task 8's image build).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans, task by task, with
 > test-driven-development.
@@ -116,8 +117,9 @@ binaryen 123 for the patched builds.
   patches applied to a fresh clone of their tag reproduce the tested source; `build.sh pdfcraft` end to
   end. WordCraft and FilmCraft under `ja-JP`, for comparison (FINDINGS 15).
 
-### Task 8: acceptance (open)
+### Task 8: acceptance (live run open)
 
-- [ ] `docker build -f docker/aura/Dockerfile .`; record the build time and the image size change.
+- [x] `docker build -f docker/aura/Dockerfile .`; record the build time and the image size change
+  (51 min cold, +235 MB, +130 MB compressed; the image's apps saved through the bridge).
 - [ ] On the lab VM, the spec's Acceptance 2, 3 and 4 in the cockpit, each save checked outside the app;
   `docs/superpowers/verification/2026-10-19-craft-web-apps.md` updated with the live run.
