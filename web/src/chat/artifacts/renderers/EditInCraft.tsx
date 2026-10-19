@@ -35,9 +35,11 @@ export default function EditInCraft({
   return (
     <div className="relative h-full w-full">
       {children}
+      {/* Solid, not outline: it floats over the viewer, and over a white PDF page a transparent
+          button could not be seen. */}
       <Button
         type="button"
-        variant="outline"
+        variant="default"
         className="absolute top-3 right-3 shadow-lg"
         onClick={() => {
           setEditing(true);
