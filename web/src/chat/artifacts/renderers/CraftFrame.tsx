@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Maximize2, Minimize2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useAssetSource } from './assetSourceContext';
 import { useAssetContent } from './useAssetContent';
 import { PreviewError, PreviewErrorWithDownload, type RendererProps } from './PreviewStatus';
@@ -40,6 +42,7 @@ interface CraftFrameProps extends RendererProps {
 
 export default function CraftFrame({ app, assetId, fileName }: CraftFrameProps) {
   const { t } = useTranslation();
+  const root = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const { data, error } = useAssetContent(assetId, 'arrayBuffer');
   const [ready, setReady] = useState(false);
@@ -105,38 +108,75 @@ export default function CraftFrame({ app, assetId, fileName }: CraftFrameProps) 
   const problem = error ?? failed;
   if (problem !== undefined) return <PreviewError detail={problem} />;
   return (
-    <div className="relative h-full w-full">
-      <iframe
-        ref={frame}
-        src={`/apps/${app}/?host=parent`}
-        title={fileName}
-        allow="clipboard-read; clipboard-write; fullscreen"
-        className="h-full w-full border-0 bg-white"
-      />
-      {late && !ready ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-bg/90">
-          <PreviewErrorWithDownload
-            assetId={assetId}
-            fileName={fileName}
-            detail={t('artifacts.preview.notStarted')}
-          />
-        </div>
-      ) : null}
-      {saving.kind === 'failed' ? (
-        <p
-          role="alert"
-          className="absolute right-3 bottom-3 rounded-md bg-danger px-3 py-1.5 text-xs font-semibold text-bg shadow-lg"
-        >
-          {t('artifacts.preview.saveFailed', { message: saving.message })}
-        </p>
-      ) : saving.kind !== 'none' ? (
-        <p
-          role="status"
-          className="absolute right-3 bottom-3 rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-bg shadow-lg"
-        >
-          {t(saving.kind === 'saved' ? 'artifacts.preview.saved' : 'artifacts.preview.notSaved')}
-        </p>
-      ) : null}
+    <div ref={root} className="flex h-full w-full flex-col bg-bg">
+      {document.fullscreenEnabled ? <FullscreenBar target={root} /> : null}
+      <div className="relative min-h-0 flex-1">
+        <iframe
+          ref={frame}
+          src={`/apps/${app}/?host=parent`}
+          title={fileName}
+          allow="clipboard-read; clipboard-write; fullscreen"
+          className="h-full w-full border-0 bg-white"
+        />
+        {late && !ready ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-bg/90">
+            <PreviewErrorWithDownload
+              assetId={assetId}
+              fileName={fileName}
+              detail={t('artifacts.preview.notStarted')}
+            />
+          </div>
+        ) : null}
+        {saving.kind === 'failed' ? (
+          <p
+            role="alert"
+            className="absolute right-3 bottom-3 rounded-md bg-danger px-3 py-1.5 text-xs font-semibold text-bg shadow-lg"
+          >
+            {t('artifacts.preview.saveFailed', { message: saving.message })}
+          </p>
+        ) : saving.kind !== 'none' ? (
+          <p
+            role="status"
+            className="absolute right-3 bottom-3 rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-bg shadow-lg"
+          >
+            {t(saving.kind === 'saved' ? 'artifacts.preview.saved' : 'artifacts.preview.notSaved')}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// The apps' own full-screen buttons send egui's ViewportCommand::Fullscreen, which eframe 0.36's
+// web backend leaves unhandled ("not implemented in web backend"), so the cockpit offers its own.
+// The whole frame goes full screen, its save notices with it.
+function FullscreenBar({ target }: { readonly target: RefObject<HTMLDivElement | null> }) {
+  const { t } = useTranslation();
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    const sync = () => {
+      setFull(target.current !== null && document.fullscreenElement === target.current);
+    };
+    document.addEventListener('fullscreenchange', sync);
+    return () => {
+      document.removeEventListener('fullscreenchange', sync);
+    };
+  }, [target]);
+  const Icon = full ? Minimize2 : Maximize2;
+  return (
+    <div className="flex shrink-0 justify-end border-b border-border px-2">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          if (full) void document.exitFullscreen();
+          else void target.current?.requestFullscreen();
+        }}
+      >
+        <Icon data-icon aria-hidden="true" className="size-4" />
+        {t(full ? 'artifacts.preview.exitFullscreen' : 'artifacts.preview.fullscreen')}
+      </Button>
     </div>
   );
 }

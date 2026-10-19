@@ -409,6 +409,64 @@ describe('CraftFrame', () => {
     expect(await screen.findByRole('alert')).toBeTruthy();
   });
 
+  describe('full screen', () => {
+    /** The browser's Fullscreen API, which jsdom lacks: one element at a time, and the event. */
+    function emulateFullscreen(enabled: boolean) {
+      let current: Element | null = null;
+      const change = (el: Element | null) => {
+        current = el;
+        document.dispatchEvent(new Event('fullscreenchange'));
+        return Promise.resolve();
+      };
+      Object.defineProperty(document, 'fullscreenEnabled', { value: enabled, configurable: true });
+      Object.defineProperty(document, 'fullscreenElement', {
+        get: () => current,
+        configurable: true,
+      });
+      const request = vi.fn(function (this: Element) {
+        return change(this);
+      });
+      const exit = vi.fn(() => change(null));
+      HTMLElement.prototype.requestFullscreen = request;
+      document.exitFullscreen = exit;
+      return { request, exit };
+    }
+
+    afterEach(() => {
+      Reflect.deleteProperty(document, 'fullscreenEnabled');
+      Reflect.deleteProperty(document, 'fullscreenElement');
+    });
+
+    // The apps' own full-screen buttons send egui's ViewportCommand::Fullscreen, which eframe
+    // 0.36's web backend leaves unhandled: the cockpit's control is the one that works.
+    it('takes the app to full screen and back, frame and notices together', async () => {
+      const { request, exit } = emulateFullscreen(true);
+      stubFetch({ buffer: new ArrayBuffer(16) });
+      const { container } = render(<CraftFrame app="filmcraft" {...props} fileName="clip.mp4" />);
+
+      fireEvent.click(screen.getByRole('button', { name: /^(Full screen|Schermo intero)$/ }));
+      await screen.findByRole('button', { name: /Exit full screen|Esci dallo schermo intero/ });
+      const element = request.mock.contexts[0] as Element;
+      expect(element.contains(iframeOf(container))).toBe(true);
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /Exit full screen|Esci dallo schermo intero/ }),
+      );
+      expect(exit).toHaveBeenCalledTimes(1);
+      await screen.findByRole('button', { name: /^(Full screen|Schermo intero)$/ });
+    });
+
+    // An iPhone has no full screen for anything but a video: a control that does nothing is worse
+    // than none.
+    it('offers no full screen where the browser has none', () => {
+      emulateFullscreen(false);
+      stubFetch({ buffer: new ArrayBuffer(16) });
+      render(<CraftFrame app="filmcraft" {...props} fileName="clip.mp4" />);
+
+      expect(screen.queryByRole('button', { name: /Full screen|Schermo intero/ })).toBeNull();
+    });
+  });
+
   // A frame that never starts (a 404 outside the image, a wasm the browser refuses) would stay
   // blank for good: after a while the file is offered, and an app that starts late still wins.
   it('offers the file when the app does not start, and steps aside when it does', () => {
