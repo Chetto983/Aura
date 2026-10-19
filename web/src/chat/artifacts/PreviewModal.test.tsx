@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '../../i18n/i18n'; // side-effect: initialise i18next so the modal's t() keys resolve
 import type { Asset } from '../attachments/types';
 import { PreviewModal } from './PreviewModal';
+import { AssetSourceContext, IDENTITY_SCOPED } from './renderers/assetSourceContext';
 
 // PreviewModal (WEBART-05 / D-09): the click-to-preview modal. The renderers are MOCKED to
 // marker divs (a Craft app's names its app) so the test pins the previewKind→renderer dispatch
@@ -85,6 +86,34 @@ describe('PreviewModal dispatch (previewKind → renderer)', () => {
       for (const id of RENDERER_IDS) {
         expect(screen.queryByTestId(id)).toBeNull();
       }
+    },
+  );
+});
+
+// Where the source can store a save, a document, image or clip keeps its viewer and Edit opens it in
+// its own Craft app.
+describe('PreviewModal edit (a source that can save)', () => {
+  const editable: readonly (readonly [string, string, string, string])[] = [
+    ['application/pdf', 'doc.pdf', 'r-pdf', 'r-pdfcraft'],
+    ['application/octet-stream', 'memo.docx', 'r-docx', 'r-wordcraft'],
+    ['image/png', 'cat.png', 'r-image', 'r-photocraft'],
+    ['video/mp4', 'sea.mp4', 'r-video', 'r-filmcraft'],
+  ];
+
+  it.each(editable)(
+    'mime=%s name=%s shows %s, and Edit opens %s',
+    async (mime, name, viewer, app) => {
+      render(
+        <AssetSourceContext.Provider
+          value={{ ...IDENTITY_SCOPED, save: vi.fn(() => Promise.resolve()) }}
+        >
+          <PreviewModal active={asset({ mime_type: mime, file_name: name })} onClose={vi.fn()} />
+        </AssetSourceContext.Provider>,
+      );
+      expect(await screen.findByTestId(viewer)).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: /^(Edit|Modifica)$/ }));
+      expect(await screen.findByTestId(app)).toBeTruthy();
+      expect(screen.queryByTestId(viewer)).toBeNull();
     },
   );
 });
