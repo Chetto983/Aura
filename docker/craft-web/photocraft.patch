@@ -1,3 +1,18 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 26920a9..2802b93 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -6871,7 +6871,10 @@ version = "0.3.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
+ dependencies = [
++ "js-sys",
+  "libc",
++ "wasm-bindgen",
++ "web-sys",
+ ]
+ 
+ [[package]]
 diff --git a/apps/photocraft-web/Cargo.toml b/apps/photocraft-web/Cargo.toml
 index 4ecad80..41ee997 100644
 --- a/apps/photocraft-web/Cargo.toml
@@ -283,6 +298,21 @@ index 2bd7656..1fe51ea 100644
      ("help.github", "PhotoCraft on GitHub", &["Help"], None),
      ("help.reportIssue", "Report an Issue…", &["Help"], None),
      ("help.systemInfo", "System Info…", &["Help"], None),
+diff --git a/crates/ui-egui/Cargo.toml b/crates/ui-egui/Cargo.toml
+index e5bf497..5b49705 100644
+--- a/crates/ui-egui/Cargo.toml
++++ b/crates/ui-egui/Cargo.toml
+@@ -46,6 +46,10 @@ rayon = { workspace = true }
+ # Safe native UI-language APIs (Windows/macOS); no subprocess or web dependency.
+ sys-locale = "=0.3.2"
+ 
++[target.'cfg(target_arch = "wasm32")'.dependencies]
++# The browser's UI languages (`navigator.languages`) for Auto.
++sys-locale = { version = "=0.3.2", features = ["js"] }
++
+ # Installed RAM for the GPU memory budget (`gpu_canvas::physical_memory`): the safe binding the
+ # desktop app already uses, pinned to the same version.
+ [target.'cfg(target_os = "windows")'.dependencies]
 diff --git a/crates/ui-egui/src/dialogs.rs b/crates/ui-egui/src/dialogs.rs
 index 43b4f3d..5228e26 100644
 --- a/crates/ui-egui/src/dialogs.rs
@@ -295,6 +325,67 @@ index 43b4f3d..5228e26 100644
              ui.label(crate::i18n::fmt(tl!("Version {version}"), &[("version", &photocraft_engine::build_info::long_version())]));
              ui.add_space(12.0);
              ui.vertical_centered(|ui| {
+diff --git a/crates/ui-egui/src/i18n/system.rs b/crates/ui-egui/src/i18n/system.rs
+index 49bc3bc..bfe6e36 100644
+--- a/crates/ui-egui/src/i18n/system.rs
++++ b/crates/ui-egui/src/i18n/system.rs
+@@ -1,10 +1,9 @@
+-//! Native UI-language preferences, queried once without subprocesses or registry parsing.
++//! The system's UI-language preferences (the browser's on the web), queried once without
++//! subprocesses or registry parsing.
+ 
+ use super::{Lang, lang_from_tag};
+ 
+-#[cfg(not(target_arch = "wasm32"))]
+ const MAX_SYSTEM_TAGS: usize = 64;
+-#[cfg(not(target_arch = "wasm32"))]
+ const MAX_SYSTEM_TAG_BYTES: usize = 128;
+ 
+ /// Resolve Auto against the current registry. Cache the OS's tags, rather than a language,
+@@ -26,7 +25,6 @@ fn resolve(tags: &[String]) -> Lang {
+     tags.iter().find_map(|tag| lang_from_tag(tag)).unwrap_or(Lang::EN)
+ }
+ 
+-#[cfg(not(target_arch = "wasm32"))]
+ fn bounded_tags(tags: impl IntoIterator<Item = String>) -> Vec<String> {
+     tags.into_iter()
+         .take(MAX_SYSTEM_TAGS)
+@@ -52,9 +50,17 @@ fn detect_system_tags() -> Vec<String> {
+     std::panic::catch_unwind(|| bounded_tags(sys_locale::get_locales())).unwrap_or_default()
+ }
+ 
++/// The browser's languages in its order (`navigator.languages`, through sys-locale's `js` feature).
+ #[cfg(all(not(test), target_arch = "wasm32"))]
+ fn detect_system_tags() -> Vec<String> {
+-    Vec::new()
++    bounded_tags(sys_locale::get_locales()).into_iter().filter(|tag| !needs_cjk_face(tag)).collect()
++}
++
++/// Japanese, Korean and Chinese need a CJK face and the web build embeds none (`CRAFT_FONTS`
++/// stays empty on wasm, crates/text/build.rs): Auto skips them there rather than draw boxes.
++#[cfg(any(test, target_arch = "wasm32"))]
++fn needs_cjk_face(tag: &str) -> bool {
++    lang_from_tag(tag).is_some_and(|lang| matches!(lang.code(), "ja" | "ko" | "zh-hans" | "zh-hant"))
+ }
+ 
+ #[cfg(test)]
+@@ -118,6 +124,16 @@ mod tests {
+         assert_eq!(system_lang(), Lang::EN);
+     }
+ 
++    #[test]
++    fn the_web_build_skips_the_languages_it_has_no_face_for() {
++        for tag in ["ja-JP", "ko-KR", "zh-CN", "zh-TW", "zh-Hant-HK"] {
++            assert!(needs_cjk_face(tag), "{tag}");
++        }
++        for tag in ["it-IT", "ru-RU", "el-GR", "vi-VN", "sv-SE"] {
++            assert!(!needs_cjk_face(tag), "{tag}");
++        }
++    }
++
+     #[cfg(not(target_arch = "wasm32"))]
+     #[test]
+     fn native_locale_results_are_bounded_and_trimmed() {
 diff --git a/crates/ui-egui/src/links.rs b/crates/ui-egui/src/links.rs
 index e01a19d..729b780 100644
 --- a/crates/ui-egui/src/links.rs

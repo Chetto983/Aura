@@ -2,11 +2,12 @@
 
 Date: 2026-10-19. The operator's direction: *"La parte di photo e video craft ha la Wasm da mettere sulla
 UI di Aura?"*, *"Guarda tutte le App che usiamo come MCP oggi"*, then *"procedi con lo spike su PdfCraft e
-tutte le modifiche necessarie per le altre non supportate a oggi con la modifica ed il salvataggio"*.
+tutte le modifiche necessarie per le altre non supportate a oggi con la modifica ed il salvataggio"*; later
+*"Esistono le tradizioni in italiano delle App?"* and, on the answer, *"Procedi pure"*.
 Projects 2, 3 and 4 of `docs/superpowers/specs/2026-10-18-craft-mcp-design.md`: FilmCraft as the cockpit's
 video editor, one pipeline for patched Craft web builds, PhotoCraft/WordCraft/DeckCraft in the cockpit.
 
-Evidence: `spikes/craft-web/FINDINGS.md` (verdicts 1–11, every one measured on a real file through
+Evidence: `spikes/craft-web/FINDINGS.md` (verdicts 1–15, every one measured on a real file through
 aura's own static-app handler).
 
 ## What changes
@@ -19,8 +20,10 @@ aura's own static-app handler).
    - `xlsx` → GridCraft (as before), `pptx` → DeckCraft (no viewer existed: a deck was download-only).
    - `pdf`, `docx`, `image`, `video` keep the browser's PDF viewer, docx-preview, `<img>` and the
      streaming player; an **Edit** button swaps the app in (PdfCraft, WordCraft, PhotoCraft, FilmCraft).
-3. **Four patched builds.** WordCraft, DeckCraft, PhotoCraft and FilmCraft have no bridge upstream
-   (FINDINGS 2): aura builds each from its release tag with `docker/craft-web/<app>.patch`.
+3. **Five patched builds.** WordCraft, DeckCraft, PhotoCraft and FilmCraft have no bridge upstream
+   (FINDINGS 2), and PdfCraft and PhotoCraft draw their web interface in English whatever the browser's
+   language (FINDINGS 13): aura builds each from its release tag with `docker/craft-web/<app>.patch`.
+   Only GridCraft ships as released.
 4. **`AURA_GRIDCRAFT_DIR` becomes `AURA_APPS_DIR`**, a folder with one folder per app
    (`/usr/share/aura/apps` in the image).
 
@@ -46,12 +49,13 @@ aura's own static-app handler).
    official builds use them. The patches remove FilmCraft's compiled wordmark and reword the About texts
    to the allowed "based on <App> by the ArtCraft team"; the build script drops the translated rows that
    name ArtCraft. Copyright notices and the MIT/Apache licenses stay and ship beside each build.
-   GridCraft and PdfCraft ship unmodified, as released.
+   GridCraft ships unmodified, as released; PdfCraft, patched for its language, loses Home's community
+   card and About's mark and wordmark (FINDINGS 14).
 4. **The patched builds are made in the image, from source** (`docker/aura/Dockerfile`, stage
    `craft-web`), on the landrun pattern of the box image: the tag is cloned and checked against its
    commit, the patch applied, and Trunk runs `--offline` with wasm-bindgen 0.2.129 and wasm-opt 123
    from release tarballs pinned by SHA-256 per architecture. WebAssembly is the same everywhere, so the
-   stage runs once on `$BUILDPLATFORM`. Cost: about 40 minutes of cold build (FINDINGS 10), cached by
+   stage runs once on `$BUILDPLATFORM`. Cost: about 50 minutes of cold build (FINDINGS 10), cached by
    the release workflow's buildx cache afterwards.
    - No craft-fonts, as in the official web builds (FINDINGS 12): their `release.yml` names a
      craft-fonts commit for the desktop builds, but the published wasm carries none of its faces.
@@ -63,6 +67,12 @@ aura's own static-app handler).
    the name, or a `?v=` version in the query; anything else revalidates.
 7. **One component frames every app** (`web/src/chat/artifacts/renderers/CraftFrame.tsx`, from
    `XlsxPreview`), with `EditInCraft` around the viewers.
+8. **The apps start in the browser's language.** PdfCraft's and PhotoCraft's patches read
+   `navigator.languages`, as WordCraft and FilmCraft already follow the browser, and take the first
+   language the app has and can draw: the web builds have no Japanese, Chinese, Korean, Arabic or Telugu
+   face, so those are skipped for the next language, else English, rather than drawn as boxes (FINDINGS
+   14), which is what FilmCraft already does (FINDINGS 15). The cockpit's own language is not passed:
+   the bridge has no field for it.
 
 ## What this does not do
 
@@ -77,14 +87,19 @@ aura's own static-app handler).
 - **No upstream contribution here.** The bridge and the DeckCraft fix would serve upstream as they serve
   aura; proposing them is the operator's call.
 - **Round-trip fidelity of complex documents is not claimed** (FINDINGS, "does not show").
+- **No Italian in GridCraft and DeckCraft**: neither has a catalog (FINDINGS 13). In the four others the
+  few rows the patches reword (About, Help's links) have no translation and show in English.
+- **WordCraft is left as released on languages it cannot draw**: with a Japanese browser it draws boxes,
+  as its official web build does (FINDINGS 15).
 
 ## Acceptance
 
-1. The aura image builds with the four patched builds and the two official ones under
+1. The aura image builds with the five patched builds and GridCraft's official one under
    `/usr/share/aura/apps`; the image size change is measured and recorded.
 2. In the file manager, each kind opens: xlsx and pptx in their app; pdf, docx, an image and a clip in
    their viewer with Edit; an edit saved in each app lands in the library over the file (or beside it for
    another name), checked with a tool outside the app.
 3. Outside the file manager no Edit appears, and the share page still previews every kind.
-4. Gates: `make quality`, the web gates (lint, typecheck, format, tests, knip), the coverage policy, and
+4. With the browser in Italian, PdfCraft, WordCraft, PhotoCraft and FilmCraft open in Italian.
+5. Gates: `make quality`, the web gates (lint, typecheck, format, tests, knip), the coverage policy, and
    `internal/webui/dist` rebuilt.

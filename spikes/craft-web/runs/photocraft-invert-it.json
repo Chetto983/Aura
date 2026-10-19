@@ -1,0 +1,139 @@
+{
+  "app": "photocraft",
+  "file": "/fixtures/photo.png",
+  "flags": "",
+  "languages": [
+    "it-IT"
+  ],
+  "steps": [
+    {
+      "step": "wait:5000",
+      "ms": 5002
+    },
+    {
+      "step": "click:0.15:0.3",
+      "ms": 37
+    },
+    {
+      "step": "key:Control+i",
+      "ms": 73
+    },
+    {
+      "step": "dirty",
+      "ms": 211
+    },
+    {
+      "step": "key:Control+s",
+      "ms": 4
+    },
+    {
+      "step": "save",
+      "ms": 413
+    }
+  ],
+  "readyMs": 920,
+  "events": [
+    {
+      "at": 646,
+      "type": "photocraft:ready",
+      "version": "0.10.0"
+    },
+    {
+      "at": 648,
+      "type": "photocraft:dirty",
+      "dirty": false
+    },
+    {
+      "at": 945,
+      "type": "host:sent",
+      "name": "photo.png",
+      "bytes": 8884
+    },
+    {
+      "at": 6151,
+      "type": "photocraft:dirty",
+      "dirty": true
+    },
+    {
+      "at": 6418,
+      "type": "photocraft:save",
+      "name": "photo.png",
+      "bytes": 9179
+    },
+    {
+      "at": 6420,
+      "type": "photocraft:dirty",
+      "dirty": false
+    }
+  ],
+  "saves": [
+    {
+      "name": "photo.png",
+      "bytes": 9179,
+      "stored": true
+    }
+  ],
+  "requests": [
+    {
+      "url": "/?app=photocraft&file=%2Ffixtures%2Fphoto.png",
+      "status": 200,
+      "type": "text/html; charset=utf-8",
+      "length": 433
+    },
+    {
+      "url": "/host.js",
+      "status": 200,
+      "type": "text/javascript; charset=utf-8",
+      "length": 1811
+    },
+    {
+      "url": "/apps/photocraft/?host=parent",
+      "status": 200,
+      "type": "text/html; charset=utf-8"
+    },
+    {
+      "url": "/apps/photocraft/photocraft-web-6ac9bea8fe5afe73_bg.wasm",
+      "status": 200,
+      "type": "application/wasm",
+      "encoding": "gzip"
+    },
+    {
+      "url": "/apps/photocraft/photocraft-web-6ac9bea8fe5afe73.js",
+      "status": 200,
+      "type": "text/javascript; charset=utf-8",
+      "encoding": "gzip"
+    },
+    {
+      "url": "/apps/photocraft/fonts/manifest.txt",
+      "status": 404,
+      "type": "text/plain; charset=utf-8",
+      "length": 19
+    },
+    {
+      "url": "/fixtures/photo.png",
+      "status": 200,
+      "type": "image/png",
+      "length": 8884
+    },
+    {
+      "url": "/save?name=photo.png",
+      "status": 200
+    }
+  ],
+  "console": [
+    "[warning] The `integrity` attribute is currently ignored for preload destinations that do not support subresource integrity. See https://crbug.com/981419 for more information",
+    "[error] Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "[info] WebGPU is experimental on this platform. See https://github.com/gpuweb/gpuweb/wiki/Implementation-Status#implementation-status",
+    "[warning] Failed to create WebGPU Context Provider",
+    "[warning] [egui_wgpu] egui-wgpu-0.36.2/src/lib.rs:461: Software rasterizer detected - loss of performance expected. backend: Gl, device_type: Cpu, name: \"ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)\", driver_info: \"WebGL 2.0 (OpenGL ES 3.0 Chromium)\", subgroup_size: 4..=128, transient_saves_memory: None, limit_bucket: None",
+    "[info] [photocraft_web::web] photocraft-web/src/web.rs:107: photocraft-web: wgpu backend Gl",
+    "[info] [photocraft_ui_egui::gpu_canvas] ui-egui/src/gpu_canvas.rs:171: gpu canvas: target Rgba8Unorm, max texture 8192, tile 8192, 16F canvas Budget, video memory unknown",
+    "[info] [eframe::web::web_runner] eframe-0.36.2/src/web/web_runner.rs:94: event handlers installed.",
+    "[warning] [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: SetTheme(SystemDefault) - not implemented in web backend",
+    "[error] Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "[warning] [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: Title(\"PhotoCraft\") - not implemented in web backend",
+    "[warning] [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: Title(\"photo.png — PhotoCraft\") - not implemented in web backend",
+    "[warning] [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: Title(\"*photo.png — PhotoCraft\") - not implemented in web backend",
+    "[warning] [eframe::web::app_runner] eframe-0.36.2/src/web/app_runner.rs:337: Unhandled egui viewport command: Title(\"photo.png — PhotoCraft\") - not implemented in web backend"
+  ]
+}

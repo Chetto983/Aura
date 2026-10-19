@@ -4,8 +4,11 @@
 //   node spikes/craft-web/drive.mjs --app pdfcraft --file /fixtures/documents/Appunti.pdf \
 //     --steps 'wait:4000,shot:opened,click:0.5:0.5,key:Control+s,save,shot:saved' --out <dir>
 //
-// Steps: wait:<ms>, shot:<name>, click:<x>:<y> (fractions of the frame), key:<chord>,
-// type:<text>, save (wait for an <app>:save), dirty (wait for <app>:dirty true).
+// Steps: wait:<ms>, shot:<name>, click:<x>:<y> and dblclick:<x>:<y> (fractions of the frame),
+// key:<chord>, type:<text>, save (wait for an <app>:save), dirty (wait for <app>:dirty true),
+// filmexport (FilmCraft's export through its page API).
+// --locale takes the browser's language list, first preferred (ja-JP,it-IT): the first is the
+// context's locale, the whole list is navigator.languages.
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -33,12 +36,14 @@ const browser = await chromium.launch({
   headless: true,
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: args.locale });
-await context.addInitScript(() => {
+const languages = args.locale.split(',');
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: languages[0] });
+await context.addInitScript((list) => {
+  Object.defineProperty(Navigator.prototype, 'languages', { get: () => list });
   document.addEventListener('securitypolicyviolation', (e) => {
     console.log(`CSP ${e.violatedDirective} ${e.blockedURI}`);
   });
-});
+}, languages);
 const page = await context.newPage();
 const consoleLines = [];
 const requests = [];
@@ -70,7 +75,7 @@ async function until(predicate, timeout, what) {
 const query = new URLSearchParams({ app: args.app, ...(args.file ? { file: args.file } : {}), ...(args.flags ? { flags: args.flags } : {}) });
 const started = Date.now();
 await page.goto(`${args.base}/?${query}`);
-const report = { app: args.app, file: args.file, flags: args.flags, steps: [] };
+const report = { app: args.app, file: args.file, flags: args.flags, languages, steps: [] };
 let failure;
 try {
   await until((e) => e.some((m) => m.type === `${args.app}:ready` || m.type === `${args.app}:failed`), Number(args.ready), 'ready');

@@ -21,25 +21,25 @@ COPY internal/assets/testdata/studio-project.json /internal/assets/testdata/stud
 RUN npm run build
 
 # The Craft apps the cockpit frames to view and edit files, one folder each under
-# /usr/share/aura/apps (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md). GridCraft and
-# PdfCraft carry the `?host=parent` bridge in their official web releases, so their zips go in as
-# they are, pinned by version and SHA-256: nothing is fetched at run time. The wasm and its glue
-# are gzipped here because nothing in front of aura compresses: aura sends the .gz to a browser
-# that accepts it (internal/staticapp).
+# /usr/share/aura/apps (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md). GridCraft's
+# official web release carries the `?host=parent` bridge and needs no change, so its zip goes in as
+# it is, pinned by version and SHA-256: nothing is fetched at run time. The wasm and its glue are
+# gzipped here because nothing in front of aura compresses: aura sends the .gz to a browser that
+# accepts it (internal/staticapp).
 FROM alpine:3.22 AS craft-official
 ADD --checksum=sha256:532966caa70bbd346bcd3c48a827d9d0118f83e50be7a0ca43fdb28bd48f1dd4 https://github.com/storytold/gridcraft/releases/download/v0.8.0/gridcraft-web-0.8.0.zip /tmp/gridcraft.zip
-ADD --checksum=sha256:eb465508b0623be27b07ef5145c0670c71ddd7791b4541721358b59c7e0a722e https://github.com/storytold/pdfcraft/releases/download/v0.9.0/pdfcraft-web-0.9.0.zip /tmp/pdfcraft.zip
 RUN set -eu; \
     mkdir /apps; \
     unzip -q /tmp/gridcraft.zip -d /tmp && mv /tmp/gridcraft-web-0.8.0 /apps/gridcraft; \
-    unzip -q /tmp/pdfcraft.zip -d /tmp && mv /tmp/pdfcraft-web-0.9.0 /apps/pdfcraft; \
-    for app in /apps/*; do rm -f "$app/_headers" "$app/.htaccess"; gzip -9 -k "$app"/*.wasm "$app"/*.js; done
+    rm -f /apps/gridcraft/_headers /apps/gridcraft/.htaccess; \
+    gzip -9 -k /apps/gridcraft/*.wasm /apps/gridcraft/*.js
 
-# WordCraft, DeckCraft, PhotoCraft and FilmCraft have no such bridge upstream: docker/craft-web
-# builds each from its release tag, checked against the tag's commit, with the patch beside the
-# script (the bridge, and the ArtCraft marks a modified build may not carry). WebAssembly is the
-# same on every platform, so it builds once, on the builder's. The tools are release binaries
-# pinned by SHA-256; trunk runs offline, so it fetches none of its own.
+# The other five need a change: WordCraft, DeckCraft, PhotoCraft and FilmCraft have no bridge
+# upstream, and PdfCraft and PhotoCraft draw their web interface in English whatever the browser's
+# language. docker/craft-web builds each from its release tag, checked against the tag's commit,
+# with the patch beside the script (that change, and the ArtCraft marks a modified build may not
+# carry). WebAssembly is the same on every platform, so it builds once, on the builder's. The tools
+# are release binaries pinned by SHA-256; trunk runs offline, so it fetches none of its own.
 FROM --platform=$BUILDPLATFORM rust:1.97.0-bookworm@sha256:8fa55b2f3ddf97471ab6a767bfa3f37e6bad0986ba823e75fea57e2a2a5c3073 AS craft-web
 ARG BUILDARCH
 RUN set -eu; \
@@ -62,6 +62,7 @@ RUN set -eu; \
     tool "https://github.com/WebAssembly/binaryen/releases/download/version_123/binaryen-version_123-$arch-linux.tar.gz" "$binaryen" binaryen-version_123/bin/wasm-opt; \
     rustup target add wasm32-unknown-unknown
 COPY docker/craft-web/ /craft-web/
+RUN /craft-web/build.sh pdfcraft v0.9.0 645016addcfb9078c557f0189559ab47cdcee057 /apps
 RUN /craft-web/build.sh wordcraft v0.8.0 f2e15cf8f899a79899a2d9595ca4ce7df1e5ea22 /apps
 RUN /craft-web/build.sh deckcraft v0.8.0 22db9261f9d1a214c296fd390173130c45d76d66 /apps
 RUN /craft-web/build.sh photocraft v0.10.0 8407d9ccb125af52944fca9d228383459f94aaef /apps

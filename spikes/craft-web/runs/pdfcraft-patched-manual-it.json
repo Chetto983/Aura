@@ -1,0 +1,101 @@
+{
+  "app": "pdfcraft",
+  "file": "/fixtures/manuale_confezionatrice_FX300.pdf",
+  "flags": "",
+  "languages": [
+    "it-IT"
+  ],
+  "steps": [
+    {
+      "step": "wait:4000",
+      "ms": 4004
+    },
+    {
+      "step": "click:0.5:0.5",
+      "ms": 25
+    },
+    {
+      "step": "key:Control+s",
+      "ms": 44
+    },
+    {
+      "step": "save",
+      "ms": 211
+    }
+  ],
+  "readyMs": 1009,
+  "events": [
+    {
+      "at": 692,
+      "type": "pdfcraft:ready",
+      "version": "0.9.0"
+    },
+    {
+      "at": 978,
+      "type": "host:sent",
+      "name": "manuale_confezionatrice_FX300.pdf",
+      "bytes": 29805
+    },
+    {
+      "at": 5163,
+      "type": "pdfcraft:save",
+      "name": "manuale_confezionatrice_FX300.pdf",
+      "saveAs": false,
+      "bytes": 29805
+    }
+  ],
+  "saves": [
+    {
+      "name": "manuale_confezionatrice_FX300.pdf",
+      "saveAs": false,
+      "bytes": 29805,
+      "stored": true
+    }
+  ],
+  "requests": [
+    {
+      "url": "/?app=pdfcraft&file=%2Ffixtures%2Fmanuale_confezionatrice_FX300.pdf",
+      "status": 200,
+      "type": "text/html; charset=utf-8",
+      "length": 433
+    },
+    {
+      "url": "/host.js",
+      "status": 200,
+      "type": "text/javascript; charset=utf-8",
+      "length": 1811
+    },
+    {
+      "url": "/apps/pdfcraft/?host=parent",
+      "status": 200,
+      "type": "text/html; charset=utf-8",
+      "length": 1210
+    },
+    {
+      "url": "/apps/pdfcraft/pdfcraft-web-75c876866716a961_bg.wasm",
+      "status": 200,
+      "type": "application/wasm",
+      "encoding": "gzip"
+    },
+    {
+      "url": "/apps/pdfcraft/pdfcraft-web-75c876866716a961.js",
+      "status": 200,
+      "type": "text/javascript; charset=utf-8",
+      "encoding": "gzip"
+    },
+    {
+      "url": "/fixtures/manuale_confezionatrice_FX300.pdf",
+      "status": 200,
+      "type": "application/pdf",
+      "length": 29805
+    },
+    {
+      "url": "/save?name=manuale_confezionatrice_FX300.pdf",
+      "status": 200
+    }
+  ],
+  "console": [
+    "[warning] The `integrity` attribute is currently ignored for preload destinations that do not support subresource integrity. See https://crbug.com/981419 for more information",
+    "[error] Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

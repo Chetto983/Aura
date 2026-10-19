@@ -4,10 +4,11 @@
 #
 #   build.sh <app> <tag> <commit> <out>
 #
-# The release tag's source, checked against its commit, plus <app>.patch beside this script: the
-# `?host=parent` bridge the cockpit opens and saves files through, and the ArtCraft marks the
-# brand terms (docs/brand/LICENSE-brand.txt upstream) keep out of a modified build. The tools come
-# from PATH (trunk, wasm-bindgen, wasm-opt, pinned by the Dockerfile), never downloaded here.
+# The release tag's source, checked against its commit, plus <app>.patch beside this script: what
+# the app lacks upstream (the `?host=parent` bridge the cockpit opens and saves files through, the
+# browser's language), and the ArtCraft marks the brand terms (docs/brand/LICENSE-brand.txt
+# upstream) keep out of a modified build. The tools come from PATH (trunk, wasm-bindgen, wasm-opt,
+# pinned by the Dockerfile), never downloaded here.
 set -eu
 
 app=$1 tag=$2 commit=$3 out=$4
