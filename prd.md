@@ -4095,6 +4095,24 @@ retention. ArcadeDB loads `docker/arcadedb/backup.json`, covers all databases in
 new identities, and backs up every 60 minutes to a separate volume. Retention is
 `maxFiles=60` with hourly/daily/weekly/monthly buckets of 24/7/4/6.
 
+Garage objects have a seeded `30 1 * * * Europe/Rome` `backup_objects` task (migration 0142,
+2026-10-19). The measured cause: on 2026-10-14 the lab VM was reinstalled, and the 2026-10-13
+backups restored Postgres and ArcadeDB. Nothing restored Garage, so every uploaded file was lost
+while Documenti still listed nine of them.
+
+What the job does:
+- It copies each bucket Aura holds a key for (the shared bucket and each identity's own) with
+  that bucket's own key, into `AURA_BACKUP_DIR/objects/<bucket>/`: one sha256-named blob per
+  version, plus `manifest.json`.
+- It downloads only what changed.
+- It keeps a deleted or replaced version for 14 days, then deletes it with its blob.
+
+`aura objectstore restore [--as-of] [--bucket]` puts back the versions live at a moment in those
+14 days whose key the bucket lacks. It never overwrites a key. A wiped bucket is recovered by
+restoring as of before the wipe, because the first run after a wipe records every file as
+deleted. The job copies nothing off the host. Spec:
+`docs/superpowers/specs/2026-10-19-object-backup-design.md`.
+
 The restore drill covers Postgres, conversation sidecars, Garage and a tenant-shaped
 ArcadeDB database, with checksum and cleanup verification. Restore targets are new and
 verified. Existing archives must be testable without replacing live state. Cadence and

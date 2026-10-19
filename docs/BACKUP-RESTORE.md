@@ -9,6 +9,7 @@ checks; a healthy database alone proves none of the latter two.
 | Data | Mechanism | Schedule and retention | Destination |
 |---|---|---|---|
 | Postgres | Aura's `backup_postgres` job runs network `pg_dump` | Seeded at `0 1 * * *` in `Europe/Rome`; 14-day rolling retention | Host `AURA_BACKUP_DIR`, mounted at `/backups` in Aura and Postgres |
+| Garage objects | Aura's `backup_objects` job copies each bucket through S3, with that bucket's own key | Seeded at `30 1 * * *` in `Europe/Rome`; a deleted or replaced version is kept 14 days, then deleted | Host `AURA_BACKUP_DIR/objects/<bucket>/` |
 | ArcadeDB | Native automatic backup scheduler | Every 60 minutes; `maxFiles=60`, tiered hourly/daily/weekly/monthly buckets 24/7/4/6 | Logical Compose volume `aura-arcadedb-backups`, mounted at `/home/arcadedb/backups` |
 
 The seeded Postgres task explicitly uses `Europe/Rome`; inspect the persisted task
@@ -29,6 +30,34 @@ The backup directory must remain relative to the ArcadeDB server root. The
 Compose mount provides persistence separately from the live database volume.
 See the [native scheduler documentation](https://docs.arcadedb.com/arcadedb/how-to/operations/auto-backup).
 
+### Objects
+
+Garage has no snapshot of its own. Its [backup guidance](https://garagehq.deuxfleurs.fr/documentation/connect/backup/)
+is to copy the objects out through S3, and `backup_objects` does that.
+
+It covers the shared bucket, which also holds the shares, and every identity's own bucket. It
+reads each bucket with that bucket's own key, and it never creates a bucket. Each bucket's
+backup has this layout:
+
+```text
+objects/<bucket>/manifest.json
+objects/<bucket>/blobs/<sha256[:2]>/<sha256>
+```
+
+Each version of a file is one blob, named by its content and never rewritten. The manifest maps
+each key to its versions. It records, for each version:
+- the sha256, the size, the MIME type and the user metadata, which carries the file name;
+- when a run first saw it;
+- when a run found it deleted or replaced.
+
+A run downloads only what changed since the last one. A version deleted or replaced more than 14
+days ago leaves the manifest, and its blob is deleted in the same run, so the directory holds the
+live files plus 14 days of changes. Because blobs never change, restic or rsync can carry the
+directory off-host as it is.
+
+A bucket whose listing fails keeps its manifest untouched, and a file that fails to download
+keeps its previous version. The run then records a failure that names both.
+
 ## Check the running deployment
 
 ```bash
@@ -37,6 +66,7 @@ docker compose exec -T arcadedb cat config/backup.json
 docker compose exec -T arcadedb find backups -maxdepth 2 -type f -name '*.zip'
 docker compose logs --since 2h arcadedb
 docker compose exec -T aura aura task list
+docker compose exec -T aura sh -c 'ls -la /backups/objects/*/manifest.json'
 ```
 
 Inspect backup timestamps, errors and storage use. Cadence applies while services
@@ -90,6 +120,36 @@ docker compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres \
   --clean --if-exists --no-owner --no-acl /backups/postgres-YYYYMMDDTHHMMSSZ.dump
 ```
 
+## Restore objects
+
+```bash
+# What the latest backup held:
+docker compose exec -T aura aura objectstore restore
+# What was there at a moment in the last 14 days:
+docker compose exec -T aura aura objectstore restore --as-of 2026-10-13T23:00:00+02:00
+# One bucket:
+docker compose exec -T aura aura objectstore restore --bucket aura-<identity-id>
+```
+
+The restore puts back every version that was live at `--as-of` and whose key the bucket no
+longer holds:
+- It never overwrites a key, so it cannot roll back a file that was changed. The older blob stays
+  on disk for 14 days, and the manifest says which key it belonged to.
+- It checks each blob's sha256 before writing it.
+- It writes back the MIME type and the file name.
+- An identity's bucket or key that Garage lost is put back first, from the credential row in
+  Postgres.
+
+The output gives the counts restored, already present and failed, and the command exits non-zero
+on any failure.
+
+After a host loss:
+1. Restore Postgres first, because the credential rows name the buckets and keys.
+2. Start the stack.
+3. Restore the objects **as of a moment before the loss.** The first nightly run after a wipe
+   finds every bucket empty and records every file as deleted. The files stay restorable for 14
+   days from that run.
+
 ## Restore an existing memory archive for inspection
 
 Use ArcadeDB's root-only server API to restore into a **new database name**. The
@@ -110,9 +170,11 @@ See [native restore](https://docs.arcadedb.com/arcadedb/how-to/operations/restor
 
 ## Recovery scope
 
-The two database backups are not a complete appliance backup. Preserve separately:
+The two database backups and the object backup are not a complete appliance backup. Preserve
+separately:
 
-- Garage object data and metadata, with its configuration and access bindings.
+- Garage's configuration. Buckets and keys are rebuilt from Postgres, and the objects from
+  `AURA_BACKUP_DIR/objects`.
 - Persistent workspace files and required Aura runtime files beyond `runs`.
 - Deployment `.env`, Compose overrides and service configuration, using protected
   storage. Existing encrypted records and derived credentials need their original keys.
@@ -120,8 +182,10 @@ The two database backups are not a complete appliance backup. Preserve separatel
   references needed to recreate the deployment.
 
 Copy recovery material off-host. A separate Docker volume on the same disk does
-not protect against loss of that disk. The four stores are not captured as one
-globally consistent snapshot, and the drill does not claim that they are.
+not protect against loss of that disk, and neither does `AURA_BACKUP_DIR` on the
+appliance's own disk. The four stores are not captured as one globally consistent
+snapshot, and the drill does not claim that they are. The objects are copied half an
+hour after the Postgres dump, so a file uploaded in between is in one and not the other.
 
 Archives retain the state captured at their creation. An older restore can therefore
 contain records deleted later; validate the intended recovery point and subsequent
