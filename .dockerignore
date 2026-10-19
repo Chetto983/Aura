@@ -22,6 +22,8 @@
 !docker/caddy/**
 !docker/cloudflared/
 !docker/cloudflared/**
+!docker/craft-web/
+!docker/craft-web/**
 !services/
 !services/ingest/
 !services/ingest/**
