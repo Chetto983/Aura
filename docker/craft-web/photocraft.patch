@@ -13,7 +13,7 @@ index 4ecad80..41ee997 100644
  serde_json = { workspace = true }
 diff --git a/apps/photocraft-web/src/host.rs b/apps/photocraft-web/src/host.rs
 new file mode 100644
-index 0000000..693623c
+index 0000000..23854b6
 --- /dev/null
 +++ b/apps/photocraft-web/src/host.rs
 @@ -0,0 +1,144 @@
@@ -32,10 +32,10 @@ index 0000000..693623c
 +//!
 +//! Only the parent window on the page's own origin is heard or answered.
 +
-+use std::cell::{Cell, RefCell};
++use std::cell::Cell;
 +use std::rc::Rc;
 +
-+use photocraft_ui_egui::{PhotocraftApp, Services};
++use photocraft_ui_egui::{Inbox, PhotocraftApp, Services};
 +use wasm_bindgen::JsCast as _;
 +use wasm_bindgen::JsValue;
 +use wasm_bindgen::closure::Closure;
@@ -46,7 +46,7 @@ index 0000000..693623c
 +    parent: web_sys::Window,
 +    origin: String,
 +    /// Files the parent sent that the app hasn't opened yet.
-+    arrived: Rc<RefCell<Vec<(String, Vec<u8>)>>>,
++    arrived: Inbox,
 +    /// The unsaved-changes state last reported to the parent.
 +    reported: Rc<Cell<Option<bool>>>,
 +}
@@ -60,7 +60,7 @@ index 0000000..693623c
 +            return None;
 +        }
 +        let origin = window.location().origin().ok()?;
-+        Some(Self { window, parent, origin, arrived: Rc::default(), reported: Rc::default() })
++        Some(Self { window, parent, origin, arrived: Inbox::default(), reported: Rc::default() })
 +    }
 +
 +    /// Send saved and exported files to the parent instead of downloading them, and hear files
@@ -82,7 +82,7 @@ index 0000000..693623c
 +    /// Before each frame: the files the parent sent open under their own names, so a Save
 +    /// goes back to the same file rather than through Save As.
 +    pub fn open_arrived(&self, app: &mut PhotocraftApp) {
-+        let arrived = std::mem::take(&mut *self.arrived.borrow_mut());
++        let arrived = std::mem::take(&mut *self.arrived.lock().unwrap_or_else(|e| e.into_inner()));
 +        for (name, bytes) in arrived {
 +            if let Err(e) = app.open_file(&name, &bytes) {
 +                app.open_failed(&name, &e);
@@ -123,7 +123,7 @@ index 0000000..693623c
 +            }
 +            let name = string(&data, "name").filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "Untitled.png".to_string());
 +            let Some(bytes) = bytes(&data) else { return };
-+            arrived.borrow_mut().push((name, bytes));
++            arrived.lock().unwrap_or_else(|e| e.into_inner()).push((name, bytes));
 +            ctx.request_repaint();
 +        });
 +        if self.window.add_event_listener_with_callback("message", on_message.as_ref().unchecked_ref()).is_ok() {

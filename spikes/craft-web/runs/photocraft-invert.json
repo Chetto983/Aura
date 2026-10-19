@@ -5,15 +5,15 @@
  "steps": [
   {
    "step": "wait:5000",
-   "ms": 5001
+   "ms": 5002
   },
   {
-   "step": "click:0.4:0.5",
-   "ms": 50
+   "step": "click:0.15:0.3",
+   "ms": 30
   },
   {
    "step": "key:Control+i",
-   "ms": 32
+   "ms": 53
   },
   {
    "step": "dirty",
@@ -21,44 +21,44 @@
   },
   {
    "step": "key:Control+s",
-   "ms": 4
+   "ms": 5
   },
   {
    "step": "save",
-   "ms": 205
+   "ms": 211
   }
  ],
- "readyMs": 1249,
+ "readyMs": 973,
  "events": [
   {
-   "at": 918,
+   "at": 708,
    "type": "photocraft:ready",
    "version": "0.10.0"
   },
   {
-   "at": 921,
+   "at": 711,
    "type": "photocraft:dirty",
    "dirty": false
   },
   {
-   "at": 1158,
+   "at": 998,
    "type": "host:sent",
    "name": "photo.png",
    "bytes": 8884
   },
   {
-   "at": 6399,
+   "at": 6187,
    "type": "photocraft:dirty",
    "dirty": true
   },
   {
-   "at": 6651,
+   "at": 6409,
    "type": "photocraft:save",
    "name": "photo.png",
-   "bytes": 9749
+   "bytes": 9179
   },
   {
-   "at": 6652,
+   "at": 6410,
    "type": "photocraft:dirty",
    "dirty": false
   }
@@ -66,7 +66,7 @@
  "saves": [
   {
    "name": "photo.png",
-   "bytes": 9749,
+   "bytes": 9179,
    "stored": true
   }
  ],
@@ -89,13 +89,13 @@
    "type": "text/html; charset=utf-8"
   },
   {
-   "url": "/apps/photocraft/photocraft-web-f0e0280980addf17_bg.wasm",
+   "url": "/apps/photocraft/photocraft-web-ae4769275a75857c_bg.wasm",
    "status": 200,
    "type": "application/wasm",
    "encoding": "gzip"
   },
   {
-   "url": "/apps/photocraft/photocraft-web-f0e0280980addf17.js",
+   "url": "/apps/photocraft/photocraft-web-ae4769275a75857c.js",
    "status": 200,
    "type": "text/javascript; charset=utf-8",
    "encoding": "gzip"
