@@ -185,16 +185,19 @@ func TestSchedulerCancel(t *testing.T) {
 	}
 }
 
-// The database backup may be run or edited but never cancelled: 403 before the store is touched.
+// A backup may be run or edited but never cancelled: 403 before the store is touched, in words
+// that fit the object backup as well as the database one.
 func TestSchedulerCancelBackupForbidden(t *testing.T) {
-	board := &scriptedSchedulerBoard{getTask: cron.Task{Kind: cron.KindBackupPostgres, Status: "active"}}
-	s := govServer(GovernanceProviders{Scheduler: board})
-	rec := doGov(t, s, http.MethodDelete, "/api/governance/scheduler/"+schedTaskID)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want 403: %s", rec.Code, rec.Body.String())
-	}
-	if board.cancelledID != "" {
-		t.Fatal("the database backup must not reach CancelTask")
+	for _, kind := range []cron.TaskKind{cron.KindBackupPostgres, cron.KindBackupObjects} {
+		board := &scriptedSchedulerBoard{getTask: cron.Task{Kind: kind, Status: "active"}}
+		s := govServer(GovernanceProviders{Scheduler: board})
+		rec := doGov(t, s, http.MethodDelete, "/api/governance/scheduler/"+schedTaskID)
+		if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "a backup cannot be cancelled") {
+			t.Fatalf("%s: status = %d, want 403 naming a backup: %s", kind, rec.Code, rec.Body.String())
+		}
+		if board.cancelledID != "" {
+			t.Fatalf("%s must not reach CancelTask", kind)
+		}
 	}
 }
 
@@ -286,11 +289,13 @@ func TestSchedulerPauseActiveTask(t *testing.T) {
 }
 
 func TestSchedulerPauseRefusesTheBackup(t *testing.T) {
-	board := &scriptedSchedulerBoard{getTask: cron.Task{Kind: cron.KindBackupPostgres, Status: "active"}}
-	s := govServer(GovernanceProviders{Scheduler: board})
-	rec := doGov(t, s, http.MethodPost, "/api/governance/scheduler/"+schedTaskID+"/pause")
-	if rec.Code != http.StatusForbidden || board.pausedID != "" {
-		t.Fatalf("pause backup = %d (store reached: %q), want 403 and no store call", rec.Code, board.pausedID)
+	for _, kind := range []cron.TaskKind{cron.KindBackupPostgres, cron.KindBackupObjects} {
+		board := &scriptedSchedulerBoard{getTask: cron.Task{Kind: kind, Status: "active"}}
+		s := govServer(GovernanceProviders{Scheduler: board})
+		rec := doGov(t, s, http.MethodPost, "/api/governance/scheduler/"+schedTaskID+"/pause")
+		if rec.Code != http.StatusForbidden || board.pausedID != "" || !strings.Contains(rec.Body.String(), "a backup cannot be paused") {
+			t.Fatalf("pause %s = %d (store reached: %q): %s, want 403 and no store call", kind, rec.Code, board.pausedID, rec.Body.String())
+		}
 	}
 }
 

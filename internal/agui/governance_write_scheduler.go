@@ -5,7 +5,7 @@ package agui
 // now, pause or resume it, cancel it, or reschedule/re-payload it. Every handler resolves the
 // task the caller may manage (schedulerTask: their own, or any for an admin; another
 // identity's task answers 404 like a missing one), enforces the system-kind guard (a
-// system-seeded sweep is never operator-mutable → 403, and the database backup is never paused
+// system-seeded sweep is never operator-mutable → 403, and neither backup is ever paused
 // or cancelled → 403), makes ONE provider call, and projects JSON. The parent-mux mount behind
 // RequireCapability(governance.write) is cmd/aura/serve_webui.go's job; every wire error passes
 // through sanitizeErr. There is no business logic here — schedule grammar
@@ -83,14 +83,14 @@ func (s *Server) handleSchedulerRun(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleSchedulerPause serves POST /api/governance/scheduler/{id}/pause: stops an active task
-// from firing until it is resumed. The database backup is never paused (403).
+// from firing until it is resumed. A backup is never paused (403).
 func (s *Server) handleSchedulerPause(w http.ResponseWriter, r *http.Request) {
 	task, id, ok := s.schedulerMutable(w, r)
 	if !ok {
 		return
 	}
 	if !cron.IsPausableKind(task.Kind) {
-		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "the database backup cannot be paused"})
+		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "a backup cannot be paused"})
 		return
 	}
 	if err := s.governance.Scheduler.PauseTask(r.Context(), id); err != nil {
@@ -120,15 +120,15 @@ func (s *Server) handleSchedulerResume(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleSchedulerCancel serves DELETE /api/governance/scheduler/{id}: soft-cancels a task
-// (status='cancelled'). Cancelling a manageable task is idempotent; the database backup is
-// never cancellable (403).
+// (status='cancelled'). Cancelling a manageable task is idempotent; a backup is never
+// cancellable (403).
 func (s *Server) handleSchedulerCancel(w http.ResponseWriter, r *http.Request) {
 	task, id, ok := s.schedulerMutable(w, r)
 	if !ok {
 		return
 	}
 	if !cron.IsCancellableKind(task.Kind) {
-		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "the database backup cannot be cancelled"})
+		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "a backup cannot be cancelled"})
 		return
 	}
 	if err := s.governance.Scheduler.CancelTask(r.Context(), id); err != nil {
