@@ -23,6 +23,7 @@ const { values: args } = parseArgs({
     out: { type: 'string' },
     base: { type: 'string', default: 'http://127.0.0.1:8790' },
     ready: { type: 'string', default: '90000' },
+    locale: { type: 'string', default: 'en-US' },
   },
 });
 mkdirSync(args.out, { recursive: true });
@@ -32,7 +33,7 @@ const browser = await chromium.launch({
   headless: true,
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: args.locale });
 await context.addInitScript(() => {
   document.addEventListener('securitypolicyviolation', (e) => {
     console.log(`CSP ${e.violatedDirective} ${e.blockedURI}`);
