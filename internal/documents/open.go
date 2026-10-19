@@ -37,6 +37,14 @@ type DocumentRecordLookup interface {
 	DocumentByID(ctx context.Context, identityID, searchDocumentID string) (arcadedb.DocumentCard, error)
 }
 
+// UploadLookup resolves an id the index does not hold to the caller's own upload of that id:
+// an attachment is in the store as soon as its upload is accepted, before the ingest writes its
+// card, and a photo or a clip never gets one. An interface for the same cycle reason as the
+// opener: internal/assets imports this package.
+type UploadLookup interface {
+	UploadByID(ctx context.Context, identityID, assetID string) (OpenedDocument, error)
+}
+
 // OpenedDocument describes the original file behind an indexed document.
 type OpenedDocument struct {
 	DocumentID string `json:"document_id"`
@@ -61,9 +69,14 @@ type OpenedDocument struct {
 // chain could break, which is exactly what amendment #114's own audit found when catalog
 // rows created by `aura docs ingest` could not satisfy their own document_open contract.
 // The record carries source_key now, so there is nothing to walk.
+//
+// The one fallback is an attachment: an id the index does not hold opens the caller's own upload
+// of that id, when Uploads is set (measured 2026-10-19: the agent called document_open with the
+// asset id of a spreadsheet attached two seconds earlier, and the index answered "not found").
 type OpenService struct {
 	Index   DocumentRecordLookup
 	Objects DocumentObjectOpener
+	Uploads UploadLookup
 }
 
 // OpenDocument streams the original bytes of documentID for identityID. The caller closes
@@ -87,7 +100,7 @@ func (s *OpenService) OpenDocument(
 	}
 	record, err := s.Index.DocumentByID(ctx, identityID, documentID)
 	if err != nil {
-		return nil, OpenedDocument{}, err
+		return s.openUpload(ctx, identityID, documentID, err)
 	}
 	body, mimeType, err := s.Objects.OpenObject(ctx, identityID, record.SourceKey)
 	if err != nil {
@@ -101,6 +114,26 @@ func (s *OpenService) OpenDocument(
 		SizeBytes:  record.SizeBytes,
 		SHA256:     record.RawSHA256,
 	}, nil
+}
+
+// openUpload opens the caller's own upload of id, or returns the index's error when there is no
+// such upload: a wrong id must still read as the index's "not found".
+func (s *OpenService) openUpload(ctx context.Context, identityID, id string, indexErr error) (io.ReadCloser, OpenedDocument, error) {
+	if s.Uploads == nil {
+		return nil, OpenedDocument{}, indexErr
+	}
+	upload, err := s.Uploads.UploadByID(ctx, identityID, id)
+	if err != nil {
+		return nil, OpenedDocument{}, indexErr
+	}
+	body, mimeType, err := s.Objects.OpenObject(ctx, identityID, upload.SourceKey)
+	if err != nil {
+		return nil, OpenedDocument{}, fmt.Errorf("open upload %s: %w", id, err)
+	}
+	if mimeType != "" {
+		upload.MIMEType = mimeType
+	}
+	return body, upload, nil
 }
 
 // documentFileName recovers a safe base name for the materialized copy.

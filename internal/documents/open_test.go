@@ -205,3 +205,60 @@ func TestShortHash(t *testing.T) {
 		t.Fatalf("shortHash(short) = %q", got)
 	}
 }
+
+type fakeUploadLookup struct {
+	identity string
+	id       string
+	opened   OpenedDocument
+	err      error
+}
+
+func (f *fakeUploadLookup) UploadByID(_ context.Context, identityID, assetID string) (OpenedDocument, error) {
+	f.identity, f.id = identityID, assetID
+	return f.opened, f.err
+}
+
+// An attachment is in the store as soon as its upload is accepted, while the ingest may still be
+// writing the card the index answers from -- and a photo or a clip never gets one. Its own asset
+// id, which the attachment block hands the agent, opens it from the upload's key (measured: the
+// agent called document_open with an attachment's asset id two seconds after the upload, and the
+// index answered "not found").
+func TestOpenDocumentOpensAnAttachmentTheIndexDoesNotHold(t *testing.T) {
+	service, lookup, opener := openFixture()
+	lookup.err = errors.New("arcadedb: document 6ea35fff-df6d-46ef-9927-e74dce08c64b not found")
+	uploads := &fakeUploadLookup{opened: OpenedDocument{
+		DocumentID: "6ea35fff-df6d-46ef-9927-e74dce08c64b", FileName: "fcffginzu.xls",
+		SourceKey: "chat/6ea35fff.xls", MIMEType: "application/vnd.ms-excel", SizeBytes: 314880,
+	}}
+	service.Uploads = uploads
+	opener.mimeType = ""
+
+	body, meta, err := service.OpenDocument(t.Context(), retrievalIdentity, uploads.opened.DocumentID)
+	if err != nil {
+		t.Fatalf("OpenDocument: %v", err)
+	}
+	defer func() { _ = body.Close() }()
+	if opener.key != "chat/6ea35fff.xls" || opener.identity != retrievalIdentity || uploads.identity != retrievalIdentity {
+		t.Fatalf("read %q as %q (upload looked up as %q), want the upload's key as the caller",
+			opener.key, opener.identity, uploads.identity)
+	}
+	if meta != uploads.opened {
+		t.Fatalf("meta = %+v, want the upload's %+v", meta, uploads.opened)
+	}
+}
+
+// An id neither the index nor the caller's uploads know is still the index's "not found": the
+// fallback must not turn a wrong id into a different, confusing error.
+func TestOpenDocumentKeepsTheIndexAnswerForAnIdNobodyHolds(t *testing.T) {
+	service, lookup, opener := openFixture()
+	lookup.err = errors.New("arcadedb: document doc_x not found")
+	service.Uploads = &fakeUploadLookup{err: errors.New("asset not found")}
+
+	_, _, err := service.OpenDocument(t.Context(), retrievalIdentity, "doc_x")
+	if err == nil || !strings.Contains(err.Error(), "arcadedb: document doc_x not found") {
+		t.Fatalf("err = %v, want the index's answer", err)
+	}
+	if opener.key != "" {
+		t.Fatalf("read %q for an id nobody holds", opener.key)
+	}
+}

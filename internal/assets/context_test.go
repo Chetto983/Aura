@@ -79,6 +79,7 @@ func TestBuildAttachmentBlockGuidesDocumentSearchAndSanitizesLines(t *testing.T)
 		`<attachments trust="untrusted_user_uploads">`,
 		"document_search",
 		`document_id="doc-1"`,
+		`document_open with document_id="asset-1"`,
 		"bad name.pdf",
 		"first line second line",
 		"warning continued",
@@ -149,4 +150,23 @@ type everythingIndexed struct{}
 
 func (everythingIndexed) ResolveDocumentScope(_ context.Context, _ string, ids []string) ([]string, error) {
 	return ids, nil
+}
+
+// An attachment the processing has not reached yet has no document id, and a photo or a clip
+// never gets one; its asset id still opens it, so the block says how to get the file either way.
+func TestBuildAttachmentBlockOpensAnAttachmentByItsAssetID(t *testing.T) {
+	block := BuildAttachmentBlock([]Asset{{
+		ID: "6ea35fff-df6d-46ef-9927-e74dce08c64b", FileName: "fcffginzu.xls",
+		Modality: ModalityDocument, Status: StatusAccepted,
+	}, {
+		ID: "asset-photo", FileName: "ponte.jpg", Modality: ModalityImage, Status: StatusComplete,
+	}})
+	for _, want := range []string{
+		`document_open with document_id="6ea35fff-df6d-46ef-9927-e74dce08c64b"`,
+		`document_open with document_id="asset-photo"`,
+	} {
+		if !strings.Contains(block, want) {
+			t.Fatalf("BuildAttachmentBlock() missing %q:\n%s", want, block)
+		}
+	}
 }

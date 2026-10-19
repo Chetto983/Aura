@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chetto1983/aura/internal/assets"
+	"github.com/chetto1983/aura/internal/documents"
 	"github.com/chetto1983/aura/internal/objectstore"
 )
 
@@ -100,5 +102,44 @@ func TestPutObjectKeepsTheNameOfTheObjectItReplaces(t *testing.T) {
 	_ = object.Close()
 	if attrs.FileName != "" {
 		t.Fatalf("a new object got the name %q", attrs.FileName)
+	}
+}
+
+type fakeAssetGetter struct {
+	asset assets.Asset
+	err   error
+	got   [2]string
+}
+
+func (f *fakeAssetGetter) GetForIdentity(_ context.Context, id, identityID string) (assets.Asset, error) {
+	f.got = [2]string{id, identityID}
+	return f.asset, f.err
+}
+
+// An attachment opens from the bytes its upload put in the owner's store, under the id the
+// attachment block names; one whose upload never landed, or that was refused or deleted, does not.
+func TestAttachmentUploadsOpenOnlyAnAcceptedUpload(t *testing.T) {
+	held := assets.Asset{
+		ID: "asset-1", FileName: "fcffginzu.xls", MIMEType: "application/vnd.ms-excel",
+		ObjectKey: "chat/asset-1.xls", SizeBytes: 314880, ContentHash: "abc", Status: assets.StatusAccepted,
+	}
+	getter := &fakeAssetGetter{asset: held}
+	opened, err := attachmentUploads{assets: getter}.UploadByID(t.Context(), "identity-1", "asset-1")
+	if err != nil {
+		t.Fatalf("UploadByID: %v", err)
+	}
+	if getter.got != [2]string{"asset-1", "identity-1"} {
+		t.Fatalf("looked up %v, want the asset as its owner", getter.got)
+	}
+	want := documents.OpenedDocument{DocumentID: "asset-1", FileName: "fcffginzu.xls", SourceKey: "chat/asset-1.xls",
+		MIMEType: "application/vnd.ms-excel", SizeBytes: 314880, SHA256: "abc"}
+	if opened != want {
+		t.Fatalf("opened = %+v, want %+v", opened, want)
+	}
+	for _, status := range []assets.Status{assets.StatusPresigned, assets.StatusRefused, assets.StatusDeleted, assets.StatusFailed} {
+		getter.asset.Status = status
+		if _, err := (attachmentUploads{assets: getter}).UploadByID(t.Context(), "identity-1", "asset-1"); err == nil {
+			t.Errorf("an upload in status %q opened", status)
+		}
 	}
 }

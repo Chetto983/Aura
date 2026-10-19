@@ -46,8 +46,41 @@ func (o *runtimeDocumentOpener) OpenDocument(
 	service := &documents.OpenService{
 		Index:   index,
 		Objects: identityObjectOpener{objects: objectStore, resolver: buildObjectResolverBundle(o.cfg, o.pool), bucket: o.cfg.ObjectStoreBucket},
+		Uploads: attachmentUploads{assets: buildAssetService(o.cfg, o.pool, objectStore)},
 	}
 	return service.OpenDocument(ctx, identityID, documentID)
+}
+
+// assetGetter is the one asset read attachmentUploads needs, owner-scoped.
+type assetGetter interface {
+	GetForIdentity(ctx context.Context, id, identityID string) (assets.Asset, error)
+}
+
+// attachmentUploads opens a file attached to a conversation by its asset id, from the bytes its
+// upload put in the owner's store. Only an upload the service accepted: one that never landed,
+// or was refused or deleted, has nothing anybody should read.
+type attachmentUploads struct {
+	assets assetGetter
+}
+
+func (u attachmentUploads) UploadByID(ctx context.Context, identityID, assetID string) (documents.OpenedDocument, error) {
+	asset, err := u.assets.GetForIdentity(ctx, assetID, identityID)
+	if err != nil {
+		return documents.OpenedDocument{}, err
+	}
+	switch asset.Status {
+	case assets.StatusAccepted, assets.StatusProcessing, assets.StatusComplete:
+	default:
+		return documents.OpenedDocument{}, fmt.Errorf("asset %s is %s", assetID, asset.Status)
+	}
+	return documents.OpenedDocument{
+		DocumentID: asset.ID,
+		FileName:   asset.FileName,
+		SourceKey:  asset.ObjectKey,
+		MIMEType:   asset.MIMEType,
+		SizeBytes:  asset.SizeBytes,
+		SHA256:     asset.ContentHash,
+	}, nil
 }
 
 // identityObjectOpener reads and writes objects with the OWNER's own credentials.

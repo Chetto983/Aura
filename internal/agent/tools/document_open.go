@@ -78,7 +78,7 @@ func (t *DocumentOpen) Spec() Spec {
 		Parameters: json.RawMessage(`{
   "type": "object",
   "properties": {
-    "document_id": {"type": "string", "description": "Document id from a document_search hit (doc_…) or a catalog uuid."},
+    "document_id": {"type": "string", "description": "Document id from a document_search hit (doc_…), or the asset_id of a file attached to the conversation (a photo or a clip too)."},
     "file_name": {"type": "string", "description": "Optional name for the written file (no directories). Defaults to the original file name."}
   },
   "required": ["document_id"]

@@ -33,6 +33,9 @@ func BuildAttachmentBlock(items []Asset) string {
 			fmt.Fprintf(&b, "- document_id: %s\n", asset.DocumentID)
 			fmt.Fprintf(&b, "- retrieval: Use document_search with a filename/topic query, then document_open with document_id=%q.\n", asset.DocumentID)
 		}
+		// The asset id opens the file even before the processing gives it a document id, and for
+		// a photo or a clip, which never get one (internal/documents/open.go UploadLookup).
+		fmt.Fprintf(&b, "- file: document_open with document_id=%q puts the original in /workspace/documents/ to edit or compute on.\n", asset.ID)
 		if asset.Summary != "" {
 			fmt.Fprintf(&b, "- summary: %s\n", truncateRunes(sanitizeLine(asset.Summary), maxSummaryRunes))
 		}
