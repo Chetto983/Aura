@@ -124,36 +124,24 @@ describe('FilesWorkspace and its provider', () => {
     expect(container.querySelector('[data-id=":body"] [data-id=":/clip.mp4"]')).toBeNull();
   });
 
-  it('opens a file in a new tab when nothing is picking files', async () => {
-    const opened = vi.spyOn(window, 'open').mockImplementation(() => null);
-    const { container } = render(<FilesWorkspace />);
-    const clip = await card(container, '/clip.mp4');
-
-    // Repeated until the widget answers: see FilesWorkspace.test.tsx on the dropped first
-    // double-click.
-    await waitFor(() => {
-      fireEvent.doubleClick(clip);
-      expect(opened).toHaveBeenCalledWith(
-        '/api/filemanager/direct?id=%2Fclip.mp4',
-        '_blank',
-        'noopener,noreferrer',
-      );
-    });
-    opened.mockRestore();
-  });
-
-  // iOS's home-screen app has no back button and its own cookies: a tab would leave it for a
-  // browser that holds no session (prd.md §3), so the file opens in the cockpit's preview.
-  it('opens a file in the cockpit preview in the iOS home-screen app', async () => {
-    Object.defineProperty(navigator, 'standalone', { value: true, configurable: true });
+  // The preview is where each kind has its viewer and its Craft app's Edit
+  // (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md, Acceptance 2). A raw tab had
+  // neither, and a browser blocked it as a pop-up; in iOS's home-screen app it also left for a
+  // browser holding no session (prd.md §3).
+  it('opens a file in the cockpit preview, never in a new tab', async () => {
     const opened = vi.spyOn(window, 'open').mockImplementation(() => null);
     try {
       const { container } = render(<FilesWorkspace />);
       const clip = await card(container, '/clip.mp4');
 
+      // Repeated until the widget answers, see FilesWorkspace.test.tsx on the dropped first
+      // double-click; but only while no preview is up, since every one re-renders the page and
+      // waitFor would answer each render with another double-click.
       const preview = await waitFor(() => {
+        const open = screen.queryByRole('dialog', { name: 'clip.mp4' });
+        if (open !== null) return open;
         fireEvent.doubleClick(clip);
-        return screen.getByRole('dialog', { name: 'clip.mp4' });
+        throw new Error('no preview yet');
       });
       expect(opened).not.toHaveBeenCalled();
       // The preview reads the file manager's own route; the asset route knows no such id.
@@ -162,7 +150,6 @@ describe('FilesWorkspace and its provider', () => {
       );
     } finally {
       opened.mockRestore();
-      Reflect.deleteProperty(navigator, 'standalone');
     }
   });
 

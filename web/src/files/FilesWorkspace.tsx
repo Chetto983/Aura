@@ -49,10 +49,8 @@ export default function FilesWorkspace({ mobileMenu }: FilesWorkspaceProps) {
 
   // The widget hands over a file manager entity; the preview needs a name to pick its
   // renderer by extension, since the listing carries no media type.
-  const previewInApp = useCallback((file: IParsedEntity | null): boolean => {
-    if (file === null || !isIOSHomeScreenApp()) return false;
-    setPreview({ id: file.id, file_name: file.name, mime_type: '' });
-    return true;
+  const showPreview = useCallback((file: IParsedEntity | null) => {
+    if (file !== null) setPreview({ id: file.id, file_name: file.name, mime_type: '' });
   }, []);
 
   // Several files at once: iOS's home-screen app hands them to one share sheet, a browser
@@ -141,19 +139,19 @@ export default function FilesWorkspace({ mobileMenu }: FilesWorkspaceProps) {
       // call. This one line replaces a handler per verb.
       api.setNext(provider);
       selection.attach(api);
-      // Open renders in a tab, download saves. The backend distinguishes the two and renders
-      // inline only the types that run no script (inlineSafeMIME). iOS's home-screen app gets
-      // neither: a tab or a download leaves it for a page with no way back, so both show the
-      // cockpit's own preview, whose save goes through the share sheet.
+      // Open shows the cockpit's preview, where each kind has its viewer and its Craft app's
+      // Edit; a raw tab had neither, and a browser blocked it as a pop-up. Download saves,
+      // except in iOS's home-screen app, where a download leaves it for a page with no way
+      // back: there it shows the preview too, whose save goes through the share sheet.
       api.on('open-file', ({ id }: { id: string }) => {
-        const file = api.getFile(id);
-        if (!previewInApp(file)) window.open(directURL(id, false), '_blank', 'noopener,noreferrer');
+        showPreview(api.getFile(id));
       });
       api.on('download-file', ({ id }: { id: string }) => {
-        if (!previewInApp(api.getFile(id))) void saveFiles([id]);
+        if (isIOSHomeScreenApp()) showPreview(api.getFile(id));
+        else void saveFiles([id]);
       });
     },
-    [previewInApp, provider, selection],
+    [showPreview, provider, selection],
   );
 
   const requestData = useCallback(
