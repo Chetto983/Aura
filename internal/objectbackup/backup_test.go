@@ -322,6 +322,20 @@ func TestBackupNeverDeletesThroughASymlinkUnderTheBlobs(t *testing.T) {
 	}
 }
 
+// An empty bucket's manifest lists no versions as [], not null: tools other than this package
+// read the file, and on the lab VM the empty shared bucket's manifest said null.
+func TestBackupWritesAnEmptyBucketsVersionsAsAList(t *testing.T) {
+	dir := t.TempDir()
+	backup(t, dir, newStore(), t0)
+	raw, err := os.ReadFile(filepath.Join(dir, bucket, manifestName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(raw, []byte(`"versions": []`)) {
+		t.Fatalf("manifest = %s, want an empty versions list", raw)
+	}
+}
+
 func TestBackupRefusesAManifestOfAnotherBucket(t *testing.T) {
 	dir, st := t.TempDir(), newStore()
 	put(t, st, "a", "body", "a.txt")

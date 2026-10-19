@@ -81,6 +81,9 @@ func readManifest(dir, bucket string) (Manifest, error) {
 }
 
 func (m Manifest) save(dir string) error {
+	if m.Versions == nil {
+		m.Versions = []Version{}
+	}
 	sort.SliceStable(m.Versions, func(i, j int) bool {
 		if m.Versions[i].Key != m.Versions[j].Key {
 			return m.Versions[i].Key < m.Versions[j].Key
