@@ -942,6 +942,13 @@ services:
     pull_policy: ${AURA_INGEST_PULL_POLICY:-never}
     container_name: aura-ingest
     restart: unless-stopped
+    # The media indexer asks the chat model whether it reads images, and on an Ollama route
+    # that model is on the host. Without this the probe could not resolve the name, every
+    # image fell back to aura-ocr-vl, and on the lab VM, which has no aura-ocr-vl, it failed
+    # (2026-10-19, gemma4:31b-cloud). scripts/ingest_media_e2e.sh passed only because it adds
+    # the same host itself.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
