@@ -5,11 +5,13 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/chetto1983/aura/internal/llm"
+	"github.com/chetto1983/aura/internal/multimodal"
 )
 
 // MediaOpener is the narrow owner-scoped read surface TurnMediaLoader needs;
@@ -76,11 +78,40 @@ func (l TurnMediaLoader) LoadContentPart(ctx context.Context, _ string, ownerID,
 	if err != nil || len(wantDigest) != sha256.Size || subtle.ConstantTimeCompare(digest[:], wantDigest) != 1 {
 		return llm.VerifiedContentPart{}, fmt.Errorf("asset digest changed")
 	}
-	return llm.VerifiedContentPart{
+	part := llm.VerifiedContentPart{
 		ID:           asset.ID,
 		MIMEType:     asset.MIMEType,
 		Digest:       hex.EncodeToString(digest[:]),
 		FallbackText: asset.Summary,
 		Bytes:        body,
-	}, nil
+	}
+	if asset.Modality == ModalityImage {
+		return visionReady(ctx, part), nil
+	}
+	return part, nil
+}
+
+// tooLargeToShow is what the model reads for a photo it is not shown.
+const tooLargeToShow = "The image is too large to show here; open the file to look at it."
+
+// visionReady hands the model the copy of an image a vision model can take, the one read_file and the
+// upload summary hand it (multimodal.DownscaleForVision). Measured live (2026-10-19): a 12.7 MB photo
+// sent whole held the turn's first model call past its 120 s deadline. A photo over the bound a decode
+// may hold in memory reaches the model as text: with no media type the projection sends that text
+// instead of bytes (llm.ProjectContentPart), and the agent opens the file to look at it. Any other
+// refusal keeps the original bytes, as DownscaleForVision asks of a caller that can fall back.
+func visionReady(ctx context.Context, part llm.VerifiedContentPart) llm.VerifiedContentPart {
+	prepared, err := multimodal.DownscaleForVision(ctx, part.Bytes, 0)
+	if errors.Is(err, multimodal.ErrImageTooManyPixels) {
+		part.MIMEType, part.Bytes = "", nil
+		part.FallbackText = strings.TrimSpace(part.FallbackText + " " + tooLargeToShow)
+		return part
+	}
+	if err != nil {
+		return part
+	}
+	if prepared.MIMEType != "" {
+		part.MIMEType, part.Bytes = prepared.MIMEType, prepared.Bytes
+	}
+	return part
 }
