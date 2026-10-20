@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '../../i18n/i18n';
 import { EmbeddingSpacePanel } from '../EmbeddingSpacePanel';
@@ -38,6 +38,70 @@ const tally = (type: string, other = 0, rejected = 0) => ({
 describe('EmbeddingSpacePanel', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('starts closed when every family is dense, with the gate in its header', async () => {
+    respond(200, {
+      space: 'es1-e0aa6accf0b79c6b',
+      space_label: 'local embeddinggemma-300M-Q8_0.gguf, 768d, recipe 1',
+      documents_space: 'es1-e0aa6accf0b79c6b',
+      documents_space_label: 'local',
+      floors_calibrated: true,
+      tenants: [
+        {
+          identity_id: 'id-1',
+          families: [
+            { family: 'memory', space: 'es1-a', open: true, types: [tally('FACT')] },
+            { family: 'documents', space: 'es1-a', open: true, types: [tally('Passage')] },
+          ],
+          stuck_documents: [],
+          ingest_status: 'ready',
+          ingest_errors: 0,
+        },
+      ],
+    });
+    renderPanel();
+
+    const toggle = await screen.findByRole('button', { name: /Embedding space/ });
+    expect(await within(toggle).findByText('Dense')).toBeTruthy();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('table')).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('table', { name: 'Memory' })).toBeTruthy();
+    expect(screen.getByText(/es1-e0aa6accf0b79c6b/)).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('opens by itself on a keyword-only family, and the operator can still close it', async () => {
+    respond(200, {
+      space: 'es1-b',
+      space_label: 'local',
+      documents_space: 'es1-b',
+      documents_space_label: 'local',
+      floors_calibrated: true,
+      tenants: [
+        {
+          identity_id: 'id-1',
+          families: [
+            { family: 'documents', space: 'es1-a', open: false, types: [tally('Passage', 3)] },
+          ],
+          stuck_documents: [],
+          ingest_status: 'ready',
+          ingest_errors: 0,
+        },
+      ],
+    });
+    renderPanel();
+
+    const toggle = await screen.findByRole('button', { name: /Embedding space/ });
+    expect(await within(toggle).findByText('1 family keyword only')).toBeTruthy();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('table')).toBeNull();
   });
 
   it('shows each family, its gate and the documents stuck in another space', async () => {
@@ -83,6 +147,8 @@ describe('EmbeddingSpacePanel', () => {
       tenants: [],
     });
     renderPanel();
+    // Nothing stored and nothing wrong: the panel starts closed, as on a healthy box.
+    fireEvent.click(await screen.findByRole('button', { name: /Embedding space/ }));
     expect(await screen.findByText('No identity has memory or documents yet.')).toBeTruthy();
     expect(screen.getByText('Relevance thresholds are uncalibrated for this model.')).toBeTruthy();
   });

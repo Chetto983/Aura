@@ -1,4 +1,6 @@
+import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   EMBEDDING_SPACE_QUERY_KEY,
@@ -7,6 +9,7 @@ import {
   type TenantSpaceReport,
 } from './embeddingSpaceApi';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 function FamilyTable({ family }: { readonly family: FamilyState }) {
   const { t, i18n } = useTranslation();
@@ -105,12 +108,49 @@ function TenantReport({ report }: { readonly report: TenantSpaceReport }) {
   );
 }
 
+// needsALook is true when the report asks the operator to act: a keyword-only family, a refused
+// text, a document stuck in another space or an ingest error.
+function needsALook(tenants: readonly TenantSpaceReport[]): boolean {
+  return tenants.some(
+    (report) =>
+      report.stuck_documents.length > 0 ||
+      report.ingest_errors > 0 ||
+      report.families.some(
+        (family) => !family.open || family.types.some((tally) => tally.rejected > 0),
+      ),
+  );
+}
+
+function SpaceGate({ tenants }: { readonly tenants: readonly TenantSpaceReport[] }) {
+  const { t } = useTranslation();
+  if (tenants.length === 0) {
+    return null;
+  }
+  const lexical = tenants.reduce(
+    (count, report) => count + report.families.filter((family) => !family.open).length,
+    0,
+  );
+  return lexical === 0 ? (
+    <Badge variant="success">{t('embeddingRoute.space.dense')}</Badge>
+  ) : (
+    <Badge variant="warning">{t('embeddingRoute.space.lexicalFamilies', { count: lexical })}</Badge>
+  );
+}
+
 // EmbeddingSpacePanel shows, per identity and family, where every stored vector stands against
 // the space Aura reads in (spec §10): a family with any vector elsewhere is keyword-only until
-// it is re-embedded, and a document that will not re-index is named here.
+// it is re-embedded, and a document that will not re-index is named here. The tables run to a
+// screen per identity, so the panel stays closed while the report needs no look; the gate in
+// its header says the rest.
 export function EmbeddingSpacePanel() {
   const { t } = useTranslation();
   const query = useQuery({ queryKey: EMBEDDING_SPACE_QUERY_KEY, queryFn: fetchEmbeddingSpace });
+  // null until the operator clicks: from then on their choice holds over the report's.
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const bodyId = useId();
+  const spaceError = query.data?.space_error ?? '';
+  const tenants = query.data?.tenants ?? [];
+  const open = toggled ?? (query.isError || spaceError !== '' || needsALook(tenants));
 
   let body;
   if (query.isPending) {
@@ -125,14 +165,13 @@ export function EmbeddingSpacePanel() {
         {t('embeddingRoute.space.error')}
       </p>
     );
-  } else if (query.data.space_error !== undefined && query.data.space_error !== '') {
+  } else if (spaceError !== '') {
     body = (
       <p role="alert" className="text-[13px] text-danger">
-        {t('embeddingRoute.space.spaceError', { message: query.data.space_error })}
+        {t('embeddingRoute.space.spaceError', { message: spaceError })}
       </p>
     );
   } else {
-    const tenants = query.data.tenants ?? [];
     body = (
       <>
         <p className="text-[13px] text-text">
@@ -157,15 +196,34 @@ export function EmbeddingSpacePanel() {
       aria-labelledby="embedding-space-heading"
       className="flex max-w-3xl flex-col gap-3 rounded-[var(--radius-md)] border border-border bg-surface-2 p-5"
     >
-      <div className="flex flex-col gap-1">
-        <h3 id="embedding-space-heading" className="text-[15px] font-semibold text-text">
-          {t('embeddingRoute.space.heading')}
-        </h3>
-        <p className="max-w-2xl text-[13px] leading-relaxed text-text-muted">
-          {t('embeddingRoute.space.body')}
-        </p>
+      <h3 id="embedding-space-heading" className="text-[15px] font-semibold text-text">
+        <Button
+          type="button"
+          variant="ghost"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => {
+            setToggled(!open);
+          }}
+          className="-mx-2 h-auto w-[calc(100%+1rem)] justify-between gap-2 px-2 py-1.5 text-[15px] font-semibold text-text"
+        >
+          <span className="flex items-center gap-2">
+            {open ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+            {t('embeddingRoute.space.heading')}
+          </span>
+          {query.isSuccess && spaceError === '' ? <SpaceGate tenants={tenants} /> : null}
+        </Button>
+      </h3>
+      <div id={bodyId} hidden={!open} className="flex flex-col gap-3">
+        {open ? (
+          <>
+            <p className="max-w-2xl text-[13px] leading-relaxed text-text-muted">
+              {t('embeddingRoute.space.body')}
+            </p>
+            {body}
+          </>
+        ) : null}
       </div>
-      {body}
     </section>
   );
 }

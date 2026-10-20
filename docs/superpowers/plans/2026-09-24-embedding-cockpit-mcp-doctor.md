@@ -287,6 +287,24 @@ func watchEmbeddingRoute(ctx context.Context, cancel func(), boot routeIdentity,
 documents answer `lexical_only`), spec §4/§7 amendments for the rulings below, ledger.
 - [ ] commit `docs: record plan 5 — upgrade note and the rulings the cockpit and watcher took`.
 
+### Task 8: the space panel closes when nothing needs a look (2026-10-20)
+
+The operator, on the lab VM's settings page: "QUI SAREBBE MEGLIO COLLASSARE LA CARD". Each
+identity's tables fill a screen, while on a healthy box every family says Dense.
+
+- [x] Failing tests (`EmbeddingSpacePanel.test.tsx`):
+  - closed when every family is dense, with Dense in its header; a click opens and closes it;
+  - open by itself on a keyword-only family, with "1 family keyword only" in its header, and the
+    operator can still close it.
+  - The test of an empty, uncalibrated report now opens the panel first: nothing there needs a
+    look.
+- [x] The header is the toggle; it opens by itself on a keyword-only family, a refused text, a
+  stuck document, an ingest error or a failed read. i18n `lexicalFamilies` in English and Italian.
+- [x] lint, typecheck, format and knip in WSL; the suite on Windows: 369 files, 3,203 tests,
+  statements 92.53%, branches 86.99%. A first run beside a measurement lost two `SharePage`
+  tests to a 1 s `waitFor`, which pass alone (23/23) and in the rerun.
+- [x] `internal/webui/dist` rebuilt on Windows.
+
 ### Close
 
 `go vet ./...`, `go test -race` on touched packages, deadcode, lint; coverage via
