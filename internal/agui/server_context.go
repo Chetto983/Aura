@@ -6,12 +6,14 @@ import (
 	"net/http"
 
 	"github.com/chetto1983/aura/internal/assets"
+	"github.com/chetto1983/aura/internal/documents"
 	"github.com/chetto1983/aura/internal/llm"
 	"github.com/chetto1983/aura/internal/redact"
 )
 
 // buildTurnUserMessage prepends the per-turn context blocks to the user message: this
-// turn's attachments (detailed) plus a catalog of the thread's other searchable documents
+// turn's attachments (detailed), the files named with @ (the ids document_open takes),
+// plus a catalog of the thread's other searchable documents
 // so the agent calls document_search even with no attachment this turn (Item 2 / spike
 // 077) without over-triggering on unrelated turns. Both blocks ride the user turn — a
 // cache-safe tail that leaves messages[0]/[1] byte-stable.
@@ -93,9 +95,22 @@ func (s *Server) buildTurnUserMessage(ctx context.Context, r *http.Request, thre
 	if userMsg != nil {
 		text = *userMsg
 	}
-	combined := s.assets.BuildTurnContext(ctx, catalogIdentity, threadID, attachments, text)
+	combined := s.assets.BuildTurnContext(ctx, catalogIdentity, threadID, attachments, mentionedFiles(ctx), text)
 	if combined == text {
 		return ctx, userMsg, 0, ""
 	}
 	return ctx, &combined, 0, ""
+}
+
+// mentionedFiles returns the object keys of the files the turn named with @. A folder only
+// narrows retrieval; a file is also something the model opens, and the text path the composer
+// wrote is not one any tool can open.
+func mentionedFiles(ctx context.Context) []string {
+	var keys []string
+	for _, scope := range documents.SourceScopesFromContext(ctx) {
+		if scope.Kind == documents.SourceScopeFile {
+			keys = append(keys, scope.Path)
+		}
+	}
+	return keys
 }

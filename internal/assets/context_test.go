@@ -25,7 +25,7 @@ func TestBuildTurnContextComposesAttachmentAndCatalogChannelAgnostic(t *testing.
 	svc := &Service{Store: store, DocumentScope: everythingIndexed{}}
 	ctx := context.Background()
 
-	withAttach := svc.BuildTurnContext(ctx, "u1", "t1", []Asset{store.assets["att"]}, "what torque?")
+	withAttach := svc.BuildTurnContext(ctx, "u1", "t1", []Asset{store.assets["att"]}, nil, "what torque?")
 	for _, want := range []string{"<attachments", "doc-att", "<knowledge_base", "doc-other", "User message:\nwhat torque?"} {
 		if !strings.Contains(withAttach, want) {
 			t.Fatalf("BuildTurnContext(attachment) missing %q:\n%s", want, withAttach)
@@ -39,7 +39,7 @@ func TestBuildTurnContextComposesAttachmentAndCatalogChannelAgnostic(t *testing.
 		t.Fatalf("attached doc must not also appear in the catalog block:\n%s", catalog)
 	}
 
-	noAttach := svc.BuildTurnContext(ctx, "u1", "t1", nil, "hello")
+	noAttach := svc.BuildTurnContext(ctx, "u1", "t1", nil, nil, "hello")
 	for _, want := range []string{"<knowledge_base", "doc-att", "doc-other", "doc-library", "User message:\nhello"} {
 		if !strings.Contains(noAttach, want) {
 			t.Fatalf("BuildTurnContext(no attachment) missing %q:\n%s", want, noAttach)
@@ -52,14 +52,14 @@ func TestBuildTurnContextComposesAttachmentAndCatalogChannelAgnostic(t *testing.
 		t.Fatalf("no-attachment turn must not render an attachment block:\n%s", noAttach)
 	}
 
-	libraryOnly := svc.BuildTurnContext(ctx, "u1", "", nil, "summarize library")
+	libraryOnly := svc.BuildTurnContext(ctx, "u1", "", nil, nil, "summarize library")
 	for _, want := range []string{"<knowledge_base", "doc-library", "User message:\nsummarize library"} {
 		if !strings.Contains(libraryOnly, want) {
 			t.Fatalf("BuildTurnContext(library only) missing %q:\n%s", want, libraryOnly)
 		}
 	}
 
-	if got := svc.BuildTurnContext(ctx, "", "", nil, "plain"); got != "plain" {
+	if got := svc.BuildTurnContext(ctx, "", "", nil, nil, "plain"); got != "plain" {
 		t.Fatalf("BuildTurnContext(no identity/thread/attachment) = %q, want raw text", got)
 	}
 }

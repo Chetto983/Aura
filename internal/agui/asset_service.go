@@ -30,7 +30,8 @@ type AssetService interface {
 	// unclaimed row is touched, so it can never move an attachment between threads.
 	AdoptIntoThread(ctx context.Context, identityID, assetID, threadID string) (assets.Asset, error)
 	// BuildTurnContext composes the channel-agnostic per-turn context (this turn's
-	// attachments + the thread's knowledge catalog) onto the user text — the shared seam
-	// the Telegram channel also uses, so the composition is not duplicated per channel.
-	BuildTurnContext(ctx context.Context, identityID, threadID string, attachments []assets.Asset, userText string) string
+	// attachments, the files named with @ by object key, the thread's knowledge catalog)
+	// onto the user text — the shared seam the Telegram channel also uses, so the
+	// composition is not duplicated per channel.
+	BuildTurnContext(ctx context.Context, identityID, threadID string, attachments []assets.Asset, mentioned []string, userText string) string
 }

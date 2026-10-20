@@ -241,6 +241,25 @@ func TestServerRunCarriesNormalizedGarageScopeOnlyInTheRunContext(t *testing.T) 
 	}
 }
 
+// A folder narrows retrieval only; a file is also a thing the model opens, so the turn context
+// resolves it to the id document_open takes (assets.BuildMentionBlock).
+func TestServerRunHandsTheMentionedFilesToTheTurnContext(t *testing.T) {
+	const tid = "88888888-8888-4888-8888-888888888888"
+	run := &scriptedRunner{events: textTurn("ok")}
+	assetSvc := &fakeAssetService{}
+	s := NewServer(run, &fakeConvStore{known: map[string]bool{tid: true}}, ServerConfig{})
+	s.SetAssetService(assetSvc)
+	body := `{"threadId":"` + tid + `","messages":[{"id":"m1","role":"user","content":"analyze @file:\"/prove-craft/Financial_Sample.xlsx\""}],` +
+		`"aura":{"document_scope":[{"kind":"file","path":"/prove-craft/Financial_Sample.xlsx"},{"kind":"folder","path":"/finance/"}]}}`
+	rec := serveRunWithPrincipal(t, s, body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
+	}
+	if len(assetSvc.mentioned) != 1 || assetSvc.mentioned[0] != "prove-craft/Financial_Sample.xlsx" {
+		t.Fatalf("mentioned files = %#v, want the one file", assetSvc.mentioned)
+	}
+}
+
 func TestServerRunRejectsInvalidGarageScopeBeforeTheRunner(t *testing.T) {
 	const tid = "77777777-7777-4777-8777-777777777777"
 	run := &scriptedRunner{events: textTurn("should not run")}

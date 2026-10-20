@@ -160,21 +160,29 @@ func WithContextBlocks(userText string, blocks ...string) string {
 }
 
 // BuildTurnContext composes the per-turn context blocks — this turn's attachments
-// (detailed, untrusted) plus the thread's knowledge catalog of the OTHER searchable
-// documents — onto userText, channel-agnostically. Both the AG-UI gateway and the
-// Telegram channel call this so attachment + catalog injection lives in ONE place (no
-// per-channel duplication). attachments are the assets attached THIS turn (already
-// resolved and authorized by the caller); the catalog is the thread's other searchable
-// docs (minus these) read from ListForThread. Both blocks ride the user-turn tail —
-// cache-safe, leaving messages[0]/[1] byte-stable. It is best-effort: an empty
-// identity/thread or a ListForThread error yields no catalog (never an error), and a
-// plain turn with nothing to add returns userText unchanged. Library-scoped assets are
-// also advertised for the identity so the product library can be searched from chat.
-func (s *Service) BuildTurnContext(ctx context.Context, identityID, threadID string, attachments []Asset, userText string) string {
+// (detailed, untrusted), the files named with @ (mentioned, object keys), and the thread's
+// knowledge catalog of the OTHER searchable documents — onto userText,
+// channel-agnostically. Both the AG-UI gateway and the Telegram channel call this so
+// attachment + catalog injection lives in ONE place (no per-channel duplication).
+// attachments are the assets attached THIS turn (already resolved and authorized by the
+// caller); a mentioned key is looked up under identityID only; the catalog is the
+// thread's other searchable docs (minus both) read from ListForThread. The blocks ride
+// the user-turn tail — cache-safe, leaving messages[0]/[1] byte-stable. It is
+// best-effort: an empty identity/thread or a ListForThread error yields no catalog
+// (never an error), and a plain turn with nothing to add returns userText unchanged.
+// Library-scoped assets are also advertised for the identity so the product library can
+// be searched from chat.
+func (s *Service) BuildTurnContext(ctx context.Context, identityID, threadID string, attachments []Asset, mentioned []string, userText string) string {
 	attachmentBlock := BuildAttachmentBlock(attachments)
-	excluded := make(map[string]bool, len(attachments))
+	mentions := s.resolveMentions(ctx, identityID, mentioned)
+	excluded := make(map[string]bool, len(attachments)+len(mentions))
 	for _, a := range attachments {
 		excluded[a.ID] = true
+	}
+	for _, m := range mentions {
+		if m.Asset.ID != "" {
+			excluded[m.Asset.ID] = true
+		}
 	}
 	var catalogBlock string
 	if s != nil && s.Store != nil && identityID != "" {
@@ -192,7 +200,7 @@ func (s *Service) BuildTurnContext(ctx context.Context, identityID, threadID str
 			return resolveIndexed(ctx, s.DocumentScope, identityID, ids)
 		})
 	}
-	return WithContextBlocks(userText, catalogBlock, attachmentBlock)
+	return WithContextBlocks(userText, catalogBlock, attachmentBlock, BuildMentionBlock(mentions))
 }
 
 func appendUniqueAssets(dst []Asset, src []Asset, seen map[string]bool) []Asset {

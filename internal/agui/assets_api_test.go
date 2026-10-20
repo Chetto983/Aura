@@ -199,6 +199,9 @@ type fakeAssetService struct {
 	// attachment presigned before its conversation existed gets bound to it.
 	adopted []string
 
+	// mentioned records the object keys of the files the turn named with @.
+	mentioned []string
+
 	listIdentityID string
 	listThreadID   string
 	getID          string
@@ -263,11 +266,13 @@ func (f *fakeAssetService) ListForThread(_ context.Context, identityID, threadID
 }
 
 // BuildTurnContext mirrors the real Service seam over the fake's data: it records the
-// (identity, thread) the catalog is keyed by and composes the thread's searchable docs
-// (listResp, minus the attached) + this turn's attachment block onto the user text.
-func (f *fakeAssetService) BuildTurnContext(_ context.Context, identityID, threadID string, attachments []assets.Asset, userText string) string {
+// (identity, thread) the catalog is keyed by and the mentioned files, and composes the
+// thread's searchable docs (listResp, minus the attached) + this turn's attachment block
+// onto the user text.
+func (f *fakeAssetService) BuildTurnContext(_ context.Context, identityID, threadID string, attachments []assets.Asset, mentioned []string, userText string) string {
 	f.listIdentityID = identityID
 	f.listThreadID = threadID
+	f.mentioned = mentioned
 	excluded := make(map[string]bool, len(attachments))
 	for _, a := range attachments {
 		excluded[a.ID] = true

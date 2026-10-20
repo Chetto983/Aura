@@ -53,7 +53,7 @@ func (composedTextAssets) OpenForIdentity(context.Context, string, string) (io.R
 
 func (composedTextAssets) WaitDocumentIndexed(context.Context, string, string) error { return nil }
 
-func (composedTextAssets) BuildTurnContext(_ context.Context, _, _ string, _ []assetspkg.Asset, userText string) string {
+func (composedTextAssets) BuildTurnContext(_ context.Context, _, _ string, _ []assetspkg.Asset, _ []string, userText string) string {
 	return "[CATALOG]\n" + userText
 }
 

@@ -280,7 +280,7 @@ func (r *recordingAssetIngress) GetForIdentity(_ context.Context, assetID, ident
 // composes the given catalog (the real one needs a store, absent here) and this turn's
 // attachment block, so the context reaches the turn exactly as the production path
 // renders it.
-func (r *recordingAssetIngress) BuildTurnContext(_ context.Context, _, _ string, attachments []assetspkg.Asset, userText string) string {
+func (r *recordingAssetIngress) BuildTurnContext(_ context.Context, _, _ string, attachments []assetspkg.Asset, _ []string, userText string) string {
 	return assetspkg.WithContextBlocks(userText, r.catalog, assetspkg.BuildAttachmentBlock(attachments))
 }
 

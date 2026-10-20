@@ -114,7 +114,7 @@ func (t *Telegram) composeTurnContext(ctx context.Context, c tele.Context, chatI
 			identityID = account.IdentityID
 		}
 	}
-	return t.deps.Assets.BuildTurnContext(ctx, identityID, convID(chatID), attachments, text)
+	return t.deps.Assets.BuildTurnContext(ctx, identityID, convID(chatID), attachments, nil, text)
 }
 
 func (t *Telegram) startTurn(
