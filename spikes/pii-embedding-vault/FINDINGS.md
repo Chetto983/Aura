@@ -225,9 +225,40 @@ longer on the VM.
 | 13 | **Cell by cell, the model leaks names in a table**: 17% of business names keep a readable name word, and it masks every locality, province and branch on the way (31.5% of the text). | VALIDATED on a 600-row sample |
 | 14 | **A table should be classified by column, not by cell.** A sample per column is enough to tell the name, seller and code columns from the locality and branch ones, and pseudonymizing a whole classified column covers every one of its cells, at the cost of a sample instead of hours. | PARTIAL: the per-column tag rates are measured; the column rule is derived, not built |
 
-**Labelled so far**: 1,347 occurrences in three real documents (20 personal in free text, 21
-business, 1,306 table cells). G10 asks for 200 per mandatory class; free-text names of people are
-still 4 occurrences, and email, contracts and conversations are not represented.
+### A fourth real document: a work group chat
+
+A WhatsApp group export the operator saved from their phone: 1,835 messages from 13 senders over 200
+days, 160 KB. (Exporting the lab VM's WhatsApp store directly was refused by Claude Code's auto-mode
+classifier as personal-data handling; the operator exported the chat instead.) Labels come from the
+structure: every sender name in a message header (1,835), and every capitalized mention of a part
+of a sender's name inside a message (94). Names of people outside the group were checked by hand:
+every capitalized word left readable in the bodies was listed and the clear person names counted,
+and Rizzo's name spans in the bodies were sorted into people and not-people. Lower-case names are
+not in that count, so the misses below are a floor.
+
+| | Rizzo (patterns + model) | + vault propagation by word |
+|---|---|---|
+| sender names in headers, of 1,835 | 1,418 full, 266 partial | 1,709; the 126 left are one sender with a one-word name the model never tags |
+| group members named inside messages, of 94 | **48** | **94** |
+| people outside the group named inside messages | 34 found, at least 19 missed | unchanged: a name never found once has nothing to propagate |
+| Rizzo's name spans in bodies that are not people | 22 of 56 (brands, words) | |
+
+The 19 missed are mostly a surname alone or a given name alone, mentioned once or twice. Ten of
+them appear as a word in the customer master export above, so seeding the vault from the
+identity's own structured sources would catch about half; matching every word of 58,634 business
+names would also mask ordinary words, so that seed needs the column classification of finding 14.
+Coordinates in a shared location were masked only in part, and the Maps link repeating them stays
+readable while URLs are excluded. `analyze` took 80 s on eight cores.
+
+| # | Finding | Verdict |
+|---|---|---|
+| 15 | **In a chat the model alone finds half the members named in the text** (48 of 94); the vault, propagating the names it learns from the headers, finds all of them. A sender's name is chat metadata, so seeding it from the channel covers the headers completely, the one-word name included. | VALIDATED on one chat |
+| 16 | **People outside the conversation are the residue**: at least 19 of about 53 clear mentions stay readable (a recall near 64%), and the vault cannot propagate what was never found. Seeding from the identity's contacts and customers would recover about half of them. Protection that loses nothing is not reached by this detector on chat text. | VALIDATED on one chat; a floor, since lower-case names were not counted |
+
+**Labelled so far**: about 3,330 occurrences in four real documents: 20 personal in the bill and
+the offer, 21 business, 1,306 table cells, and about 1,980 in the chat (1,835 headers, 94 member
+mentions, about 53 outsiders). G10 asks for 200 per mandatory class; email, contracts and
+conversations between people outside work are still not represented.
 
 ## OpenRouter guardrails, read 2026-10-20
 
