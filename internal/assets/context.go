@@ -57,8 +57,7 @@ func WithAttachmentBlock(userText string, items []Asset) string {
 
 // DocumentScopeResolver answers the only question that decides whether a document can be
 // retrieved: does the index actually hold it? *documents.ArcadeRetrievalControlPlane
-// satisfies it. Declared here rather than imported so internal/assets keeps no dependency on
-// the documents package.
+// satisfies it; the knowledge catalog and the mentioned files both ask it.
 type DocumentScopeResolver interface {
 	ResolveDocumentScope(ctx context.Context, identityID string, documentIDs []string) ([]string, error)
 }

@@ -33,6 +33,12 @@ import (
 // processing row on the lab VM, the oldest a week old, sat over a job that had succeeded.
 type DocumentProcessor struct{}
 
+// bucketSourceKind is the source kind the index files every object of an identity's bucket
+// under, whatever channel the bytes arrived on (web, telegram, cli, the file manager): what the
+// index records is where the bytes are, so an id derived from anything else names a different
+// thing.
+const bucketSourceKind = "s3"
+
 // ProcessAsset returns the document identity the index will file this object under.
 //
 // The fenced claim is still required. The work it guards is gone, but the guarantee is
@@ -46,11 +52,8 @@ func (p *DocumentProcessor) ProcessAsset(ctx context.Context, asset Asset) (Resu
 	if claim.IdentityID != asset.IdentityID || (claim.AssetID != "" && claim.AssetID != asset.ID) {
 		return Result{}, fmt.Errorf("document processor ingestion claim does not own the asset")
 	}
-	// "s3", not asset.SourceKind: the source kind here names the CHANNEL the upload arrived
-	// on (web, telegram, cli), and the channels are wrappers over one door. What the index
-	// records is where the bytes are -- the bucket -- so the id has to be derived from that
-	// or the two sides are naming different things.
-	documentID, err := documents.SearchDocumentID(asset.IdentityID, "s3", asset.ObjectKey)
+	// Not asset.SourceKind: that names the channel the upload arrived on.
+	documentID, err := documents.SearchDocumentID(asset.IdentityID, bucketSourceKind, asset.ObjectKey)
 	if err != nil {
 		return Result{}, err
 	}

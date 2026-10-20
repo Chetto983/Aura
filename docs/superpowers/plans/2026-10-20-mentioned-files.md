@@ -1,6 +1,7 @@
 # A file named with @ reaches the model by its id: implementation plan
 
-**Status (2026-10-20):** Task 1 done; Task 2 open. The operator asked for the conversation
+**Status (2026-10-20):** Tasks 1 and 3 done; Task 2's first live run found the gap Task 3 closes,
+its rerun is open. The operator asked for the conversation
 "Analisi approfondita file Financial Sample" to be read for its frictions ("TROVA LE FRIZIONI"),
 then approved fixing the first one ("VAI").
 
@@ -13,8 +14,10 @@ works on the file's current version instead of passing the file manager's path t
 **Architecture:**
 - `internal/agui/server_context.go` hands the turn's file scopes (object keys) to
   `BuildTurnContext`; folders stay a retrieval filter only.
-- `internal/assets/context_mentions.go` looks each key up under the turn's identity
-  (`Store.ByObjectKey`) and renders a `<mentioned_files>` block beside the attachments.
+- `internal/assets/context_mentions.go` names each key the way the index does
+  (`SearchDocumentID(identity, "s3", key)`), asks the index whether it holds it, looks up the
+  identity's upload row on the key (`Store.ByObjectKey`), and renders a `<mentioned_files>` block
+  beside the attachments.
 - Telegram has no `@` mention and passes none.
 
 **Tech Stack:** Go 1.27.
@@ -51,8 +54,9 @@ Both conversations on `@file:"/prove-craft/Financial_Sample.xlsx"`:
   model calls `document_open` when it works on the file.
 - **The block warns about a box tool's open file.** GridCraft keeps one workbook per identity
   across conversations, so a workbook already open may be an older copy.
-- **A key with no asset row is still listed**, with the note that `document_open` cannot reach it,
-  so the model does not retry the path.
+- **A key nothing holds is still listed**, with the note that it cannot be reached, so the model
+  does not retry the path. (Task 1 said that of any key without an asset row, which is every file
+  the file manager writes; Task 3 corrects it.)
 
 ## File structure
 
@@ -77,7 +81,29 @@ Both conversations on `@file:"/prove-craft/Financial_Sample.xlsx"`:
 
 ### Task 2: on the lab VM, with the real agent
 
-- [ ] Push, publish edge, wait for the VM's updater.
-- [ ] The operator asks the analysis again with `@file`; the tool log shows `document_open` with
-  the asset id before any GridCraft call, and no `ENOENT`.
+- [x] Push, publish edge, wait for the VM's updater (`85cfe66ba`, applied 2026-10-20).
+- [x] First run (operator, conversation `01a158d1-…`, 10:18 UTC):
+  - `@file:"/prove-craft/Financial_Sample.xlsx" apri il file e dimmi cosa vedi`;
+  - no `ENOENT`, and GridCraft opened the current copy (sha `e9c1c41d…`, Q2 included).
+  - The block told the model "no asset holds this path, so document_open cannot reach it", which
+    was false: a file the file manager writes has no asset row, only the index's document
+    (`SearchDocumentID(identity, "s3", key)` = `doc_3c6de60c…`, the id the model then found
+    through `document_search`). The design assumed an asset row without checking one existed.
+- [ ] After Task 3: the same request, with `document_open` on the block's `doc_…` id before any
+  GridCraft call.
 - [ ] Record the run in `docs/superpowers/verification/`.
+
+### Task 3: name the file the way the index does (2026-10-20)
+
+- [x] Failing tests:
+  - a file-manager file with no asset row but indexed gets its `doc_…` id and the
+    `document_open` line, and no asset id;
+  - an upload the index holds opens by the document id, one it does not hold yet by the asset
+    id;
+  - a key nothing holds says it cannot be reached;
+  - the isolation test now covers the index too.
+- [x] `resolveMentions` derives `SearchDocumentID(identity, "s3", key)`, asks `DocumentScope`
+  which ids the index holds, and looks up the upload row. `bucketSourceKind` names `"s3"` for it
+  and for `DocumentProcessor`.
+- [x] `go vet`, build, `go test` and `-race` on `internal/assets`, `internal/agui` and
+  `internal/channels/telegram`; golangci-lint: 0 issues.

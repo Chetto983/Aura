@@ -5,16 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/chetto1983/aura/internal/documents"
 )
 
-// MentionedFile is a file the user named with @ in the composer: its object key and, when the
-// identity has an asset row on that key, the asset.
+// MentionedFile is a file the user named with @ in the composer, by its object key in the
+// identity's bucket. DocumentID is the index's name for it; Indexed says the index holds it;
+// Asset is the upload row on the key, which only a file sent through chat or the library has.
 type MentionedFile struct {
-	Key   string
-	Asset Asset
+	Key        string
+	DocumentID string
+	Indexed    bool
+	Asset      Asset
 }
 
 // BuildMentionBlock tells the model how to reach the files the user named with @. The message
@@ -31,42 +37,70 @@ func BuildMentionBlock(files []MentionedFile) string {
 	for i, file := range files {
 		fmt.Fprintf(&b, "\nFile F%d:\n", i+1)
 		fmt.Fprintf(&b, "- path: /%s\n", sanitizeLine(file.Key))
-		asset := file.Asset
-		if asset.ID == "" {
-			b.WriteString("- no asset holds this path, so document_open cannot reach it; document_search is limited to it this turn.\n")
-			continue
+		name := file.Asset.FileName
+		if name == "" {
+			name = path.Base(file.Key)
 		}
-		fmt.Fprintf(&b, "- asset_id: %s\n", asset.ID)
-		fmt.Fprintf(&b, "- filename: %s\n", sanitizeLine(asset.FileName))
-		if asset.DocumentID != "" {
-			fmt.Fprintf(&b, "- document_id: %s\n", asset.DocumentID)
+		fmt.Fprintf(&b, "- filename: %s\n", sanitizeLine(name))
+		if file.Indexed {
+			fmt.Fprintf(&b, "- document_id: %s\n", file.DocumentID)
 		}
-		fmt.Fprintf(&b, "- file: document_open with document_id=%q writes its current version to /workspace/documents/.\n", asset.ID)
-		if asset.Summary != "" {
-			fmt.Fprintf(&b, "- summary: %s\n", truncateRunes(sanitizeLine(asset.Summary), maxSummaryRunes))
+		if file.Asset.ID != "" {
+			fmt.Fprintf(&b, "- asset_id: %s\n", file.Asset.ID)
+		}
+		switch {
+		case file.Indexed:
+			fmt.Fprintf(&b, "- file: document_open with document_id=%q writes its current version to /workspace/documents/.\n", file.DocumentID)
+		case file.Asset.ID != "":
+			// The index has not reached the upload yet; its asset id opens it already.
+			fmt.Fprintf(&b, "- file: document_open with document_id=%q writes its current version to /workspace/documents/.\n", file.Asset.ID)
+		default:
+			b.WriteString("- the index does not hold this file and no upload does, so document_open and document_search cannot reach it yet; tell the user.\n")
+		}
+		if file.Asset.Summary != "" {
+			fmt.Fprintf(&b, "- summary: %s\n", truncateRunes(sanitizeLine(file.Asset.Summary), maxSummaryRunes))
 		}
 	}
 	b.WriteString("\n</mentioned_files>\n\n")
 	return b.String()
 }
 
-// resolveMentions looks up the identity's asset row on each mentioned key. A key with no row,
-// or one the lookup fails on, stays without an asset: the block still says its path opens
-// nothing.
+// resolveMentions names each mentioned key the way the index does, asks the index which of those
+// documents it holds, and looks up the identity's upload row on the key. A lookup that fails
+// leaves its part empty, and the block then says less, never something false.
 func (s *Service) resolveMentions(ctx context.Context, identityID string, keys []string) []MentionedFile {
 	files := make([]MentionedFile, 0, len(keys))
 	for _, key := range keys {
-		file := MentionedFile{Key: key}
-		if s != nil && s.Store != nil && identityID != "" {
-			asset, err := s.Store.ByObjectKey(ctx, identityID, key)
-			switch {
-			case err == nil:
-				file.Asset = asset
-			case !errors.Is(err, pgx.ErrNoRows):
-				slog.Warn("aura assets: mentioned file lookup failed — the turn names it without an id", "err", err)
-			}
+		files = append(files, MentionedFile{Key: key})
+	}
+	if s == nil || identityID == "" || len(files) == 0 {
+		return files
+	}
+	ids := make([]string, 0, len(files))
+	for i := range files {
+		if id, err := documents.SearchDocumentID(identityID, bucketSourceKind, files[i].Key); err == nil {
+			files[i].DocumentID = id
+			ids = append(ids, id)
 		}
-		files = append(files, file)
+		files[i].Asset = s.uploadOnKey(ctx, identityID, files[i].Key)
+	}
+	indexed := resolveIndexed(ctx, s.DocumentScope, identityID, ids)
+	for i := range files {
+		files[i].Indexed = indexed[files[i].DocumentID]
 	}
 	return files
+}
+
+func (s *Service) uploadOnKey(ctx context.Context, identityID, key string) Asset {
+	if s.Store == nil {
+		return Asset{}
+	}
+	asset, err := s.Store.ByObjectKey(ctx, identityID, key)
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			slog.Warn("aura assets: mentioned file's upload lookup failed — the turn names it without an asset id", "err", err)
+		}
+		return Asset{}
+	}
+	return asset
 }
