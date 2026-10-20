@@ -163,6 +163,33 @@ for 2.2 KB) this bill would take about a minute; that figure is an extrapolation
 | 9 | **Rizzo's default labels mask the meaning away**: 110 amounts and 62 dates in a bill. Excluding the labels that are not personal data halves the masking and keeps every personal occurrence. Company names, the supplier's VAT number and its addresses stay masked (65 of 66), so a policy that wants them readable needs a list of the identity's counterparties, or a different label set. | VALIDATED on one document |
 | 10 | **At 18.7 s for one bill on two cores, the model belongs to ingestion, not to the turn.** Once ingested, a document's values are in the vault, and pseudonymizing the turn by dictionary takes milliseconds (0.09 s for 217 texts above). A file opened directly without ingestion would still pay the model's cost. | PARTIAL: the split is measured, the ingestion-time path is not built |
 
+### A second real document: a commercial offer
+
+A `.docx` offer between two companies, the operator's and a client's, naming one contact and a
+third, end customer: 9.3 KB of text, read with the standard library from the body, headers,
+footers and notes. Same rules: run on the operator's PC, nothing committed but counts. Labels:
+2 personal occurrences (the contact's name, a mobile-style phone); 19 business ones (the three
+companies' names in five forms, two addresses, two VAT numbers, an email, a website, the offer
+number); 9 mentions of public manufacturers' brands, which should stay readable.
+
+| detector | personal, of 2 | business, of 19 | brands masked, of 9 | masked |
+|---|---|---|---|---|
+| Rizzo's patterns alone | 1 (the phone) | 3, 1 partial | 0 | 1.0% |
+| patterns + model | 2 | 14 | 5 | 3.8% |
+| without AMOUNT, DATE, URL, TIME, + vault propagation of exact values | 2 | 13 | 9 | 3.7% |
+| the same, propagating each proper word of a company found once | 2 | **18** | 9 | 4.3% |
+
+The model missed five mentions of one company written differently from its letterhead; once the
+letterhead's name is in the vault word by word, every mention is replaced. The last miss is that
+company's website, a URL the policy leaves readable. `analyze` took 3.7 s on two cores.
+
+Across both documents the model with the patterns found **20 of 20 personal occurrences**.
+
+| # | Finding | Verdict |
+|---|---|---|
+| 11 | **The vault closes what the model finds once and misses later**, if it propagates a company by its proper words: 13 → 18 of 19 business occurrences. Exact-value propagation adds nothing here, as on the bill. | VALIDATED on one document |
+| 12 | **Public names need an allowlist.** Manufacturers' brands are tagged ORG, and propagation masks every mention: 9 of 9. Nothing about them is personal or confidential, and masking them takes the meaning out of a technical offer. | VALIDATED on one document |
+
 ## OpenRouter guardrails, read 2026-10-20
 
 From the guardrails page and its Sensitive Info page:
