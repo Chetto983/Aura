@@ -190,6 +190,45 @@ Across both documents the model with the patterns found **20 of 20 personal occu
 | 11 | **The vault closes what the model finds once and misses later**, if it propagates a company by its proper words: 13 → 18 of 19 business occurrences. Exact-value propagation adds nothing here, as on the bill. | VALIDATED on one document |
 | 12 | **Public names need an allowlist.** Manufacturers' brands are tagged ORG, and propagation masks every mention: 9 of 9. Nothing about them is personal or confidential, and masking them takes the meaning out of a technical offer. | VALIDATED on one document |
 
+### A third real document: a customer master export
+
+An `.xlsx` export of 58,634 customers in 12 columns: customer code, business name, locality,
+province, two category descriptions, branch code and name, payment code and description, internal
+and external seller. Read with the standard library; 600 rows drawn with a fixed seed and rendered
+as Aura's ingest renders a sheet (`Riga N: Header: value; …`), 166 KB, with the offset of every
+cell. The labels come from the columns: every cell of the code, business-name and seller columns
+must be masked (1,306 cells); the other 4,788 should stay readable. A business name with a legal
+form counts as a company (247); the rest are people or sole traders (353), a heuristic used only
+to split the counts. Rizzo ran with 8 threads, once, to keep the time down.
+
+| detector | codes, of 600 | companies, of 247 | people / sole traders, of 353 | sellers, of 106 | other cells masked | masked |
+|---|---|---|---|---|---|---|
+| Rizzo's patterns alone | 0 | 0 | 0 | 0 | 0 | 0.0% |
+| patterns + model | 600 | 201 | 266 | 106 | every locality, province and branch | 31.5% |
+| without AMOUNT, DATE, URL, TIME | 74 | 201 | 266 | 106 | the same | 27.9% |
+
+Of the 117 business names the model covers only partly, 29 leave only a legal form or a connector
+readable; **84 leave a word of the name**. With the 16 it misses, 100 of 600 business names (17%)
+let at least one name word through. The model tags 526 of the 600 customer codes AMOUNT, so a
+policy that drops amounts drops them. Word-level vault propagation moves the people's misses from
+14 to 5 and changes little else.
+
+By column, though, the model separates the kinds cleanly: business name tagged in 584 of 600
+cells (FULLNAME 291, ORG 282), both seller columns in every cell (FULLNAME), the code in every
+cell, locality in every cell (CITY 564), province in every cell, the branch code in 596 (CATASTO).
+
+Time: 79 s for 166 KB on eight cores, so about two hours for the whole file on the PC and far
+longer on the VM.
+
+| # | Finding | Verdict |
+|---|---|---|
+| 13 | **Cell by cell, the model leaks names in a table**: 17% of business names keep a readable name word, and it masks every locality, province and branch on the way (31.5% of the text). | VALIDATED on a 600-row sample |
+| 14 | **A table should be classified by column, not by cell.** A sample per column is enough to tell the name, seller and code columns from the locality and branch ones, and pseudonymizing a whole classified column covers every one of its cells, at the cost of a sample instead of hours. | PARTIAL: the per-column tag rates are measured; the column rule is derived, not built |
+
+**Labelled so far**: 1,347 occurrences in three real documents (20 personal in free text, 21
+business, 1,306 table cells). G10 asks for 200 per mandatory class; free-text names of people are
+still 4 occurrences, and email, contracts and conversations are not represented.
+
 ## OpenRouter guardrails, read 2026-10-20
 
 From the guardrails page and its Sensitive Info page:
