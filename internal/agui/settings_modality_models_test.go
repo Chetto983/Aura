@@ -10,9 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/chetto1983/aura/internal/embeddings"
 	"github.com/chetto1983/aura/internal/llm"
 )
 
@@ -42,9 +44,10 @@ func TestModalityModelRoutesAskForTheirOwnModalityAndReturnPickerRows(t *testing
 		{"/api/settings/speech-models?base_url=http%3A%2F%2Fattacker.test%2Fv1", "speech"},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
+			// Windows long enough for an embedding route; the voice rows ignore them.
 			catalog := &fakeModalityCatalog{models: []llm.ModelCatalogEntry{
-				{ID: "openai/whisper-1", SupportedVoices: []string{"alloy"}},
-				{ID: "qwen/qwen3-asr-1.7b", SupportedVoices: []string{"nova"}},
+				{ID: "openai/whisper-1", SupportedVoices: []string{"alloy"}, ContextWindow: 8192},
+				{ID: "qwen/qwen3-asr-1.7b", SupportedVoices: []string{"nova"}, ContextWindow: 8192},
 			}}
 			rows := decodeMediaRows(t, getMediaModels(t, modalityCatalogServer(catalog), tc.target))
 			if len(catalog.asked) != 1 || catalog.asked[0] != tc.modality {
@@ -76,6 +79,51 @@ func TestSpeechModelsReturnSupportedVoicesAndDropUncallableRows(t *testing.T) {
 		"id": "qwen/qwen-audio-3.0-tts-flash", "kind": "speech", "has_price": false,
 		"voices": []any{"loongjohn", "longanhuan_v3.6"},
 	})
+}
+
+// The picker offers only what works (operator, 2026-10-20: "l'utente sceglie solo quello che
+// funziona"). A model that takes fewer than 2,048 tokens would cut every passage; one that
+// refuses `dimensions` fails every request once applied, as mistral-embed-2312 did on the lab
+// VM. Only the long-enough models are checked, and Refresh asks for a fresh check.
+func TestEmbeddingModelsOfferOnlyTheModelsThatWork(t *testing.T) {
+	catalog := &fakeModalityCatalog{models: []llm.ModelCatalogEntry{
+		{ID: "google/gemini-embedding-2", ContextWindow: 8192},
+		{ID: "mistralai/mistral-embed-2312", ContextWindow: 8192},
+		{ID: "baai/bge-base-en-v1.5", ContextWindow: 512},
+		{ID: "vendor/short-top-provider", ContextWindow: 8192, TopProviderContextWindow: 512},
+	}}
+	s := modalityCatalogServer(catalog)
+	routes := &fakeEmbeddingRoutes{compatible: map[string]bool{"google/gemini-embedding-2": true}}
+	s.SetEmbeddingRoutes(routes)
+
+	rows := decodeMediaRows(t, getMediaModels(t, s, "/api/settings/embeddings-models?refresh=1"))
+
+	if len(rows) != 1 {
+		t.Fatalf("rows = %v, want only the model that works", rows)
+	}
+	assertRow(t, rows[0], map[string]any{"id": "google/gemini-embedding-2", "kind": "embeddings", "has_price": false})
+	if len(routes.compatAsked) != 1 ||
+		!slices.Equal(routes.compatAsked[0], []string{"google/gemini-embedding-2", "mistralai/mistral-embed-2312"}) ||
+		!routes.compatRefresh[0] {
+		t.Fatalf("checked %v (refresh %v), want the two long-enough models, refreshed", routes.compatAsked, routes.compatRefresh)
+	}
+}
+
+// Without a key nothing can be checked, so the picker offers every model long enough; the
+// route preview still refuses one that does not answer.
+func TestEmbeddingModelsWithoutAKeyOfferEveryModelLongEnough(t *testing.T) {
+	catalog := &fakeModalityCatalog{models: []llm.ModelCatalogEntry{
+		{ID: "google/gemini-embedding-2", ContextWindow: 8192},
+		{ID: "baai/bge-base-en-v1.5", ContextWindow: 512},
+	}}
+	s := modalityCatalogServer(catalog)
+	s.SetEmbeddingRoutes(&fakeEmbeddingRoutes{compatErr: embeddings.ErrNoCredential})
+
+	rows := decodeMediaRows(t, getMediaModels(t, s, "/api/settings/embeddings-models"))
+
+	if len(rows) != 1 || rows[0]["id"] != "google/gemini-embedding-2" {
+		t.Fatalf("rows = %v, want the long-enough model", rows)
+	}
 }
 
 func TestModalityModelsMapCatalogFailuresToBadGateway(t *testing.T) {

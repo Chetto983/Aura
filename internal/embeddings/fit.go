@@ -39,7 +39,7 @@ func (c *Client) InputLimit(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("input limit: %w", err)
 	}
-	limit, err := inputLimitOf(entry)
+	limit, err := InputLimitOf(entry)
 	if err != nil {
 		return 0, fmt.Errorf("input limit: %w", err)
 	}
@@ -69,8 +69,8 @@ func (c *Client) catalogEntry(ctx context.Context) (llm.ModelCatalogEntry, error
 	return entry, nil
 }
 
-// inputLimitOf is the smaller of the model's window and its top provider's.
-func inputLimitOf(entry llm.ModelCatalogEntry) (int, error) {
+// InputLimitOf is the smaller of the model's window and its top provider's.
+func InputLimitOf(entry llm.ModelCatalogEntry) (int, error) {
 	limit := entry.ContextWindow
 	if top := entry.TopProviderContextWindow; top > 0 && top < limit {
 		limit = top

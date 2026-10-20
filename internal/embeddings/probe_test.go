@@ -15,13 +15,15 @@ import (
 )
 
 // probeServer answers the catalogue at catalogPath with catalogue and every embedding request
-// with vectors of the widths given, one per input in turn. It records what was embedded and
-// whether a request named a width.
+// with vectors of the widths given, one per input in turn, or of the width a request names, as
+// the hosted models that take `dimensions` do; refuseWidth answers such a request with 422
+// instead. It records what was embedded and the width each embedding request named (0 for none).
 type probeServer struct {
 	*httptest.Server
 	requests     atomic.Int32
 	embedded     []string
-	askedWidth   bool
+	askedWidths  []int
+	refuseWidth  bool
 	bearer       string
 	catalogPath  string
 	catalogue    string
@@ -41,13 +43,21 @@ func newProbeServer(t *testing.T, catalogPath, catalogue, embedPath string, widt
 		case probe.embedPath:
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			_, probe.askedWidth = body["dimensions"]
+			asked, _ := body["dimensions"].(float64)
+			probe.askedWidths = append(probe.askedWidths, int(asked))
+			if asked > 0 && probe.refuseWidth {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
 			inputs, _ := body["input"].([]any)
 			data := make([]map[string]any, len(inputs))
 			for index, input := range inputs {
 				text, _ := input.(string)
 				probe.embedded = append(probe.embedded, text)
 				width := probe.vectorWidths[min(index, len(probe.vectorWidths)-1)]
+				if asked > 0 {
+					width = int(asked)
+				}
 				vector := make([]float64, width)
 				vector[0] = 1
 				data[index] = map[string]any{"index": index, "embedding": vector}
@@ -78,13 +88,14 @@ func TestProbeRouteMeasuresTheLocalSidecar(t *testing.T) {
 	if !slices.Equal(server.embedded, probeTexts) {
 		t.Fatalf("embedded %q, want the synthetic batch and nothing else", server.embedded)
 	}
-	if server.askedWidth || server.bearer != "" {
-		t.Fatalf("the local probe asked a width (%v) or sent a key (%q)", server.askedWidth, server.bearer)
+	if !slices.Equal(server.askedWidths, []int{0}) || server.bearer != "" {
+		t.Fatalf("the local probe asked widths %v or sent a key (%q): want one request naming none", server.askedWidths, server.bearer)
 	}
 }
 
 // The width a model answers with no `dimensions` field is its own: that is what decides
-// whether truncation to the stored width is needed at all.
+// whether truncation to the stored width is needed at all. Then the probe asks for the stored
+// width, as every hosted request does.
 func TestProbeRouteReadsTheHostedPriceLimitAndNativeWidth(t *testing.T) {
 	server := newProbeServer(t, "/api/v1/embeddings/models",
 		`{"data":[{"id":"vendor/embed","context_length":8192,"pricing":{"prompt":"0.00000002","completion":"0"}}]}`,
@@ -100,8 +111,20 @@ func TestProbeRouteReadsTheHostedPriceLimitAndNativeWidth(t *testing.T) {
 	if got.NativeWidth != 4096 || got.InputLimit != 8192 || !got.HasPrice || math.Abs(got.PricePer1M-0.02) > 1e-9 {
 		t.Fatalf("probe = %+v, want width 4096, limit 8192, $0.02 per 1M tokens", got)
 	}
-	if server.askedWidth || server.bearer != "Bearer key" {
-		t.Fatalf("asked width %v, bearer %q: want the native width and the key", server.askedWidth, server.bearer)
+	if !slices.Equal(server.askedWidths, []int{0, 768}) || server.bearer != "Bearer key" {
+		t.Fatalf("asked widths %v, bearer %q: want the native width, then 768, with the key", server.askedWidths, server.bearer)
+	}
+}
+
+// Measured 2026-10-20 on the lab VM: the preview accepted mistral-embed-2312, which answers its
+// native width but refuses `dimensions` with 422, and every request after the apply failed.
+func TestProbeRouteRefusesAHostedModelThatRejectsDimensions(t *testing.T) {
+	server := newProbeServer(t, "/api/v1/embeddings/models",
+		`{"data":[{"id":"vendor/embed","context_length":8192}]}`, "/api/v1/embeddings", 1024)
+	server.refuseWidth = true
+	embed := config.EmbedConfig{CloudModel: "vendor/embed", CloudBaseURL: server.URL + "/api"}
+	if _, err := ProbeRoute(t.Context(), server.Client(), embed, "key", 768); !RejectsInput(err) {
+		t.Fatalf("err = %v, want the model's refusal of dimensions", err)
 	}
 }
 

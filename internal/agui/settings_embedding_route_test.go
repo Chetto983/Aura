@@ -31,6 +31,16 @@ type fakeEmbeddingRoutes struct {
 	workAsked         []int
 	dims              int
 	environment       config.EmbedConfig
+	compatible        map[string]bool
+	compatErr         error
+	compatAsked       [][]string
+	compatRefresh     []bool
+}
+
+func (f *fakeEmbeddingRoutes) CompatibleModels(_ context.Context, models []string, refresh bool) (map[string]bool, error) {
+	f.compatAsked = append(f.compatAsked, models)
+	f.compatRefresh = append(f.compatRefresh, refresh)
+	return f.compatible, f.compatErr
 }
 
 func (f *fakeEmbeddingRoutes) Current(context.Context) (embeddings.Space, embeddings.Space, error) {

@@ -29,6 +29,7 @@ type embeddingRoutes struct {
 	dims              int
 	http              *http.Client
 	environment       config.EmbedConfig
+	compat            *embeddings.Compatibility
 }
 
 func (e *embeddingRoutes) Current(ctx context.Context) (embeddings.Space, embeddings.Space, error) {
@@ -69,6 +70,10 @@ func (e *embeddingRoutes) Dimensions() int { return e.dims }
 
 func (e *embeddingRoutes) Environment() config.EmbedConfig { return e.environment }
 
+func (e *embeddingRoutes) CompatibleModels(ctx context.Context, models []string, refresh bool) (map[string]bool, error) {
+	return e.compat.Check(ctx, models, refresh)
+}
+
 // wireEmbeddingRoutes wires the three embedding route endpoints; without a memory server they
 // stay unwired and answer 503.
 func wireEmbeddingRoutes(server *agui.Server, chat *chatEnv) {
@@ -76,9 +81,12 @@ func wireEmbeddingRoutes(server *agui.Server, chat *chatEnv) {
 	if corpus == nil {
 		return
 	}
+	key := liveKey(chat.llmRuntime)
+	probes := &http.Client{Timeout: embeddingProbeTimeout}
 	server.SetEmbeddingRoutes(&embeddingRoutes{
 		memory: chat.memoryEmbedder, documents: chat.documentEmbedder, corpus: corpus,
-		key: liveKey(chat.llmRuntime), dims: chat.cfg.Embed.Dimensions,
-		http: &http.Client{Timeout: embeddingProbeTimeout}, environment: bootEmbedEnvironment,
+		key: key, dims: chat.cfg.Embed.Dimensions, http: probes, environment: bootEmbedEnvironment,
+		// The picker lists OpenRouter's models, so they are checked on OpenRouter's route.
+		compat: &embeddings.Compatibility{Client: probes, Width: chat.cfg.Embed.Dimensions, Key: key},
 	})
 }

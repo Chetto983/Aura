@@ -97,6 +97,9 @@ type EmbeddingRoutes interface {
 	Dimensions() int
 	// Environment is the route the process environment names before aura.settings overlays it.
 	Environment() config.EmbedConfig
+	// CompatibleModels answers which hosted models answer at the stored width; refresh asks
+	// every one again. Without a key it is embeddings.ErrNoCredential.
+	CompatibleModels(ctx context.Context, models []string, refresh bool) (map[string]bool, error)
 }
 
 // SetEmbeddingRoutes wires the embedding route endpoints; until then they answer 503.

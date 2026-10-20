@@ -8,8 +8,10 @@ package agui
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
+	"github.com/chetto1983/aura/internal/embeddings"
 	"github.com/chetto1983/aura/internal/llm"
 )
 
@@ -40,12 +42,57 @@ func (s *Server) handleListSpeechModels(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleListEmbeddingModels(w http.ResponseWriter, r *http.Request) {
-	s.listModalityModels(w, r, modalityEmbeddings)
+	refresh := r.URL.Query().Get("refresh") == "1"
+	s.writeModalityRows(w, modalityEmbeddings, func() ([]llm.ModelCatalogEntry, error) {
+		return s.workingEmbeddingModels(r.Context(), refresh)
+	})
+}
+
+// workingEmbeddingModels is the catalogue less what a route could not use, so the operator picks
+// only what works (2026-10-20): a model taking fewer than minEmbeddingInputLimit tokens would cut
+// every passage, and one that does not answer at the stored width fails every request once
+// applied, as mistral-embed-2312 did on the lab VM. Without a key nothing can be checked, and
+// the route preview still refuses a model that does not answer.
+func (s *Server) workingEmbeddingModels(ctx context.Context, refresh bool) ([]llm.ModelCatalogEntry, error) {
+	models, err := s.modalityCatalog.List(ctx, modalityEmbeddings)
+	if err != nil {
+		return nil, err
+	}
+	long := make([]llm.ModelCatalogEntry, 0, len(models))
+	ids := make([]string, 0, len(models))
+	for _, model := range models {
+		if limit, err := embeddings.InputLimitOf(model); err == nil && limit >= minEmbeddingInputLimit {
+			long = append(long, model)
+			ids = append(ids, model.ID)
+		}
+	}
+	if s.embeddingRoutes == nil {
+		return long, nil
+	}
+	working, err := s.embeddingRoutes.CompatibleModels(ctx, ids, refresh)
+	if errors.Is(err, embeddings.ErrNoCredential) {
+		return long, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := make([]llm.ModelCatalogEntry, 0, len(long))
+	for _, model := range long {
+		if working[model.ID] {
+			out = append(out, model)
+		}
+	}
+	return out, nil
 }
 
 func (s *Server) listModalityModels(w http.ResponseWriter, r *http.Request, modality string) {
-	writeCatalogRows(w, s.modalityCatalog != nil, "modality",
-		func() ([]llm.ModelCatalogEntry, error) { return s.modalityCatalog.List(r.Context(), modality) },
+	s.writeModalityRows(w, modality, func() ([]llm.ModelCatalogEntry, error) {
+		return s.modalityCatalog.List(r.Context(), modality)
+	})
+}
+
+func (s *Server) writeModalityRows(w http.ResponseWriter, modality string, list func() ([]llm.ModelCatalogEntry, error)) {
+	writeCatalogRows(w, s.modalityCatalog != nil, "modality", list,
 		func(model llm.ModelCatalogEntry) (catalogModelDTO, bool) {
 			row := catalogModelDTO{ID: model.ID, Kind: modality}
 			if modality != modalitySpeech {

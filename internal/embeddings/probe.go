@@ -37,7 +37,8 @@ type RouteProbe struct {
 }
 
 // ProbeRoute names the space embed produces at dims and sends the synthetic batch through it
-// once. A hosted route without a credential sends nothing (ErrNoCredential); a switched-off
+// once; a hosted route is also asked one text at dims, as its every request will be. A hosted
+// route without a credential sends nothing (ErrNoCredential); a switched-off
 // local route is ErrNoRoute.
 func ProbeRoute(
 	ctx context.Context, client *http.Client, embed config.EmbedConfig, credential string, dims int,
@@ -60,13 +61,20 @@ func ProbeRoute(
 	if err != nil {
 		return RouteProbe{}, fmt.Errorf("probe catalogue: %w", err)
 	}
-	limit, err := inputLimitOf(entry)
+	limit, err := InputLimitOf(entry)
 	if err != nil {
 		return RouteProbe{}, fmt.Errorf("probe catalogue: %w", err)
 	}
 	width, elapsed, err := probe.nativeWidth(ctx, probeTexts)
 	if err != nil {
 		return RouteProbe{}, fmt.Errorf("probe embedding: %w", err)
+	}
+	// Every hosted request names the stored width, so the route works only if the model takes
+	// that request too; llama.cpp ignores the field, so the local route is not asked.
+	if probe.hosted() {
+		if err := probe.AnswersAtWidth(ctx, dims); err != nil {
+			return RouteProbe{}, fmt.Errorf("probe embedding at %d dimensions: %w", dims, err)
+		}
 	}
 	chars := 0
 	for _, text := range probeTexts {

@@ -305,6 +305,31 @@ identity's tables fill a screen, while on a healthy box every family says Dense.
   tests to a 1 s `waitFor`, which pass alone (23/23) and in the rerun.
 - [x] `internal/webui/dist` rebuilt on Windows.
 
+### Task 9: the picker offers only the models that work (2026-10-20)
+
+On the lab VM the operator applied `mistralai/mistral-embed-2312`. The preview had probed only
+the native width, without `dimensions`, so it accepted the route. Every request after the apply
+then failed with HTTP 422 on `dimensions`. The spike
+`spikes/embedding-cloud-models/FINDINGS.md` found five models that refuse the field. The
+operator: "io filtrerei per modelli compatibili", then "va bene l'utente sceglie solo quello che
+funziona".
+
+- [x] Failing tests:
+  - `AnswersAtWidth` sends what a hosted route sends: the document prefix, `dimensions` and the
+    key. It refuses a 422 and an answer of another width.
+  - `Compatibility` keeps a verdict, asks a model again after a 429, asks every model again on
+    refresh, and sends nothing without a key.
+  - `ProbeRoute` asks a hosted route at the stored width after the native one, and refuses a
+    model that rejects `dimensions`.
+  - `/api/settings/embeddings-models` drops a model below 2,048 tokens and one that does not
+    answer; it checks only the long-enough ones and passes Refresh on. Without a key it offers
+    every long-enough model.
+- [x] `internal/embeddings/compat.go`; `InputLimitOf` exported for the picker; the
+  `CompatibleModels` seam on `EmbeddingRoutes`, wired in `cmd/aura` on OpenRouter's route.
+- [x] `go vet`, build, `go test` on `internal/embeddings`, `internal/agui` and `cmd/aura`;
+  `-race` on the first two; golangci-lint: 0 issues.
+- [ ] On the lab VM: the picker's list against the spike's verdicts.
+
 ### Close
 
 `go vet ./...`, `go test -race` on touched packages, deadcode, lint; coverage via
