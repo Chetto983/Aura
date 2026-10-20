@@ -1,9 +1,14 @@
-# Stopgap while GitHub Actions is disabled on the account (support ticket #4846097,
-# 2026-10-11). It runs `make quality` and the appliance's shell suites; releases stay on
-# GitHub. Delete this file once Actions is back.
+# Aura's CI. GitHub is gone for good: the chetto1983 restriction became final on 2026-10-20.
+# It runs `make quality` and the appliance's shell suites. Images and the create-aura npm
+# package are still published by hand from the operator's PC (scripts/publish_images.sh).
 
-# The free tier has 400 compute minutes a month, so doc-only pushes do not run. A web
-# pipeline runs every job: rules:changes is always true without a push event.
+# Every job runs on the project's own runner, registered with this tag: the free tier's 400
+# instance-runner minutes a month would not last a week of pushes.
+default:
+  tags: [aura-ci]
+
+# Doc-only pushes do not run. A web pipeline runs every job: rules:changes is always true
+# without a push event.
 .go_inputs: &go_inputs
   - "**/*.go"
   - go.mod
