@@ -128,6 +128,41 @@ movement against clear, per key.
 | 6 | **The HTTP `redis` language runs a second command at a line break inside an argument** (`GET x\nSET y`: two replies). Over HTTP a value must never be an argument; vault keys are HMAC hex, values travel only inside the JSON. RESP is length-prefixed and unaffected. | VALIDATED on 26.10.1 |
 | 7 | **Transient `SET`/`GET` are unusable for the vault**: RAM only, gone after a restart. Contrary to the docs' "shared hashmap", a key set by one user's connection was not visible to another user's. | VALIDATED on 26.10.1 |
 
+## A real document: the detector, not the vault
+
+The operator then gave one of their own documents: a 7-page Italian utility bill, 27 KB of
+`pdftotext` output. Nothing from it is committed: no text, no values, no supplier; only the
+counts below. It never left the operator's PC. Rizzo ran there offline, in WSL, at the pinned
+weights (`rizzoaiacademy/rizzo-pii-0.3B@a1c3c838`) and source (`30d6f9c6`), with torch 2.14 on CPU
+and 2 threads, as on the lab VM. The VM's model cache from 2026-10-12 had been removed.
+
+Hand labels: 18 occurrences of the customer's data. 10 are direct identifiers: the name twice, in
+capitals and surname first; the street three times; the town three times; the codice fiscale; and a
+partly masked IBAN, `IT` + `X`s + digits, which fails mod-97. 8 are the supply's own codes:
+customer code, invoice number, meter point, meter serial, supply code and the customer's bank. 66
+further occurrences are the supplier's own data. A span covers an occurrence when it masks every
+letter and digit of it.
+
+| detector | direct, of 10 | supply codes, of 8 | supplier's data masked too, of 66 | letters and digits masked |
+|---|---|---|---|---|
+| Rizzo's patterns alone (checksums) | 1 (the CF) | 0 | 9 | 8.4% |
+| Rizzo's model alone | 10 | 7, 1 partial | 65 | 13.7% |
+| patterns + model (Rizzo's `analyze`) | **10** | **8** | 65 | 17.9% |
+| the same without the AMOUNT, DATE, URL and TIME labels | **10** | **8** | 65 | 8.6% |
+
+Recall stays 18 of 18 when the vault propagates every value found once to all its occurrences, or
+is seeded with the identity's own name: both add masking, not recall, on this document.
+
+Time and memory: `analyze` takes 18.7 s median over three runs, after 7.4 s to load the model;
+the patterns alone take 10 ms. Peak RSS is 1,366 MiB. At the VM's measured 2026-10-12 rate (4.76 s
+for 2.2 KB) this bill would take about a minute; that figure is an extrapolation, not a VM run.
+
+| # | Finding | Verdict |
+|---|---|---|
+| 8 | **Patterns cannot carry an Italian bill**: a capitalized surname-first name, a street, a masked IBAN and a supplier's codes have no checksum to find. On this document Rizzo's model found all of them. | VALIDATED on one document, 18 occurrences; G10 asks for 200 |
+| 9 | **Rizzo's default labels mask the meaning away**: 110 amounts and 62 dates in a bill. Excluding the labels that are not personal data halves the masking and keeps every personal occurrence. Company names, the supplier's VAT number and its addresses stay masked (65 of 66), so a policy that wants them readable needs a list of the identity's counterparties, or a different label set. | VALIDATED on one document |
+| 10 | **At 18.7 s for one bill on two cores, the model belongs to ingestion, not to the turn.** Once ingested, a document's values are in the vault, and pseudonymizing the turn by dictionary takes milliseconds (0.09 s for 217 texts above). A file opened directly without ingestion would still pay the model's cost. | PARTIAL: the split is measured, the ingestion-time path is not built |
+
 ## OpenRouter guardrails, read 2026-10-20
 
 From the guardrails page and its Sensitive Info page:
