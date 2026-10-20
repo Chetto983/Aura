@@ -1,0 +1,54 @@
+model | mode | width | r@1 | r@3 | r@5 | MRR | Costituzione r@1 | others r@1 | query s | tokens | cost $
+local embeddinggemma-300M-Q8_0 | local | 768 | 29/35 | 32/35 | 32/35 | 0.879 | 21/27 | 8/8 | 0.05 | 0 | 0.00000
+qwen/qwen3-embedding-8b | dimensions=768 | 768 | 30/35 | 34/35 | 34/35 | 0.914 | 23/27 | 7/8 | 0.81 | 137508 | 0.00138
+qwen/qwen3-embedding-4b | dimensions=768 | 768 | 29/35 | 32/35 | 33/35 | 0.880 | 23/27 | 6/8 | 0.64 | 137508 | 0.00275
+perplexity/pplx-embed-v1-0.6b | dimensions=768 | 768 | 29/35 | 34/35 | 35/35 | 0.902 | 22/27 | 7/8 | 0.65 | 137384 | 0.00055
+perplexity/pplx-embed-v1-4b | dimensions=768 | 768 | 31/35 | 35/35 | 35/35 | 0.938 | 23/27 | 8/8 | 0.81 | 137384 | 0.00412
+google/gemini-embedding-001 | dimensions=768 | 768 | 29/35 | 34/35 | 34/35 | 0.888 | 23/27 | 6/8 | 0.71 | 132815 | 0.01992
+google/gemini-embedding-2 | dimensions=768 | 768 | 32/35 | 35/35 | 35/35 | 0.952 | 24/27 | 8/8 | 0.55 | 132815 | 0.02657
+openai/text-embedding-3-small | dimensions=768 | 768 | 20/35 | 27/35 | 31/35 | 0.707 | 14/27 | 6/8 | 0.91 | 113261 | 0.00227
+openai/text-embedding-3-large | dimensions=768 | 768 | 30/35 | 35/35 | 35/35 | 0.924 | 22/27 | 8/8 | 0.85 | 113261 | 0.01472
+mistralai/mistral-embed-2312 | native (refuses dimensions) | 1024 | 13/35 | 20/35 | 21/35 | 0.491 | 11/27 | 2/8 | 0.54 | 145543 | 0.01455
+baai/bge-m3 | dimensions=768 | 768 | 21/35 | 27/35 | 29/35 | 0.698 | 16/27 | 5/8 | 0.63 | 93226 | 0.00093
+voyageai/voyage-4-lite | native (refuses dimensions) | 1024 | 29/35 | 34/35 | 35/35 | 0.888 | 21/27 | 8/8 | 0.59 | 137384 | 0.00275
+voyageai/voyage-4 | native (refuses dimensions) | 1024 | 30/35 | 35/35 | 35/35 | 0.914 | 22/27 | 8/8 | 0.57 | 137384 | 0.00824
+voyageai/voyage-4-large | native (refuses dimensions) | 1024 | 32/35 | 35/35 | 35/35 | 0.952 | 25/27 | 7/8 | 0.61 | 137384 | 0.01649
+nvidia/nemotron-3-embed-1b:free | native (refuses dimensions) | 2048 | 28/35 | 33/35 | 35/35 | 0.886 | 21/27 | 7/8 | 0.25 | 135715 | 0.00000
+nvidia/llama-nemotron-embed-vl-1b-v2:free | dimensions=768 | 768 | 30/35 | 33/35 | 34/35 | 0.903 | 22/27 | 8/8 | 0.26 | 113591 | 0.00000
+
+per-question rank of the first correct passage (0 = top; - = not in the 86):
+ 0 costituzione   5   0   0   0   0   0   0   5   0  14   0   0   0   0   0   0  A chi spetta il potere sovrano in Italia?
+ 1 costituzione   7   1   3   0   0   0   0   0   1   1   1   2   2   0   0   0  L'Italia puo' usare la guerra per risolvere le controversie 
+ 2 costituzione   0   2   0   0   0   0   0   1   0   0   6   0   0   0   0   0  Di che colori e' la bandiera nazionale?
+ 3 costituzione   0   0   0   0   0   2   0   0   0  52  16   0   0   0   0   2  Serve un permesso per pubblicare un giornale?
+ 4 costituzione   1   0   0   0   1   0   0   2   2   9   0   0   0   0   1   1  Si puo' essere condannati in base a una legge fatta dopo il 
+ 5 costituzione   0   0   0   0   0   0   0   4   0   5  62   0   0   0   1   0  In Italia esiste la pena capitale?
+ 6 costituzione   0   0   0   0   0   0   0   0   0   2   0   0   0   0   0   0  I genitori devono mantenere anche i figli avuti fuori dal ma
+ 7 costituzione   0   0   0   0   0   0   0   4   0  67   2   0   0   0   0   0  Le cure mediche sono gratuite per chi non puo' pagarle?
+ 8 costituzione   0   0   0   0   0   0   0   3   0  66   1   0   0   0   0   0  Per quanti anni la scuola e' obbligatoria?
+ 9 costituzione   0   0   0   0   0   0   0   1   0   5   0   0   0   0   0   0  I lavoratori possono astenersi dal lavoro per protesta?
+10 costituzione   0   0   2   3   1   1   2   1   0   8   0   2   2   1   1   0  Posso aprire un'impresa liberamente secondo la Costituzione?
+11 costituzione   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0  Ci sono norme a favore di chi vive in montagna?
+12 costituzione   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0  Cosa dice la Costituzione sulle cooperative?
+13 costituzione   2   1   0   0   0   2   1   5   1   2   1   0   0   0   3   0  Il voto si puo' delegare a un'altra persona?
+14 costituzione   0   0   0   0   0   0   0   0   0   2   0   0   0   0   0   0  Ogni quanti anni si rinnova il Parlamento?
+15 costituzione   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  Quanti anni bisogna avere per diventare senatore?
+16 costituzione   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  Chi diventa senatore a vita senza essere nominato?
+17 costituzione   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0  Quando e' valido un referendum per abrogare una legge?
+18 costituzione   1   1   1   0   0   0   0   4   0   1   4   0   0   0   0   0  Lo Stato deve tenere in pareggio entrate e uscite?
+19 costituzione   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  Davanti a chi presta giuramento il Capo dello Stato?
+20 costituzione   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   1  Quale organo da' pareri giuridici e amministrativi al govern
+21 costituzione   7   0   5   2   0   2   1  10   0   5   8   3   1   1   3  11  La Costituzione garantisce che i processi non durino troppo?
+22 costituzione   0   0   0   1   0   0   0   1   0   0   0   0   0   0   1   0  Chi governa una Regione?
+23 costituzione   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  Entro quanto tempo il Governo puo' contestare lo statuto di 
+24 costituzione   0   0   0   0   2   0   0   0   0  53  58   2   2   0   0   0  Quali sono le regioni italiane?
+25 costituzione   0   0   0   1   1   0   0   0   0   0   0   2   0   0   0   0  Si possono contestare le sentenze della Corte costituzionale
+26 costituzione   0   0   0   0   0   0   0   0   0   0   2   1   1   0   0   4  Come si cambia la Costituzione?
+27 docx           0   0   0   0   0   0   0   0   0  54   0   0   0   0   0   0  Come vengono mostrate le note a pie' di pagina negli ebook?
+28 docx           0   0   0   0   0   0   0   0   0   1   0   0   0   0   1   0  Quale strumento converte i documenti Word in ebook?
+29 pptx           0   0   0   1   0   0   0   0   0  47   4   0   0   0   0   0  Di che colore e' il testo in corsivo nella presentazione?
+30 md             0   5   1   0   0   0   0   1   0  55  55   0   0   0   0   0  In che citta' vive il programmatore della tabella di esempio
+31 jpg            0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  C'e' una foto di un anfiteatro romano?
+32 xlsx-chat      0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0  Quanto costa un portatile nel foglio dei prodotti?
+33 xlsx-financi   0   0  21   0   0  13   0   0   0  27   1   0   0   2   0   0  Quante unita' di Montana ha venduto il segmento Government i
+34 xlsx-financi   0   0   0   0   0   1   0   6   0   3   0   0   0   0   0   0  Qual e' il profitto delle vendite Small Business di Montana 
