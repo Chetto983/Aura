@@ -26,7 +26,7 @@ RUN npm run build
 # it is, pinned by version and SHA-256: nothing is fetched at run time. The wasm and its glue are
 # gzipped here because nothing in front of aura compresses: aura sends the .gz to a browser that
 # accepts it (internal/staticapp).
-FROM alpine:3.22 AS craft-official
+FROM alpine:3.24 AS craft-official
 ADD --checksum=sha256:532966caa70bbd346bcd3c48a827d9d0118f83e50be7a0ca43fdb28bd48f1dd4 https://github.com/storytold/gridcraft/releases/download/v0.8.0/gridcraft-web-0.8.0.zip /tmp/gridcraft.zip
 RUN set -eu; \
     mkdir /apps; \
@@ -40,7 +40,7 @@ RUN set -eu; \
 # with the patch beside the script (that change, and the ArtCraft marks a modified build may not
 # carry). WebAssembly is the same on every platform, so it builds once, on the builder's. The tools
 # are release binaries pinned by SHA-256; trunk runs offline, so it fetches none of its own.
-FROM --platform=$BUILDPLATFORM rust:1.97.0-bookworm@sha256:8fa55b2f3ddf97471ab6a767bfa3f37e6bad0986ba823e75fea57e2a2a5c3073 AS craft-web
+FROM --platform=$BUILDPLATFORM rust:1.99.1-bookworm@sha256:e12566d5abc17a0da741628782cdb504b68b8961f5bfcf677936bf3e8b32de29 AS craft-web
 ARG BUILDARCH
 RUN set -eu; \
     case "$BUILDARCH" in \
