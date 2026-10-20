@@ -80,6 +80,21 @@ Build `a5d75c2d8`, applied by the updater, at 23:14 UTC:
   operator's bucket has 7 live and 1 retired version (`SampleShow.pptx`'s first copy, within the
   window), 7 blobs, 0 mismatches, and Garage 7.
 
+## The nightly clock, observed 2026-10-20
+
+Read the next morning from the VM's own Postgres (`aura.agent_job_runs`) and the backup directory,
+with no run pressed by hand after 23:14 UTC. The VM stopped at 23:50 UTC with its host and booted
+again at 08:12 UTC.
+- **`backup_postgres`** started on its clock at 2026-10-19 23:00:03 UTC (01:00 Europe/Rome) and
+  completed in 1.1 s: `backup postgres ok -> /backups/postgres-20261019T230003Z.dump`.
+- **`backup_objects`** started on its clock at 23:30:10 UTC (01:30 Europe/Rome) and completed in
+  34 ms: `2 bucket(s), 7 object(s), 0 copied, 0 retired, 0 purged`. Both manifests carry
+  `updated_at` 23:30:10.77Z; the operator's bucket still has 7 live and 1 retired version.
+- The board's next runs are 2026-10-20 23:00 and 23:30 UTC.
+
+This shows the seeded cron firing on its own. Neither run was a missed-run recovery: the VM was off
+only after both had fired.
+
 ## Gates
 
 - **Unit:** `go vet`, `go test -race` and golangci-lint v2.14.0 (0 issues) on every touched package.
@@ -99,7 +114,8 @@ Build `a5d75c2d8`, applied by the updater, at 23:14 UTC:
 - **A whole wipe:** no bucket was lost. A wiped and refilled Garage is covered by the walk's unit
   test (`TestObjectBucketWalkBacksUpAndRestoresEveryBucket`), with the minting resolver putting the
   bucket back first, and by the live Garage restore of `6a1847515`. It was not run end to end here.
-- **The nightly clock:** every run was "run now". The 23:30Z run was not observed.
+- **A missed night:** the scheduled run is observed above, but a run recovered after the host was
+  off at 01:30 is not.
 - **Scale:** 7.7 MB in 7 objects. A large bucket's first run against the 30-minute budget was not
   measured.
 - **Off-host:** `AURA_BACKUP_DIR` is on the VM's own disk, so the backup does not survive the loss
