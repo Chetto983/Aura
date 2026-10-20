@@ -337,7 +337,10 @@ funziona".
   spike found plus `gemini-embedding-2-preview`. Mistral, codestral, the Voyage models,
   `nemotron-3`, `ada-002` and the `:batch` variants are out. Checked in 1.9 s, and the second
   check answered from memory.
-- [ ] On the lab VM after the redeploy: the picker's list against that one.
+- [x] On the lab VM after the redeploy (`fec1aa611`, 0 unhealthy): `GET
+  /api/settings/embeddings-models?refresh=1` through the cockpit API answered in 1.9 s with the
+  same 11 models. None of the five that refuse `dimensions` is offered, and none of the spike's
+  ten is missing.
 
 ### Close
 
