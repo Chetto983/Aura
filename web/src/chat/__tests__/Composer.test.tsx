@@ -295,7 +295,7 @@ const CODEQL: ComposerSkillRow = {
 };
 const SKILLS: readonly ComposerSkillRow[] = [SKILL_CREATOR, CODEQL];
 
-// The '/'-menu is ComposerPrimitive.Unstable_TriggerPopover now, so its open/close
+// The '/'-menu is ComposerPrimitive.TriggerPopover now, so its open/close
 // lifecycle, incremental filter, keyboard navigation and combobox ARIA are the library's
 // contract and are not re-asserted here — that would be testing the dependency. What Aura
 // still owns is WHICH items exist and how a chosen one is written into the message, covered

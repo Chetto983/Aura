@@ -1,4 +1,4 @@
-import type { Unstable_TriggerItem } from '@assistant-ui/react';
+import type { TriggerItem } from '@assistant-ui/react';
 
 // commands.ts — the '/' menu's non-skill half.
 //
@@ -42,7 +42,7 @@ export function findCommand(name: string): ComposerCommand | undefined {
 export function commandTriggerItem(
   command: ComposerCommand,
   translate: (key: string) => string,
-): Unstable_TriggerItem {
+): TriggerItem {
   return {
     id: command.name,
     type: COMMAND_ITEM_TYPE,

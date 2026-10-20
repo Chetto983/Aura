@@ -75,12 +75,12 @@ export function composerPrimitiveMock(h: ComposerPrimitiveMockHandle) {
     // The trigger popover is stubbed to its MOUNT, not its behaviour: it records the char it
     // was registered for and swallows the rest. Driving the real popover here would be
     // testing the library through a mock of the library.
-    Unstable_TriggerPopoverRoot: ({ children }: { children: ReactNode }) => <>{children}</>,
-    Unstable_TriggerPopover: Object.assign(
+    TriggerPopoverRoot: ({ children }: { children: ReactNode }) => <>{children}</>,
+    TriggerPopover: Object.assign(
       ({ char }: { char: string }) => <div data-testid="trigger-popover" data-char={char} />,
       { Directive: () => null, Action: () => null },
     ),
-    Unstable_TriggerPopoverItems: () => null,
-    Unstable_TriggerPopoverItem: () => null,
+    TriggerPopoverItems: () => null,
+    TriggerPopoverItem: () => null,
   };
 }

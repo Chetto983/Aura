@@ -1,5 +1,5 @@
-import type { Unstable_DirectiveFormatter } from '@assistant-ui/core';
-import type { Unstable_TriggerItem } from '@assistant-ui/react';
+import type { DirectiveFormatter } from '@assistant-ui/core';
+import type { TriggerItem } from '@assistant-ui/react';
 import type { IEntity } from '@svar-ui/react-filemanager';
 
 export type GarageScopeKind = 'file' | 'folder';
@@ -30,17 +30,17 @@ function displayPath(path: string): string {
   return `/${path}`;
 }
 
-function itemKind(item: Unstable_TriggerItem): GarageScopeKind | undefined {
+function itemKind(item: TriggerItem): GarageScopeKind | undefined {
   const kind = item.metadata?.kind;
   return kind === 'file' || kind === 'folder' ? kind : undefined;
 }
 
-function itemPath(item: Unstable_TriggerItem): string | undefined {
+function itemPath(item: TriggerItem): string | undefined {
   const value = item.metadata?.path;
   return typeof value === 'string' ? normalizePath(value) : undefined;
 }
 
-export function serializeGarageMention(item: Unstable_TriggerItem): string {
+export function serializeGarageMention(item: TriggerItem): string {
   const kind = itemKind(item);
   const path = itemPath(item);
   if (kind === undefined || path === undefined) return `${GARAGE_TRIGGER_CHAR}${item.id}`;
@@ -96,7 +96,7 @@ export function resolveGarageMentions(text: string): readonly GarageDocumentScop
   return scopes;
 }
 
-export function createGarageDirectiveFormatter(): Unstable_DirectiveFormatter {
+export function createGarageDirectiveFormatter(): DirectiveFormatter {
   return {
     serialize: serializeGarageMention,
     parse: (text) => {
@@ -167,7 +167,7 @@ function matchRank(entry: IEntity, needle: string): number {
   return path.includes(needle) ? 3 : -1;
 }
 
-function triggerItem(entry: IEntity): Unstable_TriggerItem | undefined {
+function triggerItem(entry: IEntity): TriggerItem | undefined {
   if (entry.type !== 'file' && entry.type !== 'folder') return undefined;
   const path = normalizePath(entry.id);
   if (path === undefined) return undefined;
@@ -181,7 +181,7 @@ function triggerItem(entry: IEntity): Unstable_TriggerItem | undefined {
   };
 }
 
-function currentFolderItem(folder: string): Unstable_TriggerItem | undefined {
+function currentFolderItem(folder: string): TriggerItem | undefined {
   const path = normalizePath(folder);
   if (path === undefined) return undefined;
   return {
@@ -199,7 +199,7 @@ function currentFolderItem(folder: string): Unstable_TriggerItem | undefined {
  */
 export function createGarageMentionFetcher(
   listFolder: GarageFolderLister,
-): (query: string) => Promise<readonly Unstable_TriggerItem[]> {
+): (query: string) => Promise<readonly TriggerItem[]> {
   let cachedFolder: string | undefined;
   let cachedEntries: Promise<readonly IEntity[]> | undefined;
 

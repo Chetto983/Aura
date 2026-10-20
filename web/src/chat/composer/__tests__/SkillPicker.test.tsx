@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
-import type { Unstable_TriggerItem } from '@assistant-ui/react';
+import type { TriggerItem } from '@assistant-ui/react';
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import '../../../i18n/i18n';
 import { SkillPicker } from '../SkillPicker';
 import type { ComposerSkillRow } from '../api';
 
-// SkillPicker is presentation over ComposerPrimitive.Unstable_TriggerPopover, so what is worth
+// SkillPicker is presentation over ComposerPrimitive.TriggerPopover, so what is worth
 // asserting here is the ONE decision the component owns: what happens when the popover reports
 // a selection. The primitive's own contract — insert the serialized directive, THEN call
 // onExecute — is doubled rather than re-implemented, because driving the real popover would be
@@ -18,8 +18,8 @@ import type { ComposerSkillRow } from '../api';
 
 const h = vi.hoisted(() => ({
   setText: vi.fn(),
-  onExecute: undefined as ((item: Unstable_TriggerItem) => void) | undefined,
-  listed: [] as readonly Unstable_TriggerItem[],
+  onExecute: undefined as ((item: TriggerItem) => void) | undefined,
+  listed: [] as readonly TriggerItem[],
 }));
 
 vi.mock('@assistant-ui/react', () => {
@@ -29,13 +29,13 @@ vi.mock('@assistant-ui/react', () => {
       adapter,
     }: {
       children: ReactNode;
-      adapter: { search?: (q: string) => readonly Unstable_TriggerItem[] };
+      adapter: { search?: (q: string) => readonly TriggerItem[] };
     }) => {
       h.listed = adapter.search?.('') ?? [];
       return <div>{children}</div>;
     },
     {
-      Action: ({ onExecute }: { onExecute: (item: Unstable_TriggerItem) => void }) => {
+      Action: ({ onExecute }: { onExecute: (item: TriggerItem) => void }) => {
         h.onExecute = onExecute;
         return null;
       },
@@ -45,9 +45,9 @@ vi.mock('@assistant-ui/react', () => {
   return {
     useAui: () => ({ composer: { setText: h.setText } }),
     ComposerPrimitive: {
-      Unstable_TriggerPopover: Popover,
-      Unstable_TriggerPopoverItems: () => null,
-      Unstable_TriggerPopoverItem: () => null,
+      TriggerPopover: Popover,
+      TriggerPopoverItems: () => null,
+      TriggerPopoverItem: () => null,
     },
   };
 });

@@ -3,7 +3,7 @@ import {
   ComposerPrimitive,
   unstable_useTriggerPopoverScopeContext,
   useAui,
-  type Unstable_TriggerItem,
+  type TriggerItem,
 } from '@assistant-ui/react';
 import { FileText, Folder } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +27,7 @@ export interface GarageMentionPickerProps {
 
 function GarageFolderNavigationOverride({ onSelect }: Pick<GarageMentionPickerProps, 'onSelect'>) {
   const aui = useAui();
+  // oxlint-disable-next-line typescript/no-deprecated -- assistant-ui 0.15.30 exposes the popover scope (registerSelectItemOverride) only under this experimental name, "not scheduled for removal".
   const triggerPopover = unstable_useTriggerPopoverScopeContext();
 
   useEffect(
@@ -65,26 +66,23 @@ export function GarageMentionPicker({ disabled = false, onSelect }: GarageMentio
   if (disabled) return null;
 
   return (
-    <ComposerPrimitive.Unstable_TriggerPopover
+    <ComposerPrimitive.TriggerPopover
       char={GARAGE_TRIGGER_CHAR}
       adapter={completion.adapter}
       isLoading={completion.isLoading}
       aria-label={t('chat.garagePicker.ariaLabel')}
       className="absolute bottom-full left-0 z-50 mb-2 w-full min-w-[16rem] max-w-md overflow-hidden rounded-xl border border-border bg-surface-2 shadow-[var(--shadow-popover)]"
     >
-      <ComposerPrimitive.Unstable_TriggerPopover.Directive
-        formatter={formatter}
-        onInserted={onSelect}
-      />
+      <ComposerPrimitive.TriggerPopover.Directive formatter={formatter} onInserted={onSelect} />
       <GarageFolderNavigationOverride onSelect={onSelect} />
-      <ComposerPrimitive.Unstable_TriggerPopoverItems className="max-h-72 overflow-y-auto p-1.5">
+      <ComposerPrimitive.TriggerPopoverItems className="max-h-72 overflow-y-auto p-1.5">
         {(items) =>
-          items.map((item: Unstable_TriggerItem, index) => {
+          items.map((item: TriggerItem, index) => {
             const isFile = item.type === GARAGE_FILE_ITEM_TYPE;
             const isFolderScope = item.type === GARAGE_FOLDER_ITEM_TYPE;
             const Icon = isFile ? FileText : Folder;
             return (
-              <ComposerPrimitive.Unstable_TriggerPopoverItem
+              <ComposerPrimitive.TriggerPopoverItem
                 key={item.id}
                 item={item}
                 index={index}
@@ -113,11 +111,11 @@ export function GarageMentionPicker({ disabled = false, onSelect }: GarageMentio
                     · {item.description}
                   </span>
                 </span>
-              </ComposerPrimitive.Unstable_TriggerPopoverItem>
+              </ComposerPrimitive.TriggerPopoverItem>
             );
           })
         }
-      </ComposerPrimitive.Unstable_TriggerPopoverItems>
-    </ComposerPrimitive.Unstable_TriggerPopover>
+      </ComposerPrimitive.TriggerPopoverItems>
+    </ComposerPrimitive.TriggerPopover>
   );
 }

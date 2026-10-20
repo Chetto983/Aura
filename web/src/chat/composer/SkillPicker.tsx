@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { ComposerPrimitive, useAui } from '@assistant-ui/react';
-import type { Unstable_TriggerItem } from '@assistant-ui/react';
+import type { TriggerItem } from '@assistant-ui/react';
 import { BookOpen, Scissors, Sparkles, SquareTerminal, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ComposerSkillRow } from './api';
@@ -13,7 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 
 // SkillPicker: the '/' menu of skills and commands, rendered by
-// ComposerPrimitive.Unstable_TriggerPopover.
+// ComposerPrimitive.TriggerPopover.
 //
 // This file is presentation ONLY. Trigger detection, the open/close lifecycle, keyboard
 // navigation (arrows / Enter / Escape), the highlighted-item bookkeeping, scroll-into-view
@@ -30,7 +30,7 @@ const SKILL_ICON_FOR_TYPE: Partial<Record<string, LucideIcon>> = {
   executable: SquareTerminal,
 };
 
-function iconFor(item: Unstable_TriggerItem): LucideIcon {
+function iconFor(item: TriggerItem): LucideIcon {
   if (item.type === COMMAND_ITEM_TYPE) return Scissors;
   const skillType = item.metadata?.skillType;
   return (typeof skillType === 'string' ? SKILL_ICON_FOR_TYPE[skillType] : undefined) ?? Sparkles;
@@ -74,7 +74,7 @@ export function SkillPicker({ skills, disabled = false, onCommand, onSelect }: S
   // it because the textarea is focused and reports the caret. Returning focus and the caret
   // is the composer's job either way: after picking a skill the operator keeps typing.
   const execute = useCallback(
-    (item: Unstable_TriggerItem) => {
+    (item: TriggerItem) => {
       if (item.type === COMMAND_ITEM_TYPE && onCommand !== undefined) {
         aui.composer.setText('');
         onCommand(item.id);
@@ -89,19 +89,19 @@ export function SkillPicker({ skills, disabled = false, onCommand, onSelect }: S
   if (skills.length === 0 && commands.length === 0) return null;
 
   return (
-    <ComposerPrimitive.Unstable_TriggerPopover
+    <ComposerPrimitive.TriggerPopover
       char={SKILL_TRIGGER_CHAR}
       adapter={adapter}
       aria-label={t('chat.skillPicker.skillsHeader')}
       className="absolute bottom-full left-0 z-50 mb-2 w-full min-w-[16rem] max-w-md overflow-hidden rounded-xl border border-border bg-surface-2 shadow-[var(--shadow-popover)]"
     >
-      <ComposerPrimitive.Unstable_TriggerPopover.Action formatter={formatter} onExecute={execute} />
-      <ComposerPrimitive.Unstable_TriggerPopoverItems className="max-h-72 overflow-y-auto p-1.5">
+      <ComposerPrimitive.TriggerPopover.Action formatter={formatter} onExecute={execute} />
+      <ComposerPrimitive.TriggerPopoverItems className="max-h-72 overflow-y-auto p-1.5">
         {(items) =>
           items.map((item, index) => {
             const Icon = iconFor(item);
             return (
-              <ComposerPrimitive.Unstable_TriggerPopoverItem
+              <ComposerPrimitive.TriggerPopoverItem
                 key={item.id}
                 item={item}
                 index={index}
@@ -129,11 +129,11 @@ export function SkillPicker({ skills, disabled = false, onCommand, onSelect }: S
                     </span>
                   ) : null}
                 </span>
-              </ComposerPrimitive.Unstable_TriggerPopoverItem>
+              </ComposerPrimitive.TriggerPopoverItem>
             );
           })
         }
-      </ComposerPrimitive.Unstable_TriggerPopoverItems>
-    </ComposerPrimitive.Unstable_TriggerPopover>
+      </ComposerPrimitive.TriggerPopoverItems>
+    </ComposerPrimitive.TriggerPopover>
   );
 }
