@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useContext, useEffect, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { useAssetSource } from './assetSourceContext';
 import { useAssetContent } from './useAssetContent';
 import { PreviewError, PreviewErrorWithDownload, type RendererProps } from './PreviewStatus';
 import { PreviewAction } from './PreviewAction';
 import { previewActionClass } from './previewActionsContext';
+import { PreviewCloseGuardContext } from './previewCloseGuardContext';
 
 // A Craft app (docs/superpowers/specs/2026-10-19-craft-web-apps-design.md) aura serves at
 // /apps/<app>/ from the image. Framed in host mode it announces <app>:ready, and the file goes to
@@ -13,7 +15,9 @@ import { previewActionClass } from './previewActionsContext';
 // unchanged. The frame is same-origin because the app answers only its own origin's parent, so
 // only messages from THIS frame on THIS origin are heard. A save comes back as <app>:save: where
 // the source can write (the file manager's), it goes over the file under its own name, or beside
-// it under a new one; elsewhere the frame says that nothing made in it is stored. A frame that has
+// it under a new one; elsewhere the frame says that nothing made in it is stored. Where a save is
+// stored, an edit the app reports as <app>:dirty is not in the file yet: the frame says so, holds
+// the host's first close (PreviewCloseGuardContext) and the page's unload. A frame that has
 // not said ready after a while (a 404 outside the image, a wasm the browser refuses) gets the
 // original file offered over it; the frame stays, so an app that starts late on a slow link
 // still takes over.
@@ -41,6 +45,29 @@ interface CraftFrameProps extends RendererProps {
   readonly app: CraftApp;
 }
 
+interface Notice {
+  readonly role: 'alert' | 'status';
+  readonly tone: 'bg-danger' | 'bg-warning';
+  readonly text: string;
+}
+
+/** What the frame's corner says: a refused save, then an edit not yet saved, then the last save. */
+function noticeOf(t: TFunction, saving: SaveState, dirty: boolean, held: boolean): Notice | null {
+  if (saving.kind === 'failed') {
+    const text = t('artifacts.preview.saveFailed', { message: saving.message });
+    return { role: 'alert', tone: 'bg-danger', text };
+  }
+  if (dirty && held) {
+    return { role: 'alert', tone: 'bg-warning', text: t('artifacts.preview.closeDiscards') };
+  }
+  if (dirty) {
+    return { role: 'status', tone: 'bg-warning', text: t('artifacts.preview.unsavedChanges') };
+  }
+  if (saving.kind === 'none') return null;
+  const key = saving.kind === 'saved' ? 'artifacts.preview.saved' : 'artifacts.preview.notSaved';
+  return { role: 'status', tone: 'bg-warning', text: t(key) };
+}
+
 export default function CraftFrame({ app, assetId, fileName }: CraftFrameProps) {
   const { t } = useTranslation();
   const root = useRef<HTMLDivElement>(null);
@@ -50,7 +77,10 @@ export default function CraftFrame({ app, assetId, fileName }: CraftFrameProps) 
   const [late, setLate] = useState(false);
   const [failed, setFailed] = useState<string>();
   const [saving, setSaving] = useState<SaveState>({ kind: 'none' });
+  const [dirty, setDirty] = useState(false);
   const { save } = useAssetSource();
+  const guard = useContext(PreviewCloseGuardContext);
+  const setUnsaved = guard?.setUnsaved;
 
   useEffect(() => {
     const onMessage = (event: MessageEvent<CraftMessage | null>) => {
@@ -76,6 +106,8 @@ export default function CraftFrame({ app, assetId, fileName }: CraftFrameProps) 
             });
           },
         );
+      } else if (save !== undefined && message.type === `${app}:dirty`) {
+        setDirty(message.dirty === true);
       } else if (save === undefined && (message.type === `${app}:save` || message.dirty === true)) {
         setSaving({ kind: 'unsaved' });
       }
@@ -85,6 +117,19 @@ export default function CraftFrame({ app, assetId, fileName }: CraftFrameProps) 
       window.removeEventListener('message', onMessage);
     };
   }, [app, assetId, fileName, save]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    setUnsaved?.(true);
+    const holdUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('beforeunload', holdUnload);
+    return () => {
+      window.removeEventListener('beforeunload', holdUnload);
+      setUnsaved?.(false);
+    };
+  }, [dirty, setUnsaved]);
 
   useEffect(() => {
     if (ready) return;
@@ -108,6 +153,7 @@ export default function CraftFrame({ app, assetId, fileName }: CraftFrameProps) 
 
   const problem = error ?? failed;
   if (problem !== undefined) return <PreviewError detail={problem} />;
+  const notice = noticeOf(t, saving, dirty, guard?.held === true);
   return (
     <div ref={root} className="relative h-full w-full bg-bg">
       {document.fullscreenEnabled ? <FullscreenAction target={root} /> : null}
@@ -127,21 +173,14 @@ export default function CraftFrame({ app, assetId, fileName }: CraftFrameProps) 
           />
         </div>
       ) : null}
-      {saving.kind === 'failed' ? (
+      {notice === null ? null : (
         <p
-          role="alert"
-          className="absolute right-3 bottom-3 rounded-md bg-danger px-3 py-1.5 text-xs font-semibold text-bg shadow-lg"
+          role={notice.role}
+          className={`absolute right-3 bottom-3 rounded-md ${notice.tone} px-3 py-1.5 text-xs font-semibold text-bg shadow-lg`}
         >
-          {t('artifacts.preview.saveFailed', { message: saving.message })}
+          {notice.text}
         </p>
-      ) : saving.kind !== 'none' ? (
-        <p
-          role="status"
-          className="absolute right-3 bottom-3 rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-bg shadow-lg"
-        >
-          {t(saving.kind === 'saved' ? 'artifacts.preview.saved' : 'artifacts.preview.notSaved')}
-        </p>
-      ) : null}
+      )}
     </div>
   );
 }

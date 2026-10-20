@@ -1,4 +1,4 @@
-import { Suspense, useState } from 'react';
+import { Suspense, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileDown } from 'lucide-react';
 import type { Asset } from '../attachments/types';
@@ -8,6 +8,7 @@ import { PreviewLoading, type RendererProps } from './renderers/PreviewStatus';
 import { PreviewByKind } from './renderers/previewDispatch';
 import { useAssetSource } from './renderers/assetSourceContext';
 import { PreviewActionsContext, previewActionClass } from './renderers/previewActionsContext';
+import { PreviewCloseGuardContext } from './renderers/previewCloseGuardContext';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
 // PreviewModal (WEBART-05 / D-09): a ~90vw×90vh Radix Dialog that previews an agent-
@@ -17,7 +18,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 // shows a download card WITHOUT mounting any renderer. The header carries the filename and
 // a download anchor resolved through useAssetSource() (the 37A auth route by default; a
 // token-scoped public route once a provider is mounted — R-05); Radix owns focus-trap, Esc,
-// backdrop, and the aria wiring (DialogTitle + DialogDescription).
+// backdrop, and the aria wiring (DialogTitle + DialogDescription). A preview holding an edit it
+// has not saved (a Craft app's) holds the first close, and the next one drops the edit.
 
 /** What a preview needs of an asset: the chat's artifact card has these, not a whole Asset. */
 export type PreviewTarget = Pick<Asset, 'id' | 'file_name' | 'mime_type'>;
@@ -75,11 +77,24 @@ export function PreviewModal({ active, onClose }: PreviewModalProps) {
   const { t } = useTranslation();
   const { assetUrl } = useAssetSource();
   const [actions, setActions] = useState<HTMLElement | null>(null);
+  const [unsaved, setUnsavedFlag] = useState(false);
+  const [held, setHeld] = useState(false);
+  const setUnsaved = useCallback((value: boolean) => {
+    setUnsavedFlag(value);
+    if (!value) setHeld(false);
+  }, []);
+  const guard = useMemo(() => ({ setUnsaved, held }), [setUnsaved, held]);
   return (
     <Dialog
       open={active !== undefined}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (open) return;
+        if (unsaved && !held) {
+          setHeld(true);
+          return;
+        }
+        setHeld(false);
+        onClose();
       }}
     >
       <DialogContent className="flex h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0">
@@ -107,7 +122,9 @@ export function PreviewModal({ active, onClose }: PreviewModalProps) {
             </DialogDescription>
             <div className="min-h-0 flex-1 overflow-auto bg-surface">
               <PreviewActionsContext.Provider value={actions}>
-                <Suspense fallback={<PreviewLoading />}>{renderKind(active)}</Suspense>
+                <PreviewCloseGuardContext.Provider value={guard}>
+                  <Suspense fallback={<PreviewLoading />}>{renderKind(active)}</Suspense>
+                </PreviewCloseGuardContext.Provider>
               </PreviewActionsContext.Provider>
             </div>
           </>

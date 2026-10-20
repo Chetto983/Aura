@@ -39,6 +39,8 @@ export const artifactsEn = {
     seek: 'Seek',
     downloadFallback: 'Download file',
     notSaved: 'Changes made here are not saved to the library.',
+    unsavedChanges: 'Unsaved changes: save from the app (Ctrl+S).',
+    closeDiscards: 'Unsaved changes: save from the app (Ctrl+S), or close again to discard them.',
     notStarted: 'The app did not start.',
     edit: 'Edit',
     fullscreen: 'Full screen',
@@ -98,6 +100,9 @@ export const artifactsIt = {
     seek: 'Cerca',
     downloadFallback: 'Scarica il file',
     notSaved: "Le modifiche fatte qui non vengono salvate nell'archivio.",
+    unsavedChanges: "Modifiche non salvate: salva dall'app (Ctrl+S).",
+    closeDiscards:
+      "Modifiche non salvate: salva dall'app (Ctrl+S), oppure chiudi di nuovo per scartarle.",
     notStarted: "L'app non si è avviata.",
     edit: 'Modifica',
     fullscreen: 'Schermo intero',

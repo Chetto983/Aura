@@ -11,6 +11,7 @@ import { AssetSourceContext, type AssetSource } from './assetSourceContext';
 import DocxPreview from './DocxPreview';
 import CraftFrame from './CraftFrame';
 import { PreviewActionsContext } from './previewActionsContext';
+import { PreviewCloseGuardContext } from './previewCloseGuardContext';
 
 // The lazy per-MIME renderers (D-07/D-08/D-09). docx-preview is the heavy dep confined to its own
 // chunk — here it is MOCKED (vi.mock, hoisted above the imports) so the suite asserts the wrapper
@@ -403,6 +404,70 @@ describe('CraftFrame', () => {
     expect((await screen.findByRole('status')).textContent).toMatch(
       /not saved|non vengono salvate/,
     );
+  });
+
+  // Where a save is stored, an edit not yet saved lived only in the app and nothing said so.
+  describe('unsaved changes', () => {
+    function renderSaving(guard = { setUnsaved: vi.fn(), held: false }) {
+      stubFetch({ buffer: new ArrayBuffer(16) });
+      const source = { ...FILE_SOURCE, save: vi.fn(() => Promise.resolve()) };
+      const frame = (held: boolean) => (
+        <AssetSourceContext.Provider value={source}>
+          <PreviewCloseGuardContext.Provider value={{ ...guard, held }}>
+            <CraftFrame app="gridcraft" {...props} fileName="book.xlsx" />
+          </PreviewCloseGuardContext.Provider>
+        </AssetSourceContext.Provider>
+      );
+      const { container, rerender } = render(frame(guard.held));
+      const hold = () => {
+        rerender(frame(true));
+      };
+      return { app: iframeOf(container), hold };
+    }
+
+    it('says the changes are unsaved until the app saves them', async () => {
+      const { app } = renderSaving();
+      gridcraft(app, { type: 'gridcraft:dirty', dirty: true });
+      expect((await screen.findByRole('status')).textContent).toMatch(
+        /Unsaved changes: save from the app \(Ctrl\+S\)|Modifiche non salvate: salva dall'app \(Ctrl\+S\)/,
+      );
+      gridcraft(app, { type: 'gridcraft:save', name: 'book.xlsx', bytes: new ArrayBuffer(8) });
+      gridcraft(app, { type: 'gridcraft:dirty', dirty: false });
+      await waitFor(() => {
+        expect(screen.getByRole('status').textContent).toMatch(/Saved|Salvato/);
+      });
+    });
+
+    it('tells its host, and holds the page while they are unsaved', async () => {
+      const setUnsaved = vi.fn();
+      const { app } = renderSaving({ setUnsaved, held: false });
+      const leave = () => {
+        const event = new Event('beforeunload', { cancelable: true });
+        window.dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+      expect(leave()).toBe(false);
+      gridcraft(app, { type: 'gridcraft:dirty', dirty: true });
+      await waitFor(() => {
+        expect(setUnsaved).toHaveBeenLastCalledWith(true);
+      });
+      expect(leave()).toBe(true);
+      gridcraft(app, { type: 'gridcraft:dirty', dirty: false });
+      await waitFor(() => {
+        expect(setUnsaved).toHaveBeenLastCalledWith(false);
+      });
+      expect(leave()).toBe(false);
+    });
+
+    it('says the next close discards them once its host has held one', async () => {
+      const { app, hold } = renderSaving();
+      gridcraft(app, { type: 'gridcraft:dirty', dirty: true });
+      await screen.findByRole('status');
+      hold();
+      expect(screen.getByRole('alert').textContent).toMatch(
+        /or close again to discard them|oppure chiudi di nuovo per scartarle/,
+      );
+    });
   });
 
   it('shows the error when the workbook cannot be read', async () => {

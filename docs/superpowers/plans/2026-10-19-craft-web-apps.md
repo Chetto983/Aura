@@ -130,3 +130,24 @@ binaryen 123 for the patched builds.
 
     A docx and an xlsx saved by the operator are valid but equal to the originals. The operator's
     pass is open.
+  - The pass covers Task 9's notice too.
+
+### Task 9: unsaved changes (2026-10-20)
+
+Where the file manager stores a save, `CraftFrame` ignored `<app>:dirty`. An edit not yet saved lived
+only in the app, and Esc, a click outside or ✕ dropped it without a word. The operator's docx and xlsx
+came back equal to the originals, and nothing had said whether the edit had reached the file.
+
+- [x] Failing tests:
+  - `CraftFrame` shows "Unsaved changes: save from the app (Ctrl+S)" while the app reports dirty, and
+    "Saved" once it saves and reports clean.
+  - It tells its host, and holds the page's unload while dirty.
+  - Once the host has held a close, it says the next close discards the edit.
+  - `PreviewModal` holds the first close (Esc or ✕) while its preview reports unsaved changes, and
+    closes on the second. Once the changes are saved, it closes at once.
+- [x] `previewCloseGuardContext.ts` (the host's flag), `CraftFrame`, `PreviewModal`; i18n
+  `unsavedChanges` and `closeDiscards`, in English and Italian.
+- [x] `npm run lint && npm run typecheck && npm run format:check && npm run test && npm run deadcode`.
+  Measured 2026-10-20: 369 files and 3,201 tests. One approvals test timed out at 5 s while the WSL
+  gates ran beside the suite, and passed alone (7/7). Statements 92.55%, branches 86.95%.
+- [x] `npm run build` (refreshes `internal/webui/dist`).

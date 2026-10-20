@@ -1,1 +1,0 @@
-import{t as e}from"./web-CGdpX0wq.js";e();

@@ -15,9 +15,26 @@ vi.mock('./renderers/PdfPreview', () => ({ default: () => <div data-testid="r-pd
 vi.mock('./renderers/TextPreview', () => ({ default: () => <div data-testid="r-text" /> }));
 vi.mock('./renderers/HtmlPreview', () => ({ default: () => <div data-testid="r-html" /> }));
 vi.mock('./renderers/DocxPreview', () => ({ default: () => <div data-testid="r-docx" /> }));
-vi.mock('./renderers/CraftFrame', () => ({
-  default: ({ app }: { app: string }) => <div data-testid={`r-${app}`} />,
-}));
+// The Craft app's marker can report an edit and a save to its host, as the real frame does.
+vi.mock('./renderers/CraftFrame', async () => {
+  const { useContext } = await import('react');
+  const { PreviewCloseGuardContext } = await import('./renderers/previewCloseGuardContext');
+  return {
+    default: function CraftApp({ app }: { app: string }) {
+      const guard = useContext(PreviewCloseGuardContext);
+      return (
+        <div data-testid={`r-${app}`} data-held={String(guard?.held)}>
+          <button type="button" onClick={() => guard?.setUnsaved(true)}>
+            edit in {app}
+          </button>
+          <button type="button" onClick={() => guard?.setUnsaved(false)}>
+            save in {app}
+          </button>
+        </div>
+      );
+    },
+  };
+});
 vi.mock('./renderers/VideoPreview', () => ({ default: () => <div data-testid="r-video" /> }));
 
 const RENDERER_IDS = [
@@ -136,6 +153,34 @@ describe('PreviewModal edit (a source that can save)', () => {
     expect(header).not.toBeNull();
     expect(header?.contains(edit)).toBe(true);
     expect(edit.className).toBe(download.className);
+  });
+});
+
+// An edit a Craft app has not saved lives only in the app: Esc, a click outside or ✕ dropped it.
+describe('PreviewModal close (a preview with unsaved changes)', () => {
+  const book = asset({ mime_type: 'application/octet-stream', file_name: 'book.xlsx' });
+
+  it('holds the first close while the preview has unsaved changes, and closes on the second', async () => {
+    const onClose = vi.fn();
+    render(<PreviewModal active={book} onClose={onClose} />);
+    const app = await screen.findByTestId('r-gridcraft');
+    expect(app.dataset.held).toBe('false');
+    fireEvent.click(screen.getByRole('button', { name: 'edit in gridcraft' }));
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(app.dataset.held).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes at once once the changes are saved', async () => {
+    const onClose = vi.fn();
+    render(<PreviewModal active={book} onClose={onClose} />);
+    await screen.findByTestId('r-gridcraft');
+    fireEvent.click(screen.getByRole('button', { name: 'edit in gridcraft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'save in gridcraft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 
