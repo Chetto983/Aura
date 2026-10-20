@@ -6,8 +6,8 @@ Date: 2026-10-19. Tasks 1–7 of `docs/superpowers/plans/2026-10-19-craft-web-ap
 
 **Verdict:** the six apps open, edit and save a real file through the bridge under aura's own page
 policy, and so do the bytes the aura image ships; the image builds cold in 51 minutes and grows by
-235 MB (130 MB compressed); the cockpit's frame and Edit are covered by unit tests; **the live
-acceptance run is still open**: no cockpit against a running aura was exercised here.
+235 MB (130 MB compressed); the cockpit's frame and Edit are covered by unit tests. The live
+acceptance run closed on 2026-10-20 with the operator's pass in the cockpit on the lab VM (below).
 
 ## What was measured
 
@@ -101,7 +101,7 @@ container does not trust it otherwise. Every product step ran unchanged.
   file for file. PhotoCraft's new unit test (`the_web_build_skips_the_languages_it_has_no_face_for`)
   passes natively. Upstream's own suites were not run against the patches (FINDINGS, "does not show").
 
-## Live run on the lab VM (open)
+## Live run on the lab VM
 
 The lab VM `192.168.101.158` ran these builds through its updater on 2026-10-19:
 - `fb69fe5bc`: a file opened in the file manager shows the cockpit preview, never a new tab.
@@ -119,14 +119,30 @@ does not show that an edit reached the file. Which edit was made is an open ques
 operator. After the GridCraft save, the xlsx re-indexed with 55 passages instead of 71
 (`2026-10-19-ingest-index-orphans.md`).
 
-Still open: the operator's own pass in the cockpit on Acceptance 2–4, and an edit visible in the
-saved file of each app.
+**2026-10-20, build `5d12271d7`.** The build adds the unsaved-changes notice (plan Task 9). The VM's
+updater applied it at 08:53 UTC, and every container was healthy (0 unhealthy). The operator then ran
+the pass in the cockpit (Acceptance 2–4) and confirmed it, with the notice and the held first close:
+"funziona", "ok tutto a posto".
+
+**Measured afterwards.** All six files of `prove-craft/` were downloaded through the file manager's
+own route and compared with the samples uploaded on 2026-10-19 by content, not by bytes:
+
+| file | last saved (UTC) | checked outside the app |
+|---|---|---|
+| `calibre_demo.docx` (WordCraft) | 2026-10-20 08:53:06 | 334 → 337 paragraphs: three empty paragraphs added, every other paragraph's text identical |
+| `Colosseo.jpg` (PhotoCraft) | 2026-10-20 08:54:27 | 1920×1345 kept. 2.53% of pixels differ by more than 60/255, all inside x 274–796, y 138–506; elsewhere the mean difference is at most 0.4/255, which is the re-encode. Not an Invert: the mean difference from the inverted original is 153.6/255 |
+| `Financial_Sample.xlsx` (GridCraft) | 2026-10-19 20:50:41 | yesterday's save; 11,216 cells, none different by value |
+| `Costituzione_Italiana.pdf` (PdfCraft) | not saved | identical to the original |
+| `SampleShow.pptx` (DeckCraft) | not saved | identical to the restored original |
+| `Big_Buck_Bunny_10s.mp4` (FilmCraft) | not saved | identical, no project or export beside it |
+
+So an edit made in the cockpit reached its file, checked outside the app, for **WordCraft and
+PhotoCraft**. GridCraft's xlsx and the other three files carry no edit from this pass.
 
 ## Not shown here
 
 - The image was built here, not in CI: the release workflow's time, with its buildx cache, and a
   multi-arch build are unmeasured. It ran with the two sandbox accommodations above.
-- No cockpit against a running aura: the file manager's Edit and the save into Garage through
-  `saveBeside` were not exercised end to end, and the Playwright suites were not run (they need the
-  stack). The file manager's spec expects the PDF preview's `blob:` frame, which the viewer keeps.
+- In the cloud container, no cockpit ran against a running aura; the lab VM pass above is the operator's,
+  in the cockpit. The Playwright suites were not run (they need the stack). The file manager's spec expects the PDF preview's `blob:` frame, which the viewer keeps.
 - One small fixture per app; WebGPU, Firefox, Safari and phones untried; no memory measurement.

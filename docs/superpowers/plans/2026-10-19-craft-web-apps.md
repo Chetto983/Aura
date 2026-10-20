@@ -117,12 +117,16 @@ binaryen 123 for the patched builds.
   patches applied to a fresh clone of their tag reproduce the tested source; `build.sh pdfcraft` end to
   end. WordCraft and FilmCraft under `ja-JP`, for comparison (FINDINGS 15).
 
-### Task 8: acceptance (live run open)
+### Task 8: acceptance
 
 - [x] `docker build -f docker/aura/Dockerfile .`; record the build time and the image size change
   (51 min cold, +235 MB, +130 MB compressed; the image's apps saved through the bridge).
-- [ ] On the lab VM, the spec's Acceptance 2, 3 and 4 in the cockpit, each save checked outside the app;
+- [x] On the lab VM, the spec's Acceptance 2, 3 and 4 in the cockpit;
   `docs/superpowers/verification/2026-10-19-craft-web-apps.md` updated with the live run.
+  - 2026-10-20, closed on build `5d12271d7`, confirmed by the operator in the cockpit, the notice
+    included.
+  - Checked outside the apps: the docx and the jpg carry the operator's edit. The xlsx, pdf, pptx
+    and mp4 carry none from this pass.
   - 2026-10-19: in progress. The builds below are live on the VM:
     - the preview opens from the file manager;
     - an image previews by its extension, and a video streams from the file manager's route;
