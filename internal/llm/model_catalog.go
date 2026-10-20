@@ -172,10 +172,11 @@ func ollamaCloudAlias(name string) string {
 }
 
 // FetchOutputModalityCatalog lists the models OpenRouter publishes for one output modality:
-// "transcription" (speech-to-text) or "speech" (text-to-speech). Those ids are absent from the
-// default /models list, which is text-only; measured 2026-09-19, the filter returns 21 and 18
-// models. Their rows carry a prompt rate with no unit in the payload, so no price is read: the
-// picker shows the id rather than a number whose unit it would have to guess.
+// "transcription" (speech-to-text), "speech" (text-to-speech) or "embeddings". Those ids are
+// absent from the default /models list, which is text-only; measured 2026-09-19, the filter
+// returns 21 and 18 models for the first two. Their rows carry a prompt rate with no unit in the
+// payload, so no price is read: the picker shows the id rather than a number whose unit it would
+// have to guess. The context windows are read, since the embedding picker filters on them.
 func FetchOutputModalityCatalog(
 	ctx context.Context, client *http.Client, baseURL, modality string,
 ) ([]ModelCatalogEntry, error) {
@@ -187,7 +188,10 @@ func FetchOutputModalityCatalog(
 	entries := make([]ModelCatalogEntry, 0, len(wire.Data))
 	for _, m := range wire.Data {
 		if id := strings.TrimSpace(m.ID); id != "" {
-			entry := ModelCatalogEntry{ID: id}
+			entry := ModelCatalogEntry{
+				ID: id, ContextWindow: max(m.ContextLength, 0),
+				TopProviderContextWindow: max(m.TopProvider.ContextLength, 0),
+			}
 			seen := make(map[string]struct{}, len(m.SupportedVoices))
 			for _, rawVoice := range m.SupportedVoices {
 				voice := strings.TrimSpace(rawVoice)

@@ -274,6 +274,27 @@ func TestFetchOutputModalityCatalogFiltersByModalityWithoutACredential(t *testin
 	}
 }
 
+// The embedding picker keeps only models whose input limit reaches the chunker's passage
+// ceiling, read from these two windows. Measured 2026-10-20 on the lab VM: without them every
+// model read as limit 0 and the picker offered none.
+func TestFetchOutputModalityCatalogCarriesTheContextWindows(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[{"id":"qwen/qwen3-embedding-8b","context_length":40960,
+			"top_provider":{"context_length":32000}},{"id":"baai/bge-base-en-v1.5","context_length":512}]}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	entries, err := FetchOutputModalityCatalog(context.Background(), srv.Client(), srv.URL+"/v1", "embeddings")
+	if err != nil {
+		t.Fatalf("FetchOutputModalityCatalog: %v", err)
+	}
+	if len(entries) != 2 ||
+		entries[0].ID != "baai/bge-base-en-v1.5" || entries[0].ContextWindow != 512 || entries[0].TopProviderContextWindow != 0 ||
+		entries[1].ContextWindow != 40960 || entries[1].TopProviderContextWindow != 32000 {
+		t.Fatalf("entries = %+v, want each model's window and its top provider's", entries)
+	}
+}
+
 func TestFetchOutputModalityCatalogMarksAnUnreadableListUnavailable(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)

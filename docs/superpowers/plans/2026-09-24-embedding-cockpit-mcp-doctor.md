@@ -328,7 +328,16 @@ funziona".
   `CompatibleModels` seam on `EmbeddingRoutes`, wired in `cmd/aura` on OpenRouter's route.
 - [x] `go vet`, build, `go test` on `internal/embeddings`, `internal/agui` and `cmd/aura`;
   `-race` on the first two; golangci-lint: 0 issues.
-- [ ] On the lab VM: the picker's list against the spike's verdicts.
+- [x] First deploy (`a6f4cae70`): the VM's picker offered no model at all, answering in 52 ms.
+  `FetchOutputModalityCatalog` dropped `context_length`, so every model read as limit 0. The
+  handler test had fed the filter a fake catalogue with the windows already set. Fixed with a
+  failing test in `internal/llm`.
+- [x] Against the real catalogue and models before the redeploy (a throwaway `go run` with the
+  operator's key, deleted after): 37 listed, 24 long enough, 11 answer at 768. They are the 10 the
+  spike found plus `gemini-embedding-2-preview`. Mistral, codestral, the Voyage models,
+  `nemotron-3`, `ada-002` and the `:batch` variants are out. Checked in 1.9 s, and the second
+  check answered from memory.
+- [ ] On the lab VM after the redeploy: the picker's list against that one.
 
 ### Close
 
