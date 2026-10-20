@@ -127,6 +127,8 @@ binaryen 123 for the patched builds.
     included.
   - Checked outside the apps: the docx and the jpg carry the operator's edit. The xlsx, pdf, pptx
     and mp4 carry none from this pass.
+  - The same day, a driven browser with the operator's session edited the xlsx (Q2) and the pptx
+    (slide 1's title), both checked outside the apps. The pdf and mp4 edits are not run.
   - 2026-10-19: in progress. The builds below are live on the VM:
     - the preview opens from the file manager;
     - an image previews by its extension, and a video streams from the file manager's route;

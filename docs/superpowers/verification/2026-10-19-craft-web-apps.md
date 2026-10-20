@@ -139,6 +139,21 @@ own route and compared with the samples uploaded on 2026-10-19 by content, not b
 So an edit made in the cockpit reached its file, checked outside the app, for **WordCraft and
 PhotoCraft**. GridCraft's xlsx and the other three files carry no edit from this pass.
 
+**Then GridCraft and DeckCraft, driven.** The same day, Playwright drove the VM's cockpit with
+the operator's session (`cockpit-drive.mjs`, Chromium, the frame at 1440×900): it opened each file
+from the file manager, clicked Edit, typed, and pressed Ctrl+S. The bridge reported `dirty` true,
+then `save` with the file's name, then `dirty` false. Both files were downloaded again through the
+file manager's route and compared by content:
+
+| file | saved (UTC) | checked outside the app |
+|---|---|---|
+| `Financial_Sample.xlsx` (GridCraft) | 2026-10-20 09:03:58 | 11,216 → 11,217 cells; the only difference is Q2, empty before, now `Collaudo Aura 2026-10-20` |
+| `SampleShow.pptx` (DeckCraft) | 2026-10-20 09:04:46 | valid zip; slide 1's title went from `Title of the first slide` to `Title of the first slide (collaudo Aura)`, and no other slide text changed |
+
+So an edit reached its file for four apps: WordCraft and PhotoCraft by the operator's hand,
+GridCraft and DeckCraft by the driven browser. During the DeckCraft run the console logged two
+`503` answers, not traced here. The PdfCraft and FilmCraft edits are not run.
+
 ## Not shown here
 
 - The image was built here, not in CI: the release workflow's time, with its buildx cache, and a
