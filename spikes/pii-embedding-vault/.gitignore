@@ -1,0 +1,5 @@
+# generated or secret: corpus.py rebuilds the corpus; vectors and the throwaway root password stay local
+corpus.json
+cache/
+root.pw
+probe-state.json

@@ -47,6 +47,18 @@ These measurements do **not** close the real-corpus, second-model, full-agent,
 durable-vault, failure-mode, cache/retrieval or non-text-exit gates below. Verdict
 remains **PENDING**; normal Aura traffic has not been switched to a PII gateway.
 
+## Q6 measured — 2026-10-20
+
+[Embedding-input findings](../../../spikes/pii-embedding-vault/FINDINGS.md): 33 synthetic Italian
+documents mixed with the lab VM's 86 passages, 98 questions, perfect detection, every replacement
+through a per-identity ArcadeDB 26.10.1 vault over RESP. Under Aura's cosine re-rank the spec's
+opaque references cost 6–20 of 98 questions at rank 1; consistent surrogates cost nothing on
+`gemini-embedding-2` (83.0 against 82 in clear) and 1.6–2.6 on EmbeddingGemma and `pplx-embed-v1-4b`;
+OpenRouter's type-only Sensitive Info redaction is the worst and cannot be restored. The vault
+rebuilt 217 of 217 texts byte-exact and refused cross-identity reads. Q6's gate now has numbers;
+the choice between pseudonymized cloud embeddings and local-only is the operator's. Verdict stays
+**PENDING**: detection on real data, the chat path and the other questions are untouched.
+
 ## What this validates
 
 Operator clarification, 2026-10-13: opening original Excel/PDF files bypasses

@@ -1,0 +1,108 @@
+
+## local/embeddinggemma-300M-Q8_0  (cost $0.0, 12331 tokens, 7 calls)
+rep | leg | all r@1 r@3 r@8 MRR | A r@1/r@3 | C r@1/r@3 | G r@1/r@3 | N r@1/r@3 | O r@1/r@3 | P r@1/r@3 | S r@1/r@3 | V r@1/r@3 | worse than clear
+clear | aura | 79 87 88 0.848 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 21/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/5 of 6 | 0: 
+clear | rrf | 79 88 88 0.852 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 21/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 5/6 of 6 | 0: 
+clear | dense | 83 95 98 0.910 | 7/7 of 7 | 4/4 of 4 | 28/33 of 35 | 21/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/5 of 6 | 0: 
+openrouter_redact | aura | 66 82 86 0.753 | 2/6 of 7 | 4/4 of 4 | 23/25 of 35 | 18/24 of 27 | 4/5 of 5 | 6/7 of 7 | 7/7 of 7 | 2/4 of 6 | 18: G30, N35, N36, N37, N41, N43, N47, N49, A62, A64, A65, A66
+openrouter_redact | rrf | 82 88 88 0.866 | 6/7 of 7 | 4/4 of 4 | 24/25 of 35 | 26/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 3: N37, A65, V72
+openrouter_redact | dense | 70 90 96 0.817 | 2/6 of 7 | 4/4 of 4 | 27/33 of 35 | 18/24 of 27 | 4/5 of 5 | 6/7 of 7 | 7/7 of 7 | 2/4 of 6 | 18: G30, N35, N36, N37, N41, N43, N47, N49, A62, A64, A65, A66
+token_whole | aura | 72 81 87 0.782 | 6/7 of 7 | 4/4 of 4 | 23/24 of 35 | 20/23 of 27 | 4/5 of 5 | 6/7 of 7 | 7/7 of 7 | 2/4 of 6 | 14: G30, N36, N37, N38, N42, N43, N49, A66, V69, V71, V72, V73
+token_whole | rrf | 80 88 88 0.855 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 23/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 2: N37, V72
+token_whole | dense | 76 89 97 0.845 | 6/7 of 7 | 4/4 of 4 | 27/32 of 35 | 20/23 of 27 | 4/5 of 5 | 6/7 of 7 | 7/7 of 7 | 2/4 of 6 | 14: G30, N36, N37, N38, N42, N43, N49, A66, V69, V71, V72, V73
+token_parts | aura | 67 80 83 0.749 | 3/6 of 7 | 4/4 of 4 | 23/24 of 35 | 17/22 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 2/5 of 6 | 20: G30, N35, N36, N37, N38, N41, N42, N43, N46, N47, N49, A62
+token_parts | rrf | 77 88 88 0.837 | 6/7 of 7 | 4/4 of 4 | 24/25 of 35 | 21/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 8: N35, N36, N37, N41, N43, A65, V72, V73
+token_parts | dense | 71 88 93 0.815 | 3/6 of 7 | 4/4 of 4 | 27/32 of 35 | 17/22 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 2/5 of 6 | 20: G30, N35, N36, N37, N38, N41, N42, N43, N46, N47, N49, A62
+surrogate#0 | aura | 79 88 88 0.852 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 20/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 5/6 of 6 | 1: N58
+surrogate#0 | rrf | 79 88 88 0.852 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 20/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 6/6 of 6 | 1: N58
+surrogate#0 | dense | 83 96 98 0.913 | 7/7 of 7 | 4/4 of 4 | 28/33 of 35 | 20/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 5/6 of 6 | 2: G21, N58
+surrogate#1 | aura | 78 86 86 0.833 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 21/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 3/4 of 6 | 4: N37, V69, V71, V73
+surrogate#1 | rrf | 76 86 86 0.827 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 20/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 3/4 of 6 | 4: N37, V69, V72, V73
+surrogate#1 | dense | 83 95 98 0.907 | 7/7 of 7 | 4/4 of 4 | 28/33 of 35 | 21/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/5 of 6 | 2: N37, V71
+surrogate#2 | aura | 76 87 87 0.825 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 20/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 2/5 of 6 | 6: N35, N37, N41, V69, V72, V74
+surrogate#2 | rrf | 75 87 87 0.827 | 7/7 of 7 | 4/4 of 4 | 23/25 of 35 | 19/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/5 of 6 | 5: G32, N37, N41, V69, V72
+surrogate#2 | dense | 80 95 98 0.889 | 7/7 of 7 | 4/4 of 4 | 28/33 of 35 | 20/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 2/5 of 6 | 6: N35, N37, N41, V69, V72, V74
+surrogate#3 | aura | 76 86 88 0.832 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 20/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 2/4 of 6 | 4: N41, V71, V72, V74
+surrogate#3 | rrf | 79 88 88 0.852 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 20/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 6/6 of 6 | 1: N41
+surrogate#3 | dense | 80 94 98 0.893 | 7/7 of 7 | 4/4 of 4 | 28/33 of 35 | 20/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 2/4 of 6 | 4: N41, V71, V72, V74
+surrogate#4 | aura | 78 86 86 0.837 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 21/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 3/4 of 6 | 3: V72, V73, V74
+surrogate#4 | rrf | 77 86 86 0.832 | 7/7 of 7 | 4/4 of 4 | 24/25 of 35 | 21/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 3/4 of 6 | 3: V72, V73, V74
+surrogate#4 | dense | 82 95 98 0.903 | 7/7 of 7 | 4/4 of 4 | 28/33 of 35 | 21/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 3/5 of 6 | 3: V72, V73, V74
+surrogate over 5 keys | aura | r@1 77.40 [76..79] r@3 86.60 [86..88] MRR 0.84 [0.8248..0.852] | clear r@1 79 r@3 87 MRR 0.8484
+  per question, keys worse/better than clear: N35 -1/+0, N37 -2/+0, N41 -2/+0, N58 -1/+0, V69 -2/+0, V71 -2/+3, V72 -3/+0, V73 -2/+3, V74 -3/+0
+surrogate over 5 keys | rrf | r@1 77.20 [75..79] r@3 87.00 [86..88] MRR 0.84 [0.8265..0.852] | clear r@1 79 r@3 88 MRR 0.852
+  per question, keys worse/better than clear: G32 -1/+0, N37 -2/+0, N41 -2/+0, N58 -1/+0, V69 -2/+0, V72 -3/+0, V73 -2/+3, V74 -1/+0
+surrogate over 5 keys | dense | r@1 81.60 [80..83] r@3 95.00 [94..96] MRR 0.90 [0.8887..0.9132] | clear r@1 83 r@3 95 MRR 0.9097
+  per question, keys worse/better than clear: G21 -1/+0, N35 -1/+0, N37 -2/+0, N41 -2/+0, N58 -1/+0, V69 -1/+0, V71 -2/+3, V72 -3/+0, V73 -1/+4, V74 -3/+0
+
+## perplexity/pplx-embed-v1-4b  (cost $0.00039, 13026 tokens, 7 calls)
+rep | leg | all r@1 r@3 r@8 MRR | A r@1/r@3 | C r@1/r@3 | G r@1/r@3 | N r@1/r@3 | O r@1/r@3 | P r@1/r@3 | S r@1/r@3 | V r@1/r@3 | worse than clear
+clear | aura | 83 88 89 0.871 | 7/7 of 7 | 4/4 of 4 | 27/27 of 35 | 22/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/4 of 6 | 0: 
+clear | rrf | 81 89 89 0.867 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 22/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/5 of 6 | 0: 
+clear | dense | 87 96 97 0.931 | 7/7 of 7 | 4/4 of 4 | 31/35 of 35 | 22/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/4 of 6 | 0: 
+openrouter_redact | aura | 63 74 79 0.699 | 1/2 of 7 | 4/4 of 4 | 27/27 of 35 | 14/21 of 27 | 5/5 of 5 | 5/6 of 7 | 7/7 of 7 | 0/2 of 6 | 26: N35, N36, N37, N38, N42, N43, N46, N47, N49, N53, N54, N55
+openrouter_redact | rrf | 74 79 79 0.779 | 4/4 of 7 | 4/4 of 4 | 26/27 of 35 | 21/24 of 27 | 5/5 of 5 | 6/6 of 7 | 6/7 of 7 | 2/2 of 6 | 12: N36, N38, N39, N47, N58, A64, A65, A68, V70, V71, V72, P75
+openrouter_redact | dense | 69 85 94 0.795 | 1/2 of 7 | 4/4 of 4 | 32/35 of 35 | 15/22 of 27 | 5/5 of 5 | 5/7 of 7 | 7/7 of 7 | 0/3 of 6 | 26: N35, N36, N37, N38, N42, N43, N46, N47, N49, N53, N54, N55
+token_whole | aura | 63 74 82 0.713 | 2/5 of 7 | 4/4 of 4 | 27/27 of 35 | 15/18 of 27 | 2/4 of 5 | 5/6 of 7 | 7/7 of 7 | 1/3 of 6 | 26: N35, N36, N37, N38, N41, N42, N46, N47, N49, N53, N54, N55
+token_whole | rrf | 80 87 89 0.852 | 6/6 of 7 | 4/4 of 4 | 26/27 of 35 | 23/26 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 3/5 of 6 | 6: N35, N36, N47, A65, V70, V72
+token_whole | dense | 67 82 90 0.779 | 2/5 of 7 | 4/4 of 4 | 31/35 of 35 | 15/18 of 27 | 2/4 of 5 | 5/6 of 7 | 7/7 of 7 | 1/3 of 6 | 27: N35, N36, N37, N38, N41, N42, N46, N47, N49, N53, N54, N55
+token_parts | aura | 66 77 83 0.737 | 2/5 of 7 | 4/4 of 4 | 27/27 of 35 | 15/21 of 27 | 5/5 of 5 | 5/6 of 7 | 7/7 of 7 | 1/2 of 6 | 22: N35, N36, N37, N38, N41, N44, N47, N49, N53, N54, N55, A62
+token_parts | rrf | 80 87 88 0.851 | 6/6 of 7 | 4/4 of 4 | 26/27 of 35 | 23/26 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 3/5 of 6 | 6: N36, N38, N47, A65, V70, V72
+token_parts | dense | 70 85 91 0.804 | 2/5 of 7 | 4/4 of 4 | 31/35 of 35 | 15/21 of 27 | 5/5 of 5 | 5/6 of 7 | 7/7 of 7 | 1/2 of 6 | 23: N35, N36, N37, N38, N41, N44, N47, N49, N53, N54, N55, A62
+surrogate#0 | aura | 81 85 87 0.850 | 7/7 of 7 | 4/4 of 4 | 27/27 of 35 | 22/24 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 3/4 of 6 | 6: N35, N37, N44, N47, V69, P75
+surrogate#0 | rrf | 80 87 87 0.852 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 21/25 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/5 of 6 | 4: N37, N39, N44, N47
+surrogate#0 | dense | 86 93 97 0.919 | 7/7 of 7 | 4/4 of 4 | 32/35 of 35 | 22/24 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 3/4 of 6 | 7: N35, N37, N44, N47, V69, V73, P75
+surrogate#1 | aura | 80 83 84 0.833 | 7/7 of 7 | 4/4 of 4 | 27/27 of 35 | 22/25 of 27 | 5/5 of 5 | 6/6 of 7 | 7/7 of 7 | 2/2 of 6 | 8: N35, N37, N47, N59, V69, V72, V74, P75
+surrogate#1 | rrf | 78 84 84 0.827 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 21/25 of 27 | 5/5 of 5 | 6/6 of 7 | 6/7 of 7 | 3/3 of 6 | 7: N37, N39, N47, N59, V69, V72, P75
+surrogate#1 | dense | 85 93 96 0.912 | 7/7 of 7 | 4/4 of 4 | 32/35 of 35 | 22/25 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 2/3 of 6 | 9: N35, N37, N47, N59, V69, V72, V73, V74, P75
+surrogate#2 | aura | 82 86 87 0.857 | 7/7 of 7 | 4/4 of 4 | 27/27 of 35 | 23/26 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 3/3 of 6 | 6: N35, N37, N59, V69, V72, P75
+surrogate#2 | rrf | 78 87 87 0.842 | 7/7 of 7 | 4/4 of 4 | 25/27 of 35 | 21/26 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 3/4 of 6 | 6: G32, N37, N39, N59, V69, V72
+surrogate#2 | dense | 88 95 96 0.933 | 7/7 of 7 | 4/4 of 4 | 32/35 of 35 | 23/26 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 4/4 of 6 | 5: N35, N37, N59, V72, P75
+surrogate#3 | aura | 80 87 87 0.849 | 6/7 of 7 | 4/4 of 4 | 27/27 of 35 | 22/26 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 3/4 of 6 | 8: N35, N36, N37, N59, A65, V69, V72, P75
+surrogate#3 | rrf | 81 87 87 0.857 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 22/26 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/4 of 6 | 4: N37, N39, N59, V72
+surrogate#3 | dense | 85 95 96 0.916 | 6/7 of 7 | 4/4 of 4 | 32/35 of 35 | 22/26 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 3/4 of 6 | 8: N35, N36, N37, N59, A65, V69, V73, P75
+surrogate#4 | aura | 79 86 87 0.839 | 7/7 of 7 | 4/4 of 4 | 27/27 of 35 | 21/26 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 2/3 of 6 | 8: N35, N36, N38, N44, V69, V72, V74, P75
+surrogate#4 | rrf | 78 87 87 0.842 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 20/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 3/3 of 6 | 5: N38, N39, N44, V69, V72
+surrogate#4 | dense | 83 95 97 0.907 | 7/7 of 7 | 4/4 of 4 | 31/35 of 35 | 21/26 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 2/4 of 6 | 8: N35, N36, N38, N44, V69, V73, V74, P75
+surrogate over 5 keys | aura | r@1 80.40 [79..82] r@3 85.40 [83..87] MRR 0.85 [0.8325..0.8569] | clear r@1 83 r@3 88 MRR 0.8707
+  per question, keys worse/better than clear: N35 -5/+0, N36 -2/+0, N37 -4/+0, N38 -1/+0, N42 -0/+5, N44 -2/+0, N47 -2/+2, N59 -3/+0, A65 -1/+0, V69 -5/+0, V72 -4/+1, V73 -0/+1, V74 -2/+0, P75 -5/+0
+surrogate over 5 keys | rrf | r@1 79.00 [78..81] r@3 86.40 [84..87] MRR 0.84 [0.8265..0.8571] | clear r@1 81 r@3 89 MRR 0.8673
+  per question, keys worse/better than clear: G32 -1/+0, N37 -4/+0, N38 -1/+0, N39 -5/+0, N42 -0/+5, N44 -2/+0, N47 -2/+1, N59 -3/+0, V69 -3/+0, V72 -4/+0, V73 -0/+1, P75 -1/+0
+surrogate over 5 keys | dense | r@1 85.40 [83..88] r@3 94.20 [93..95] MRR 0.92 [0.9068..0.9329] | clear r@1 87 r@3 96 MRR 0.9312
+  per question, keys worse/better than clear: G25 -0/+4, N35 -5/+0, N36 -2/+0, N37 -4/+0, N38 -1/+0, N42 -0/+5, N44 -2/+0, N47 -2/+2, N59 -3/+0, A65 -1/+0, V69 -4/+0, V72 -2/+2, V73 -4/+1, V74 -2/+0, P75 -5/+0
+
+## google/gemini-embedding-2  (cost $0.00236, 11803 tokens, 7 calls)
+rep | leg | all r@1 r@3 r@8 MRR | A r@1/r@3 | C r@1/r@3 | G r@1/r@3 | N r@1/r@3 | O r@1/r@3 | P r@1/r@3 | S r@1/r@3 | V r@1/r@3 | worse than clear
+clear | aura | 82 90 91 0.877 | 7/7 of 7 | 4/4 of 4 | 25/28 of 35 | 25/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 2/5 of 6 | 0: 
+clear | rrf | 82 90 90 0.876 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 23/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 0: 
+clear | dense | 87 97 98 0.935 | 7/7 of 7 | 4/4 of 4 | 30/35 of 35 | 25/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 2/5 of 6 | 0: 
+openrouter_redact | aura | 69 86 90 0.788 | 1/6 of 7 | 4/4 of 4 | 25/28 of 35 | 20/25 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 1/4 of 6 | 18: N35, N36, N37, N38, N46, N49, A62, A63, A64, A65, A66, A68
+openrouter_redact | rrf | 83 89 90 0.878 | 6/7 of 7 | 4/4 of 4 | 26/27 of 35 | 26/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 3/5 of 6 | 3: A65, V70, V73
+openrouter_redact | dense | 74 93 97 0.846 | 1/6 of 7 | 4/4 of 4 | 30/35 of 35 | 20/25 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 1/4 of 6 | 18: N35, N36, N37, N38, N46, N49, A62, A63, A64, A65, A66, A68
+token_whole | aura | 76 84 89 0.822 | 5/6 of 7 | 4/4 of 4 | 27/27 of 35 | 22/24 of 27 | 4/5 of 5 | 6/7 of 7 | 7/7 of 7 | 1/4 of 6 | 13: G13, N35, N37, N38, N42, N49, A65, A66, V70, V71, V72, P76
+token_whole | rrf | 83 89 89 0.874 | 6/7 of 7 | 4/4 of 4 | 25/26 of 35 | 26/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 3: G13, A65, V72
+token_whole | dense | 81 92 97 0.886 | 5/6 of 7 | 4/4 of 4 | 32/35 of 35 | 22/24 of 27 | 4/5 of 5 | 6/7 of 7 | 7/7 of 7 | 1/4 of 6 | 12: N35, N37, N38, N42, N49, A65, A66, V70, V71, V72, P76, O89
+token_parts | aura | 70 84 88 0.787 | 3/6 of 7 | 4/4 of 4 | 26/27 of 35 | 19/26 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 0/2 of 6 | 18: G13, N35, N36, N37, N38, N42, N46, N49, N55, A63, A65, A66
+token_parts | rrf | 83 89 89 0.872 | 6/7 of 7 | 4/4 of 4 | 25/26 of 35 | 26/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 3: G13, A65, V72
+token_parts | dense | 75 92 96 0.852 | 3/6 of 7 | 4/4 of 4 | 31/35 of 35 | 19/26 of 27 | 5/5 of 5 | 6/7 of 7 | 7/7 of 7 | 0/2 of 6 | 17: N35, N36, N37, N38, N42, N46, N49, N55, A63, A65, A66, A68
+surrogate#0 | aura | 84 90 90 0.886 | 7/7 of 7 | 4/4 of 4 | 26/28 of 35 | 24/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/5 of 6 | 3: N35, N36, V73
+surrogate#0 | rrf | 82 90 90 0.874 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 23/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 1: V73
+surrogate#0 | dense | 89 97 97 0.945 | 7/7 of 7 | 4/4 of 4 | 31/35 of 35 | 24/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/5 of 6 | 3: N35, N36, V73
+surrogate#1 | aura | 80 90 90 0.864 | 7/7 of 7 | 4/4 of 4 | 25/28 of 35 | 23/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 2/5 of 6 | 5: G9, N35, N37, N38, V73
+surrogate#1 | rrf | 81 90 90 0.869 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 22/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 2: N38, V72
+surrogate#1 | dense | 85 96 96 0.918 | 7/7 of 7 | 4/4 of 4 | 30/35 of 35 | 23/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 2/4 of 6 | 6: G9, N35, N37, N38, V73, V74
+surrogate#2 | aura | 83 88 91 0.878 | 7/7 of 7 | 4/4 of 4 | 25/27 of 35 | 24/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/4 of 6 | 4: G30, N35, N36, V72
+surrogate#2 | rrf | 82 90 90 0.874 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 23/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 1: V72
+surrogate#2 | dense | 88 95 98 0.935 | 7/7 of 7 | 4/4 of 4 | 30/34 of 35 | 24/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/4 of 6 | 4: G30, N35, N36, V72
+surrogate#3 | aura | 84 89 89 0.879 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 24/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/5 of 6 | 5: G13, N35, N38, V71, V73
+surrogate#3 | rrf | 79 89 89 0.854 | 7/7 of 7 | 4/4 of 4 | 25/26 of 35 | 21/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 4: G13, N38, N39, V73
+surrogate#3 | dense | 89 97 97 0.943 | 7/7 of 7 | 4/4 of 4 | 31/35 of 35 | 24/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 4/5 of 6 | 4: N35, N38, V71, V73
+surrogate#4 | aura | 84 89 89 0.881 | 7/7 of 7 | 4/4 of 4 | 26/27 of 35 | 25/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 3/5 of 6 | 3: G13, N35, V73
+surrogate#4 | rrf | 81 89 89 0.864 | 7/7 of 7 | 4/4 of 4 | 25/26 of 35 | 23/27 of 27 | 5/5 of 5 | 7/7 of 7 | 6/7 of 7 | 4/6 of 6 | 2: G13, V72
+surrogate#4 | dense | 89 97 97 0.945 | 7/7 of 7 | 4/4 of 4 | 31/35 of 35 | 25/27 of 27 | 5/5 of 5 | 7/7 of 7 | 7/7 of 7 | 3/5 of 6 | 2: N35, V73
+surrogate over 5 keys | aura | r@1 83.00 [80..84] r@3 89.20 [88..90] MRR 0.88 [0.8639..0.8861] | clear r@1 82 r@3 90 MRR 0.8773
+  per question, keys worse/better than clear: G9 -1/+0, G13 -2/+0, G30 -1/+4, N35 -5/+0, N36 -2/+0, N37 -1/+0, N38 -2/+0, V69 -0/+4, V71 -1/+0, V72 -1/+1, V73 -4/+1, V74 -0/+3
+surrogate over 5 keys | rrf | r@1 81.00 [79..82] r@3 89.60 [89..90] MRR 0.87 [0.8537..0.8741] | clear r@1 82 r@3 90 MRR 0.8759
+  per question, keys worse/better than clear: G13 -2/+0, N38 -2/+0, N39 -1/+0, V72 -3/+0, V73 -2/+0
+surrogate over 5 keys | dense | r@1 88.00 [85..89] r@3 96.40 [95..97] MRR 0.94 [0.918..0.945] | clear r@1 87 r@3 97 MRR 0.9351
+  per question, keys worse/better than clear: G9 -1/+0, G30 -1/+4, N35 -5/+0, N36 -2/+0, N37 -1/+0, N38 -2/+0, V69 -0/+4, V71 -1/+0, V72 -1/+1, V73 -4/+1, V74 -1/+3
