@@ -1,7 +1,7 @@
 # A file named with @ reaches the model by its id: implementation plan
 
-**Status (2026-10-20):** Tasks 1 and 3 done; Task 2's first live run found the gap Task 3 closes,
-its rerun is open. The operator asked for the conversation
+**Status (2026-10-20):** DONE. Task 2's first live run found the gap Task 3 closes; the rerun on
+`1504dc5ed` passed. The operator asked for the conversation
 "Analisi approfondita file Financial Sample" to be read for its frictions ("TROVA LE FRIZIONI"),
 then approved fixing the first one ("VAI").
 
@@ -89,9 +89,10 @@ Both conversations on `@file:"/prove-craft/Financial_Sample.xlsx"`:
     was false: a file the file manager writes has no asset row, only the index's document
     (`SearchDocumentID(identity, "s3", key)` = `doc_3c6de60c…`, the id the model then found
     through `document_search`). The design assumed an asset row without checking one existed.
-- [ ] After Task 3: the same request, with `document_open` on the block's `doc_…` id before any
-  GridCraft call.
-- [ ] Record the run in `docs/superpowers/verification/`.
+- [x] After Task 3 (`1504dc5ed`, conversation `01a158ea-…`, 10:45 UTC): the first call is
+  `document_open` on the block's `doc_3c6de60c…`, with no search, then GridCraft on its path. No
+  error; the operator: "funziona".
+- [x] Recorded in `docs/superpowers/verification/2026-10-20-mentioned-files.md`.
 
 ### Task 3: name the file the way the index does (2026-10-20)
 
