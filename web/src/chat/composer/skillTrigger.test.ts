@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Unstable_TriggerItem } from '@assistant-ui/react';
+import type { TriggerItem } from '@assistant-ui/react';
 import type { ComposerSkillRow } from './api';
 import { COMMAND_ITEM_TYPE } from './commands';
 import {
@@ -12,7 +12,7 @@ import {
 // skillTrigger.test — the two things Aura contributes to the library's '/' popover: which
 // items exist (ranked) and how a chosen one is written into the message. Detection, the
 // open/close lifecycle, keyboard navigation and ARIA belong to
-// ComposerPrimitive.Unstable_TriggerPopover and are NOT retested here.
+// ComposerPrimitive.TriggerPopover and are NOT retested here.
 
 const SKILLS: readonly ComposerSkillRow[] = [
   { name: 'skill-creator', description: 'Create a new skill', type: 'instruction' },
@@ -26,7 +26,7 @@ function names(items: readonly { id: string }[]): string[] {
 
 /** The trigger items the adapter builds from skills, so a ranking test can go through the
  * same projection the popover sees rather than a hand-written shape beside it. */
-function itemsFor(skills: readonly ComposerSkillRow[]): readonly Unstable_TriggerItem[] {
+function itemsFor(skills: readonly ComposerSkillRow[]): readonly TriggerItem[] {
   return createSkillTriggerAdapter(skills).search?.('') ?? [];
 }
 
@@ -34,7 +34,7 @@ function rankSkills(skills: readonly ComposerSkillRow[], query: string) {
   return rankTriggerItems(itemsFor(skills), query);
 }
 
-const COMPACT_ITEM: Unstable_TriggerItem = {
+const COMPACT_ITEM: TriggerItem = {
   id: 'compact',
   type: COMMAND_ITEM_TYPE,
   label: 'Compact',

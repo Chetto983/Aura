@@ -1,19 +1,19 @@
-import type { Unstable_TriggerItem } from '@assistant-ui/react';
+import type { TriggerItem } from '@assistant-ui/react';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useGarageCompletionAdapter } from './useGarageCompletionAdapter';
 
-const ITEM: Unstable_TriggerItem = {
+const ITEM: TriggerItem = {
   id: 'file:finance/q1.pdf',
   type: 'garage-file',
   label: 'q1.pdf',
 };
 
 async function search(
-  adapter: { search?: (query: string) => readonly Unstable_TriggerItem[] },
+  adapter: { search?: (query: string) => readonly TriggerItem[] },
   query: string,
 ) {
-  let items: readonly Unstable_TriggerItem[] = [];
+  let items: readonly TriggerItem[] = [];
   await act(async () => {
     items = adapter.search?.(query) ?? [];
     await Promise.resolve();
@@ -43,9 +43,9 @@ describe('Garage async TriggerAdapter bridge', () => {
 
   it('cancels an in-flight different query when the operator returns to the cached one', async () => {
     vi.useFakeTimers();
-    let resolveSecond: ((items: readonly Unstable_TriggerItem[]) => void) | undefined;
+    let resolveSecond: ((items: readonly TriggerItem[]) => void) | undefined;
     const fetcher = vi
-      .fn<(query: string) => Promise<readonly Unstable_TriggerItem[]>>()
+      .fn<(query: string) => Promise<readonly TriggerItem[]>>()
       .mockResolvedValueOnce([ITEM])
       .mockImplementationOnce(
         () =>

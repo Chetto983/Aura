@@ -274,7 +274,7 @@ export function Composer({
   return (
     // The trigger root groups the '/' and '@' popovers with the input they read from. Each
     // registers by character, so both share assistant-ui's trigger state machine.
-    <ComposerPrimitive.Unstable_TriggerPopoverRoot>
+    <ComposerPrimitive.TriggerPopoverRoot>
       {/* Root is the FORM — it is what turns Enter and the Send button into a submit — so the
           dropzone is NESTED inside it, exactly as assistant-ui's own composer nests it. Merging
           the two by handing Root a `render` of the dropzone replaces the form element with a
@@ -480,6 +480,6 @@ export function Composer({
           </fieldset>
         </ComposerPrimitive.AttachmentDropzone>
       </ComposerPrimitive.Root>
-    </ComposerPrimitive.Unstable_TriggerPopoverRoot>
+    </ComposerPrimitive.TriggerPopoverRoot>
   );
 }

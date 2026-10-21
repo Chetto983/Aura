@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Unstable_TriggerAdapter } from '@assistant-ui/core';
-import type { Unstable_TriggerItem } from '@assistant-ui/react';
+import type { TriggerAdapter } from '@assistant-ui/core';
+import type { TriggerItem } from '@assistant-ui/react';
 
 interface CompletionResult {
   readonly query: string | null;
   readonly ordinal: number;
   readonly epoch: number;
-  readonly items: readonly Unstable_TriggerItem[];
+  readonly items: readonly TriggerItem[];
 }
 
 interface CompletionRequest {
@@ -24,10 +24,10 @@ const EMPTY_RESULT: CompletionResult = { query: null, ordinal: 0, epoch: 0, item
  * live-completion hook while that API remains experimental.
  */
 export function useGarageCompletionAdapter(
-  fetcher: (query: string) => Promise<readonly Unstable_TriggerItem[]>,
+  fetcher: (query: string) => Promise<readonly TriggerItem[]>,
   enabled: boolean,
   debounceMs = 60,
-): { readonly adapter: Unstable_TriggerAdapter; readonly isLoading: boolean } {
+): { readonly adapter: TriggerAdapter; readonly isLoading: boolean } {
   const [request, setRequest] = useState<CompletionRequest | null>(null);
   const [result, setResult] = useState<CompletionResult>(EMPTY_RESULT);
   const pendingQuery = useRef<string | null>(null);
@@ -63,7 +63,7 @@ export function useGarageCompletionAdapter(
     };
   }, [debounceMs, enabled, fetcher, request]);
 
-  const adapter = useMemo<Unstable_TriggerAdapter>(
+  const adapter = useMemo<TriggerAdapter>(
     () => ({
       categories: () => [],
       categoryItems: () => [],

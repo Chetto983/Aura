@@ -1,12 +1,12 @@
 // The adapter and formatter contracts live in @assistant-ui/core — TriggerPopover's own
 // `adapter` prop is typed against it — while the item type is re-exported by react.
-import type { Unstable_DirectiveFormatter, Unstable_TriggerAdapter } from '@assistant-ui/core';
-import type { Unstable_TriggerItem } from '@assistant-ui/react';
+import type { DirectiveFormatter, TriggerAdapter } from '@assistant-ui/core';
+import type { TriggerItem } from '@assistant-ui/react';
 import { COMMAND_ITEM_TYPE, findCommand } from './commands';
 import type { ComposerSkillRow } from './api';
 
 // skillTrigger — the '/' menu expressed as the library's own extension points instead of a
-// hand-rolled listbox. ComposerPrimitive.Unstable_TriggerPopover owns detection, the
+// hand-rolled listbox. ComposerPrimitive.TriggerPopover owns detection, the
 // open/close lifecycle, keyboard navigation and ARIA; this file supplies only the two things
 // the library cannot know: WHICH items exist (the adapter) and how a chosen one is written
 // into the message (the formatter).
@@ -46,7 +46,7 @@ function nameRank(name: string, needle: string): number {
 /** How well one menu row answers the query. A command is matched on the word that INVOKES it
  * (its id) as well as on its translated label, so '/comp' finds Compact in either language
  * while '/compact' stays an exact hit. */
-function itemRank(item: Unstable_TriggerItem, needle: string): number {
+function itemRank(item: TriggerItem, needle: string): number {
   if (needle === '') return RANK_EXACT_NAME;
   for (const name of [item.id, item.label]) {
     const rank = nameRank(name, needle);
@@ -57,7 +57,7 @@ function itemRank(item: Unstable_TriggerItem, needle: string): number {
     : RANK_NO_MATCH;
 }
 
-function toTriggerItem(skill: ComposerSkillRow): Unstable_TriggerItem {
+function toTriggerItem(skill: ComposerSkillRow): TriggerItem {
   return {
     id: skill.name,
     type: SKILL_ITEM_TYPE,
@@ -72,9 +72,9 @@ function toTriggerItem(skill: ComposerSkillRow): Unstable_TriggerItem {
  * Commands are passed first by the adapter, so a bare '/' — where every row ties at
  * RANK_EXACT_NAME — opens with them at the top, above however many skills are installed. */
 export function rankTriggerItems(
-  items: readonly Unstable_TriggerItem[],
+  items: readonly TriggerItem[],
   query: string,
-): readonly Unstable_TriggerItem[] {
+): readonly TriggerItem[] {
   const needle = query.trim().toLowerCase();
   return items
     .map((item) => ({ item, rank: itemRank(item, needle) }))
@@ -92,8 +92,8 @@ export function rankTriggerItems(
  * goes straight to `search('')` and the operator sees the menu immediately. */
 export function createSkillTriggerAdapter(
   skills: readonly ComposerSkillRow[],
-  commands: readonly Unstable_TriggerItem[] = [],
-): Unstable_TriggerAdapter {
+  commands: readonly TriggerItem[] = [],
+): TriggerAdapter {
   const items = [...commands, ...skills.map(toTriggerItem)];
   return {
     categories: () => [],
@@ -120,7 +120,7 @@ export function createSkillTriggerAdapter(
  * text the operator can see rather than a chip that lies about being a skill. */
 export function createSkillDirectiveFormatter(
   skills: readonly ComposerSkillRow[],
-): Unstable_DirectiveFormatter {
+): DirectiveFormatter {
   return {
     serialize: (item) => `${SKILL_TRIGGER_CHAR}${item.id}`,
     parse: (text) => {
