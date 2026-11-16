@@ -34,7 +34,7 @@ RUN CGO_ENABLED=0 go build -trimpath -o /out/aura-filecard ./cmd/aura-filecard
 RUN CGO_ENABLED=0 go build -trimpath -o /out/aura-media-index ./cmd/aura-media-index
 RUN CGO_ENABLED=0 go build -trimpath -o /out/aura-ingest-supervisor ./cmd/aura-ingest-supervisor
 
-FROM python:3.12-slim-bookworm
+FROM python:3.15-slim-bookworm
 
 # LibreOffice exists for a narrow, measured reason: internal/documents/filecard
 # routes only .xlsx and .xlsm, so an ordinary 2010 .xls -- what Excel and every
